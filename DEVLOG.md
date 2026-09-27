@@ -118,4 +118,49 @@ Kullanıcının *"Hem grafikleri hem de arayüzü çok daha iyi yapmalıyız. Ya
 - **Sistem İnceleme (`SystemInspectionModal.tsx`):** Yörünge slotlarında yaşanabilir Terran dünyaları mini küre renderı ile zenginleştirildi.
 - **Üst Navigasyon (`TopBar.tsx`):** `Galeri` butonu eklendi.
 
+---
+
+## [2026-09-27] — Faz D: Canlı 2D Vektör Galaksi Haritası & Dinamik Arayüz Grafikleri
+
+Kullanıcının *"Hazırladığım imajlar çok güzel görünüyor ama grafik derken bunlardan bahsetmiyordum. Oyunun kendi grafikleri arayüzü yani gezegenler sistemleri galaksinin geri kalanı gibi yerleri daha dinamik animasyonlu ve daha güzel yapmalıyız. Gerçek dünya gibi 3D değil ama 2D gibi ama çok daha kaliteli görünen bir iş yapmak istiyoruz"* geri bildirimi doğrultusunda, oyunun harita, yörünge ve arayüz grafikleri baştan aşağı dinamik 2D görsel efektlerle donatıldı:
+
+### 1. Canlı 2D Galaksi Haritası (`src/ui/components/GalaxyMap.tsx` & `src/index.css`)
+- **Kozmik Arka Plan & Nebulalar:**
+  - Farklı derinliklerde ve periyotlarda yanıp sönen 80 deterministik yıldızdan oluşan yıldız tarlası (`twinkle-star`).
+  - Haritanın arka planında süzülen çok katmanlı, renk geçişli kozmik gaz bulutları (Kuzeybatı Turkuaz Nebulası, Merkezi Mor Kalıntı Bulutu, Güneydoğu Kehribar Maden Bulutu - `animate-nebula-drift`).
+- **Taktik Radar & Sensör Taraması:**
+  - Komutanın ana gezegeninden uzaya yayılan 360 derecelik dönen radar tarama çizgisi ve 45 derecelik hafif tarama konisi (`animate-radar-sweep`).
+- **Akışkan Hiperhatlar (Hyperlanes):**
+  - Durgun çizgiler yerine içinden sürekli enerji darbesi akan dinamik atlama hatları (`animate-hyperlane-flow`).
+  - Bir hat üzerinde hareket eden filo varsa hat turuncu/amber renkte parlar, daha hızlı enerji aktarır (`animate-hyperlane-fast`) ve merkezinde nabız atan bağlantı düğümü belirir.
+- **Dinamik Yıldız Sistemleri & Mikro Yörüngeler:**
+  - Deterministik spektral sınıflandırma (Sol tipi sarı cüce, Rigel tipi mavi dev, Proxima tipi kırmızı cüce).
+  - Her yıldızın etrafında nabız atan korona aurası (`animate-corona-pulse`) ve dönen güneş patlama ışınları (`animate-flare-pulse`).
+  - **Minyatür Yörünge Hareketi:** Her yıldızın etrafındaki minik yörünge izlerinde dönen mikro gezegenler (`animate-spin-slow` / `animate-spin-medium`).
+  - **Fraksiyon Bölge Halesi:** Kolonisi olan sistemlerde ilgili fraksiyonun renginde yayılan yumuşak etki aurası.
+- **Merkezi Nexus Rölesi (Kadim Megastrüktür):**
+  - Eşmerkezli iki jiroskopik mekanik halka: Dış halka saat yönünde 4 güneş paneliyle dönerken (`animate-spin-slow`), iç halka ters yöne döner (`animate-spin-reverse`).
+  - Merkezde mor takyon tekilliği ve belirli aralıklarla uzaya yayılan darbe dalgası (`beacon-wave` / `animate-ping`).
+- **Gelişmiş Filo Uçuş Grafikleri & Plazma Egzoz Kuyruğu:**
+  - Uçuş yönünün tersine uzanan, motor itişiyle titreyen konik plazma egzoz alevi (`animate-exhaust`).
+  - Amiral gemisi sınıfına özel detaylı 2D vektör gövde silüetleri (Savaş Gemisi, Avcı, Nakliye, Keşif).
+  - Rota hedef çizgisi, %50 geri çağırma sınırı uyarısı ve hedef kilitleme halkaları.
+
+### 2. Güneş Sistemi Orrery Yörünge İncelemesi (`src/ui/components/SystemInspectionModal.tsx`)
+- Düz daireler yerine derinlikli **2D Güneş Sistemi Simülatörü**:
+  - Solda alevli güneş çekirdeği, korona patlamaları ve manyetik ilmikler.
+  - Astronomik mesafe göstergeli (AU) eliptik yörünge yayları.
+  - **Biyom Tabanlı Küresel Gezegenler:**
+    - 3D küre etkisi veren merkez dışı radyal gradyanlar ve atmosferik ışıma halkaları (`glow`).
+    - Terran dünyasında dönen atmosferik bulut şeritleri.
+    - Çöl dünyasında eğik, gölge düşüren **halkalı gezegen sistemi** (planetary rings).
+    - Yıldızdan uzak tarafta küresel derinlik katan gece/gündüz sonlandırıcı gölgesi (terminator crescent).
+    - Her gezegenin çevresinde dönen mikro ay uydusu.
+    - Kolonileştirilmiş dünyalarda yörüngede dönen savunma istasyonu.
+
+### 3. Gezegen Paneli & Canlı Arayüz Dokunuşları (`src/ui/components/PlanetPanel.tsx`)
+- Sol paneldeki gezegen başlığında yumuşak atmosferik ışıma ve çevresinde dönen yörünge savunma uydusu.
+- Bina inşaatı devam ederken sağa doğru akan holografik lazer ışıması (`animate-pulse`) ile donatılmış ilerleme çubuğu.
+
+
 

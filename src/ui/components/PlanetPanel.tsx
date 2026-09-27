@@ -98,24 +98,43 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
       <div className="px-4 py-3 border-b border-slate-800/80 bg-space-900/40">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-lg overflow-hidden border border-cyber-cyan/30 shrink-0 bg-space-950 relative shadow-sm shadow-cyan-950/40 group">
-              <img
-                src="/assets/art/terran_planet.png"
-                alt={currentPlanet.name}
-                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
-              />
+            {/* Dynamic Living Planetary Orb with Orbiting Defense Satellite */}
+            <div className="relative w-12 h-12 flex items-center justify-center shrink-0 group">
+              {/* Atmospheric Glow Aura */}
+              <div className="absolute inset-0 rounded-full bg-cyber-cyan/15 blur-sm animate-pulse-slow" />
+
+              {/* Orbiting Satellite Track */}
+              <div className="absolute inset-[-4px] rounded-full border border-slate-700/60 pointer-events-none" />
+              <div
+                className="absolute inset-[-4px] rounded-full animate-spin-slow pointer-events-none"
+                style={{ transformOrigin: 'center' }}
+              >
+                <div className="w-1.5 h-1.5 rounded-full bg-cyber-cyan shadow-sm shadow-cyan-400 absolute -top-0.5 left-1/2 -translate-x-1/2" />
+              </div>
+
+              {/* Planet Orb Body */}
+              <div className="w-11 h-11 rounded-full overflow-hidden border border-cyber-cyan/40 bg-space-950 relative shadow-md shadow-cyan-950/50">
+                <img
+                  src="/assets/art/terran_planet.png"
+                  alt={currentPlanet.name}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-125"
+                />
+                {/* Subtle Day/Night Terminator Shadow */}
+                <div className="absolute inset-0 bg-gradient-to-tr from-black/50 via-transparent to-transparent pointer-events-none" />
+              </div>
             </div>
+
             <div>
               <div className="text-sm font-bold text-slate-100 font-display flex items-center gap-2">
                 {currentPlanet.name}
                 {currentPlanet.isHomeworld && (
-                  <span className="text-[9px] bg-amber-400/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
+                  <span className="text-[9px] bg-amber-400/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono font-semibold">
                     ANA GEZEGEN
                   </span>
                 )}
               </div>
               <div className="text-[11px] text-slate-400 font-mono">
-                Korumalı Depo: {currentPlanet.protectedCapacity.toLocaleString()} birim
+                Korumalı Depo: <strong className="text-slate-300">{currentPlanet.protectedCapacity.toLocaleString()}</strong> br
               </div>
             </div>
           </div>
@@ -218,13 +237,15 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
                 )}
               </div>
 
-              {/* Progress Bar for active upgrade */}
+              {/* Progress Bar for active upgrade with laser shimmer */}
               {isQueueActive && (
-                <div className="w-full h-1 bg-space-900 rounded-full overflow-hidden my-1.5">
+                <div className="w-full h-1.5 bg-space-950 rounded-full overflow-hidden my-1.5 border border-cyan-500/30 relative">
                   <div
-                    className="h-full bg-cyber-cyan transition-all duration-300"
+                    className="h-full bg-gradient-to-r from-cyan-600 via-cyber-cyan to-white transition-all duration-300 relative shadow-sm shadow-cyan-400"
                     style={{ width: `${progressPercent}%` }}
-                  />
+                  >
+                    <div className="absolute top-0 right-0 bottom-0 w-2 bg-white animate-pulse" />
+                  </div>
                 </div>
               )}
 
