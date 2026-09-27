@@ -213,12 +213,23 @@ export interface PlayerIntel {
   }>;
 }
 
+export interface Alliance {
+  id: string;
+  name: string;
+  tag: string;
+  founderId: string;
+  memberIds: string[];
+  createdAt: number;
+}
+
 export interface Player {
   id: string;
   name: string;
   color: string;
   isBot: boolean;
   botArchetype?: 'industrialist' | 'raider' | 'guardian' | 'explorer' | 'qa_exploit';
+  allianceId?: string | null;
+  vacationMode: boolean;
   research: Record<ResearchType, number>;
   researchQueue: {
     type: ResearchType;
@@ -246,6 +257,7 @@ export interface GameState {
   planets: Record<string, Planet>;
   fleets: Record<string, Fleet>;
   relay: RelayContest;
+  alliances: Record<string, Alliance>;
   battleReports: BattleReport[];
   eventLog: GameEventRecord[];
   nextId: number;
@@ -291,7 +303,11 @@ export type GameCommand =
       mission: MissionType;
     }
   | { type: 'RECALL_FLEET'; fleetId: string }
-  | { type: 'SET_PLANET_STANCE'; planetId: string; stance: PlanetStance };
+  | { type: 'SET_PLANET_STANCE'; planetId: string; stance: PlanetStance }
+  | { type: 'CREATE_ALLIANCE'; name: string; tag: string }
+  | { type: 'JOIN_ALLIANCE'; allianceId: string }
+  | { type: 'LEAVE_ALLIANCE' }
+  | { type: 'TOGGLE_VACATION_MODE' };
 
 export interface CommandReceipt {
   success: boolean;

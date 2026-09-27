@@ -14,14 +14,17 @@ import {
   Resources,
   ShipType,
 } from './engine/types';
+import { AllianceModal } from './ui/components/AllianceModal';
 import { CombatReplayModal } from './ui/components/CombatReplayModal';
 import { CommandPanel } from './ui/components/CommandPanel';
 import { EventFeed } from './ui/components/EventFeed';
 import { GalaxyMap } from './ui/components/GalaxyMap';
 import { IncomingThreatBanner } from './ui/components/IncomingThreatBanner';
 import { PlanetPanel } from './ui/components/PlanetPanel';
+import { RelayModal } from './ui/components/RelayModal';
 import { ResearchModal } from './ui/components/ResearchModal';
 import { ShipyardModal } from './ui/components/ShipyardModal';
+import { SystemInspectionModal } from './ui/components/SystemInspectionModal';
 import { TopBar } from './ui/components/TopBar';
 import { SelectedTarget } from './ui/types';
 
@@ -48,6 +51,9 @@ export function App() {
   const [isShipyardOpen, setIsShipyardOpen] = useState<boolean>(false);
   const [isResearchOpen, setIsResearchOpen] = useState<boolean>(false);
   const [isBattlesOpen, setIsBattlesOpen] = useState<boolean>(false);
+  const [isRelayOpen, setIsRelayOpen] = useState<boolean>(false);
+  const [isAllianceOpen, setIsAllianceOpen] = useState<boolean>(false);
+  const [inspectedSystemId, setInspectedSystemId] = useState<string | null>(null);
 
   // Initialize engine & players
   const initGame = useCallback((seed: number = 42) => {
@@ -234,6 +240,66 @@ export function App() {
     }
   };
 
+  const handleToggleVacationMode = () => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'TOGGLE_VACATION_MODE',
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleCreateAlliance = (name: string, tag: string) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CREATE_ALLIANCE',
+      name,
+      tag,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleJoinAlliance = (allianceId: string) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'JOIN_ALLIANCE',
+      allianceId,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleLeaveAlliance = () => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'LEAVE_ALLIANCE',
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAssaultRelay = () => {
+    if (!engineState) return;
+    setSelectedTarget({
+      type: 'system',
+      systemId: engineState.relay.systemId,
+    });
+  };
+
+  const handleSupportAlly = (targetSystemId: string, planetId: string) => {
+    setSelectedTarget({
+      type: 'planet',
+      systemId: targetSystemId,
+      planetId,
+    });
+  };
+
+  const handleSelectSlot = (systemId: string, planetId: string) => {
+    setSelectedTarget({
+      type: 'planet',
+      systemId,
+      planetId,
+    });
+    setInspectedSystemId(null);
+  };
+
   return (
     <div className="flex flex-col w-screen h-screen overflow-hidden bg-space-950 font-sans">
       {/* Top Bar Navigation & Resources */}
@@ -257,6 +323,9 @@ export function App() {
         onOpenShipyard={() => setIsShipyardOpen(true)}
         onOpenResearch={() => setIsResearchOpen(true)}
         onOpenBattles={() => setIsBattlesOpen(true)}
+        onOpenRelay={() => setIsRelayOpen(true)}
+        onOpenAlliance={() => setIsAllianceOpen(true)}
+        onToggleVacationMode={handleToggleVacationMode}
         onReset={() => initGame(Date.now())}
       />
 
@@ -300,6 +369,7 @@ export function App() {
                 });
               }
             }}
+            onInspectSystem={(systemId) => setInspectedSystemId(systemId)}
           />
 
           {/* Sector Real-Time Communications & Alerts Ticker */}
@@ -342,6 +412,36 @@ export function App() {
         reports={engineState.battleReports}
         isOpen={isBattlesOpen}
         onClose={() => setIsBattlesOpen(false)}
+      />
+
+      {/* Nexus Relay Modal */}
+      <RelayModal
+        state={engineState}
+        isOpen={isRelayOpen}
+        onClose={() => setIsRelayOpen(false)}
+        onAssaultRelay={handleAssaultRelay}
+      />
+
+      {/* Alliance Modal */}
+      <AllianceModal
+        state={engineState}
+        activePlayerId={activePlayerId}
+        isOpen={isAllianceOpen}
+        onClose={() => setIsAllianceOpen(false)}
+        onCreateAlliance={handleCreateAlliance}
+        onJoinAlliance={handleJoinAlliance}
+        onLeaveAlliance={handleLeaveAlliance}
+        onSupportAlly={handleSupportAlly}
+      />
+
+      {/* System Orbital Inspection Modal */}
+      <SystemInspectionModal
+        system={inspectedSystemId ? engineState.map.systems[inspectedSystemId] : null}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        isOpen={!!inspectedSystemId}
+        onClose={() => setInspectedSystemId(null)}
+        onSelectSlot={handleSelectSlot}
       />
     </div>
   );

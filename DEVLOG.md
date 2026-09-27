@@ -30,7 +30,32 @@ Kullanıcı geribildirimi doğrultusunda oyunun temel karakteri olan **"ağır, 
   - Hızlı testler için `10x`, `60x`, `300x` hızlandırma seçenekleri.
   - `+15dk`, `+1sa` ve GDD Bölüm 15'te belirtilen 8 saatlik çevrimdışı kalma toparlanma dengesini sınamak için `+8sa (Gece Uykusu)` butonları eklendi.
 
-### 3. Doğrulama
-- `npm test`: 6/6 test başarılı.
-- `npm run sim`: 4 saatlik maçta 34 filo sevk edildi, 12 önleme savaşı çözüldü, tüm QA testleri geçti.
-- `npm run build`: Hatasız üretim derlemesi.
+### 3. Diplomasi, İttifaklar ve Ortak Sensör Ağı (GDD Bölüm 13)
+- **İttifak Sistemi (`src/engine/engine.ts`, `fog.ts`):**
+  - `CREATE_ALLIANCE`, `JOIN_ALLIANCE`, `LEAVE_ALLIANCE` komutları devrede.
+  - Müttefikler arası sensör füzyonu: Bir ittifak üyesinin sensör menzili, tüm müttefiklerin haritasında ortak görüş açar.
+- **İttifak Yönetim Paneli (`src/ui/components/AllianceModal.tsx`):**
+  - İttifak kurma, arama, katılma, ayrılma.
+  - Üyelerin üsleri ve tek tıkla müttefik gezegenine destek filosu sevk etme.
+
+### 4. Nexus Rölesi & Haftalık Sektör Hakimiyeti (GDD Bölüm 8)
+- **Merkezi Röle Mekaniği (`RelayModal.tsx`, `engine.ts`):**
+  - Merkezi röleyi ele geçiren oyuncu tüm komşu sektörlerde genişletilmiş radar görüşü ve haftalık kontrol puanı kazanır.
+  - Canlı liderlik tablosu, elde tutma süresi sayacı ve hızlı sefer başlatma kısayolu.
+
+### 5. Yörünge İnceleme, Tatil Modu ve Ses Sentetizörü
+- **Sistem Yörünge İncelemesi (`SystemInspectionModal.tsx`):**
+  - Seçilen sistemin yıldızını ve etrafındaki I-IV gezegen yuvalarını (Terran, Okyanus, Çöl, Buzul, Volkanik) 2D yörüngede görselleştirir. Kolonizasyon hedeflerini tek tıkla belirlemeyi sağlar.
+- **OGame Tipi Tatil Modu (`TOGGLE_VACATION_MODE`):**
+  - Dışarıda filosu olmayan oyuncular tatil moduna geçebilir. Üretim dondurulur, gelen ve giden saldırılar engellenir.
+- **Web Audio Sentetizörü (`sound.ts`):**
+  - Harici ses dosyası gerektirmeden osilatör ve kazanç düğümleriyle oluşturulmuş tıklama, warp ve alarm ses efektleri.
+- **Vektör Harita Yakınlaştırma (Zoom HUD):**
+  - Haritada `+`, `-`, `%100` yakınlaştırma kontrolleri ve seçili sistem yörünge inceleme butonu.
+
+### 6. Doğrulama ve Testler
+- `npm test`: 9/9 birim testi başarılı (İttifak mekanikleri, tatil modu dondurması, %50 geri çağırma kilidi, ağır uçuş süresi ölçekleri dahil).
+- `npm run sim`: 4 saatlik hızlandırılmış maçta 34 filo sevk edildi, 12 savaş çözüldü, 960 QA istismar emri engellendi.
+- `npm run build`: TypeScript ve Vite üretim paketi 0 hata ile derlendi.
+- Dev sunucusu: Port `3007` üzerinde HMR ile kesintisiz çalışıyor.
+

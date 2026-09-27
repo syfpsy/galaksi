@@ -3,6 +3,7 @@ import {
   Activity,
   Bed,
   CircleDot,
+  Crown,
   Eye,
   EyeOff,
   FastForward,
@@ -15,6 +16,7 @@ import {
   RotateCcw,
   Sparkles,
   Swords,
+  Users,
   Wrench,
 } from 'lucide-react';
 import { calculateHourlyProduction } from '../../engine/constants';
@@ -37,6 +39,9 @@ interface TopBarProps {
   onOpenShipyard: () => void;
   onOpenResearch: () => void;
   onOpenBattles: () => void;
+  onOpenRelay?: () => void;
+  onOpenAlliance?: () => void;
+  onToggleVacationMode?: () => void;
   onReset: () => void;
 }
 
@@ -56,6 +61,9 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenShipyard,
   onOpenResearch,
   onOpenBattles,
+  onOpenRelay,
+  onOpenAlliance,
+  onToggleVacationMode,
   onReset,
 }) => {
   // Calculate hourly rates for active planet
@@ -65,6 +73,11 @@ export const TopBar: React.FC<TopBarProps> = ({
 
   const formattedTime = formatSimClock(state.timeMs);
   const unreadBattlesCount = state.battleReports.length;
+  const activePlayer = state.players[activePlayerId];
+  const activeAlliance = activePlayer?.allianceId ? state.alliances[activePlayer.allianceId] : null;
+  const relayController = state.relay.controllingPlayerId
+    ? state.players[state.relay.controllingPlayerId]
+    : null;
 
   return (
     <header className="h-16 border-b border-cyber-cyan/20 bg-space-900/90 backdrop-blur-md px-4 flex items-center justify-between z-30 select-none">
@@ -198,7 +211,66 @@ export const TopBar: React.FC<TopBarProps> = ({
               </span>
             )}
           </button>
+
+          {/* Relay Modal Button */}
+          {onOpenRelay && (
+            <button
+              onClick={onOpenRelay}
+              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded transition-all relative ${
+                relayController?.id === activePlayerId
+                  ? 'bg-purple-900/50 text-purple-200 border border-purple-500/50'
+                  : 'text-slate-300 hover:text-purple-400 hover:bg-slate-800/80'
+              }`}
+              title="Nexus Rölesi & Haftalık Hakimiyet Sıralaması"
+            >
+              <Crown className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden sm:inline">Nexus</span>
+              {relayController && (
+                <span
+                  className="w-2 h-2 rounded-full inline-block"
+                  style={{ backgroundColor: relayController.color }}
+                  title={`Röle Hâkimi: ${relayController.name}`}
+                />
+              )}
+            </button>
+          )}
+
+          {/* Alliance Modal Button */}
+          {onOpenAlliance && (
+            <button
+              onClick={onOpenAlliance}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-blue-400 hover:bg-slate-800/80 rounded transition-all"
+              title="Galaktik İttifak & Diplomasi"
+            >
+              <Users className="w-3.5 h-3.5 text-blue-400" />
+              <span className="hidden sm:inline">
+                {activeAlliance ? `[${activeAlliance.tag}]` : 'İttifak'}
+              </span>
+            </button>
+          )}
         </div>
+
+        {/* Vacation Mode Toggle */}
+        {onToggleVacationMode && (
+          <button
+            onClick={onToggleVacationMode}
+            className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition-all ${
+              activePlayer?.vacationMode
+                ? 'bg-amber-950/70 border-amber-500/60 text-amber-300 animate-pulse'
+                : 'bg-space-850 border-slate-800 text-slate-400 hover:text-slate-200'
+            }`}
+            title={
+              activePlayer?.vacationMode
+                ? 'Tatil Modu Aktif (Üretim donduruldu, saldırı almaz/yapamaz). Çıkmak için tıkla.'
+                : 'Tatil Moduna Geç (Asenkron koruma - 24 saatlik minimum blok)'
+            }
+          >
+            <Bed className="w-4 h-4 text-amber-400" />
+            <span className="text-[11px] hidden xl:inline">
+              {activePlayer?.vacationMode ? 'Tatil Modunda' : 'Tatil'}
+            </span>
+          </button>
+        )}
 
         {/* God Mode Fog of War Toggle */}
         <button

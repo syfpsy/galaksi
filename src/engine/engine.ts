@@ -54,6 +54,7 @@ export class GameEngine {
         weeklyPoints: {},
         sensorRadiusBonus: GAME_CONSTANTS.RELAY_SENSOR_RADIUS_BONUS,
       },
+      alliances: {},
       battleReports: [],
       eventLog: [],
       nextId: 100,
@@ -77,6 +78,8 @@ export class GameEngine {
       color,
       isBot,
       botArchetype,
+      allianceId: null,
+      vacationMode: false,
       research: { engines: 0, weapons: 0, sensors: 0 },
       researchQueue: null,
       protectionUntilTime: this.state.timeMs + GAME_CONSTANTS.PROTECTION_DURATION_MS,
@@ -152,6 +155,12 @@ export class GameEngine {
   // --- Passive Resource & Production Accumulator ---
   private updatePassiveProduction(nowMs: number): void {
     for (const planet of Object.values(this.state.planets)) {
+      const owner = this.state.players[planet.ownerId];
+      if (owner?.vacationMode) {
+        planet.lastResourceUpdate = nowMs;
+        continue;
+      }
+
       const elapsedMs = nowMs - planet.lastResourceUpdate;
       if (elapsedMs <= 0) continue;
 
@@ -842,9 +851,21 @@ export class GameEngine {
       }
 
       case 'DISPATCH_FLEET': {
+        if (player.vacationMode) {
+          return { success: false, commandType: cmd.type, error: 'Tatil modundayken filo sevk edilemez.', timeMs: this.state.timeMs };
+        }
+
         const originPlanet = this.state.planets[cmd.originPlanetId];
         if (!originPlanet || originPlanet.ownerId !== playerId) {
           return { success: false, commandType: cmd.type, error: 'Kalkış üssü bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        // Target vacation mode check for attacks
+        if (cmd.mission === 'attack' && cmd.targetPlanetId && this.state.planets[cmd.targetPlanetId]) {
+          const targetOwner = this.state.players[this.state.planets[cmd.targetPlanetId].ownerId];
+          if (targetOwner?.vacationMode) {
+            return { success: false, commandType: cmd.type, error: 'Hedef oyuncu tatil modunda korumalıdır. Saldırı düzenlenemez.', timeMs: this.state.timeMs };
+          }
         }
 
         // Verify ships in garrison
@@ -1033,6 +1054,78 @@ export class GameEngine {
         }
         planet.stance = cmd.stance;
         return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
+
+      case 'CREATE_ALLIANCE': {
+        if (player.allianceId) {
+          return { success: false, commandType: cmd.type, error: 'Zaten bir ittifaka üyesiniz.', timeMs: this.state.timeMs };
+        }
+        const allianceId = `ally_${this.state.nextId++}`;
+        this.state.alliances[allianceId] = {
+          id: allianceId,
+          name: cmd.name,
+          tag: cmd.tag.toUpperCase(),
+          founderId: playerId,
+          memberIds: [playerId],
+          createdAt: this.state.timeMs,
+        };
+        player.allianceId = allianceId;
+        this.logEvent('alliance_created', `[${cmd.tag}] ${cmd.name} ittifakı kuruldu (Kurucu: ${player.name}).`, playerId);
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { allianceId } };
+      }
+
+      case 'JOIN_ALLIANCE': {
+        if (player.allianceId) {
+          return { success: false, commandType: cmd.type, error: 'Önce mevcut ittifakınızdan ayrılmalısınız.', timeMs: this.state.timeMs };
+        }
+        const ally = this.state.alliances[cmd.allianceId];
+        if (!ally) {
+          return { success: false, commandType: cmd.type, error: 'İttifak bulunamadı.', timeMs: this.state.timeMs };
+        }
+        ally.memberIds.push(playerId);
+        player.allianceId = ally.id;
+        this.logEvent('alliance_joined', `${player.name} [${ally.tag}] ${ally.name} ittifakına katıldı.`, playerId);
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { allianceId: ally.id } };
+      }
+
+      case 'LEAVE_ALLIANCE': {
+        if (!player.allianceId) {
+          return { success: false, commandType: cmd.type, error: 'Herhangi bir ittifakta değilsiniz.', timeMs: this.state.timeMs };
+        }
+        const ally = this.state.alliances[player.allianceId];
+        if (ally) {
+          ally.memberIds = ally.memberIds.filter(id => id !== playerId);
+          if (ally.memberIds.length === 0) {
+            delete this.state.alliances[ally.id];
+          }
+        }
+        player.allianceId = null;
+        this.logEvent('alliance_left', `${player.name} ittifaktan ayrıldı.`, playerId);
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
+
+      case 'TOGGLE_VACATION_MODE': {
+        if (player.vacationMode) {
+          player.vacationMode = false;
+          this.logEvent('vacation_disabled', `${player.name} tatil modundan çıktı. Üretim ve koruma normale döndü.`, playerId);
+          return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { vacationMode: false } };
+        } else {
+          // Check for active outbound fleets
+          const hasActiveFleets = Object.values(this.state.fleets).some(
+            f => f.ownerId === playerId && f.status !== 'destroyed'
+          );
+          if (hasActiveFleets) {
+            return {
+              success: false,
+              commandType: cmd.type,
+              error: 'Tatil moduna geçmek için tüm filolarınızın üslerine dönmüş olması gerekir.',
+              timeMs: this.state.timeMs,
+            };
+          }
+          player.vacationMode = true;
+          this.logEvent('vacation_enabled', `${player.name} tatil moduna geçti. Üretim durdu ve saldırılara karşı koruma aktif.`, playerId);
+          return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { vacationMode: true } };
+        }
       }
     }
   }

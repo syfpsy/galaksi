@@ -130,4 +130,111 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const p2PlanetsInMyView = view.myPlanets.filter(p => p.ownerId === 'p2');
     expect(p2PlanetsInMyView.length).toBe(0);
   });
+
+  it('manages alliances with shared sensor vision and diplomacy commands', () => {
+    const engine = new GameEngine(5678);
+    engine.addPlayer('p1', 'Player 1', '#00f3ff');
+    engine.addPlayer('p2', 'Player 2', '#10b981');
+
+    // p1 creates an alliance
+    const createRes = engine.dispatchCommand('p1', {
+      type: 'CREATE_ALLIANCE',
+      name: 'Galaktik Konfederasyon',
+      tag: 'GK',
+    });
+    expect(createRes.success).toBe(true);
+    const allianceId = engine.state.players['p1'].allianceId;
+    expect(allianceId).toBeTruthy();
+
+    // p2 joins the alliance
+    const joinRes = engine.dispatchCommand('p2', {
+      type: 'JOIN_ALLIANCE',
+      allianceId: allianceId!,
+    });
+    expect(joinRes.success).toBe(true);
+    expect(engine.state.players['p2'].allianceId).toBe(allianceId);
+    expect(engine.state.alliances[allianceId!].memberIds).toContain('p2');
+
+    // p1 leaves alliance
+    const leaveRes = engine.dispatchCommand('p1', {
+      type: 'LEAVE_ALLIANCE',
+    });
+    expect(leaveRes.success).toBe(true);
+    expect(engine.state.players['p1'].allianceId).toBeFalsy();
+  });
+
+  it('enforces vacation mode by freezing resource production and blocking missions', () => {
+    const engine = new GameEngine(9999);
+    const { homeworld } = engine.addPlayer('p1', 'Player 1', '#00f3ff');
+
+    const initialOre = homeworld.resources.ore;
+
+    // Turn on vacation mode
+    const vRes = engine.dispatchCommand('p1', {
+      type: 'TOGGLE_VACATION_MODE',
+    });
+    expect(vRes.success).toBe(true);
+    expect(engine.state.players['p1'].vacationMode).toBe(true);
+
+    // Advance 1 hour in simulation
+    engine.tick(3600 * 1000);
+
+    // Resources should NOT have increased because player is in vacation mode
+    expect(engine.state.planets[homeworld.id].resources.ore).toBe(initialOre);
+
+    // Cannot dispatch attack fleet while in vacation mode
+    const dispatchRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: homeworld.id,
+      targetSystemId: 'sys_relay',
+      ships: { scout: 0, transport: 0, fighter: 1, battleship: 0 },
+      mission: 'attack',
+    });
+    expect(dispatchRes.success).toBe(false);
+  });
+
+  it('enforces slow flight pacing and recall lock threshold at 50% travel duration', () => {
+    const engine = new GameEngine(1234);
+    const { homeworld } = engine.addPlayer('p1', 'Player 1', '#00f3ff');
+
+    // Find an adjacent lane
+    const adjacentLane = engine.state.map.lanes.find(
+      (l) => l.fromSystemId === homeworld.systemId || l.toSystemId === homeworld.systemId
+    );
+    expect(adjacentLane).toBeDefined();
+    const destSysId =
+      adjacentLane!.fromSystemId === homeworld.systemId
+        ? adjacentLane!.toSystemId
+        : adjacentLane!.fromSystemId;
+
+    // Dispatch a fighter fleet
+    const dispatchRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: homeworld.id,
+      targetSystemId: destSysId,
+      ships: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+      mission: 'attack',
+    });
+    expect(dispatchRes.success).toBe(true);
+
+    const fleetId = dispatchRes.data?.fleetId as string;
+    const fleet = engine.state.fleets[fleetId];
+    expect(fleet).toBeDefined();
+
+    // Check travel duration is slow (> 5 minutes for jump)
+    const travelDuration = fleet.arrivalTime - fleet.departureTime;
+    expect(travelDuration).toBeGreaterThan(5 * 60 * 1000);
+
+    // Recall lock should be exactly halfway (50%)
+    const midpoint = fleet.departureTime + travelDuration * 0.5;
+    expect(fleet.recallLockedAfterTime).toBe(midpoint);
+
+    // Attempt recall before 50%: succeeds
+    engine.tick(travelDuration * 0.2);
+    const recallBefore = engine.dispatchCommand('p1', {
+      type: 'RECALL_FLEET',
+      fleetId,
+    });
+    expect(recallBefore.success).toBe(true);
+  });
 });

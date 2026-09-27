@@ -50,24 +50,33 @@ export function getPlayerSensorCoverage(
   playerId: string
 ): Set<string> {
   const coveredSystems = new Set<string>();
+  const player = state.players[playerId];
 
-  // 1. Systems with player's owned planets
+  // Include alliance members for shared sensor vision (GDD Section 9)
+  const alliedPlayerIds = new Set<string>([playerId]);
+  if (player?.allianceId && state.alliances[player.allianceId]) {
+    for (const memberId of state.alliances[player.allianceId].memberIds) {
+      alliedPlayerIds.add(memberId);
+    }
+  }
+
+  // 1. Systems with owned or allied planets
   for (const planet of Object.values(state.planets)) {
-    if (planet.ownerId === playerId) {
+    if (alliedPlayerIds.has(planet.ownerId)) {
       coveredSystems.add(planet.systemId);
 
       // Sensor array bonus: +1 lane range per 2 levels + research
       const sensorLevel = planet.buildings.sensor_array || 0;
-      const researchLevel = state.players[playerId]?.research.sensors || 0;
+      const researchLevel = state.players[planet.ownerId]?.research.sensors || 0;
       const range = GAME_CONSTANTS.BASE_SENSOR_RANGE + Math.floor(sensorLevel / 2) + Math.floor(researchLevel / 2);
 
       addNeighborSystemsWithinHops(planet.systemId, range, state.map, coveredSystems);
     }
   }
 
-  // 2. Systems where player has fleets
+  // 2. Systems with active owned or allied fleets
   for (const fleet of Object.values(state.fleets)) {
-    if (fleet.ownerId === playerId && fleet.status !== 'destroyed') {
+    if (alliedPlayerIds.has(fleet.ownerId) && fleet.status !== 'destroyed') {
       coveredSystems.add(fleet.originSystemId);
       coveredSystems.add(fleet.targetSystemId);
 
@@ -79,7 +88,7 @@ export function getPlayerSensorCoverage(
   }
 
   // 3. Relay control bonus (+2 hops from relay system)
-  if (state.relay.controllingPlayerId === playerId) {
+  if (state.relay.controllingPlayerId && alliedPlayerIds.has(state.relay.controllingPlayerId)) {
     coveredSystems.add(state.relay.systemId);
     addNeighborSystemsWithinHops(
       state.relay.systemId,

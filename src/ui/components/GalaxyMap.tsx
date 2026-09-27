@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Compass,
   Crosshair,
@@ -16,6 +16,8 @@ import { getPlayerSensorCoverage } from '../../engine/fog';
 import { Fleet, GameState, IntelLevel, StarSystem } from '../../engine/types';
 import { SelectedTarget } from '../types';
 import { formatDuration } from '../timeUtils';
+import { sound } from '../sound';
+import { Globe, Maximize2, Minus, Plus, RotateCcw } from 'lucide-react';
 
 interface GalaxyMapProps {
   state: GameState;
@@ -24,6 +26,7 @@ interface GalaxyMapProps {
   godMode: boolean;
   onSelectSystem: (systemId: string) => void;
   onSelectFleet: (fleetId: string) => void;
+  onInspectSystem?: (systemId: string) => void;
 }
 
 export const GalaxyMap: React.FC<GalaxyMapProps> = ({
@@ -33,7 +36,9 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
   godMode,
   onSelectSystem,
   onSelectFleet,
+  onInspectSystem,
 }) => {
+  const [zoom, setZoom] = useState(1);
   const activePlayer = state.players[activePlayerId];
 
   // Calculate sensor coverage for active player
@@ -111,8 +116,16 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
           </filter>
         </defs>
 
-        {/* 1. Flight Lanes */}
-        <g className="flight-lanes">
+        {/* Zoomable Container */}
+        <g
+          transform={`scale(${zoom})`}
+          style={{
+            transformOrigin: '500px 400px',
+            transition: 'transform 0.25s cubic-bezier(0.2, 0.8, 0.2, 1)',
+          }}
+        >
+          {/* 1. Flight Lanes */}
+          <g className="flight-lanes">
           {state.map.lanes.map((lane) => {
             const from = state.map.systems[lane.fromSystemId];
             const to = state.map.systems[lane.toSystemId];
@@ -192,6 +205,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                 transform={`translate(${pos.x}, ${pos.y})`}
                 onClick={(e) => {
                   e.stopPropagation();
+                  sound.playClick();
                   onSelectFleet(fleet.id);
                 }}
                 className="cursor-pointer group"
@@ -287,7 +301,10 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
               <g
                 key={sys.id}
                 transform={`translate(${sys.x}, ${sys.y})`}
-                onClick={() => onSelectSystem(sys.id)}
+                onClick={() => {
+                  sound.playClick();
+                  onSelectSystem(sys.id);
+                }}
                 className="cursor-pointer group"
               >
                 {/* Selection Reticle Brackets */}
@@ -410,7 +427,62 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
             );
           })}
         </g>
+        {/* End of Zoomable Container */}
+        </g>
       </svg>
+
+      {/* Zoom Controls HUD (Top-Left) */}
+      <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
+        <div className="flex items-center gap-1 bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-lg p-1 shadow-lg">
+          <button
+            onClick={() => {
+              sound.playClick();
+              setZoom((z) => Math.min(2.5, +(z + 0.25).toFixed(2)));
+            }}
+            className="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyber-cyan transition-colors"
+            title="Yakınlaştır (+)"
+          >
+            <Plus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              sound.playClick();
+              setZoom((z) => Math.max(0.6, +(z - 0.25).toFixed(2)));
+            }}
+            className="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyber-cyan transition-colors"
+            title="Uzaklaştır (-)"
+          >
+            <Minus className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              sound.playClick();
+              setZoom(1);
+            }}
+            className={`px-2 py-1 rounded text-[11px] font-mono transition-colors ${
+              zoom === 1 ? 'text-slate-400' : 'text-cyber-cyan font-bold bg-cyber-cyan/10'
+            }`}
+            title="Ölçeği Sıfırla (1x)"
+          >
+            {Math.round(zoom * 100)}%
+          </button>
+        </div>
+
+        {/* Selected System Orbit Inspection Quick Button */}
+        {selectedTarget?.systemId && onInspectSystem && (
+          <button
+            onClick={() => {
+              sound.playClick();
+              onInspectSystem(selectedTarget.systemId);
+            }}
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-cyber-cyan/10 hover:bg-cyber-cyan/20 border border-cyber-cyan/40 text-cyber-cyan rounded-lg text-xs font-mono font-bold transition-all shadow-md shadow-cyan-950/50"
+            title="Seçili Sistemin Yörünge ve Gezegenlerini İncele"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>Yörüngeyi İncele</span>
+          </button>
+        )}
+      </div>
 
       {/* Map Legend (Bottom-Left) */}
       <div className="absolute bottom-3 left-4 bg-space-900/80 backdrop-blur-md border border-slate-800 rounded-lg p-2.5 flex items-center gap-4 text-[11px] text-slate-300 pointer-events-none">
