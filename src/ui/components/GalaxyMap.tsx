@@ -234,6 +234,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
             }}
             onSelectPlanet={onSelectPlanet}
             onSelectFleet={onSelectFleet}
+            onHoverPlanet={setHoveredPlanetSlotId}
           />
         </div>
       ) : (

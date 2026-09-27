@@ -354,6 +354,27 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
   - Galaksiye geri dönüş yalnızca boş uzaya çift tıklama, `Esc`/`M` tuşları veya arayüzdeki "Galaksi Haritası" butonuyla gerçekleştirilir hale getirildi.
 
 ### 3. Dekoratif Nesnelerin Raycast Yutma Engeli & Kamera Pan İyileştirmesi
-- Atmosfer haloları, bulut tabakaları, gezegen halkaları, uydular, savunma istasyonları, devriye gemileri ve gelecek yörünge projeksiyon wireframe'lerinin raycast fonksiyonları devre dışı bırakıldı (`.raycast = () => {}`). Tıklamaların yalnızca doğrudan gezegen çekirdeğine, yıldıza veya hiperkapıya odaklanması garanti altına alındı.
 - `animate()` döngüsündeki per-frame `targetLookAt.set(500, 400, 0)` sıfırlaması kaldırılarak fare ile sürükleyerek serbest kamera kaydırma (pan) hareketi pürüzsüz hale getirildi.
 
+---
+
+## [2026-09-28] — Faz L: Derin Cilalama (Görsel Zenginlik, Canlı Hover Telemetrisi, Gece Şehir Işıkları ve Hiperspace Warp Tüneli)
+
+### 1. Kolonize Dünyalarda Gece Şehir Işıkları (`proceduralTextures.ts`, `GalaxyScene25D.tsx`)
+- Kolonize edilmiş tüm gezegenlere (oyuncu ve botlar) procedural `getCityLightsTexture` emisif dokusu entegre edildi.
+- Üslerin ve kolonilerin karanlık yarımküresinde (gece tarafında) metropol şehir ışık kümeleri altın/fraksiyonel renklerle parlar.
+- Gezegen döndükçe şehir ışıkları gece-gündüz hattında (terminatör) belirip kaybolur; Stellaris kalitesinde yaşayan bir medeniyet hissi sunar.
+
+### 2. Canlı 3D Hover & Telemetri Entegrasyonu (`GalaxyScene25D.tsx`, `GalaxyMap.tsx`)
+- 2.5D WebGL sahnesinde fare hareketleri dinamik olarak raycast edilmeye başlandı (`onMouseMove`).
+- Fare bir gezegenin, yıldızın, hiperkapının veya filonun üzerine geldiğinde imleç anında `pointer` haline gelir ve hassas bir mikro ses tonu (`sound.playHover()`) çalar.
+- Fare bir 3D gezegenin üzerindeyken sağ üstteki "Gezegen Telemetrisi & Sefer Kartı" otomatik açılır; gerçek zamanlı yörünge açısı, hız, gelecek projeksiyonları ve tek tıkla sefer butonları gösterilir.
+- Fare altındaki gezegeni vurgulayan yumuşak 3D siber retikül halkası (`hoverReticleMesh`) eklendi.
+
+### 3. Hiperspace Warp Tüneli Geçiş Efekti (`GalaxyScene25D.tsx`)
+- Galaksi haritasından bir sisteme girerken veya sistemler arası geçiş yaparken 160 iyonik hız çizgisinden oluşan hiperspace warp tüneli (`warpTunnel`) devreye girer.
+- Kamera derinliğe doğru dalar veya geri çekilirken spiral şeklinde dönen siyan-mor warp izleri ve derin warp sesi (`sound.playWarp()`) ile geçiş sinematik bir his kazanır.
+
+### 4. Taktik Filo Kalkış Sesi & Komuta Paneli Cilalaması (`sound.ts`, `CommandPanel.tsx`)
+- Filo sevk edildiğinde derin plazma motoru ivmelenmesi ve alçak frekanslı roket ateşleme ses efekti (`sound.playLaunch()`) eklendi.
+- Komuta panelinde sefer emri verildiğinde oyuncuya güçlü ve tatmin edici bir işitsel geri bildirim sunuldu.

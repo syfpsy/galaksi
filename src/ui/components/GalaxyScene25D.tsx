@@ -17,6 +17,7 @@ import {
   getTerranTexture,
   getVolcanicTexture,
   getWarpGateTexture,
+  getCityLightsTexture,
 } from './proceduralTextures';
 import { sound } from '../sound';
 
@@ -36,6 +37,7 @@ interface GalaxyScene25DProps {
   onExitSystemView?: () => void;
   onSelectPlanet?: (systemId: string, planetId: string) => void;
   onSelectFleet: (fleetId: string) => void;
+  onHoverPlanet?: (planetId: string | null) => void;
 }
 
 interface ScreenLabel {
@@ -68,9 +70,12 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onExitSystemView,
   onSelectPlanet,
   onSelectFleet,
+  onHoverPlanet,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hudLabels, setHudLabels] = useState<ScreenLabel[]>([]);
+  const onHoverPlanetRef = useRef(onHoverPlanet);
+  onHoverPlanetRef.current = onHoverPlanet;
 
   // Live references for animation loop
   const stateRef = useRef(state);
@@ -101,6 +106,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     viewMode === 'system' ? new THREE.Vector3(500, 240, 260) : new THREE.Vector3(500, 120, 750)
   );
   const targetLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3(500, 400, 0));
+  const triggerWarpRef = useRef<(() => void) | null>(null);
 
   // Sync camera when viewMode changes externally
   useEffect(() => {
@@ -111,11 +117,13 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       targetCameraPosRef.current.set(500, 120, 750);
       targetLookAtRef.current.set(500, 400, 0);
     }
+    triggerWarpRef.current?.();
   }, [viewMode]);
 
   // Center camera when focusedSystemId changes
   useEffect(() => {
     targetLookAtRef.current.set(500, 400, 0);
+    triggerWarpRef.current?.();
   }, [focusedSystemId]);
 
   // Sync camera when zoom prop changes from external HUD buttons (+ / - / 100%)
@@ -657,11 +665,22 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           atmoColor = '#ef4444';
         }
 
+        const planetObj = stateRef.current.planets[slot.planetId];
         const planetMat = new THREE.MeshStandardMaterial({
           map: planetTexture,
           roughness: 0.55,
           metalness: 0.15,
         });
+
+        // Colonized worlds glow with nocturnal metropolitan city lights
+        if (planetObj && planetObj.ownerId) {
+          const ownerObj = stateRef.current.players[planetObj.ownerId];
+          const factionColor = ownerObj?.color || '#fde047';
+          planetMat.emissiveMap = getCityLightsTexture(factionColor);
+          planetMat.emissive = new THREE.Color(factionColor);
+          planetMat.emissiveIntensity = 0.65;
+        }
+
         const planetMesh = new THREE.Mesh(planetGeo, planetMat);
         (planetMesh as any).userData = {
           type: 'planet',
@@ -729,7 +748,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
         // 7. Orbital Defense Station / Starbase
         let stationMesh: THREE.Mesh | undefined;
-        const planetObj = stateRef.current.planets[slot.planetId];
         if (planetObj && planetObj.ownerId) {
           const stationGeo = new THREE.OctahedronGeometry(planetRadius * 0.35);
           const stationMat = new THREE.MeshStandardMaterial({
@@ -843,6 +861,79 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     reticleMesh.raycast = () => {};
     scene.add(reticleMesh);
 
+    // 4.1 3D Subtle Hover Reticle
+    const hoverReticleGeo = new THREE.RingGeometry(20, 22, 32);
+    const hoverReticleMat = new THREE.MeshBasicMaterial({
+      color: 0x38bdf8,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const hoverReticleMesh = new THREE.Mesh(hoverReticleGeo, hoverReticleMat);
+    hoverReticleMesh.visible = false;
+    hoverReticleMesh.raycast = () => {};
+    scene.add(hoverReticleMesh);
+
+    // 4.2 Hyperspace Warp Jump Particles
+    const warpStreakCount = 160;
+    const warpGeo = new THREE.BufferGeometry();
+    const warpPositions = new Float32Array(warpStreakCount * 6);
+    const warpColors = new Float32Array(warpStreakCount * 6);
+
+    for (let i = 0; i < warpStreakCount; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = 25 + Math.random() * 280;
+      const zNear = 60 + Math.random() * 160;
+      const zFar = zNear - 350 - Math.random() * 550;
+
+      const px = 500 + Math.cos(angle) * radius;
+      const py = 400 + Math.sin(angle) * radius * 0.85;
+
+      warpPositions[i * 6] = px;
+      warpPositions[i * 6 + 1] = py;
+      warpPositions[i * 6 + 2] = zNear;
+
+      warpPositions[i * 6 + 3] = px;
+      warpPositions[i * 6 + 4] = py;
+      warpPositions[i * 6 + 5] = zFar;
+
+      const isViolet = i % 3 === 0;
+      const r = isViolet ? 0.75 : 0.0;
+      const g = isViolet ? 0.4 : 0.95;
+      const b = 1.0;
+
+      warpColors[i * 6] = r;
+      warpColors[i * 6 + 1] = g;
+      warpColors[i * 6 + 2] = b;
+      warpColors[i * 6 + 3] = r;
+      warpColors[i * 6 + 4] = g;
+      warpColors[i * 6 + 5] = b;
+    }
+
+    warpGeo.setAttribute('position', new THREE.BufferAttribute(warpPositions, 3));
+    warpGeo.setAttribute('color', new THREE.BufferAttribute(warpColors, 3));
+
+    const warpMat = new THREE.LineBasicMaterial({
+      vertexColors: true,
+      transparent: true,
+      opacity: 0,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const warpTunnel = new THREE.LineSegments(warpGeo, warpMat);
+    warpTunnel.raycast = () => {};
+    scene.add(warpTunnel);
+
+    let warpProgress = 0;
+    let isWarping = false;
+
+    triggerWarpRef.current = () => {
+      isWarping = true;
+      warpProgress = 1.0;
+    };
+
     // =========================================================================
     // 5. Interactive Mouse Controls
     // =========================================================================
@@ -850,6 +941,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     let hasDragged = false;
     let dragStartPos = { x: 0, y: 0 };
     let previousMousePosition = { x: 0, y: 0 };
+    let hoveredInteractiveId: string | null = null;
+    let hoveredPlanetIdForReticle: string | null = null;
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
@@ -866,21 +959,73 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       mouse.x = ((e.clientX - rect.left) / width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / height) * 2 + 1;
 
-      if (!isDragging) return;
+      if (isDragging) {
+        const deltaX = e.clientX - previousMousePosition.x;
+        const deltaY = e.clientY - previousMousePosition.y;
 
-      const deltaX = e.clientX - previousMousePosition.x;
-      const deltaY = e.clientY - previousMousePosition.y;
+        const distMoved = Math.hypot(e.clientX - dragStartPos.x, e.clientY - dragStartPos.y);
+        if (distMoved > 4) {
+          hasDragged = true;
+        }
 
-      const distMoved = Math.hypot(e.clientX - dragStartPos.x, e.clientY - dragStartPos.y);
-      if (distMoved > 4) {
-        hasDragged = true;
+        const panFactor = targetCameraPos.z / 950;
+        targetLookAt.x -= deltaX * panFactor;
+        targetLookAt.y += deltaY * panFactor;
+
+        previousMousePosition = { x: e.clientX, y: e.clientY };
+        return;
       }
 
-      const panFactor = targetCameraPos.z / 950;
-      targetLookAt.x -= deltaX * panFactor;
-      targetLookAt.y += deltaY * panFactor;
+      // Hover Raycasting when not dragging
+      raycaster.setFromCamera(mouse, camera);
+      const isSystemMode = viewModeRef.current === 'system';
+      const targetGroup = isSystemMode ? systemOrreryGroup : galaxyMacroGroup;
+      const intersects = raycaster.intersectObjects(targetGroup.children, true);
 
-      previousMousePosition = { x: e.clientX, y: e.clientY };
+      let foundInteractive = false;
+      let currentHoverId: string | null = null;
+      let currentHoverPlanet: string | null = null;
+
+      for (const hit of intersects) {
+        const udata = (hit.object as any).userData;
+        if (udata) {
+          foundInteractive = true;
+          if (udata.type === 'planet') {
+            currentHoverId = udata.planetId;
+            currentHoverPlanet = udata.planetId;
+            break;
+          }
+          if (udata.type === 'star') {
+            currentHoverId = `star_${udata.systemId}`;
+            break;
+          }
+          if (udata.type === 'system') {
+            currentHoverId = udata.systemId;
+            break;
+          }
+          if (udata.type === 'jump_gate') {
+            currentHoverId = `gate_${udata.targetSystemId}`;
+            break;
+          }
+          if (udata.type === 'fleet') {
+            currentHoverId = udata.fleetId;
+            break;
+          }
+        }
+      }
+
+      container.style.cursor = foundInteractive ? 'pointer' : 'grab';
+
+      if (currentHoverId !== hoveredInteractiveId) {
+        if (currentHoverId) {
+          sound.playHover();
+        }
+        hoveredInteractiveId = currentHoverId;
+        hoveredPlanetIdForReticle = currentHoverPlanet;
+        if (onHoverPlanetRef.current) {
+          onHoverPlanetRef.current(currentHoverPlanet);
+        }
+      }
     };
 
     const onMouseUp = () => {
@@ -1254,6 +1399,40 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         reticleMesh.visible = false;
       }
 
+      // 6.6.1 Hover Reticle Animation (Soft cyan ring on hovered planet)
+      if (hoveredPlanetIdForReticle && isSystemMode && currentOrrery) {
+        const pVis = currentOrrery.planetMeshes.find((p) => p.planetId === hoveredPlanetIdForReticle);
+        if (pVis) {
+          hoverReticleMesh.visible = true;
+          hoverReticleMesh.position.copy(pVis.planetMesh.position);
+          hoverReticleMesh.position.z = 9;
+          hoverReticleMesh.scale.set(0.95, 0.95, 1);
+          hoverReticleMesh.rotation.z -= delta * 1.5;
+        } else {
+          hoverReticleMesh.visible = false;
+        }
+      } else {
+        hoverReticleMesh.visible = false;
+      }
+
+      // 6.6.2 Hyperspace Warp Jump Tunnel Animation
+      if (isWarping) {
+        warpProgress -= delta * 2.2;
+        if (warpProgress <= 0) {
+          warpProgress = 0;
+          isWarping = false;
+          warpMat.opacity = 0;
+          warpTunnel.visible = false;
+        } else {
+          warpTunnel.visible = true;
+          warpMat.opacity = Math.sin(warpProgress * Math.PI) * 0.9;
+          warpTunnel.rotation.z += delta * 3.8;
+          warpTunnel.position.set(targetLookAt.x, targetLookAt.y, targetCameraPos.z - 200);
+        }
+      } else {
+        warpTunnel.visible = false;
+      }
+
       // 6.7 Project 3D Coordinates to 2D Screen for HTML Billboard Labels
       if (frameCounter % 2 === 0) {
         const labels: ScreenLabel[] = [];
@@ -1391,6 +1570,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       thrusterConeGeo.dispose();
       reticleGeo.dispose();
       reticleMat.dispose();
+      hoverReticleGeo.dispose();
+      hoverReticleMat.dispose();
+      warpGeo.dispose();
+      warpMat.dispose();
     };
   }, []);
 

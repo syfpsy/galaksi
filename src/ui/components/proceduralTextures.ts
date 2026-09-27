@@ -431,3 +431,48 @@ export function getGalacticNebulaTexture(): THREE.CanvasTexture {
   textureCache.set('nebula_dust', texture);
   return texture;
 }
+
+/**
+ * Creates procedural nocturnal city lights emissive texture for colonized worlds.
+ * Scattered glowing golden/amber clusters simulating metropolitan surface illumination.
+ */
+export function getCityLightsTexture(colorHex: string = '#fde047'): THREE.CanvasTexture {
+  const cacheKey = `city_lights_${colorHex}`;
+  if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+
+  // Black background (no emissive light in oceans or uninhabited zones)
+  ctx.fillStyle = '#000000';
+  ctx.fillRect(0, 0, 512, 256);
+
+  // Metropolitan clusters on landmass zones
+  ctx.fillStyle = colorHex;
+  ctx.shadowColor = colorHex;
+  ctx.shadowBlur = 4;
+
+  for (let c = 0; c < 24; c++) {
+    const clusterX = (c * 31 + 45) % 512;
+    const clusterY = 50 + ((c * 47) % 150);
+    const numLights = 14 + (c % 12);
+
+    for (let l = 0; l < numLights; l++) {
+      const lx = clusterX + (Math.sin(l * 1.8 + c) * (8 + (l % 14)));
+      const ly = clusterY + (Math.cos(l * 1.8 + c) * (6 + (l % 10)));
+      const rad = 0.8 + Math.random() * 1.4;
+
+      ctx.beginPath();
+      ctx.arc(lx, ly, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  textureCache.set(cacheKey, texture);
+  return texture;
+}

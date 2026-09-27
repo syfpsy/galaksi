@@ -34,6 +34,7 @@ import {
 import { SelectedTarget } from '../types';
 import { GAME_CONSTANTS, SHIP_STATS } from '../../engine/constants';
 import { formatClockTime, formatDuration } from '../timeUtils';
+import { sound } from '../sound';
 
 interface CommandPanelProps {
   state: GameState;
@@ -837,6 +838,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
             }
             onClick={() => {
               if (targetSystem && activePlanet) {
+                sound.playLaunch();
                 onDispatchFleet(
                   targetSystem.id,
                   selectedTarget?.planetId,

@@ -237,6 +237,88 @@ class SoundSystem {
       osc.stop(now + 0.12);
     } catch {}
   }
+
+  private lastHoverTime: number = 0;
+
+  public playHover() {
+    if (this.isMuted) return;
+    const nowMs = Date.now();
+    if (nowMs - this.lastHoverTime < 140) return;
+    this.lastHoverTime = nowMs;
+
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(1400, now);
+      osc.frequency.exponentialRampToValueAtTime(1800, now + 0.025);
+
+      gain.gain.setValueAtTime(0.018, now);
+      gain.gain.exponentialRampToValueAtTime(0.0005, now + 0.025);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.025);
+    } catch {}
+  }
+
+  public playLaunch() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+
+      // 1. Low rumble ignition
+      const rumbleOsc = this.ctx.createOscillator();
+      const rumbleFilter = this.ctx.createBiquadFilter();
+      const rumbleGain = this.ctx.createGain();
+
+      rumbleOsc.type = 'sawtooth';
+      rumbleOsc.frequency.setValueAtTime(65, now);
+      rumbleOsc.frequency.exponentialRampToValueAtTime(140, now + 0.35);
+
+      rumbleFilter.type = 'lowpass';
+      rumbleFilter.frequency.setValueAtTime(180, now);
+      rumbleFilter.frequency.exponentialRampToValueAtTime(450, now + 0.35);
+
+      rumbleGain.gain.setValueAtTime(0.12, now);
+      rumbleGain.gain.exponentialRampToValueAtTime(0.001, now + 0.45);
+
+      rumbleOsc.connect(rumbleFilter);
+      rumbleFilter.connect(rumbleGain);
+      rumbleGain.connect(this.ctx.destination);
+
+      rumbleOsc.start(now);
+      rumbleOsc.stop(now + 0.45);
+
+      // 2. High plasma acceleration whoosh
+      const plasmaOsc = this.ctx.createOscillator();
+      const plasmaGain = this.ctx.createGain();
+
+      plasmaOsc.type = 'triangle';
+      plasmaOsc.frequency.setValueAtTime(260, now + 0.05);
+      plasmaOsc.frequency.exponentialRampToValueAtTime(780, now + 0.4);
+
+      plasmaGain.gain.setValueAtTime(0.001, now);
+      plasmaGain.gain.setValueAtTime(0.08, now + 0.05);
+      plasmaGain.gain.exponentialRampToValueAtTime(0.001, now + 0.42);
+
+      plasmaOsc.connect(plasmaGain);
+      plasmaGain.connect(this.ctx.destination);
+
+      plasmaOsc.start(now + 0.05);
+      plasmaOsc.stop(now + 0.42);
+    } catch {}
+  }
 }
 
 export const sound = new SoundSystem();
