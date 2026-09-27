@@ -228,6 +228,10 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
               onSelectSystem(sysId);
             }}
             onEnterSystemView={enterSystemView}
+            onExitSystemView={() => {
+              sound.playClick();
+              setViewMode('galaxy');
+            }}
             onSelectPlanet={onSelectPlanet}
             onSelectFleet={onSelectFleet}
           />
@@ -1393,60 +1397,67 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
           </button>
         </div>
 
-        {/* Galaxy / System Mode Switch Toggle */}
-        <div className="flex items-center gap-1.5 bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1.5 shadow-xl shadow-black/60">
-          <button
-            onClick={() => {
-              sound.playClick();
-              setViewMode('galaxy');
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
-              viewMode === 'galaxy'
-                ? 'bg-cyber-cyan text-space-950 shadow-sm shadow-cyan-400'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-            }`}
-          >
-            <Compass className="w-3.5 h-3.5" />
-            <span>Galaksi Kümesi</span>
-          </button>
-
-          <button
-            onClick={() => {
-              sound.playWarp();
-              setViewMode('system');
-            }}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all ${
-              viewMode === 'system'
-                ? 'bg-cyber-cyan text-space-950 shadow-sm shadow-cyan-400'
-                : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800'
-            }`}
-          >
-            <Orbit className="w-3.5 h-3.5" />
-            <span>Sistem Yörüngesi</span>
-          </button>
-        </div>
-
-        {/* System View Carousel Selector (When in System Mode) */}
-        {viewMode === 'system' && (
-          <div className="flex items-center justify-between bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1.5 shadow-xl">
+        {/* Stellaris Navigation Bar: Breadcrumb to Galaxy or Enter System */}
+        {viewMode === 'system' ? (
+          <div className="flex items-center gap-1.5">
             <button
-              onClick={() => cycleSystem('prev')}
-              className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800"
-              title="Önceki Sistem"
+              onClick={() => {
+                sound.playClick();
+                setViewMode('galaxy');
+              }}
+              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-space-900/95 border border-cyber-cyan/60 text-cyber-cyan hover:bg-cyber-cyan hover:text-space-950 transition-all font-mono font-bold text-xs shadow-lg shadow-cyan-950/40 group"
+              title="Galaksi Haritasına Dön (Esc veya M tuşu / Boşluğa Çift Tıkla)"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+              <span>Galaksi Haritası</span>
             </button>
 
-            <span className="text-xs font-bold font-display text-cyber-cyan px-2">
-              {activeSystem.name}
-            </span>
+            {/* System View Carousel Selector */}
+            <div className="flex items-center bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 shadow-xl">
+              <button
+                onClick={() => cycleSystem('prev')}
+                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800"
+                title="Önceki Sistem"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+
+              <span className="text-xs font-bold font-display text-cyber-cyan px-2">
+                {activeSystem.name}
+              </span>
+
+              <button
+                onClick={() => cycleSystem('next')}
+                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800"
+                title="Sonraki Sistem"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-center gap-1.5 bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1.5 shadow-xl shadow-black/60">
+            <button
+              onClick={() => {
+                sound.playClick();
+                setViewMode('galaxy');
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all bg-cyber-cyan text-space-950 shadow-sm shadow-cyan-400"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>Galaksi Kümesi</span>
+            </button>
 
             <button
-              onClick={() => cycleSystem('next')}
-              className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800"
-              title="Sonraki Sistem"
+              onClick={() => {
+                sound.playWarp();
+                enterSystemView(focusedSystemId);
+              }}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800 hover:text-cyber-cyan"
+              title={`${activeSystem.name} Sisteminin Yörünge Düzlemine Gir (Çift Tıklayarak da girebilirsiniz)`}
             >
-              <ChevronRight className="w-4 h-4" />
+              <Orbit className="w-3.5 h-3.5 text-cyber-cyan/70" />
+              <span>{activeSystem.name} Sistemine Gir</span>
             </button>
           </div>
         )}
@@ -1595,8 +1606,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
 
           <button
             onClick={() => {
-              sound.playWarp();
-              setViewMode('system');
+              enterSystemView(focusedSystemId);
             }}
             className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition-all ${
               viewMode === 'system'

@@ -283,6 +283,31 @@ Kullanıcının ağır tempolu ve dinamik astronomik yörünge mekaniği vizyonu
   - Filo gezegene vardığında gezegenin bulunacağı tam açı ($\theta_{\text{varış}}^\circ$) ve uçuş boyunca kat edeceği yörünge ilerlemesi oyuncuya gösterilir.
   - Ağır tempolu uzay stratejisinde hareketli gezegen hedeflerine yönelik gerçekçi astrodinamik planlama hissi pekiştirildi.
 
+---
+
+## [2026-09-27] — Faz I: Otantik Stellaris İki Kademeli (Two-Tier) Harita Mimarisi
+
+Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir üst haritaya (galaxy map) geçip oradaki sistemleri ve birbirlerine nasıl bağlandıklarını görmeliyiz, stellaris gibi yani"* direktifi doğrultusunda harita mimarisi iki bağımsız ve birbirine bağlı kademeye ayrıldı:
+
+### 1. İzole Sistem Görünümü (System View — Micro)
+- **Görsel İzolasyon:** Sistem moduna geçildiğinde (`viewMode === 'system'`), makro galaksi katmanı (`galaxyMacroGroup`) tamamen gizlenir. Diğer sistemler, makro hiperhatlar ve sektör halkaları görüşten kaldırılır.
+- **Merkezi Yıldız ve Keplerian Yörüngeler:** Odaklanılan sistem (500, 400) merkezine yerleştirilir. Merkezde 360° termal plazma konveksiyonuna sahip yıldız (`getSunTexture` veya mor Nexus çekirdeği), çevresinde gerçek zamanlı dönen yüksek detaylı gezegenler, bulut katmanları, uydular ve yörünge istasyonları yer alır.
+- **Çevre Hiperhat Atlama Kapıları (Perimeter Jump Gates — $r=380$):**
+  - Sistem dış sınırında, hiperhatla bağlı komşu sistemlerin galaktik açılarına yönelik 3D atlama şamandıraları (`buoy`) ve dışa dönük yönlendirme okları (`➔ Rigel`, `➔ Sol`) yer alır.
+  - Bir atlama şamandırasına tıklandığında veya çift tıklandığında warp efektiyle anında o komşu sistemin yörünge görünümüne atlanır.
+
+### 2. Üst Galaksi Haritası (Galaxy Map — Macro)
+- **Tüm Sektör Görünümü:** 12 yıldız sistemi, aralarındaki hiperhat tüpleri ve enerji darbeleri (`LanePulse`), filolar, dönen spiral kollar ve sektör sınırları görünür.
+- **Sisteme Giriş:** Herhangi bir yıldıza çift tıklandığında veya sol üst/alt bardaki `[🪐 Sisteme Gir]` butonuna tıklandığında doğrudan o sistemin izole yörünge görünümüne dalınır.
+
+### 3. Hızlı ve Sezgisel Navigasyon Deneyimi
+- **Ekmek Kırıntısı (Breadcrumb):** Sistem görünümündeyken sol üst köşede belirgin ve parlayan `[⬅ Galaksi Haritası (Esc / M)]` butonu yer alır.
+- **Sistem Döngüsü:** Sistem görünümünde galaksiye dönmeden sistemler arasında gezebilmek için sol üstte `[◀ Önceki]` `{Sistem Adı}` `[Sonraki ▶]` döngü kontrolü sunulur.
+- **Boş Uzaya Çift Tıklama:** Sistem görünümünde herhangi bir nesneye tıklanmadan boş uzay boşluğuna çift tıklandığında Stellaris'teki gibi doğrudan galaksi haritasına çıkılır.
+- **Tekerlek Zoom Eşiği:** Sistem görünümünde fare tekeriyle dışarı zoom yapıldığında eşik ($z > 380$) aşıldığında pürüzsüzce galaksi haritasına dönülür.
+- **Klavye Kısayolları (Hotkeys):** `Esc` veya `M` tuşlarına basıldığında iki harita kademesi arasında anında geçiş yapılır.
+
+
 
 
 

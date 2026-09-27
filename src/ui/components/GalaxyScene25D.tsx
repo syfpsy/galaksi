@@ -33,18 +33,20 @@ interface GalaxyScene25DProps {
   sensorCoverage: Set<string>;
   onSelectSystem: (systemId: string) => void;
   onEnterSystemView?: (systemId: string) => void;
+  onExitSystemView?: () => void;
   onSelectPlanet?: (systemId: string, planetId: string) => void;
   onSelectFleet: (fleetId: string) => void;
 }
 
 interface ScreenLabel {
   id: string;
-  type: 'system' | 'planet';
+  type: 'system' | 'planet' | 'jump_gate' | 'star';
   title: string;
   subtitle?: string;
   color: string;
   systemId: string;
   planetId?: string;
+  targetSystemId?: string;
   x: number;
   y: number;
   visible: boolean;
@@ -63,13 +65,14 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   sensorCoverage,
   onSelectSystem,
   onEnterSystemView,
+  onExitSystemView,
   onSelectPlanet,
   onSelectFleet,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hudLabels, setHudLabels] = useState<ScreenLabel[]>([]);
 
-  // Live references for requestAnimationFrame render loop
+  // Live references for animation loop
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -94,16 +97,26 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   const sensorCoverageRef = useRef(sensorCoverage);
   sensorCoverageRef.current = sensorCoverage;
 
-  const zoomRef = useRef(zoom);
-  zoomRef.current = zoom;
-
-  // Track external zoom prop changes from HUD buttons (+ / - / 100%)
-  const targetCameraPosRef = useRef<THREE.Vector3>(new THREE.Vector3(500, 120, 750));
+  const targetCameraPosRef = useRef<THREE.Vector3>(
+    viewMode === 'system' ? new THREE.Vector3(500, 240, 260) : new THREE.Vector3(500, 120, 750)
+  );
   const targetLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3(500, 400, 0));
 
+  // Sync camera when viewMode changes externally
   useEffect(() => {
-    // When external HUD zoom prop changes, sync camera distance
-    const desiredZ = Math.max(45, Math.min(1350, 750 / (zoom || 1)));
+    if (viewMode === 'system') {
+      targetCameraPosRef.current.set(500, 240, 260);
+      targetLookAtRef.current.set(500, 400, 0);
+    } else {
+      targetCameraPosRef.current.set(500, 120, 750);
+      targetLookAtRef.current.set(500, 400, 0);
+    }
+  }, [viewMode]);
+
+  // Sync camera when zoom prop changes from external HUD buttons (+ / - / 100%)
+  useEffect(() => {
+    const baseZ = viewModeRef.current === 'system' ? 260 : 750;
+    const desiredZ = Math.max(45, Math.min(1350, baseZ / (zoom || 1)));
     targetCameraPosRef.current.z = desiredZ;
   }, [zoom]);
 
@@ -141,12 +154,44 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     const ambientLight = new THREE.AmbientLight(0x38bdf8, 0.45);
     scene.add(ambientLight);
 
+    // Deep Cosmic Starfield (Shared celestial backdrop)
+    const starCount = 1400;
+    const starGeo = new THREE.BufferGeometry();
+    const starPositions = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount; i++) {
+      starPositions[i * 3] = (Math.random() - 0.5) * 2600 + 500;
+      starPositions[i * 3 + 1] = (Math.random() - 0.5) * 2200 + 400;
+      starPositions[i * 3 + 2] = -80 - Math.random() * 500;
+
+      const shade = 0.5 + Math.random() * 0.5;
+      starColors[i * 3] = shade * (0.8 + Math.random() * 0.2);
+      starColors[i * 3 + 1] = shade * 0.9;
+      starColors[i * 3 + 2] = shade;
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+
+    const starMat = new THREE.PointsMaterial({
+      size: 2.4,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.85,
+    });
+    const starField = new THREE.Points(starGeo, starMat);
+    scene.add(starField);
+
     // =========================================================================
-    // 2. Macro Galaxy Layer: Spiral Arms & Cosmic Dust Cloud
+    // 2. MACRO GALAXY GROUP (Visible ONLY in Galaxy Map Mode)
     // =========================================================================
+    const galaxyMacroGroup = new THREE.Group();
+    scene.add(galaxyMacroGroup);
+
+    // 2.1 Rotating Galactic Spiral Arms
     const spiralGroup = new THREE.Group();
     spiralGroup.position.set(500, 400, -25);
-    scene.add(spiralGroup);
+    galaxyMacroGroup.add(spiralGroup);
 
     const spiralParticleCount = 900;
     const spiralGeo = new THREE.BufferGeometry();
@@ -197,9 +242,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     const spiralPoints = new THREE.Points(spiralGeo, spiralMat);
     spiralGroup.add(spiralPoints);
 
-    // Sector Boundary Rings
+    // 2.2 Sector Constellation Boundary Rings
     const boundaryGroup = new THREE.Group();
-    scene.add(boundaryGroup);
+    galaxyMacroGroup.add(boundaryGroup);
 
     const createSectorRing = (radius: number, color: number, opacity: number) => {
       const ringPts: THREE.Vector3[] = [];
@@ -224,39 +269,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     boundaryGroup.add(createSectorRing(265, 0x38bdf8, 0.16));
     boundaryGroup.add(createSectorRing(410, 0x64748b, 0.12));
 
-    // =========================================================================
-    // 3. Background Deep Starfield
-    // =========================================================================
-    const starCount = 1400;
-    const starGeo = new THREE.BufferGeometry();
-    const starPositions = new Float32Array(starCount * 3);
-    const starColors = new Float32Array(starCount * 3);
-
-    for (let i = 0; i < starCount; i++) {
-      starPositions[i * 3] = (Math.random() - 0.5) * 2600 + 500;
-      starPositions[i * 3 + 1] = (Math.random() - 0.5) * 2200 + 400;
-      starPositions[i * 3 + 2] = -80 - Math.random() * 500;
-
-      const shade = 0.5 + Math.random() * 0.5;
-      starColors[i * 3] = shade * (0.8 + Math.random() * 0.2);
-      starColors[i * 3 + 1] = shade * 0.9;
-      starColors[i * 3 + 2] = shade;
-    }
-    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
-    starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
-
-    const starMat = new THREE.PointsMaterial({
-      size: 2.4,
-      vertexColors: true,
-      transparent: true,
-      opacity: 0.85,
-    });
-    const starField = new THREE.Points(starGeo, starMat);
-    scene.add(starField);
-
-    // =========================================================================
-    // 4. Star Systems, Incandescent Suns & Circular Corona Flares
-    // =========================================================================
+    // 2.3 Macro Star Systems & Coronas
     const starMeshes = new Map<string, { group: THREE.Group; mesh: THREE.Mesh; light: THREE.PointLight; corona: THREE.Sprite }>();
     const systemPositions = new Map<string, THREE.Vector3>();
 
@@ -272,7 +285,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const starColor = isRelay ? 0xa855f7 : idx % 3 === 0 ? 0xf59e0b : idx % 3 === 1 ? 0x06b6d4 : 0xef4444;
       const starRadius = isRelay ? 18 : 13;
 
-      // 4.1 Star Core Sphere: Incandescent glowing solar plasma across 360 degrees (No black sides!)
+      // Solar Sphere Core
       const starSphereGeo = new THREE.SphereGeometry(starRadius, 32, 32);
       const starSphereMat = new THREE.MeshBasicMaterial({
         map: getSunTexture(starColorHex),
@@ -281,12 +294,12 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       (starMesh as any).userData = { type: 'system', systemId: sys.id };
       group.add(starMesh);
 
-      // 4.2 Dedicated Physical Point Light illuminating planets & ships
+      // Dedicated Point Light
       const pointLight = new THREE.PointLight(starColor, isRelay ? 3.0 : 2.2, 850);
       pointLight.position.set(0, 0, 12);
       group.add(pointLight);
 
-      // 4.3 Corona Halo Flare Sprite: Guaranteed smooth radial glow with ZERO square clipping!
+      // Smooth Radial Corona Flare Sprite
       const coronaTexture = getStarCoronaGlowTexture(starColorHex);
       const coronaSpriteMat = new THREE.SpriteMaterial({
         map: coronaTexture,
@@ -299,7 +312,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       coronaSprite.scale.set(starRadius * 5.0, starRadius * 5.0, 1);
       group.add(coronaSprite);
 
-      // 4.4 Clean Tactical System Boundary Line
+      // Tactical System Boundary Ring
       const ringPts: THREE.Vector3[] = [];
       const ringSegments = 64;
       const territoryRadius = starRadius * 3.2;
@@ -323,15 +336,13 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const territoryLine = new THREE.Line(territoryGeo, territoryMat);
       group.add(territoryLine);
 
-      scene.add(group);
+      galaxyMacroGroup.add(group);
       starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight, corona: coronaSprite });
     });
 
-    // =========================================================================
-    // 5. Sleek Subspace Hyperlanes (Clean lines, zero clutter)
-    // =========================================================================
+    // 2.4 Macro Subspace Hyperlanes
     const hyperlaneGroup = new THREE.Group();
-    scene.add(hyperlaneGroup);
+    galaxyMacroGroup.add(hyperlaneGroup);
 
     interface LanePulse {
       from: THREE.Vector3;
@@ -382,11 +393,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }
     });
 
-    // =========================================================================
-    // 6. Fleets Layer (3D Ships with Plasma Thruster Cones & Engine Glow)
-    // =========================================================================
-    const fleetGroup = new THREE.Group();
-    scene.add(fleetGroup);
+    // 2.5 Macro Fleets in Transit
+    const macroFleetsGroup = new THREE.Group();
+    galaxyMacroGroup.add(macroFleetsGroup);
 
     const shipHullGeo = new THREE.ConeGeometry(3.5, 9, 3);
     shipHullGeo.rotateX(Math.PI / 2);
@@ -441,7 +450,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       glowSprite.scale.set(8, 8, 1);
       group.add(glowSprite);
 
-      fleetGroup.add(group);
+      macroFleetsGroup.add(group);
 
       const fv: FleetVisual = { group, hullMesh, thrusterMesh, glowSprite, fleetId: fleet.id };
       fleetVisuals.set(fleet.id, fv);
@@ -449,10 +458,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     };
 
     // =========================================================================
-    // 7. Dynamic Planetary Orrery (High-Detail 3D Planets, Moons & Warp Gates)
+    // 3. MICRO SYSTEM ORRERY GROUP (Visible ONLY in System View Mode)
     // =========================================================================
-    const orreryGroup = new THREE.Group();
-    scene.add(orreryGroup);
+    // Centered at (500, 400, 0) - Only this single system exists in this view!
+    const systemOrreryGroup = new THREE.Group();
+    scene.add(systemOrreryGroup);
 
     interface PlanetVisualObjects {
       systemId: string;
@@ -468,21 +478,61 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         stationMesh?: THREE.Mesh;
         ghostMeshes: THREE.Mesh[];
       }[];
-      warpBuoys: THREE.Sprite[];
+      warpBuoys: {
+        sprite: THREE.Sprite;
+        targetSystemId: string;
+        targetSystemName: string;
+        position: THREE.Vector3;
+      }[];
     }
     let currentOrrery: PlanetVisualObjects | null = null;
 
     const buildOrreryForSystem = (system: StarSystem) => {
-      while (orreryGroup.children.length > 0) {
-        const obj = orreryGroup.children[0];
-        orreryGroup.remove(obj);
+      // Clear previous orrery elements
+      while (systemOrreryGroup.children.length > 0) {
+        const obj = systemOrreryGroup.children[0];
+        systemOrreryGroup.remove(obj);
       }
 
       const orbitLines: THREE.Line[] = [];
       const planetMeshes: PlanetVisualObjects['planetMeshes'] = [];
-      const warpBuoys: THREE.Sprite[] = [];
+      const warpBuoys: PlanetVisualObjects['warpBuoys'] = [];
 
-      // Jump Gate Warp Buoys positioned at the outer perimeter of this system
+      const isRelay = system.hasRelay;
+      const sysIdx = Object.keys(stateRef.current.map.systems).indexOf(system.id);
+      const starColorHex = isRelay ? '#c084fc' : sysIdx % 3 === 0 ? '#f59e0b' : sysIdx % 3 === 1 ? '#06b6d4' : '#ef4444';
+      const starColor = isRelay ? 0xa855f7 : sysIdx % 3 === 0 ? 0xf59e0b : sysIdx % 3 === 1 ? 0x06b6d4 : 0xef4444;
+      const centralStarRadius = isRelay ? 26 : 20;
+
+      // 3.1 Central Star Core Sphere
+      const starGeo = new THREE.SphereGeometry(centralStarRadius, 36, 36);
+      const starMat = new THREE.MeshBasicMaterial({
+        map: getSunTexture(starColorHex),
+      });
+      const centralStarMesh = new THREE.Mesh(starGeo, starMat);
+      centralStarMesh.position.set(500, 400, 0);
+      (centralStarMesh as any).userData = { type: 'star', systemId: system.id };
+      systemOrreryGroup.add(centralStarMesh);
+
+      // Central Star Physical Point Light
+      const centralLight = new THREE.PointLight(starColor, 3.2, 950);
+      centralLight.position.set(500, 400, 16);
+      systemOrreryGroup.add(centralLight);
+
+      // Central Star Corona Flare Sprite
+      const coronaSpriteMat = new THREE.SpriteMaterial({
+        map: getStarCoronaGlowTexture(starColorHex),
+        transparent: true,
+        opacity: 0.9,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const centralCorona = new THREE.Sprite(coronaSpriteMat);
+      centralCorona.position.set(500, 400, 1);
+      centralCorona.scale.set(centralStarRadius * 5.5, centralStarRadius * 5.5, 1);
+      systemOrreryGroup.add(centralCorona);
+
+      // 3.2 Hyperlane Jump Gates at the outer boundary of this system (Radius ~ 340)
       const connectedLanes = stateRef.current.map.lanes.filter(
         (l) => l.fromSystemId === system.id || l.toSystemId === system.id
       );
@@ -500,26 +550,63 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         const otherSys = stateRef.current.map.systems[otherSysId];
         if (!otherSys) return;
 
-        const dir = new THREE.Vector3(otherSys.x - system.x, otherSys.y - system.y, 0).normalize();
-        const buoyDist = 220;
+        // Calculate direction vector toward the connected system in the galaxy
+        const angle = Math.atan2(otherSys.y - system.y, otherSys.x - system.x);
+        const buoyDist = 380;
 
+        const bx = 500 + Math.cos(angle) * buoyDist;
+        const by = 400 + Math.sin(angle) * buoyDist * 0.85;
+        const buoyPos = new THREE.Vector3(bx, by, 4);
+
+        // Direction arrow pointing outwards
+        const arrowPoints = [
+          buoyPos.clone(),
+          new THREE.Vector3(
+            bx + Math.cos(angle) * 32,
+            by + Math.sin(angle) * 32 * 0.85,
+            4
+          ),
+        ];
+        const arrowGeo = new THREE.BufferGeometry().setFromPoints(arrowPoints);
+        const arrowMat = new THREE.LineBasicMaterial({
+          color: 0x00f3ff,
+          linewidth: 1.5,
+          transparent: true,
+          opacity: 0.7,
+        });
+        const arrowLine = new THREE.Line(arrowGeo, arrowMat);
+        systemOrreryGroup.add(arrowLine);
+
+        // Jump Gate Portal Sprite
         const buoy = new THREE.Sprite(warpSpriteMat);
-        buoy.position.set(system.x + dir.x * buoyDist, system.y + dir.y * buoyDist * 0.85, 4);
-        buoy.scale.set(16, 16, 1);
-        orreryGroup.add(buoy);
-        warpBuoys.push(buoy);
+        buoy.position.copy(buoyPos);
+        buoy.scale.set(22, 22, 1);
+        (buoy as any).userData = {
+          type: 'jump_gate',
+          targetSystemId: otherSys.id,
+          targetSystemName: otherSys.name,
+        };
+        systemOrreryGroup.add(buoy);
+
+        warpBuoys.push({
+          sprite: buoy,
+          targetSystemId: otherSys.id,
+          targetSystemName: otherSys.name,
+          position: buoyPos,
+        });
       });
 
-      // Planets & Orbits
+      // 3.3 Orbit Lines & High-Detail Planets
       system.slots.forEach((slot) => {
         const orbit = calculatePlanetOrbit(system.id, slot.slotIndex, slot.planetId, stateRef.current.timeMs);
 
+        // 1. Orbit Loop Line (centered at 500, 400)
         const orbitPoints: THREE.Vector3[] = [];
         const segments = 64;
         for (let s = 0; s <= segments; s++) {
           const theta = (s / segments) * Math.PI * 2;
-          const ox = system.x + Math.cos(theta) * orbit.orbitalRadius;
-          const oy = system.y + Math.sin(theta) * orbit.orbitalRadius * 0.85;
+          const ox = 500 + Math.cos(theta) * orbit.orbitalRadius;
+          const oy = 400 + Math.sin(theta) * orbit.orbitalRadius * 0.85;
           orbitPoints.push(new THREE.Vector3(ox, oy, 0));
         }
 
@@ -531,10 +618,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           depthWrite: false,
         });
         const orbitLine = new THREE.Line(orbitGeo, orbitMat);
-        orreryGroup.add(orbitLine);
+        systemOrreryGroup.add(orbitLine);
         orbitLines.push(orbitLine);
 
-        const planetRadius = 7 + (slot.size % 4);
+        // 2. Planet Sphere Mesh
+        const planetRadius = 8 + (slot.size % 4);
         const planetGeo = new THREE.SphereGeometry(planetRadius, 28, 28);
 
         let planetTexture = getTerranTexture();
@@ -564,8 +652,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           systemId: system.id,
           planetId: slot.planetId,
         };
-        orreryGroup.add(planetMesh);
+        systemOrreryGroup.add(planetMesh);
 
+        // 3. Atmospheric Halo Glow Sprite
         const atmoMat = new THREE.SpriteMaterial({
           map: getAtmosphereTexture(atmoColor),
           transparent: true,
@@ -575,8 +664,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         });
         const atmoSprite = new THREE.Sprite(atmoMat);
         atmoSprite.scale.set(planetRadius * 2.8, planetRadius * 2.8, 1);
-        orreryGroup.add(atmoSprite);
+        systemOrreryGroup.add(atmoSprite);
 
+        // 4. Clouds (Terran / Ocean worlds)
         let cloudMesh: THREE.Mesh | undefined;
         if (slot.type === 'terran' || slot.type === 'ocean') {
           const cloudGeo = new THREE.SphereGeometry(planetRadius * 1.03, 24, 24);
@@ -587,9 +677,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             depthWrite: false,
           });
           cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
-          orreryGroup.add(cloudMesh);
+          systemOrreryGroup.add(cloudMesh);
         }
 
+        // 5. Planetary Rings (Desert / Gas worlds)
         let ringMesh: THREE.Mesh | undefined;
         if (slot.type === 'desert') {
           const ringGeo = new THREE.RingGeometry(planetRadius * 1.4, planetRadius * 2.2, 36);
@@ -601,9 +692,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           });
           ringMesh = new THREE.Mesh(ringGeo, ringMat);
           ringMesh.rotation.x = Math.PI / 3;
-          orreryGroup.add(ringMesh);
+          systemOrreryGroup.add(ringMesh);
         }
 
+        // 6. Natural Planetary Moonlet
         let moonMesh: THREE.Mesh | undefined;
         if (slot.slotIndex === 1 || slot.type === 'terran') {
           const moonGeo = new THREE.SphereGeometry(planetRadius * 0.28, 16, 16);
@@ -612,9 +704,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             roughness: 0.8,
           });
           moonMesh = new THREE.Mesh(moonGeo, moonMat);
-          orreryGroup.add(moonMesh);
+          systemOrreryGroup.add(moonMesh);
         }
 
+        // 7. Orbital Defense Station / Starbase
         let stationMesh: THREE.Mesh | undefined;
         const planetObj = stateRef.current.planets[slot.planetId];
         if (planetObj && planetObj.ownerId) {
@@ -625,9 +718,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             roughness: 0.2,
           });
           stationMesh = new THREE.Mesh(stationGeo, stationMat);
-          orreryGroup.add(stationMesh);
+          systemOrreryGroup.add(stationMesh);
         }
 
+        // 8. Future Forecast Projection Wireframes
         const ghostMeshes: THREE.Mesh[] = [];
         const ghostGeo = new THREE.SphereGeometry(planetRadius * 0.6, 12, 12);
         const ghostMat = new THREE.MeshBasicMaterial({
@@ -639,7 +733,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
         for (let g = 0; g < 3; g++) {
           const gm = new THREE.Mesh(ghostGeo, ghostMat);
-          orreryGroup.add(gm);
+          systemOrreryGroup.add(gm);
           ghostMeshes.push(gm);
         }
 
@@ -665,7 +759,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     };
 
     // =========================================================================
-    // 8. 3D Selection Reticle (High-Tech Rotating Cyan Targeting Bracket)
+    // 4. 3D Selection Reticle
     // =========================================================================
     const reticleGeo = new THREE.RingGeometry(22, 25, 32);
     const reticleMat = new THREE.MeshBasicMaterial({
@@ -681,7 +775,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     scene.add(reticleMesh);
 
     // =========================================================================
-    // 9. Interactive Mouse Controls (Pan, Deep Zoom & Click-Drag Guard)
+    // 5. Interactive Mouse Controls
     // =========================================================================
     let isDragging = false;
     let hasDragged = false;
@@ -713,7 +807,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         hasDragged = true;
       }
 
-      // Consistent, unskewed isometric pan
       const panFactor = targetCameraPos.z / 950;
       targetLookAt.x -= deltaX * panFactor;
       targetLookAt.y += deltaY * panFactor;
@@ -730,16 +823,25 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const zoomFactor = targetCameraPos.z < 250 ? 0.45 : 0.85;
       const zoomDelta = e.deltaY * zoomFactor;
 
-      targetCameraPos.z = Math.max(45, Math.min(1350, targetCameraPos.z + zoomDelta));
+      // In System View, if zooming out past threshold, seamlessly offer return to Galaxy Map
+      if (viewModeRef.current === 'system' && targetCameraPos.z > 380 && zoomDelta > 0 && onExitSystemView) {
+        onExitSystemView();
+        return;
+      }
+
+      const minZ = viewModeRef.current === 'system' ? 45 : 450;
+      const maxZ = viewModeRef.current === 'system' ? 420 : 1350;
+
+      targetCameraPos.z = Math.max(minZ, Math.min(maxZ, targetCameraPos.z + zoomDelta));
 
       if (onZoomChange) {
-        const computedZoom = +(750 / targetCameraPos.z).toFixed(2);
+        const baseZ = viewModeRef.current === 'system' ? 260 : 750;
+        const computedZoom = +(baseZ / targetCameraPos.z).toFixed(2);
         onZoomChange(computedZoom);
       }
     };
 
     const onClick = (e: MouseEvent) => {
-      // Guard: Ignore click event if the user was dragging/panning the map!
       if (hasDragged) {
         hasDragged = false;
         return;
@@ -755,6 +857,12 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       for (const hit of intersects) {
         const udata = (hit.object as any).userData;
         if (udata) {
+          if (udata.type === 'jump_gate') {
+            sound.playWarp();
+            if (onEnterSystemView) onEnterSystemView(udata.targetSystemId);
+            else onSelectSystem(udata.targetSystemId);
+            return;
+          }
           if (udata.type === 'fleet') {
             sound.playClick();
             onSelectFleet(udata.fleetId);
@@ -792,17 +900,18 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       for (const hit of intersects) {
         const udata = (hit.object as any).userData;
         if (udata) {
+          if (udata.type === 'jump_gate') {
+            sound.playWarp();
+            if (onEnterSystemView) onEnterSystemView(udata.targetSystemId);
+            else onSelectSystem(udata.targetSystemId);
+            return;
+          }
           if (udata.type === 'system') {
             sound.playWarp();
             if (onEnterSystemView) {
               onEnterSystemView(udata.systemId);
             } else {
               onSelectSystem(udata.systemId);
-            }
-            const sys = stateRef.current.map.systems[udata.systemId];
-            if (sys) {
-              targetLookAt.set(sys.x, sys.y, 0);
-              targetCameraPos.set(sys.x, sys.y - 120, 220);
             }
             return;
           }
@@ -811,10 +920,27 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             if (onSelectPlanet) {
               onSelectPlanet(udata.systemId, udata.planetId);
             }
-            targetLookAt.set(hit.point.x, hit.point.y, hit.point.z);
-            targetCameraPos.set(hit.point.x, hit.point.y - 45, 65);
             return;
           }
+        }
+      }
+
+      // If in system mode and double clicked on empty space (no hit), zoom back out to galaxy view
+      if (viewModeRef.current === 'system' && onExitSystemView) {
+        sound.playClick();
+        onExitSystemView();
+      }
+    };
+
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.key === 'Escape' || e.key.toLowerCase() === 'm') {
+        if (viewModeRef.current === 'system' && onExitSystemView) {
+          sound.playClick();
+          onExitSystemView();
+        } else if (viewModeRef.current === 'galaxy' && onEnterSystemView) {
+          sound.playWarp();
+          onEnterSystemView(focusedSystemIdRef.current);
         }
       }
     };
@@ -825,6 +951,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     container.addEventListener('wheel', onWheel, { passive: false });
     container.addEventListener('click', onClick);
     container.addEventListener('dblclick', onDoubleClick);
+    window.addEventListener('keydown', onKeyDown);
 
     const onResize = () => {
       if (!container) return;
@@ -837,7 +964,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     window.addEventListener('resize', onResize);
 
     // =========================================================================
-    // 10. Main Animation & 60 FPS Render Loop
+    // 6. Main 60 FPS Animation & Render Loop
     // =========================================================================
     let animationFrameId: number;
     let clock = new THREE.Clock();
@@ -850,172 +977,168 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const currentTimeMs = stateRef.current.timeMs;
       frameCounter++;
 
-      // 10.1 Camera Positioning & Smooth Tracking (Parallel to isometric plane, no horizontal skew)
-      if (viewModeRef.current === 'system') {
-        const focusedSys = stateRef.current.map.systems[focusedSystemIdRef.current];
-        if (focusedSys) {
-          targetLookAt.lerp(new THREE.Vector3(focusedSys.x, focusedSys.y, 0), 0.08);
-        }
+      const isSystemMode = viewModeRef.current === 'system';
+
+      // 6.1 Two-Tier Visibility Switch (Stellaris Style)
+      galaxyMacroGroup.visible = !isSystemMode;
+      systemOrreryGroup.visible = isSystemMode;
+
+      // 6.2 Camera Positioning
+      if (isSystemMode) {
+        targetLookAt.set(500, 400, 0);
         targetCameraPos.x = targetLookAt.x;
-        targetCameraPos.y = targetLookAt.y - Math.min(200, targetCameraPos.z * 0.55);
+        targetCameraPos.y = targetLookAt.y - Math.min(220, targetCameraPos.z * 0.55);
       } else {
+        targetLookAt.set(500, 400, 0);
         targetCameraPos.x = targetLookAt.x;
-        targetCameraPos.y = targetLookAt.y - Math.min(260, targetCameraPos.z * 0.5);
+        targetCameraPos.y = targetLookAt.y - Math.min(280, targetCameraPos.z * 0.5);
       }
 
       camera.position.lerp(targetCameraPos, 0.08);
       camera.lookAt(targetLookAt);
 
-      // 10.2 Cosmic Rotation: Galactic Spiral Arms & Distant Starfield
+      // 6.3 Cosmic Background Motion
       spiralGroup.rotation.z += 0.00018;
       starField.rotation.z += 0.00008;
 
-      // 10.3 Fog of War Dimming on Unmonitored Star Systems
       const currentCoverage = sensorCoverageRef.current;
       const isGodMode = godModeRef.current;
 
-      starMeshes.forEach(({ group, light, corona }, sysId) => {
-        const isVisible = isGodMode || currentCoverage.has(sysId);
-        light.intensity = isVisible ? 2.5 : 0.6;
-        corona.material.opacity = isVisible ? 0.88 : 0.3;
-      });
+      // 6.4 If in Galaxy Macro Mode: Update macro star lights, pulses, and fleets
+      if (!isSystemMode) {
+        starMeshes.forEach(({ group, light, corona }, sysId) => {
+          const isVisible = isGodMode || currentCoverage.has(sysId);
+          light.intensity = isVisible ? 2.5 : 0.6;
+          corona.material.opacity = isVisible ? 0.88 : 0.3;
+        });
 
-      // 10.4 Flowing Subspace Energy Pulses along Hyperlanes
-      lanePulses.forEach((pulse) => {
-        pulse.progress += delta * pulse.speed;
-        if (pulse.progress > 1) pulse.progress = 0;
+        lanePulses.forEach((pulse) => {
+          pulse.progress += delta * pulse.speed;
+          if (pulse.progress > 1) pulse.progress = 0;
+          pulse.sprite.position.lerpVectors(pulse.from, pulse.to, pulse.progress);
+          pulse.sprite.position.z = 2;
+        });
 
-        pulse.sprite.position.lerpVectors(pulse.from, pulse.to, pulse.progress);
-        pulse.sprite.position.z = 2;
-      });
+        const activeFleets = Object.values(stateRef.current.fleets);
+        const activeFleetIds = new Set<string>();
 
-      // 10.5 Dynamic 3D Fleets along Hyperlanes & Planetary Orbits
-      const activeFleets = Object.values(stateRef.current.fleets);
-      const activeFleetIds = new Set<string>();
+        activeFleets.forEach((fleet) => {
+          const isOwn = fleet.ownerId === activePlayerIdRef.current;
+          const isVisible =
+            isGodMode ||
+            isOwn ||
+            currentCoverage.has(fleet.originSystemId) ||
+            currentCoverage.has(fleet.targetSystemId);
 
-      activeFleets.forEach((fleet) => {
-        const isOwn = fleet.ownerId === activePlayerIdRef.current;
-        const isVisible =
-          isGodMode ||
-          isOwn ||
-          currentCoverage.has(fleet.originSystemId) ||
-          currentCoverage.has(fleet.targetSystemId);
+          if (!isVisible) return;
+          activeFleetIds.add(fleet.id);
 
-        if (!isVisible) return;
-        activeFleetIds.add(fleet.id);
+          const visual = getOrCreateFleetVisual(fleet, isOwn);
+          const pos = getFleetCurrentPosition(fleet, currentTimeMs, stateRef.current.map.systems);
 
-        const visual = getOrCreateFleetVisual(fleet, isOwn);
-        const pos = getFleetCurrentPosition(fleet, currentTimeMs, stateRef.current.map.systems);
+          visual.group.position.set(pos.x, pos.y, 8);
 
-        visual.group.position.set(pos.x, pos.y, 8);
-
-        if (fleet.status === 'in_transit' || fleet.status === 'returning' || fleet.status === 'intercepting') {
-          const originSys = stateRef.current.map.systems[fleet.originSystemId];
-          const targetSys = stateRef.current.map.systems[fleet.targetSystemId];
-          if (originSys && targetSys) {
-            const dx = targetSys.x - originSys.x;
-            const dy = targetSys.y - originSys.y;
-            visual.group.rotation.z = Math.atan2(dy, dx) - Math.PI / 2;
+          if (fleet.status === 'in_transit' || fleet.status === 'returning' || fleet.status === 'intercepting') {
+            const originSys = stateRef.current.map.systems[fleet.originSystemId];
+            const targetSys = stateRef.current.map.systems[fleet.targetSystemId];
+            if (originSys && targetSys) {
+              const dx = targetSys.x - originSys.x;
+              const dy = targetSys.y - originSys.y;
+              visual.group.rotation.z = Math.atan2(dy, dx) - Math.PI / 2;
+            }
+            const pulseScale = 1.0 + Math.sin(currentTimeMs * 0.015) * 0.25;
+            visual.thrusterMesh.scale.set(pulseScale, pulseScale, pulseScale);
+            visual.glowSprite.scale.set(8 * pulseScale, 8 * pulseScale, 1);
+          } else {
+            visual.group.rotation.z += delta * 0.5;
+            visual.thrusterMesh.scale.set(0.6, 0.6, 0.6);
           }
-          const pulseScale = 1.0 + Math.sin(currentTimeMs * 0.015) * 0.25;
-          visual.thrusterMesh.scale.set(pulseScale, pulseScale, pulseScale);
-          visual.glowSprite.scale.set(8 * pulseScale, 8 * pulseScale, 1);
-        } else {
-          visual.group.rotation.z += delta * 0.5;
-          visual.thrusterMesh.scale.set(0.6, 0.6, 0.6);
-        }
-      });
+        });
 
-      fleetVisuals.forEach((visual, fleetId) => {
-        if (!activeFleetIds.has(fleetId)) {
-          fleetGroup.remove(visual.group);
-          fleetVisuals.delete(fleetId);
-        }
-      });
+        fleetVisuals.forEach((visual, fleetId) => {
+          if (!activeFleetIds.has(fleetId)) {
+            macroFleetsGroup.remove(visual.group);
+            fleetVisuals.delete(fleetId);
+          }
+        });
+      }
 
-      // 10.6 Planetary Orrery Update (Zero GC Allocation per frame)
-      const activeSysId = focusedSystemIdRef.current;
-      const currentSystem = stateRef.current.map.systems[activeSysId];
+      // 6.5 If in System View Mode: Update isolated planetary orbits & jump gates
+      if (isSystemMode) {
+        const activeSysId = focusedSystemIdRef.current;
+        const currentSystem = stateRef.current.map.systems[activeSysId];
 
-      if (currentSystem && (viewModeRef.current === 'system' || camera.position.z < 480)) {
-        if (!currentOrrery || currentOrrery.systemId !== currentSystem.id) {
-          buildOrreryForSystem(currentSystem);
-        }
+        if (currentSystem) {
+          if (!currentOrrery || currentOrrery.systemId !== currentSystem.id) {
+            buildOrreryForSystem(currentSystem);
+          }
 
-        if (currentOrrery) {
-          orreryGroup.visible = true;
-
-          currentOrrery.planetMeshes.forEach((pVis) => {
-            const orbit = calculatePlanetOrbit(
-              currentSystem.id,
-              pVis.slotIndex,
-              pVis.planetId,
-              currentTimeMs
-            );
-
-            const px = currentSystem.x + orbit.x;
-            const py = currentSystem.y + orbit.y;
-            const pz = 5;
-
-            pVis.planetMesh.position.set(px, py, pz);
-            pVis.planetMesh.rotation.y += delta * 0.4;
-
-            if (pVis.atmoSprite) {
-              pVis.atmoSprite.position.set(px, py, pz);
-            }
-
-            if (pVis.cloudMesh) {
-              pVis.cloudMesh.position.set(px, py, pz);
-              pVis.cloudMesh.rotation.y += delta * 0.55;
-            }
-
-            if (pVis.ringMesh) {
-              pVis.ringMesh.position.set(px, py, pz);
-            }
-
-            if (pVis.moonMesh) {
-              const moonTheta = currentTimeMs * 0.002 + pVis.slotIndex;
-              const moonDist = 16;
-              pVis.moonMesh.position.set(
-                px + Math.cos(moonTheta) * moonDist,
-                py + Math.sin(moonTheta) * moonDist * 0.85,
-                pz + 2
+          if (currentOrrery) {
+            currentOrrery.planetMeshes.forEach((pVis) => {
+              const orbit = calculatePlanetOrbit(
+                currentSystem.id,
+                pVis.slotIndex,
+                pVis.planetId,
+                currentTimeMs
               );
-            }
 
-            if (pVis.stationMesh) {
-              const satTheta = currentTimeMs * 0.0015;
-              const satDist = 12;
-              pVis.stationMesh.position.set(
-                px + Math.cos(satTheta) * satDist,
-                py + Math.sin(satTheta) * satDist * 0.85,
-                pz + 3
-              );
-              pVis.stationMesh.rotation.x += delta;
-              pVis.stationMesh.rotation.y += delta * 1.2;
-            }
+              // Center orbits exactly at (500, 400)
+              const px = 500 + orbit.x;
+              const py = 400 + orbit.y;
+              const pz = 5;
 
-            pVis.ghostMeshes.forEach((gm, gIdx) => {
-              if (showProjectionsRef.current && orbit.projections[gIdx]) {
-                gm.visible = true;
-                const proj = orbit.projections[gIdx];
-                gm.position.set(currentSystem.x + proj.x, currentSystem.y + proj.y, pz);
-              } else {
-                gm.visible = false;
+              pVis.planetMesh.position.set(px, py, pz);
+              pVis.planetMesh.rotation.y += delta * 0.4;
+
+              if (pVis.atmoSprite) pVis.atmoSprite.position.set(px, py, pz);
+
+              if (pVis.cloudMesh) {
+                pVis.cloudMesh.position.set(px, py, pz);
+                pVis.cloudMesh.rotation.y += delta * 0.55;
               }
+
+              if (pVis.ringMesh) pVis.ringMesh.position.set(px, py, pz);
+
+              if (pVis.moonMesh) {
+                const moonTheta = currentTimeMs * 0.002 + pVis.slotIndex;
+                const moonDist = 16;
+                pVis.moonMesh.position.set(
+                  px + Math.cos(moonTheta) * moonDist,
+                  py + Math.sin(moonTheta) * moonDist * 0.85,
+                  pz + 2
+                );
+              }
+
+              if (pVis.stationMesh) {
+                const satTheta = currentTimeMs * 0.0015;
+                const satDist = 12;
+                pVis.stationMesh.position.set(
+                  px + Math.cos(satTheta) * satDist,
+                  py + Math.sin(satTheta) * satDist * 0.85,
+                  pz + 3
+                );
+                pVis.stationMesh.rotation.x += delta;
+                pVis.stationMesh.rotation.y += delta * 1.2;
+              }
+
+              pVis.ghostMeshes.forEach((gm, gIdx) => {
+                if (showProjectionsRef.current && orbit.projections[gIdx]) {
+                  gm.visible = true;
+                  const proj = orbit.projections[gIdx];
+                  gm.position.set(500 + proj.x, 400 + proj.y, pz);
+                } else {
+                  gm.visible = false;
+                }
+              });
             });
-          });
-        }
-      } else {
-        if (orreryGroup) {
-          orreryGroup.visible = false;
+          }
         }
       }
 
-      // 10.7 Selection Reticle Update
+      // 6.6 Selection Reticle Update
       const curSelected = selectedTargetRef.current;
       if (curSelected) {
-        if (curSelected.type === 'system') {
+        if (!isSystemMode && curSelected.type === 'system') {
           const sys = stateRef.current.map.systems[curSelected.systemId];
           if (sys) {
             reticleMesh.visible = true;
@@ -1023,74 +1146,30 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             reticleMesh.scale.set(1.4, 1.4, 1);
             reticleMesh.rotation.z += delta * 1.8;
           }
-        } else if (curSelected.type === 'planet') {
-          if (currentOrrery) {
-            const pVis = currentOrrery.planetMeshes.find((p) => p.planetId === curSelected.planetId);
-            if (pVis) {
-              reticleMesh.visible = true;
-              reticleMesh.position.copy(pVis.planetMesh.position);
-              reticleMesh.position.z = 10;
-              reticleMesh.scale.set(0.9, 0.9, 1);
-              reticleMesh.rotation.z += delta * 2.2;
-            }
-          }
-        } else if (curSelected.type === 'fleet') {
-          const fv = fleetVisuals.get(curSelected.fleetId || '');
-          if (fv) {
+        } else if (isSystemMode && curSelected.type === 'planet' && currentOrrery) {
+          const pVis = currentOrrery.planetMeshes.find((p) => p.planetId === curSelected.planetId);
+          if (pVis) {
             reticleMesh.visible = true;
-            reticleMesh.position.copy(fv.group.position);
-            reticleMesh.position.z = 12;
-            reticleMesh.scale.set(0.7, 0.7, 1);
-            reticleMesh.rotation.z += delta * 2.5;
+            reticleMesh.position.copy(pVis.planetMesh.position);
+            reticleMesh.position.z = 10;
+            reticleMesh.scale.set(0.9, 0.9, 1);
+            reticleMesh.rotation.z += delta * 2.2;
           }
+        } else {
+          reticleMesh.visible = false;
         }
       } else {
         reticleMesh.visible = false;
       }
 
-      // 10.8 Project 3D Positions to 2D Screen for HTML Billboard Labels (Calculated every 2 frames)
+      // 6.7 Project 3D Coordinates to 2D Screen for HTML Billboard Labels
       if (frameCounter % 2 === 0) {
         const labels: ScreenLabel[] = [];
 
-        // Project Star System Labels
-        Object.values(stateRef.current.map.systems).forEach((sys) => {
-          tempProjVec.set(sys.x, sys.y - 24, 0);
-          tempProjVec.project(camera);
-
-          const screenX = ((tempProjVec.x + 1) * width) / 2;
-          const screenY = ((-tempProjVec.y + 1) * height) / 2;
-          const isVisible = tempProjVec.z < 1 && tempProjVec.z > -1;
-
-          if (isVisible) {
-            const isHomeworld = Object.values(stateRef.current.planets).some(
-              (p) => p.systemId === sys.id && p.ownerId === activePlayerIdRef.current && p.isHomeworld
-            );
-            const isRelay = sys.hasRelay;
-            const starColor = isRelay ? '#c084fc' : '#38bdf8';
-
-            let subtitle = `${sys.slots.length} Gezegen`;
-            if (isHomeworld) subtitle = 'ANA DÜNYA';
-            else if (isRelay) subtitle = 'NEXUS RÖLESİ';
-
-            labels.push({
-              id: sys.id,
-              type: 'system',
-              title: sys.name,
-              subtitle,
-              color: isHomeworld ? '#10b981' : starColor,
-              systemId: sys.id,
-              x: screenX,
-              y: screenY,
-              visible: true,
-            });
-          }
-        });
-
-        // Project Planet Labels (When in System View or Close Zoom)
-        if (currentOrrery && (viewModeRef.current === 'system' || camera.position.z < 450)) {
-          currentOrrery.planetMeshes.forEach((pVis) => {
-            tempProjVec.copy(pVis.planetMesh.position);
-            tempProjVec.y -= 14;
+        if (!isSystemMode) {
+          // Macro Galaxy View Labels (All 12 Systems)
+          Object.values(stateRef.current.map.systems).forEach((sys) => {
+            tempProjVec.set(sys.x, sys.y - 24, 0);
             tempProjVec.project(camera);
 
             const screenX = ((tempProjVec.x + 1) * width) / 2;
@@ -1098,20 +1177,90 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             const isVisible = tempProjVec.z < 1 && tempProjVec.z > -1;
 
             if (isVisible) {
-              const slot = currentSystem.slots.find((s) => s.planetId === pVis.planetId);
+              const isHomeworld = Object.values(stateRef.current.planets).some(
+                (p) => p.systemId === sys.id && p.ownerId === activePlayerIdRef.current && p.isHomeworld
+              );
+              const isRelay = sys.hasRelay;
+              const starColor = isRelay ? '#c084fc' : '#38bdf8';
+
+              let subtitle = `${sys.slots.length} Gezegen`;
+              if (isHomeworld) subtitle = 'ANA DÜNYA';
+              else if (isRelay) subtitle = 'NEXUS RÖLESİ';
+
+              labels.push({
+                id: sys.id,
+                type: 'system',
+                title: sys.name,
+                subtitle,
+                color: isHomeworld ? '#10b981' : starColor,
+                systemId: sys.id,
+                x: screenX,
+                y: screenY,
+                visible: true,
+              });
+            }
+          });
+        } else if (currentOrrery) {
+          // In-System Orrery Labels: Central Star + Planets + Perimeter Jump Gates
+          const activeSys = stateRef.current.map.systems[focusedSystemIdRef.current];
+
+          // 1. Central Star Label
+          if (activeSys) {
+            tempProjVec.set(500, 400 - 32, 0);
+            tempProjVec.project(camera);
+            labels.push({
+              id: `star_${activeSys.id}`,
+              type: 'star',
+              title: activeSys.name,
+              subtitle: activeSys.hasRelay ? 'NEXUS RÖLE MERKEZİ' : 'YILDIZ ÇEKİRDEĞİ',
+              color: activeSys.hasRelay ? '#c084fc' : '#f59e0b',
+              systemId: activeSys.id,
+              x: ((tempProjVec.x + 1) * width) / 2,
+              y: ((-tempProjVec.y + 1) * height) / 2,
+              visible: true,
+            });
+          }
+
+          // 2. Planet Labels
+          if (activeSys) {
+            currentOrrery.planetMeshes.forEach((pVis) => {
+              tempProjVec.copy(pVis.planetMesh.position);
+              tempProjVec.y -= 14;
+              tempProjVec.project(camera);
+
+              const slot = activeSys.slots.find((s) => s.planetId === pVis.planetId);
               labels.push({
                 id: pVis.planetId,
                 type: 'planet',
                 title: slot ? slot.name : 'Gezegen',
                 subtitle: slot ? slot.type.toUpperCase() : undefined,
                 color: '#38bdf8',
-                systemId: currentSystem.id,
+                systemId: activeSys.id,
                 planetId: pVis.planetId,
-                x: screenX,
-                y: screenY,
+                x: ((tempProjVec.x + 1) * width) / 2,
+                y: ((-tempProjVec.y + 1) * height) / 2,
                 visible: true,
               });
-            }
+            });
+          }
+
+          // 3. Perimeter Hyperlane Jump Gate Labels (Warp Exit Arrows)
+          currentOrrery.warpBuoys.forEach((wb) => {
+            tempProjVec.copy(wb.position);
+            tempProjVec.y -= 18;
+            tempProjVec.project(camera);
+
+            labels.push({
+              id: `gate_${wb.targetSystemId}`,
+              type: 'jump_gate',
+              title: wb.targetSystemName,
+              color: '#00f3ff',
+              systemId: activeSys?.id || '',
+              targetSystemId: wb.targetSystemId,
+              x: ((tempProjVec.x + 1) * width) / 2,
+              y: ((-tempProjVec.y + 1) * height) / 2,
+              visible: true,
+            });
           });
         }
 
@@ -1124,7 +1273,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     animate();
 
     // =========================================================================
-    // 11. Clean Cleanup on Unmount
+    // 7. Cleanup
     // =========================================================================
     return () => {
       cancelAnimationFrame(animationFrameId);
@@ -1135,6 +1284,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       container.removeEventListener('wheel', onWheel);
       container.removeEventListener('click', onClick);
       container.removeEventListener('dblclick', onDoubleClick);
+      window.removeEventListener('keydown', onKeyDown);
 
       if (container && renderer.domElement) {
         container.removeChild(renderer.domElement);
@@ -1175,7 +1325,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             onClick={(e) => {
               e.stopPropagation();
               sound.playClick();
-              if (lbl.type === 'system') {
+              if (lbl.type === 'jump_gate' && lbl.targetSystemId) {
+                sound.playWarp();
+                if (onEnterSystemView) onEnterSystemView(lbl.targetSystemId);
+                else onSelectSystem(lbl.targetSystemId);
+              } else if (lbl.type === 'system') {
                 onSelectSystem(lbl.systemId);
               } else if (lbl.type === 'planet' && onSelectPlanet && lbl.planetId) {
                 onSelectPlanet(lbl.systemId, lbl.planetId);
@@ -1184,7 +1338,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             onDoubleClick={(e) => {
               e.stopPropagation();
               sound.playWarp();
-              if (lbl.type === 'system') {
+              if (lbl.type === 'jump_gate' && lbl.targetSystemId) {
+                if (onEnterSystemView) onEnterSystemView(lbl.targetSystemId);
+                else onSelectSystem(lbl.targetSystemId);
+              } else if (lbl.type === 'system') {
                 if (onEnterSystemView) onEnterSystemView(lbl.systemId);
                 else onSelectSystem(lbl.systemId);
               }
@@ -1209,6 +1366,21 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                         : 'text-slate-400 bg-space-900/60'
                     }`}
                   >
+                    {lbl.subtitle}
+                  </span>
+                )}
+              </div>
+            ) : lbl.type === 'jump_gate' ? (
+              <div className="px-2 py-0.5 rounded-full bg-space-950/90 border border-cyber-cyan/60 text-[10px] font-mono font-bold text-cyber-cyan shadow-lg shadow-cyan-950/50 backdrop-blur-md hover:bg-cyber-cyan hover:text-space-950 transition-all flex items-center gap-1">
+                <span>➔ {lbl.title}</span>
+              </div>
+            ) : lbl.type === 'star' ? (
+              <div className="flex flex-col items-center">
+                <div className="px-2.5 py-0.5 rounded-md bg-space-950/90 border border-amber-500/60 text-xs font-mono font-bold text-amber-300 shadow-xl backdrop-blur-md">
+                  {lbl.title}
+                </div>
+                {lbl.subtitle && (
+                  <span className="text-[8.5px] font-mono text-amber-400/80 mt-0.5 tracking-wider">
                     {lbl.subtitle}
                   </span>
                 )}
