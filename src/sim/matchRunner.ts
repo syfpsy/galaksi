@@ -1,3 +1,4 @@
+import { AdmiralBot } from '../bots/admiral';
 import { ExplorerBot } from '../bots/explorer';
 import { GuardianBot } from '../bots/guardian';
 import { IndustrialistBot } from '../bots/industrialist';
@@ -50,6 +51,9 @@ export function runHeadlessMatch(
 
   const b4 = engine.addPlayer('bot_exp', 'Yıldız Kâşifleri Cemiyeti', '#ffaa00', true, 'explorer');
   bots.push(new ExplorerBot('bot_exp'));
+
+  const b5 = engine.addPlayer('bot_adm', 'Amiral Valerius Filosu', '#a855f7', true, 'admiral');
+  bots.push(new AdmiralBot('bot_adm'));
 
   const qaBot = new QAExploitBot('bot_qa');
   engine.addPlayer('bot_qa', 'Sistem QA Denetçisi', '#8b5cf6', true, 'qa_exploit');

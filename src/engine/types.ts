@@ -227,7 +227,7 @@ export interface Player {
   name: string;
   color: string;
   isBot: boolean;
-  botArchetype?: 'industrialist' | 'raider' | 'guardian' | 'explorer' | 'qa_exploit';
+  botArchetype?: 'industrialist' | 'raider' | 'guardian' | 'explorer' | 'admiral' | 'qa_exploit';
   allianceId?: string | null;
   vacationMode: boolean;
   research: Record<ResearchType, number>;

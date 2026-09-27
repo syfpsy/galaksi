@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { AdmiralBot } from './bots/admiral';
 import { ExplorerBot } from './bots/explorer';
 import { GuardianBot } from './bots/guardian';
 import { IndustrialistBot } from './bots/industrialist';
@@ -75,6 +76,9 @@ export function App() {
 
     engine.addPlayer('bot_exp', 'Yıldız Kâşifleri Cemiyeti', '#ffaa00', true, 'explorer');
     bots.push(new ExplorerBot('bot_exp'));
+
+    engine.addPlayer('bot_adm', 'Amiral Valerius Filosu', '#a855f7', true, 'admiral');
+    bots.push(new AdmiralBot('bot_adm'));
 
     engineRef.current = engine;
     botsRef.current = bots;

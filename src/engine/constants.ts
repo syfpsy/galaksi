@@ -41,6 +41,9 @@ export const GAME_CONSTANTS = {
 
   // Sensor ranges: base is 1 jump lane; sensor array adds 1 per 2 levels; research adds +1
   BASE_SENSOR_RANGE: 1,
+
+  // Anti-bash repeated raid protection ceiling (Max 6 attacks on same target per 24h)
+  ANTI_BASH_MAX_ATTACKS_PER_24H: 6,
 };
 
 export const SHIP_STATS: Record<ShipType, ShipStats> = {

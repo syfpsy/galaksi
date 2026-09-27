@@ -70,7 +70,8 @@ export class GameEngine {
     name: string,
     color: string,
     isBot: boolean = false,
-    botArchetype?: Player['botArchetype']
+    botArchetype?: Player['botArchetype'],
+    enableProtection: boolean = true
   ): { player: Player; homeworld: Planet } {
     const player: Player = {
       id,
@@ -82,7 +83,7 @@ export class GameEngine {
       vacationMode: false,
       research: { engines: 0, weapons: 0, sensors: 0 },
       researchQueue: null,
-      protectionUntilTime: this.state.timeMs + GAME_CONSTANTS.PROTECTION_DURATION_MS,
+      protectionUntilTime: !isBot && enableProtection ? this.state.timeMs + GAME_CONSTANTS.PROTECTION_DURATION_MS : 0,
       intel: {
         discoveredSystems: {},
         lastSeenFleets: {},
@@ -860,11 +861,56 @@ export class GameEngine {
           return { success: false, commandType: cmd.type, error: 'Kalkış üssü bulunamadı.', timeMs: this.state.timeMs };
         }
 
-        // Target vacation mode check for attacks
+        // Target checks for attacks
         if (cmd.mission === 'attack' && cmd.targetPlanetId && this.state.planets[cmd.targetPlanetId]) {
-          const targetOwner = this.state.players[this.state.planets[cmd.targetPlanetId].ownerId];
-          if (targetOwner?.vacationMode) {
-            return { success: false, commandType: cmd.type, error: 'Hedef oyuncu tatil modunda korumalıdır. Saldırı düzenlenemez.', timeMs: this.state.timeMs };
+          const targetPlanet = this.state.planets[cmd.targetPlanetId];
+          const targetOwner = this.state.players[targetPlanet.ownerId];
+
+          if (targetOwner && targetOwner.id !== playerId) {
+            // Target vacation mode check
+            if (targetOwner.vacationMode) {
+              return { success: false, commandType: cmd.type, error: 'Hedef oyuncu tatil modunda korumalıdır. Saldırı düzenlenemez.', timeMs: this.state.timeMs };
+            }
+
+            // Check attacker newbie protection
+            if (this.state.timeMs < player.protectionUntilTime) {
+              const remainingHours = Math.ceil((player.protectionUntilTime - this.state.timeMs) / (3600 * 1000));
+              return {
+                success: false,
+                commandType: cmd.type,
+                error: `Acemi koruması altındasınız (${remainingHours} sa kaldı). PvP saldırısı başlatamazsınız.`,
+                timeMs: this.state.timeMs,
+              };
+            }
+
+            // Check defender newbie protection
+            if (this.state.timeMs < targetOwner.protectionUntilTime) {
+              return {
+                success: false,
+                commandType: cmd.type,
+                error: 'Hedef komutan acemi koruması altındadır. Saldırı düzenlenemez.',
+                timeMs: this.state.timeMs,
+              };
+            }
+
+            // Anti-Bash rule: Max 6 attacks on same target planet per 24 hours
+            const dayAgo = this.state.timeMs - 24 * 3600 * 1000;
+            const recentAttacksOnTarget = Object.values(this.state.fleets).filter(
+              (f) =>
+                f.ownerId === playerId &&
+                f.mission === 'attack' &&
+                f.targetPlanetId === cmd.targetPlanetId &&
+                f.departureTime >= dayAgo
+            ).length;
+
+            if (recentAttacksOnTarget >= GAME_CONSTANTS.ANTI_BASH_MAX_ATTACKS_PER_24H) {
+              return {
+                success: false,
+                commandType: cmd.type,
+                error: `Anti-Bash Sınırı: 24 saat içinde aynı hedefe en fazla ${GAME_CONSTANTS.ANTI_BASH_MAX_ATTACKS_PER_24H} saldırı düzenlenebilir.`,
+                timeMs: this.state.timeMs,
+              };
+            }
           }
         }
 

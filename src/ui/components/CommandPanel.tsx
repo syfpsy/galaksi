@@ -2,16 +2,19 @@ import React, { useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  CheckCircle2,
   Compass,
   Crosshair,
   Flame,
   Gem,
+  HelpCircle,
   Navigation,
   Pickaxe,
   Radio,
   RotateCcw,
   Send,
   Shield,
+  ShieldAlert,
   Sparkles,
   Swords,
   TriangleAlert,
@@ -163,6 +166,121 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
     );
   }, [state.fleets, activePlayerId]);
 
+  // Target protection & vacation check
+  const targetProtectionStatus = useMemo(() => {
+    if (selectedMission !== 'attack') return null;
+    const targetPlanetId = selectedTarget?.planetId;
+    if (!targetPlanetId || !state.planets[targetPlanetId]) return null;
+
+    const targetPlanet = state.planets[targetPlanetId];
+    const targetOwner = state.players[targetPlanet.ownerId];
+
+    if (!targetOwner || targetOwner.id === activePlayerId) return null;
+
+    if (targetOwner.vacationMode) {
+      return { isBlocked: true, reason: 'Hedef komutan tatil modundadır (Saldırı düzenlenemez).' };
+    }
+
+    if (currentTimeMs < (activePlayer?.protectionUntilTime || 0)) {
+      const remainingHours = Math.ceil(((activePlayer?.protectionUntilTime || 0) - currentTimeMs) / (3600 * 1000));
+      return { isBlocked: true, reason: `Acemi koruması altındasınız (${remainingHours} sa). PvP saldırısı düzenlenemez.` };
+    }
+
+    if (currentTimeMs < targetOwner.protectionUntilTime) {
+      return { isBlocked: true, reason: 'Hedef komutan acemi koruması altındadır.' };
+    }
+
+    return { isBlocked: false, reason: null };
+  }, [selectedMission, selectedTarget, state.planets, state.players, activePlayer, currentTimeMs, activePlayerId]);
+
+  // Tactical combat outcome prediction (GDD Section 7)
+  const combatPrediction = useMemo(() => {
+    if ((selectedMission !== 'attack' && selectedMission !== 'intercept') || totalSelectedShips === 0) {
+      return null;
+    }
+
+    const myWepLevel = activePlayer?.research.weapons || 0;
+    const myWepMult = 1 + myWepLevel * 0.10;
+
+    let myAtt = 0;
+    let myHp = 0;
+    for (const [st, count] of Object.entries(ships) as [ShipType, number][]) {
+      myAtt += count * SHIP_STATS[st].attack * myWepMult;
+      myHp += count * (SHIP_STATS[st].hull + SHIP_STATS[st].shield);
+    }
+    const myPower = myAtt * 1.5 + myHp;
+
+    if (myPower <= 0) return null;
+
+    // Intercept target
+    if (selectedMission === 'intercept' && targetFleet) {
+      const defPlayer = state.players[targetFleet.ownerId];
+      const defWepLevel = defPlayer?.research.weapons || 0;
+      const defWepMult = 1 + defWepLevel * 0.10;
+
+      let defAtt = 0;
+      let defHp = 0;
+      for (const [st, count] of Object.entries(targetFleet.ships) as [ShipType, number][]) {
+        defAtt += count * SHIP_STATS[st].attack * defWepMult;
+        defHp += count * (SHIP_STATS[st].hull + SHIP_STATS[st].shield);
+      }
+      const defPower = defAtt * 1.5 + defHp;
+      const winRate = Math.min(98, Math.max(5, Math.round((myPower / (myPower + defPower)) * 100)));
+
+      return {
+        winRate,
+        isIntelClear: true,
+        summary: winRate >= 70 ? 'Yüksek Zafer İhtimali' : winRate >= 45 ? 'Çekişmeli Savaş' : 'Yüksek Kayıp Riski',
+        defenderShipsCount: Object.values(targetFleet.ships).reduce((a, b) => a + b, 0),
+        stance: null,
+      };
+    }
+
+    // Planet attack target
+    if (selectedMission === 'attack' && selectedTarget?.planetId && state.planets[selectedTarget.planetId]) {
+      const targetPlanet = state.planets[selectedTarget.planetId];
+      const defPlayer = state.players[targetPlanet.ownerId];
+      const intelLevel = activePlayer?.intel.discoveredSystems[targetPlanet.systemId] || 'unexplored';
+      const isIntelClear = intelLevel === 'full' || intelLevel === 'deep_intel';
+
+      const defWepLevel = defPlayer?.research.weapons || 0;
+      const defWepMult = 1 + defWepLevel * 0.10;
+
+      let defAtt = 0;
+      let defHp = 0;
+      for (const [st, count] of Object.entries(targetPlanet.garrison) as [ShipType, number][]) {
+        defAtt += count * SHIP_STATS[st].attack * defWepMult;
+        defHp += count * (SHIP_STATS[st].hull + SHIP_STATS[st].shield);
+      }
+      const defPower = defAtt * 1.5 + defHp;
+
+      if (!isIntelClear && defPower > 0) {
+        // Range estimation for vague intel
+        const baseWinRate = Math.round((myPower / (myPower + defPower)) * 100);
+        return {
+          winRate: baseWinRate,
+          isIntelClear: false,
+          minRate: Math.max(10, baseWinRate - 20),
+          maxRate: Math.min(95, baseWinRate + 15),
+          summary: 'Kısmi İstihbarat (Tahmini Aralık)',
+          defenderShipsCount: null,
+          stance: targetPlanet.stance,
+        };
+      }
+
+      const winRate = defPower === 0 ? 99 : Math.min(98, Math.max(5, Math.round((myPower / (myPower + defPower)) * 100)));
+      return {
+        winRate,
+        isIntelClear: true,
+        summary: winRate >= 70 ? 'Üstün Filo Gücü' : winRate >= 45 ? 'Dengeli Muharebe' : 'Ağır Savunma Karşısında Riskli',
+        defenderShipsCount: Object.values(targetPlanet.garrison).reduce((a, b) => a + b, 0),
+        stance: targetPlanet.stance,
+      };
+    }
+
+    return null;
+  }, [selectedMission, totalSelectedShips, ships, activePlayer, targetFleet, selectedTarget, state.planets, state.players]);
+
   return (
     <aside className="w-88 h-full border-l border-slate-800 bg-space-900/95 backdrop-blur-md flex flex-col z-20 select-none overflow-hidden">
       {/* Top Tabs: Dispatch vs Active Fleets */}
@@ -295,6 +413,45 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                   <span className="text-rose-400">Enkaz Alanı</span>
                 )}
               </div>
+
+              {/* Debris Quick Salvage Action */}
+              {targetSystem.hasDebris && (targetSystem.hasDebris.ore > 0 || targetSystem.hasDebris.crystal > 0) && (
+                <div className="mt-2.5 p-2 bg-amber-500/10 border border-amber-500/30 rounded flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-amber-400 font-mono font-bold block">
+                      ⚙️ Enkaz: {targetSystem.hasDebris.ore}C, {targetSystem.hasDebris.crystal}K
+                    </span>
+                    <span className="text-[9px] text-slate-400">
+                      Gereken: {Math.ceil((targetSystem.hasDebris.ore + targetSystem.hasDebris.crystal) / SHIP_STATS.transport.cargoCapacity)} Nakliye
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => {
+                      if (!targetSystem?.hasDebris) return;
+                      const debrisTotal = (targetSystem.hasDebris.ore || 0) + (targetSystem.hasDebris.crystal || 0);
+                      const needed = Math.max(1, Math.ceil(debrisTotal / SHIP_STATS.transport.cargoCapacity));
+                      handleSelectMission('transport');
+                      setShips({
+                        scout: 0,
+                        transport: Math.min(garrison.transport, needed),
+                        fighter: garrison.fighter > 0 ? 1 : 0,
+                        battleship: 0,
+                      });
+                    }}
+                    className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded text-[10px] font-mono font-bold transition-colors"
+                  >
+                    Enkazı Topla
+                  </button>
+                </div>
+              )}
+
+              {/* Target Protection / Vacation Mode Alert Banner */}
+              {targetProtectionStatus?.isBlocked && (
+                <div className="mt-2.5 p-2 bg-rose-500/15 border border-rose-500/40 rounded flex items-center gap-2 text-rose-300 text-xs">
+                  <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                  <span>{targetProtectionStatus.reason}</span>
+                </div>
+              )}
             </div>
           ) : (
             <div className="bg-space-850/40 border border-dashed border-slate-800 rounded-lg p-4 text-center text-xs text-slate-400">
@@ -501,6 +658,54 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
             </div>
           )}
 
+          {/* Tactical Combat Outcome Predictor (GDD Section 7 & 15) */}
+          {combatPrediction && (
+            <div className="bg-space-850/90 border border-purple-500/40 rounded-lg p-3 space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-purple-300 font-display">
+                  <Swords className="w-3.5 h-3.5 text-purple-400" />
+                  <span>Taktik Muharebe Simülasyonu</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                    combatPrediction.winRate >= 70
+                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      : combatPrediction.winRate >= 45
+                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
+                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                  }`}
+                >
+                  {combatPrediction.isIntelClear
+                    ? `%${combatPrediction.winRate} Zafer İhtimali`
+                    : `%${combatPrediction.minRate} - %${combatPrediction.maxRate} İhtimal`}
+                </span>
+              </div>
+
+              <div className="text-[11px] text-slate-300 font-mono">
+                {combatPrediction.summary}
+              </div>
+
+              {combatPrediction.defenderShipsCount !== null && (
+                <div className="text-[10px] text-slate-400 flex items-center justify-between font-mono pt-1 border-t border-slate-800">
+                  <span>Hedef Savunma Gücü:</span>
+                  <span className="text-slate-200">{combatPrediction.defenderShipsCount} Gemi</span>
+                </div>
+              )}
+
+              {combatPrediction.stance === 'evade_safeguard' && (
+                <div className="text-[10px] text-amber-400/90 italic flex items-center gap-1">
+                  <span>⚠️ Düşman duruşu: Filoyu Koru (Çatışmadan kaçınabilir)</span>
+                </div>
+              )}
+
+              {!combatPrediction.isIntelClear && (
+                <div className="text-[10px] text-slate-400 italic">
+                  * Sensör istihbaratı kısmi olduğundan kesin filo bileşimi belirsizdir.
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Dispatch Button */}
           <button
             disabled={
@@ -508,7 +713,8 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               totalSelectedShips === 0 ||
               !routeInfo ||
               (activePlanet?.resources.fuel || 0) < (routeInfo?.fuelCost || 0) ||
-              (selectedMission === 'intercept' && !interceptCheck?.canIntercept)
+              (selectedMission === 'intercept' && !interceptCheck?.canIntercept) ||
+              !!targetProtectionStatus?.isBlocked
             }
             onClick={() => {
               if (targetSystem && activePlanet) {

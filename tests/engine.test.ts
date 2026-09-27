@@ -237,4 +237,61 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     });
     expect(recallBefore.success).toBe(true);
   });
+
+  it('enforces newbie protection against PvP attacks', () => {
+    const engine = new GameEngine(7777);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Player 1', '#00f3ff', false, undefined, true);
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Player 2', '#f43f5e', false, undefined, true);
+
+    // Give p1 enough fighters and fuel
+    hw1.garrison.fighter = 10;
+    hw1.resources.fuel = 1000;
+
+    // Attempt attack from p1 to p2 while both under protection
+    const attackRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw1.id,
+      targetSystemId: hw2.systemId,
+      targetPlanetId: hw2.id,
+      ships: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+      mission: 'attack',
+    });
+    expect(attackRes.success).toBe(false);
+    expect(attackRes.error).toContain('Acemi koruması');
+  });
+
+  it('enforces anti-bash rule limiting attacks on same target to 6 per 24 hours', () => {
+    const engine = new GameEngine(8888);
+    // Add players without newbie protection so attacks are valid
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Player 1', '#00f3ff', false, undefined, false);
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Player 2', '#f43f5e', false, undefined, false);
+
+    hw1.garrison.fighter = 50;
+    hw1.resources.fuel = 5000;
+
+    // Send 6 attacks
+    for (let i = 0; i < 6; i++) {
+      const res = engine.dispatchCommand('p1', {
+        type: 'DISPATCH_FLEET',
+        originPlanetId: hw1.id,
+        targetSystemId: hw2.systemId,
+        targetPlanetId: hw2.id,
+        ships: { scout: 0, transport: 0, fighter: 1, battleship: 0 },
+        mission: 'attack',
+      });
+      expect(res.success).toBe(true);
+    }
+
+    // 7th attack should fail due to anti-bash
+    const seventhAttack = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw1.id,
+      targetSystemId: hw2.systemId,
+      targetPlanetId: hw2.id,
+      ships: { scout: 0, transport: 0, fighter: 1, battleship: 0 },
+      mission: 'attack',
+    });
+    expect(seventhAttack.success).toBe(false);
+    expect(seventhAttack.error).toContain('Anti-Bash Sınırı');
+  });
 });
