@@ -12,6 +12,7 @@ import {
   getIceTexture,
   getOceanTexture,
   getShipEngineGlowTexture,
+  getStarCoronaGlowTexture,
   getSunTexture,
   getTerranTexture,
   getVolcanicTexture,
@@ -28,6 +29,7 @@ interface GalaxyScene25DProps {
   viewMode: 'galaxy' | 'system';
   showProjections: boolean;
   onSelectSystem: (systemId: string) => void;
+  onEnterSystemView?: (systemId: string) => void;
   onSelectPlanet?: (systemId: string, planetId: string) => void;
   onSelectFleet: (fleetId: string) => void;
 }
@@ -41,6 +43,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   viewMode,
   showProjections,
   onSelectSystem,
+  onEnterSystemView,
   onSelectPlanet,
   onSelectFleet,
 }) => {
@@ -100,7 +103,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     container.appendChild(renderer.domElement);
 
     // Atmospheric Space Ambience
-    const ambientLight = new THREE.AmbientLight(0x38bdf8, 0.4);
+    const ambientLight = new THREE.AmbientLight(0x38bdf8, 0.45);
     scene.add(ambientLight);
 
     // =========================================================================
@@ -117,7 +120,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     const spiralColors = new Float32Array(spiralParticleCount * 3);
 
     for (let i = 0; i < spiralParticleCount; i++) {
-      // Logarithmic spiral: r = a * e^(b * theta)
       const arm = i % 2 === 0 ? 0 : Math.PI;
       const t = Math.pow(Math.random(), 1.5) * 12;
       const r = 25 + t * 45;
@@ -131,20 +133,19 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       spiralPos[i * 3 + 1] = py;
       spiralPos[i * 3 + 2] = pz;
 
-      // Color gradation: Core is brilliant violet/cyan, rim is deep azure
       const distRatio = r / 550;
       if (distRatio < 0.25) {
-        spiralColors[i * 3] = 0.85;     // R (bright core)
-        spiralColors[i * 3 + 1] = 0.75; // G
-        spiralColors[i * 3 + 2] = 1.0;  // B (purple/violet core)
+        spiralColors[i * 3] = 0.85;
+        spiralColors[i * 3 + 1] = 0.75;
+        spiralColors[i * 3 + 2] = 1.0;
       } else if (distRatio < 0.6) {
         spiralColors[i * 3] = 0.2;
         spiralColors[i * 3 + 1] = 0.75;
-        spiralColors[i * 3 + 2] = 0.95; // cyan arm
+        spiralColors[i * 3 + 2] = 0.95;
       } else {
         spiralColors[i * 3] = 0.15;
         spiralColors[i * 3 + 1] = 0.4;
-        spiralColors[i * 3 + 2] = 0.85; // deep blue outer rim
+        spiralColors[i * 3 + 2] = 0.85;
       }
     }
     spiralGeo.setAttribute('position', new THREE.BufferAttribute(spiralPos, 3));
@@ -162,7 +163,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     const spiralPoints = new THREE.Points(spiralGeo, spiralMat);
     spiralGroup.add(spiralPoints);
 
-    // 2.2 Sector Constellation Boundary Rings (Nexus Core, Inner Belt, Outer Frontier)
+    // 2.2 Sector Constellation Boundary Rings
     const boundaryGroup = new THREE.Group();
     scene.add(boundaryGroup);
 
@@ -190,7 +191,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     boundaryGroup.add(createSectorRing(410, 0x64748b, 0.12)); // Outer Frontier
 
     // =========================================================================
-    // 3. Background Deep Starfield (Multi-layer twinkling stars)
+    // 3. Background Deep Starfield
     // =========================================================================
     const starCount = 1400;
     const starGeo = new THREE.BufferGeometry();
@@ -220,7 +221,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     scene.add(starField);
 
     // =========================================================================
-    // 4. Star Systems, Point Lights & Territorials
+    // 4. Star Systems, Incandescent Suns & Circular Corona Flares
     // =========================================================================
     const starMeshes = new Map<string, { group: THREE.Group; mesh: THREE.Mesh; light: THREE.PointLight }>();
     const systemPositions = new Map<string, THREE.Vector3>();
@@ -233,54 +234,67 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       group.position.copy(pos);
 
       const isRelay = sys.hasRelay;
+      const starColorHex = isRelay ? '#c084fc' : idx % 3 === 0 ? '#f59e0b' : idx % 3 === 1 ? '#06b6d4' : '#ef4444';
       const starColor = isRelay ? 0xa855f7 : idx % 3 === 0 ? 0xf59e0b : idx % 3 === 1 ? 0x06b6d4 : 0xef4444;
       const starRadius = isRelay ? 18 : 13;
 
-      // 4.1 Star Core Sphere
-      const starGeo = new THREE.SphereGeometry(starRadius, 24, 24);
-      const starMat = new THREE.MeshBasicMaterial({
-        color: starColor,
-        map: getSunTexture(isRelay ? '#c084fc' : idx % 3 === 0 ? '#f59e0b' : '#06b6d4'),
+      // 4.1 Star Core Sphere: Incandescent glowing solar plasma across 360 degrees (No black sides!)
+      const starSphereGeo = new THREE.SphereGeometry(starRadius, 32, 32);
+      const starSphereMat = new THREE.MeshBasicMaterial({
+        map: getSunTexture(starColorHex),
       });
-      const starMesh = new THREE.Mesh(starGeo, starMat);
+      const starMesh = new THREE.Mesh(starSphereGeo, starSphereMat);
       (starMesh as any).userData = { type: 'system', systemId: sys.id };
       group.add(starMesh);
 
       // 4.2 Dedicated Physical Point Light illuminating planets & ships
-      const pointLight = new THREE.PointLight(starColor, isRelay ? 2.8 : 2.0, 750);
-      pointLight.position.set(0, 0, 10);
+      const pointLight = new THREE.PointLight(starColor, isRelay ? 3.0 : 2.2, 850);
+      pointLight.position.set(0, 0, 12);
       group.add(pointLight);
 
-      // 4.3 Corona Halo Flare Sprite
-      const spriteMat = new THREE.SpriteMaterial({
-        color: starColor,
+      // 4.3 Corona Halo Flare Sprite: Guaranteed smooth radial glow with ZERO square/rectangular clipping!
+      const coronaTexture = getStarCoronaGlowTexture(starColorHex);
+      const coronaSpriteMat = new THREE.SpriteMaterial({
+        map: coronaTexture,
         transparent: true,
-        opacity: 0.45,
+        opacity: 0.88,
         blending: THREE.AdditiveBlending,
-      });
-      const sprite = new THREE.Sprite(spriteMat);
-      sprite.scale.set(starRadius * 4.5, starRadius * 4.5, 1);
-      group.add(sprite);
-
-      // 4.4 Sovereign Territory Aura Disc
-      const auraGeo = new THREE.RingGeometry(starRadius * 1.5, starRadius * 4.2, 32);
-      const auraMat = new THREE.MeshBasicMaterial({
-        color: starColor,
-        transparent: true,
-        opacity: 0.08,
-        side: THREE.DoubleSide,
         depthWrite: false,
       });
-      const auraMesh = new THREE.Mesh(auraGeo, auraMat);
-      auraMesh.position.set(0, 0, -2);
-      group.add(auraMesh);
+      const coronaSprite = new THREE.Sprite(coronaSpriteMat);
+      coronaSprite.scale.set(starRadius * 5.2, starRadius * 5.2, 1);
+      group.add(coronaSprite);
+
+      // 4.4 Clean Tactical System Boundary Line
+      const ringPts: THREE.Vector3[] = [];
+      const ringSegments = 64;
+      const territoryRadius = starRadius * 3.2;
+      for (let r = 0; r <= ringSegments; r++) {
+        const theta = (r / ringSegments) * Math.PI * 2;
+        ringPts.push(
+          new THREE.Vector3(
+            Math.cos(theta) * territoryRadius,
+            Math.sin(theta) * territoryRadius * 0.85,
+            -1
+          )
+        );
+      }
+      const territoryGeo = new THREE.BufferGeometry().setFromPoints(ringPts);
+      const territoryMat = new THREE.LineBasicMaterial({
+        color: starColor,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+      });
+      const territoryLine = new THREE.Line(territoryGeo, territoryMat);
+      group.add(territoryLine);
 
       scene.add(group);
       starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight });
     });
 
     // =========================================================================
-    // 5. Dynamic Hyperlanes & Flowing Subspace Energy Pulses
+    // 5. Sleek Subspace Hyperlanes (Clean lines, zero clutter)
     // =========================================================================
     const hyperlaneGroup = new THREE.Group();
     scene.add(hyperlaneGroup);
@@ -290,70 +304,50 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       to: THREE.Vector3;
       progress: number;
       speed: number;
-      mesh: THREE.Mesh;
+      sprite: THREE.Sprite;
     }
     const lanePulses: LanePulse[] = [];
 
-    const pulseGeo = new THREE.SphereGeometry(2.0, 8, 8);
-    const pulseMat = new THREE.MeshBasicMaterial({
-      color: 0x00f3ff,
+    const pulseSpriteMat = new THREE.SpriteMaterial({
+      map: getShipEngineGlowTexture('#00f3ff'),
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.75,
       blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
 
-    stateRef.current.map.lanes.forEach((lane) => {
+    stateRef.current.map.lanes.forEach((lane, lIdx) => {
       const from = systemPositions.get(lane.fromSystemId);
       const to = systemPositions.get(lane.toSystemId);
       if (!from || !to) return;
 
-      // Base hyperlane conduit line
+      // Base hyperlane conduit line: sleek, subtle deep blue-cyan cyber line
       const points = [from.clone(), to.clone()];
       const laneGeo = new THREE.BufferGeometry().setFromPoints(points);
       const laneMat = new THREE.LineBasicMaterial({
-        color: 0x1e293b,
+        color: 0x1e3a8a,
         linewidth: 1.5,
         transparent: true,
-        opacity: 0.7,
+        opacity: 0.55,
       });
       const line = new THREE.Line(laneGeo, laneMat);
       hyperlaneGroup.add(line);
 
-      // Flowing Subspace Energy Pulses traveling along the lane
-      for (let p = 0; p < 2; p++) {
-        const pMesh = new THREE.Mesh(pulseGeo, pulseMat);
-        pMesh.position.copy(from);
-        hyperlaneGroup.add(pMesh);
+      // Add a subtle flowing photon packet only on a subset of lanes for a clean, living network
+      if (lIdx % 2 === 0) {
+        const pulseSprite = new THREE.Sprite(pulseSpriteMat);
+        pulseSprite.position.copy(from);
+        pulseSprite.scale.set(4, 4, 1);
+        hyperlaneGroup.add(pulseSprite);
 
         lanePulses.push({
           from,
           to,
-          progress: p * 0.5 + Math.random() * 0.2,
-          speed: 0.12 + Math.random() * 0.05,
-          mesh: pMesh,
+          progress: (lIdx * 0.17) % 1,
+          speed: 0.14 + (lIdx % 3) * 0.04,
+          sprite: pulseSprite,
         });
       }
-
-      // Warp Gate Beacons at system perimeters along lane direction
-      const dir = new THREE.Vector3().subVectors(to, from).normalize();
-      const buoyDist = 65;
-
-      const warpSpriteMat = new THREE.SpriteMaterial({
-        map: getWarpGateTexture(),
-        transparent: true,
-        opacity: 0.65,
-        blending: THREE.AdditiveBlending,
-      });
-
-      const buoyFrom = new THREE.Sprite(warpSpriteMat);
-      buoyFrom.position.copy(from).addScaledVector(dir, buoyDist);
-      buoyFrom.scale.set(12, 12, 1);
-      hyperlaneGroup.add(buoyFrom);
-
-      const buoyTo = new THREE.Sprite(warpSpriteMat);
-      buoyTo.position.copy(to).addScaledVector(dir, -buoyDist);
-      buoyTo.scale.set(12, 12, 1);
-      hyperlaneGroup.add(buoyTo);
     });
 
     // =========================================================================
@@ -362,12 +356,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     const fleetGroup = new THREE.Group();
     scene.add(fleetGroup);
 
-    // Reusable ship geometry (sleek wedge frigate / cruiser hull)
     const shipHullGeo = new THREE.ConeGeometry(3.5, 9, 3);
-    shipHullGeo.rotateX(Math.PI / 2); // align forward along Z
+    shipHullGeo.rotateX(Math.PI / 2);
 
     const thrusterConeGeo = new THREE.ConeGeometry(1.8, 6, 6);
-    thrusterConeGeo.rotateX(-Math.PI / 2); // exhaust points backward
+    thrusterConeGeo.rotateX(-Math.PI / 2);
 
     interface FleetVisual {
       group: THREE.Group;
@@ -411,6 +404,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         transparent: true,
         opacity: 0.85,
         blending: THREE.AdditiveBlending,
+        depthWrite: false,
       });
       const glowSprite = new THREE.Sprite(glowMat);
       glowSprite.position.set(0, 0, -6.5);
@@ -425,12 +419,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     };
 
     // =========================================================================
-    // 7. Dynamic Planetary Orrery (High-Detail 3D Planets, Moons & Stations)
+    // 7. Dynamic Planetary Orrery (High-Detail 3D Planets, Moons & Warp Gates)
     // =========================================================================
     const orreryGroup = new THREE.Group();
     scene.add(orreryGroup);
 
-    // Cache of persistent planetary visual objects for the active system
     interface PlanetVisualObjects {
       systemId: string;
       orbitLines: THREE.Line[];
@@ -445,11 +438,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         stationMesh?: THREE.Mesh;
         ghostMeshes: THREE.Mesh[];
       }[];
+      warpBuoys: THREE.Sprite[];
     }
     let currentOrrery: PlanetVisualObjects | null = null;
 
     const buildOrreryForSystem = (system: StarSystem) => {
-      // Clear previous orrery
       while (orreryGroup.children.length > 0) {
         const obj = orreryGroup.children[0];
         orreryGroup.remove(obj);
@@ -457,7 +450,37 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
       const orbitLines: THREE.Line[] = [];
       const planetMeshes: PlanetVisualObjects['planetMeshes'] = [];
+      const warpBuoys: THREE.Sprite[] = [];
 
+      // 7.1 Jump Gate Warp Buoys positioned at the outer perimeter of this system
+      const connectedLanes = stateRef.current.map.lanes.filter(
+        (l) => l.fromSystemId === system.id || l.toSystemId === system.id
+      );
+
+      const warpSpriteMat = new THREE.SpriteMaterial({
+        map: getWarpGateTexture(),
+        transparent: true,
+        opacity: 0.85,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+
+      connectedLanes.forEach((lane) => {
+        const otherSysId = lane.fromSystemId === system.id ? lane.toSystemId : lane.fromSystemId;
+        const otherSys = stateRef.current.map.systems[otherSysId];
+        if (!otherSys) return;
+
+        const dir = new THREE.Vector3(otherSys.x - system.x, otherSys.y - system.y, 0).normalize();
+        const buoyDist = 220; // At system outer perimeter
+
+        const buoy = new THREE.Sprite(warpSpriteMat);
+        buoy.position.set(system.x + dir.x * buoyDist, system.y + dir.y * buoyDist * 0.85, 4);
+        buoy.scale.set(16, 16, 1);
+        orreryGroup.add(buoy);
+        warpBuoys.push(buoy);
+      });
+
+      // 7.2 Planets & Orbits
       system.slots.forEach((slot) => {
         const orbit = calculatePlanetOrbit(system.id, slot.slotIndex, slot.planetId, stateRef.current.timeMs);
 
@@ -515,11 +538,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         };
         orreryGroup.add(planetMesh);
 
-        // 3. Atmospheric Halo Glow Sprite
+        // 3. Atmospheric Halo Glow Sprite (Guaranteed smooth circular limb glow)
         const atmoMat = new THREE.SpriteMaterial({
           map: getAtmosphereTexture(atmoColor),
           transparent: true,
-          opacity: 0.45,
+          opacity: 0.55,
           blending: THREE.AdditiveBlending,
           depthWrite: false,
         });
@@ -615,6 +638,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         systemId: system.id,
         orbitLines,
         planetMeshes,
+        warpBuoys,
       };
     };
 
@@ -641,7 +665,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const deltaX = e.clientX - previousMousePosition.x;
       const deltaY = e.clientY - previousMousePosition.y;
 
-      // Pan camera target smoothly
       targetLookAt.x -= deltaX * (targetCameraPos.z / 900);
       targetLookAt.y += deltaY * (targetCameraPos.z / 900);
 
@@ -652,7 +675,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       isDragging = false;
     };
 
-    // Stellaris-like Deep Zooming: From macro galaxy (z=1400) down to planet closeup (z=45)
     const onWheel = (e: WheelEvent) => {
       e.preventDefault();
       const zoomFactor = targetCameraPos.z < 250 ? 0.45 : 0.85;
@@ -680,7 +702,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           if (udata.type === 'system') {
             sound.playClick();
             onSelectSystem(udata.systemId);
-            // Smoothly fly camera to focused system
             const sys = stateRef.current.map.systems[udata.systemId];
             if (sys) {
               targetLookAt.set(sys.x, sys.y, 0);
@@ -699,7 +720,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }
     };
 
-    // Double-click to fly deep into system or planet
     const onDoubleClick = (e: MouseEvent) => {
       const rect = container.getBoundingClientRect();
       mouse.x = ((e.clientX - rect.left) / width) * 2 - 1;
@@ -713,7 +733,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         if (udata) {
           if (udata.type === 'system') {
             sound.playWarp();
-            onSelectSystem(udata.systemId);
+            if (onEnterSystemView) {
+              onEnterSystemView(udata.systemId);
+            } else {
+              onSelectSystem(udata.systemId);
+            }
             const sys = stateRef.current.map.systems[udata.systemId];
             if (sys) {
               targetLookAt.set(sys.x, sys.y, 0);
@@ -741,7 +765,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     container.addEventListener('click', onClick);
     container.addEventListener('dblclick', onDoubleClick);
 
-    // Resize handler
     const onResize = () => {
       if (!container) return;
       width = container.clientWidth;
@@ -787,8 +810,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         pulse.progress += delta * pulse.speed;
         if (pulse.progress > 1) pulse.progress = 0;
 
-        pulse.mesh.position.lerpVectors(pulse.from, pulse.to, pulse.progress);
-        pulse.mesh.position.z = 2;
+        pulse.sprite.position.lerpVectors(pulse.from, pulse.to, pulse.progress);
+        pulse.sprite.position.z = 2;
       });
 
       // 9.4 Dynamic 3D Fleets along Hyperlanes & Planetary Orbits
@@ -812,7 +835,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
         visual.group.position.set(pos.x, pos.y, 8);
 
-        // Orient ship along flight path
         if (fleet.status === 'in_transit' || fleet.status === 'returning' || fleet.status === 'intercepting') {
           const originSys = stateRef.current.map.systems[fleet.originSystemId];
           const targetSys = stateRef.current.map.systems[fleet.targetSystemId];
@@ -821,18 +843,15 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             const dy = targetSys.y - originSys.y;
             visual.group.rotation.z = Math.atan2(dy, dx) - Math.PI / 2;
           }
-          // Thruster pulsation
           const pulseScale = 1.0 + Math.sin(currentTimeMs * 0.015) * 0.25;
           visual.thrusterMesh.scale.set(pulseScale, pulseScale, pulseScale);
           visual.glowSprite.scale.set(8 * pulseScale, 8 * pulseScale, 1);
         } else {
-          // Stationary / orbiting in system
           visual.group.rotation.z += delta * 0.5;
           visual.thrusterMesh.scale.set(0.6, 0.6, 0.6);
         }
       });
 
-      // Clean up fleet visuals that no longer exist
       fleetVisuals.forEach((visual, fleetId) => {
         if (!activeFleetIds.has(fleetId)) {
           fleetGroup.remove(visual.group);
@@ -865,7 +884,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             const pz = 5;
 
             pVis.planetMesh.position.set(px, py, pz);
-            pVis.planetMesh.rotation.y += delta * 0.4; // Axial rotation
+            pVis.planetMesh.rotation.y += delta * 0.4;
 
             if (pVis.atmoSprite) {
               pVis.atmoSprite.position.set(px, py, pz);
@@ -880,7 +899,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               pVis.ringMesh.position.set(px, py, pz);
             }
 
-            // Natural Moonlet Orbit
             if (pVis.moonMesh) {
               const moonTheta = currentTimeMs * 0.002 + pVis.slotIndex;
               const moonDist = 16;
@@ -891,7 +909,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               );
             }
 
-            // Orbital Station / Satellite
             if (pVis.stationMesh) {
               const satTheta = currentTimeMs * 0.0015;
               const satDist = 12;
@@ -904,7 +921,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               pVis.stationMesh.rotation.y += delta * 1.2;
             }
 
-            // Future Forecast Projections
             pVis.ghostMeshes.forEach((gm, gIdx) => {
               if (showProjectionsRef.current && orbit.projections[gIdx]) {
                 gm.visible = true;
@@ -917,7 +933,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           });
         }
       } else {
-        // Zoomed far out in macro view
         if (orreryGroup) {
           orreryGroup.visible = false;
         }
@@ -949,8 +964,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       starMat.dispose();
       spiralGeo.dispose();
       spiralMat.dispose();
-      pulseGeo.dispose();
-      pulseMat.dispose();
+      pulseSpriteMat.dispose();
       shipHullGeo.dispose();
       thrusterConeGeo.dispose();
     };

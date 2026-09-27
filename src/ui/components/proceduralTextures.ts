@@ -1,15 +1,25 @@
 import * as THREE from 'three';
 
 /**
- * Generates procedural canvas textures for planets, clouds, and stars.
- * Zero external asset dependencies, instant load time, high visual fidelity.
+ * Generates procedural canvas textures for planets, clouds, stars, and glows.
+ * Zero external asset dependencies, instant load time, high visual fidelity,
+ * and guaranteed smooth radial alpha falloffs (no square/rectangular edge clipping).
  */
 
-// Cache textures so they are created only once
 const textureCache = new Map<string, THREE.CanvasTexture>();
 
+function hexToRgba(hex: string, alpha: number): string {
+  let c = hex.replace('#', '');
+  if (c.length === 3) c = c.split('').map((x) => x + x).join('');
+  const num = parseInt(c, 16);
+  const r = (num >> 16) & 255;
+  const g = (num >> 8) & 255;
+  const b = num & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 /**
- * Creates a procedural Terran world texture with blue oceans, green/emerald landmasses,
+ * Creates a procedural Terran world texture with blue oceans, emerald landmasses,
  * and white polar ice caps.
  */
 export function getTerranTexture(): THREE.CanvasTexture {
@@ -201,8 +211,8 @@ export function getVolcanicTexture(): THREE.CanvasTexture {
     let y = (i * 35) % 256;
     ctx.moveTo(x, y);
     for (let j = 0; j < 5; j++) {
-      x += (Math.sin(j + i) * 35);
-      y += (Math.cos(j * i) * 30);
+      x += Math.sin(j + i) * 35;
+      y += Math.cos(j * i) * 30;
       ctx.lineTo(x, y);
     }
     ctx.stroke();
@@ -214,10 +224,65 @@ export function getVolcanicTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Creates a Sun star surface texture with animated solar granulation
+ * Creates a 360-degree equirectangular incandescent star surface texture.
+ * Seamlessly covers the entire sphere without any dark crescent, shadow or black corners!
  */
 export function getSunTexture(colorHex: string = '#f59e0b'): THREE.CanvasTexture {
   const cacheKey = `sun_${colorHex}`;
+  if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 512;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+
+  // 1. Base vibrant fiery incandescent fill across the entire sphere
+  ctx.fillStyle = colorHex;
+  ctx.fillRect(0, 0, 512, 256);
+
+  // 2. Solar granulation noise layers (plasma convection cells)
+  for (let i = 0; i < 80; i++) {
+    const cx = (i * 47) % 512;
+    const cy = (i * 31) % 256;
+    const rad = 25 + (i % 25);
+
+    const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, rad);
+    grad.addColorStop(0, '#ffffff'); // burning core filament
+    grad.addColorStop(0.35, hexToRgba(colorHex, 0.95));
+    grad.addColorStop(1, hexToRgba(colorHex, 0));
+
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, rad, 0, Math.PI * 2);
+    ctx.fill();
+
+    // Wrap around x edge for seamless seam
+    if (cx + rad > 512) {
+      ctx.beginPath();
+      ctx.arc(cx - 512, cy, rad, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  // 3. Ambient solar flare bands
+  ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
+  for (let y = 30; y < 226; y += 45) {
+    ctx.fillRect(0, y, 512, 12);
+  }
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = THREE.RepeatWrapping;
+  texture.wrapT = THREE.ClampToEdgeWrapping;
+  textureCache.set(cacheKey, texture);
+  return texture;
+}
+
+/**
+ * Creates a perfectly circular, super-soft radial optical star corona glow sprite texture.
+ * Drops smoothly to 0 alpha with a wide transparent safety margin so there is ZERO square clipping!
+ */
+export function getStarCoronaGlowTexture(colorHex: string = '#f59e0b'): THREE.CanvasTexture {
+  const cacheKey = `corona_${colorHex}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   const canvas = document.createElement('canvas');
@@ -225,11 +290,17 @@ export function getSunTexture(colorHex: string = '#f59e0b'): THREE.CanvasTexture
   canvas.height = 256;
   const ctx = canvas.getContext('2d')!;
 
-  const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 128);
-  grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.3, colorHex);
-  grad.addColorStop(0.8, '#78350f');
-  grad.addColorStop(1, '#000000');
+  ctx.clearRect(0, 0, 256, 256);
+
+  // Center (128, 128), radius 112 with 16px buffer to canvas boundary (guaranteed 0 alpha)
+  const grad = ctx.createRadialGradient(128, 128, 0, 128, 128, 114);
+  grad.addColorStop(0, '#ffffff');                     // Intense white core
+  grad.addColorStop(0.18, hexToRgba(colorHex, 0.9));   // Saturated color halo
+  grad.addColorStop(0.42, hexToRgba(colorHex, 0.45));  // Diffuse solar corona
+  grad.addColorStop(0.70, hexToRgba(colorHex, 0.15));  // Distant stellar haze
+  grad.addColorStop(0.92, hexToRgba(colorHex, 0.02));  // Ethereal rim
+  grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');          // Pure transparent zero edge
+
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 256, 256);
 
@@ -239,24 +310,29 @@ export function getSunTexture(colorHex: string = '#f59e0b'): THREE.CanvasTexture
 }
 
 /**
- * Creates a soft atmosphere glow radial sprite texture
+ * Creates a soft atmosphere limb scattering glow for planetary bodies.
+ * Guaranteed circular falloff without rectangular edge clipping.
  */
 export function getAtmosphereTexture(colorHex: string = '#38bdf8'): THREE.CanvasTexture {
   const cacheKey = `atmo_${colorHex}`;
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
+  canvas.width = 256;
+  canvas.height = 256;
   const ctx = canvas.getContext('2d')!;
 
-  const grad = ctx.createRadialGradient(64, 64, 30, 64, 64, 64);
-  grad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-  grad.addColorStop(0.5, colorHex);
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.clearRect(0, 0, 256, 256);
+
+  const grad = ctx.createRadialGradient(128, 128, 40, 128, 128, 112);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.35)');
+  grad.addColorStop(0.3, hexToRgba(colorHex, 0.6));
+  grad.addColorStop(0.65, hexToRgba(colorHex, 0.2));
+  grad.addColorStop(0.92, hexToRgba(colorHex, 0.03));
+  grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
 
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 128, 128);
+  ctx.fillRect(0, 0, 256, 256);
 
   const texture = new THREE.CanvasTexture(canvas);
   textureCache.set(cacheKey, texture);
@@ -264,7 +340,7 @@ export function getAtmosphereTexture(colorHex: string = '#38bdf8'): THREE.Canvas
 }
 
 /**
- * Creates an energetic swirling warp gate beacon texture
+ * Creates an energetic swirling warp gate portal beacon texture
  */
 export function getWarpGateTexture(): THREE.CanvasTexture {
   if (textureCache.has('warpgate')) return textureCache.get('warpgate')!;
@@ -276,24 +352,24 @@ export function getWarpGateTexture(): THREE.CanvasTexture {
 
   ctx.clearRect(0, 0, 128, 128);
 
-  // Outer ring
+  // Outer ring inside boundary
   ctx.strokeStyle = '#00f3ff';
-  ctx.lineWidth = 4;
+  ctx.lineWidth = 3;
   ctx.shadowColor = '#38bdf8';
-  ctx.shadowBlur = 10;
+  ctx.shadowBlur = 8;
   ctx.beginPath();
-  ctx.arc(64, 64, 48, 0, Math.PI * 2);
+  ctx.arc(64, 64, 42, 0, Math.PI * 2);
   ctx.stroke();
 
-  // Swirl core
-  const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 44);
+  // Swirl core with zero edge
+  const grad = ctx.createRadialGradient(64, 64, 2, 64, 64, 52);
   grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.4, '#38bdf8');
-  grad.addColorStop(0.8, '#a855f7');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(0.35, 'rgba(56, 189, 248, 0.8)');
+  grad.addColorStop(0.7, 'rgba(168, 85, 247, 0.3)');
+  grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = grad;
   ctx.beginPath();
-  ctx.arc(64, 64, 44, 0, Math.PI * 2);
+  ctx.arc(64, 64, 52, 0, Math.PI * 2);
   ctx.fill();
 
   const texture = new THREE.CanvasTexture(canvas);
@@ -309,18 +385,20 @@ export function getShipEngineGlowTexture(colorHex: string = '#00f3ff'): THREE.Ca
   if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
 
   const canvas = document.createElement('canvas');
-  canvas.width = 64;
-  canvas.height = 64;
+  canvas.width = 128;
+  canvas.height = 128;
   const ctx = canvas.getContext('2d')!;
 
-  const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+  ctx.clearRect(0, 0, 128, 128);
+
+  const grad = ctx.createRadialGradient(64, 64, 2, 64, 64, 56);
   grad.addColorStop(0, '#ffffff');
-  grad.addColorStop(0.3, colorHex);
-  grad.addColorStop(0.7, 'rgba(14, 165, 233, 0.4)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(0.25, hexToRgba(colorHex, 0.9));
+  grad.addColorStop(0.6, hexToRgba(colorHex, 0.3));
+  grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
 
   ctx.fillStyle = grad;
-  ctx.fillRect(0, 0, 64, 64);
+  ctx.fillRect(0, 0, 128, 128);
 
   const texture = new THREE.CanvasTexture(canvas);
   textureCache.set(cacheKey, texture);
@@ -338,11 +416,13 @@ export function getGalacticNebulaTexture(): THREE.CanvasTexture {
   canvas.height = 128;
   const ctx = canvas.getContext('2d')!;
 
-  const grad = ctx.createRadialGradient(64, 64, 5, 64, 64, 64);
-  grad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+  ctx.clearRect(0, 0, 128, 128);
+
+  const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 58);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.7)');
   grad.addColorStop(0.3, 'rgba(168, 85, 247, 0.35)');
-  grad.addColorStop(0.7, 'rgba(56, 189, 248, 0.15)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  grad.addColorStop(0.65, 'rgba(56, 189, 248, 0.12)');
+  grad.addColorStop(1.0, 'rgba(0, 0, 0, 0)');
 
   ctx.fillStyle = grad;
   ctx.fillRect(0, 0, 128, 128);

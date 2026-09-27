@@ -224,6 +224,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
               setFocusedSystemId(sysId);
               onSelectSystem(sysId);
             }}
+            onEnterSystemView={enterSystemView}
             onSelectPlanet={onSelectPlanet}
             onSelectFleet={onSelectFleet}
           />
