@@ -10,6 +10,7 @@ import {
   Flame,
   Gem,
   Moon,
+  Palette,
   Pause,
   Pickaxe,
   Play,
@@ -41,6 +42,7 @@ interface TopBarProps {
   onOpenBattles: () => void;
   onOpenRelay?: () => void;
   onOpenAlliance?: () => void;
+  onOpenGallery?: () => void;
   onToggleVacationMode?: () => void;
   onReset: () => void;
 }
@@ -63,6 +65,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenBattles,
   onOpenRelay,
   onOpenAlliance,
+  onOpenGallery,
   onToggleVacationMode,
   onReset,
 }) => {
@@ -246,6 +249,18 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="hidden sm:inline">
                 {activeAlliance ? `[${activeAlliance.tag}]` : 'İttifak'}
               </span>
+            </button>
+          )}
+
+          {/* Magnific Art Gallery Button */}
+          {onOpenGallery && (
+            <button
+              onClick={onOpenGallery}
+              className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-cyber-cyan hover:text-white bg-cyber-cyan/10 hover:bg-cyber-cyan/20 border border-cyber-cyan/30 rounded transition-all shadow-sm shadow-cyan-950/30"
+              title="Magnific AI Konsept Sanat ve Görsel Galerisi"
+            >
+              <Palette className="w-3.5 h-3.5 text-cyber-cyan" />
+              <span className="font-semibold hidden sm:inline">Galeri</span>
             </button>
           )}
         </div>

@@ -97,17 +97,26 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
       {/* Planetary Status & Defense Stance */}
       <div className="px-4 py-3 border-b border-slate-800/80 bg-space-900/40">
         <div className="flex items-center justify-between mb-2">
-          <div>
-            <div className="text-sm font-bold text-slate-100 font-display flex items-center gap-2">
-              {currentPlanet.name}
-              {currentPlanet.isHomeworld && (
-                <span className="text-[9px] bg-amber-400/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
-                  ANA GEZEGEN
-                </span>
-              )}
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-lg overflow-hidden border border-cyber-cyan/30 shrink-0 bg-space-950 relative shadow-sm shadow-cyan-950/40 group">
+              <img
+                src="/assets/art/terran_planet.png"
+                alt={currentPlanet.name}
+                className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
+              />
             </div>
-            <div className="text-[11px] text-slate-400 font-mono">
-              Korumalı Depo: {currentPlanet.protectedCapacity.toLocaleString()} birim
+            <div>
+              <div className="text-sm font-bold text-slate-100 font-display flex items-center gap-2">
+                {currentPlanet.name}
+                {currentPlanet.isHomeworld && (
+                  <span className="text-[9px] bg-amber-400/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono">
+                    ANA GEZEGEN
+                  </span>
+                )}
+              </div>
+              <div className="text-[11px] text-slate-400 font-mono">
+                Korumalı Depo: {currentPlanet.protectedCapacity.toLocaleString()} birim
+              </div>
             </div>
           </div>
 

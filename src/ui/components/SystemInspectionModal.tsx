@@ -121,10 +121,20 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                   className="bg-space-850 border border-slate-800 rounded-lg p-3 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-3">
-                    <span
-                      className="w-3.5 h-3.5 rounded-full"
-                      style={{ backgroundColor: biome.fill }}
-                    />
+                    {slot.type === 'terran' ? (
+                      <div className="w-8 h-8 rounded-full overflow-hidden border border-emerald-500/40 shrink-0 bg-space-950 shadow-sm shadow-emerald-950/40">
+                        <img
+                          src="/assets/art/terran_planet.png"
+                          alt={slot.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <span
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: biome.fill }}
+                      />
+                    )}
                     <div>
                       <div className="text-sm font-semibold text-slate-100 flex items-center gap-2">
                         {slot.name}

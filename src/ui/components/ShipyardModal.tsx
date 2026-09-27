@@ -12,6 +12,13 @@ interface ShipyardModalProps {
   currentTimeMs: number;
 }
 
+const SHIP_ART: Record<ShipType, string> = {
+  scout: '/assets/art/scout.png',
+  transport: '/assets/art/transport.png',
+  fighter: '/assets/art/fighter.png',
+  battleship: '/assets/art/battleship.png',
+};
+
 export const ShipyardModal: React.FC<ShipyardModalProps> = ({
   planet,
   isOpen,
@@ -111,24 +118,35 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
                     : 'bg-space-850/80 border-slate-800 hover:border-slate-700'
                 }`}
               >
-                <div className="flex items-start justify-between">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-slate-100 font-display">
-                        {stats.nameTr}
-                      </span>
-                      <span className="text-[10px] font-mono bg-space-900 px-2 py-0.5 rounded text-slate-400 border border-slate-800">
-                        {stats.roleTr}
-                      </span>
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-center gap-3.5">
+                    {/* High-Resolution Ship Concept Thumbnail */}
+                    <div className="w-16 h-16 rounded-lg overflow-hidden border border-slate-700 bg-space-950 shrink-0 relative group/thumb shadow-sm shadow-cyan-950/40">
+                      <img
+                        src={SHIP_ART[st]}
+                        alt={stats.nameTr}
+                        className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-110"
+                      />
                     </div>
 
-                    {/* Stats Specs */}
-                    <div className="flex items-center gap-3 mt-1.5 text-xs text-slate-400 font-mono">
-                      <span>Saldırı: <strong className="text-rose-400">{stats.attack}</strong></span>
-                      <span>Gövde+Kalkan: <strong className="text-emerald-400">{stats.hull + stats.shield}</strong></span>
-                      <span>Hız: <strong className="text-cyber-cyan">{stats.speed}</strong></span>
-                      <span>Kargo: <strong className="text-amber-400">{stats.cargoCapacity}</strong></span>
-                      <span>Süre: {formatDuration(unitTimeMs)}</span>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-bold text-slate-100 font-display">
+                          {stats.nameTr}
+                        </span>
+                        <span className="text-[10px] font-mono bg-space-900 px-2 py-0.5 rounded text-slate-400 border border-slate-800">
+                          {stats.roleTr}
+                        </span>
+                      </div>
+
+                      {/* Stats Specs */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5 text-xs text-slate-400 font-mono">
+                        <span>Saldırı: <strong className="text-rose-400">{stats.attack}</strong></span>
+                        <span>Gövde+Kalkan: <strong className="text-emerald-400">{stats.hull + stats.shield}</strong></span>
+                        <span>Hız: <strong className="text-cyber-cyan">{stats.speed}</strong></span>
+                        <span>Kargo: <strong className="text-amber-400">{stats.cargoCapacity}</strong></span>
+                        <span>Süre: {formatDuration(unitTimeMs)}</span>
+                      </div>
                     </div>
                   </div>
 

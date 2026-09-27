@@ -65,38 +65,47 @@ export const RelayModal: React.FC<RelayModalProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Status Banner */}
-          <div className="bg-space-850 border border-purple-500/30 rounded-xl p-4 flex items-center justify-between">
-            <div>
-              <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider block">
-                Mevcut Röle Hâkimi
-              </span>
-              <div className="flex items-center gap-2 mt-1">
-                <span
-                  className="w-3 h-3 rounded-full"
-                  style={{ backgroundColor: controller?.color || '#a855f7' }}
-                />
-                <span className="text-lg font-bold text-slate-100 font-display">
-                  {controller ? controller.name : 'Tarafsız Savunma Garnizonu'}
-                </span>
-              </div>
-              {controller && (
-                <div className="text-xs text-slate-400 font-mono mt-1">
-                  Kontrol Süresi: <strong className="text-purple-300">{formatDuration(durationHeldMs)}</strong>
-                </div>
-              )}
-            </div>
+          {/* Hero Visual Banner of Nexus Relay */}
+          <div className="relative w-full h-44 rounded-xl overflow-hidden border border-purple-500/40 bg-space-950 shadow-lg shadow-purple-950/40 flex items-center justify-center group">
+            <img
+              src="/assets/art/nexus_relay.png"
+              alt="Nexus Relay Megastructure"
+              className="w-full h-full object-cover opacity-80 transition-transform duration-500 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-space-900 via-space-900/60 to-transparent" />
 
-            <button
-              onClick={() => {
-                onAssaultRelay();
-                onClose();
-              }}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold font-display text-xs transition-all shadow-md shadow-purple-900/50"
-            >
-              <Swords className="w-4 h-4" />
-              <span>Röleye Sefer Düzenle</span>
-            </button>
+            <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+              <div>
+                <span className="text-[10px] font-mono text-purple-300 uppercase tracking-widest bg-purple-950/80 px-2 py-0.5 rounded border border-purple-500/30 inline-block">
+                  Kadim Öncü Megastrüktürü
+                </span>
+                <div className="flex items-center gap-2 mt-1">
+                  <span
+                    className="w-3 h-3 rounded-full"
+                    style={{ backgroundColor: controller?.color || '#a855f7' }}
+                  />
+                  <span className="text-base font-bold text-slate-100 font-display drop-shadow">
+                    {controller ? controller.name : 'Tarafsız Savunma Garnizonu'}
+                  </span>
+                  {controller && (
+                    <span className="text-xs text-purple-300 font-mono">
+                      ({formatDuration(durationHeldMs)})
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              <button
+                onClick={() => {
+                  onAssaultRelay();
+                  onClose();
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-bold font-display text-xs transition-all shadow-md shadow-purple-900/50 hover:shadow-purple-700/60"
+              >
+                <Swords className="w-4 h-4" />
+                <span>Röleye Sefer Düzenle</span>
+              </button>
+            </div>
           </div>
 
           {/* Strategic Bonuses */}

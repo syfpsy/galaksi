@@ -16,6 +16,7 @@ import {
   ShipType,
 } from './engine/types';
 import { AllianceModal } from './ui/components/AllianceModal';
+import { ArtGalleryModal } from './ui/components/ArtGalleryModal';
 import { CombatReplayModal } from './ui/components/CombatReplayModal';
 import { CommandPanel } from './ui/components/CommandPanel';
 import { EventFeed } from './ui/components/EventFeed';
@@ -54,6 +55,7 @@ export function App() {
   const [isBattlesOpen, setIsBattlesOpen] = useState<boolean>(false);
   const [isRelayOpen, setIsRelayOpen] = useState<boolean>(false);
   const [isAllianceOpen, setIsAllianceOpen] = useState<boolean>(false);
+  const [isGalleryOpen, setIsGalleryOpen] = useState<boolean>(false);
   const [inspectedSystemId, setInspectedSystemId] = useState<string | null>(null);
 
   // Initialize engine & players
@@ -329,6 +331,7 @@ export function App() {
         onOpenBattles={() => setIsBattlesOpen(true)}
         onOpenRelay={() => setIsRelayOpen(true)}
         onOpenAlliance={() => setIsAllianceOpen(true)}
+        onOpenGallery={() => setIsGalleryOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
         onReset={() => initGame(Date.now())}
       />
@@ -446,6 +449,12 @@ export function App() {
         isOpen={!!inspectedSystemId}
         onClose={() => setInspectedSystemId(null)}
         onSelectSlot={handleSelectSlot}
+      />
+
+      {/* Magnific Concept Art Gallery Modal */}
+      <ArtGalleryModal
+        isOpen={isGalleryOpen}
+        onClose={() => setIsGalleryOpen(false)}
       />
     </div>
   );

@@ -77,3 +77,45 @@ Kullanıcı geribildirimi doğrultusunda oyunun temel karakteri olan **"ağır, 
 - `npm run build`: TypeScript ve Vite üretim paketi 0 hata ile derlendi.
 - Dev sunucusu: Port `3007` üzerinde HMR ile kesintisiz çalışıyor.
 
+---
+
+## [2026-09-27] — Faz C: Magnific AI Destekli Görsel Varlık Üretimi & Sanat Galerisi
+
+### 1. Hard Sci-Fi Konsept Sanatı Üretimi (Magnific AI — Google Nano Banana Pro)
+Kullanıcının *"Hem grafikleri hem de arayüzü çok daha iyi yapmalıyız. Yapabileceğin örneklerden Magnific kullanarak bir galeri hazırla ve sadece yapabileceğin detayda grafikler olsun ama sonra beraber bakalım"* direktifi doğrultusunda, oyunun görsel kalitesini AAA bilimkurgu seviyesine taşıyan 6 ana varlık Magnific MCP üzerinden üretildi:
+1. **Keşif Gemisi (Vanguard Recon 7):**
+   - Varlık: `public/assets/art/scout.png` (1.3 MB, 1024x1024)
+   - Konsept: Karbon-kompozit mat radar soğurucu gövde, dönen tanyon sensör çanakları, turkuaz iyon itki egzozu, asteroid kuşağı arka planı.
+2. **Ağır Nakliye Gemisi (Hephaestus):**
+   - Varlık: `public/assets/art/transport.png` (1.9 MB, 1024x1024)
+   - Konsept: Endüstriyel sınıf modüler konteyner blokları ("RAW ORE" ve "CRYSTAL CONTAINERS"), ağır manevra iticileri, turuncu uyarı flaşörleri ve vinç kolları.
+3. **Plazma Avcı Gemisi (Interceptor):**
+   - Varlık: `public/assets/art/fighter.png` (1.3 MB, 1024x1024)
+   - Konsept: İleri delta kanat geometrisi, kanat uçlarında çift plazma raylı top, zırhlı kokpit kanopisi, eskort filosu arka planı.
+4. **Savaş Gemisi / Dretnot (Dreadnought):**
+   - Varlık: `public/assets/art/battleship.png` (1.5 MB, 1024x1024)
+   - Konsept: Devasa omurga kütle hızlandırıcı raylı silahı, çoklu nokta savunma taretleri, hekzagonal deflektör enerji kalkanı ışıması ve komuta kulesi.
+5. **Nexus Rölesi (Central Star Beacon):**
+   - Varlık: `public/assets/art/nexus_relay.png` (1.5 MB, 1024x1024)
+   - Konsept: Üçlü eşmerkezli jiroskopik dönen halkalar, mor tanyon ışıması yayan merkezi yıldız çekirdeği, orbital sensör kuleleri ve güneş panelleri.
+6. **Yaşanabilir Terran Dünyası (Terran Planet):**
+   - Varlık: `public/assets/art/terran_planet.png` (1.9 MB, 1024x1024)
+   - Konsept: Yüksek yörüngeden gerçekçi gezegen küresi, yemyeşil kıtalar, derin mavi okyanuslar, dönen atmosferik bulutlar, gece tarafında şehir ışıkları.
+
+### 2. Kalıcı Yerel Depolama & Performans
+- Geçici CDN bağlantı süre aşımı riskini önlemek için tüm üretimler yerel diskte `public/assets/art/` klasörüne indirildi.
+- Vite geliştirme sunucusunda ve üretim paketinde anında ve sıfır gecikmeyle servis edilmektedir.
+
+### 3. İnteraktif Sanat & Konsept Galerisi (`src/ui/components/ArtGalleryModal.tsx`)
+- **Çift Kolonlu Vitrin:** Sol panelde kategori hapları (Tümü, Gemiler, Yapılar, Gezegenler) ve varlık kartları; sağ panelde 1024x1024 kahraman görsel çerçevesi.
+- **Teknik Özellikler & Oyun İçi Lore:** Her varlığın rolü, uçuş hızı, kalkan/gövde dayanımı, kargo kapasitesi ve oyun içi taktik önemi.
+- **Lightbox Zoom & Magnific Bağlantısı:** Tam ekran inceleme ve orijinal Magnific stüdyo kayıt bağlantısı.
+
+### 4. Oyun İçi Arayüz Entegrasyonları
+- **Gemi Tersanesi (`ShipyardModal.tsx`):** Her gemi türünün üretim kartına yüksek çözünürlüklü konsept renderı yerleştirildi (hover zoom ve ışıma efektli).
+- **Nexus Rölesi Paneli (`RelayModal.tsx`):** Kadim megastrüktür görseli, röle kontrol durumu ve sefer düğmesiyle bütünleşik kahraman afişi olarak eklendi.
+- **Gezegen Paneli (`PlanetPanel.tsx`):** Gezegen başlığının yanına yüksek çözünürlüklü Terran küresi görsel rozeti eklendi.
+- **Sistem İnceleme (`SystemInspectionModal.tsx`):** Yörünge slotlarında yaşanabilir Terran dünyaları mini küre renderı ile zenginleştirildi.
+- **Üst Navigasyon (`TopBar.tsx`):** `Galeri` butonu eklendi.
+
+
