@@ -231,6 +231,41 @@ Kullanıcının Unity yerine *"Web + Three.js (2.5D) açık ara en doğru yoldur
 - Sol üstteki `[ 🚀 2.5D WebGL ]` ve `[ 🛰️ 2D Vektör ]` düğmeleriyle oyuncu dilediği zaman 2.5D Three.js WebGL motoru ile 2D taktik SVG haritası arasında tek tıkla geçiş yapabilir.
 - Tüm React arayüzü (Tersane, İttifak, Liderlik Tablosu, Komuta Paneli) 3D sahne üzerinde kesintisiz çalışmaya devam eder.
 
+---
+
+## [2026-09-27] — Faz G: 2.5D Makro Kozmik Dinamikler, 3D Filo Uçuşları & Derin Stellaris Yakınlaşması (Deep Zoom)
+
+Kullanıcının *"Aynı şekilde sistemin bir tier üst uzay ortamında (lokal grup, galaksi vs.) da böyle dinamik bir yapı olmalı. Çokça yakına zumlayabilmeliyiz, o açıdan 2D bir Stellaris gibi olmalı"* direktifi doğrultusunda Three.js 2.5D motoru tam kapsamlı Stellaris deneyimine yükseltildi:
+
+### 1. Makro Galaksi Katmanı: Dönen Spiral Kollar & Kozmik Gaz Bulutu
+- **Merkezi Nexus Spiral Disk:**
+  - Galaksi merkezindeki Nexus Röle İstasyonu çevresinde (500, 400) dönen iki kollu logaritmik spiral disk (`AdditiveBlending` ile 900 parçacıklı gaz tozu).
+  - Merkeze yakın parlak mor/eflatun çekirdek, kollarda siyan/turkuaz ve dış sınırda koyu kobalt mavi renk tonlaması.
+  - Galaksinin yaşayan bir kozmik organizma gibi hissettirmesi için sürekli çok yavaş rotasyon (`rotation.z += 0.00018`).
+- **3D Takımyıldız ve Sektör Sınır Halkaları:**
+  - Nexus Çekirdek Sektörü ($r=140$, mor halka), İç Yıldız Kuşağı ($r=265$, siyan halka) ve Dış Frontier Sınırı ($r=410$, çelik mavisi halka).
+
+### 2. Dinamik Hiperhatlar & Akışkan Altuzay Enerji Paketleri
+- Sistemler arası hiperhatlar boyunca sürekli hareket eden siyan altuzay enerji parçacıkları (`LanePulse`).
+- Her hiperhattın sistem giriş-çıkış noktalarında dönen şamandıra portalları (`Warp Gate Buoys`).
+
+### 3. 3D Dinamik Filo Uçuşları & Plazma İtki Konileri
+- **Fiziksel 3D Gemi Gövdeleri:** Uçuş halindeki (`in_transit`, `returning`, `intercepting`) filolar rotaları boyunca gerçek zamanlı 3D koordinatlarında (`getFleetCurrentPosition`) modellenir.
+- **Yönelme (Flight Vector):** Gemi burnu seyahat ettiği hedef yıldıza doğru otomatik olarak döner (`atan2`).
+- **Plazma İtki Alevi:** Motorun arkasında gerçek zamanlı nabız gibi atan siyan/kırmızı plazma egzoz konisi (`thrusterCone`) ve parıltı sisi (`glowSprite`).
+- **Işın Dökümü ile Filo Seçimi:** Oyuncu 3D uzayda uçan filolara tıkladığında telemetri kartı ve filo ayrıntıları anında açılır.
+
+### 4. Derin Stellaris Yakınlaşması (Deep Zoom) & Kesintisiz LOD
+- **Geniş Zoom Aralığı:** Makro galaksi görünümünden ($z=1350$) gezegen atmosferinin dibine kadar ($z=45$) kesintisiz yakınlaşabilme.
+- **Çift Tıklama ile İniş (Stellaris Fly-In):**
+  - Herhangi bir yıldıza çift tıklandığında kamera pürüzsüz bir eğriyle yıldız sistemine dalar ve sistem orrery modunu açar.
+  - Herhangi bir gezegene çift tıklandığında kamera doğrudan o gezegenin yörüngesine kilitlenir ($z=65$).
+- **Gezegen Çevresi 3D Detaylar:**
+  - Doğal uydular (Moonlets) gezegenin çevresinde bağımsız yörüngede döner.
+  - Oyuncuya ait kolonilerde gezegen yörüngesinde dönen 3D Yörünge Savunma İstasyonları / Yıldızüsleri.
+  - Atmosferik ışıma hale spreyleri (`getAtmosphereTexture`).
+- **Sıfır Çöp Toplayıcı (Zero GC Allocation):** Geometri ve malzemeler dinamik havuzda tutulur; her karede yeni geometri tahsis edilmeyerek yağ gibi akıcı 60 FPS garantilenir.
+
 
 
 

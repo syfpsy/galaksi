@@ -237,3 +237,117 @@ export function getSunTexture(colorHex: string = '#f59e0b'): THREE.CanvasTexture
   textureCache.set(cacheKey, texture);
   return texture;
 }
+
+/**
+ * Creates a soft atmosphere glow radial sprite texture
+ */
+export function getAtmosphereTexture(colorHex: string = '#38bdf8'): THREE.CanvasTexture {
+  const cacheKey = `atmo_${colorHex}`;
+  if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+
+  const grad = ctx.createRadialGradient(64, 64, 30, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
+  grad.addColorStop(0.5, colorHex);
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  textureCache.set(cacheKey, texture);
+  return texture;
+}
+
+/**
+ * Creates an energetic swirling warp gate beacon texture
+ */
+export function getWarpGateTexture(): THREE.CanvasTexture {
+  if (textureCache.has('warpgate')) return textureCache.get('warpgate')!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+
+  ctx.clearRect(0, 0, 128, 128);
+
+  // Outer ring
+  ctx.strokeStyle = '#00f3ff';
+  ctx.lineWidth = 4;
+  ctx.shadowColor = '#38bdf8';
+  ctx.shadowBlur = 10;
+  ctx.beginPath();
+  ctx.arc(64, 64, 48, 0, Math.PI * 2);
+  ctx.stroke();
+
+  // Swirl core
+  const grad = ctx.createRadialGradient(64, 64, 4, 64, 64, 44);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.4, '#38bdf8');
+  grad.addColorStop(0.8, '#a855f7');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(64, 64, 44, 0, Math.PI * 2);
+  ctx.fill();
+
+  const texture = new THREE.CanvasTexture(canvas);
+  textureCache.set('warpgate', texture);
+  return texture;
+}
+
+/**
+ * Creates a directional plasma engine thruster exhaust flare texture
+ */
+export function getShipEngineGlowTexture(colorHex: string = '#00f3ff'): THREE.CanvasTexture {
+  const cacheKey = `engine_${colorHex}`;
+  if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 64;
+  canvas.height = 64;
+  const ctx = canvas.getContext('2d')!;
+
+  const grad = ctx.createRadialGradient(32, 32, 2, 32, 32, 32);
+  grad.addColorStop(0, '#ffffff');
+  grad.addColorStop(0.3, colorHex);
+  grad.addColorStop(0.7, 'rgba(14, 165, 233, 0.4)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 64, 64);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  textureCache.set(cacheKey, texture);
+  return texture;
+}
+
+/**
+ * Creates soft volumetric cosmic nebula cloud particle texture
+ */
+export function getGalacticNebulaTexture(): THREE.CanvasTexture {
+  if (textureCache.has('nebula_dust')) return textureCache.get('nebula_dust')!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 128;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d')!;
+
+  const grad = ctx.createRadialGradient(64, 64, 5, 64, 64, 64);
+  grad.addColorStop(0, 'rgba(255, 255, 255, 0.6)');
+  grad.addColorStop(0.3, 'rgba(168, 85, 247, 0.35)');
+  grad.addColorStop(0.7, 'rgba(56, 189, 248, 0.15)');
+  grad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, 128, 128);
+
+  const texture = new THREE.CanvasTexture(canvas);
+  textureCache.set('nebula_dust', texture);
+  return texture;
+}
