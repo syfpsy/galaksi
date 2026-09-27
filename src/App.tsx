@@ -346,6 +346,8 @@ export function App() {
           onUpgradeBuilding={handleUpgradeBuilding}
           onSetStance={handleSetStance}
           currentTimeMs={engineState.timeMs}
+          onOpenShipyard={() => setIsShipyardOpen(true)}
+          onOpenResearch={() => setIsResearchOpen(true)}
         />
 
         {/* Center: Live 2D Galaxy Vector Map */}

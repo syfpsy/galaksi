@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Award,
   ChevronLeft,
   ChevronRight,
   Flame,
   Gem,
+  Pause,
   Pickaxe,
   Play,
   RotateCcw,
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 import { BattleReport, ShipType } from '../../engine/types';
 import { SHIP_STATS } from '../../engine/constants';
+import { sound } from '../sound';
 
 interface CombatReplayModalProps {
   reports: BattleReport[];
@@ -29,13 +31,31 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
 }) => {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [currentRoundIdx, setCurrentRoundIdx] = useState<number>(0);
-
-  if (!isOpen) return null;
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   const currentReport = reports.find((r) => r.id === selectedReportId) || reports[reports.length - 1];
-
   const totalRounds = currentReport ? currentReport.rounds.length : 0;
   const currentRound = currentReport?.rounds[currentRoundIdx];
+
+  // Autoplay combat rounds with audio effects
+  useEffect(() => {
+    if (!isPlaying || !currentReport || totalRounds === 0) return;
+
+    const timer = setInterval(() => {
+      setCurrentRoundIdx((prev) => {
+        if (prev >= totalRounds - 1) {
+          setIsPlaying(false);
+          return prev;
+        }
+        sound.playLaser();
+        return prev + 1;
+      });
+    }, 1100);
+
+    return () => clearInterval(timer);
+  }, [isPlaying, currentReport, totalRounds]);
+
+  if (!isOpen) return null;
 
   const contextTitles = {
     planet_raid: 'GEZEGEN BASKINI',
@@ -185,41 +205,100 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                   </div>
                 </div>
 
-                {/* Round Player Controls */}
+                {/* Round Player Controls & Dynamic Combat Corridor */}
                 {totalRounds > 0 && (
-                  <div className="bg-space-850/90 border border-slate-800 rounded-lg p-3 space-y-2">
+                  <div className="bg-space-850/90 border border-slate-800 rounded-lg p-3 space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-bold font-display text-slate-200">
-                        TUR {currentRoundIdx + 1} / {totalRounds}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-bold font-display text-slate-200">
+                          TUR {currentRoundIdx + 1} / {totalRounds}
+                        </span>
+                        {/* Autoplay / Pause Toggle Button */}
+                        <button
+                          onClick={() => {
+                            if (isPlaying) {
+                              setIsPlaying(false);
+                            } else {
+                              if (currentRoundIdx >= totalRounds - 1) {
+                                setCurrentRoundIdx(0);
+                              }
+                              sound.playLaser();
+                              setIsPlaying(true);
+                            }
+                          }}
+                          className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all ${
+                            isPlaying
+                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
+                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
+                          }`}
+                        >
+                          {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                          {isPlaying ? 'DURAKLAT' : 'OTOMATİK OYNAT'}
+                        </button>
+                      </div>
+
                       <div className="flex items-center gap-1.5">
                         <button
                           disabled={currentRoundIdx === 0}
-                          onClick={() => setCurrentRoundIdx((prev) => Math.max(0, prev - 1))}
-                          className="p-1 rounded bg-space-900 border border-slate-700 text-slate-300 disabled:opacity-40"
+                          onClick={() => {
+                            setIsPlaying(false);
+                            setCurrentRoundIdx((prev) => Math.max(0, prev - 1));
+                            sound.playLaser();
+                          }}
+                          className="p-1 rounded bg-space-900 border border-slate-700 text-slate-300 hover:border-slate-500 disabled:opacity-40"
+                          title="Önceki Tur"
                         >
                           <ChevronLeft className="w-4 h-4" />
                         </button>
                         <button
                           disabled={currentRoundIdx >= totalRounds - 1}
-                          onClick={() => setCurrentRoundIdx((prev) => Math.min(totalRounds - 1, prev + 1))}
-                          className="p-1 rounded bg-space-900 border border-slate-700 text-slate-300 disabled:opacity-40"
+                          onClick={() => {
+                            setIsPlaying(false);
+                            setCurrentRoundIdx((prev) => Math.min(totalRounds - 1, prev + 1));
+                            sound.playLaser();
+                          }}
+                          className="p-1 rounded bg-space-900 border border-slate-700 text-slate-300 hover:border-slate-500 disabled:opacity-40"
+                          title="Sonraki Tur"
                         >
                           <ChevronRight className="w-4 h-4" />
                         </button>
                       </div>
                     </div>
 
+                    {/* Dynamic Laser Fire Corridor */}
+                    <div className="relative h-14 bg-space-950/90 rounded-lg border border-slate-800 p-2 flex items-center justify-between overflow-hidden">
+                      {/* Sub-grid pattern */}
+                      <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:12px_12px]" />
+
+                      {/* Attacker plasma stream (Left to Right) */}
+                      <div className="absolute left-3 right-1/2 h-1 bg-gradient-to-r from-rose-500 via-rose-400 to-amber-300 shadow-md shadow-rose-500/60 rounded-full animate-pulse" />
+                      <div className="absolute left-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-rose-300 bg-rose-950/90 px-1.5 py-0.5 rounded border border-rose-500/40 z-10">
+                        ⚡ -{currentRound ? currentRound.attackerDamageDealt : 0} HP
+                      </div>
+
+                      {/* Clash Sparks Core */}
+                      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-amber-400/20 blur-[2px] flex items-center justify-center z-10">
+                        <Sparkles className="w-4 h-4 text-amber-300 animate-spin-slow" />
+                      </div>
+
+                      {/* Defender laser stream (Right to Left) */}
+                      <div className="absolute right-3 left-1/2 h-1 bg-gradient-to-l from-blue-500 via-cyan-400 to-emerald-300 shadow-md shadow-cyan-400/60 rounded-full animate-pulse" />
+                      <div className="absolute right-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/90 px-1.5 py-0.5 rounded border border-cyan-500/40 z-10">
+                        ⚡ -{currentRound ? currentRound.defenderDamageDealt : 0} HP
+                      </div>
+                    </div>
+
+                    {/* Damage summary cards */}
                     {currentRound && (
-                      <div className="grid grid-cols-2 gap-3 text-xs font-mono pt-1 border-t border-slate-800">
-                        <div>
-                          <span className="text-slate-400 block text-[11px]">Saldırgan Ateşi</span>
+                      <div className="grid grid-cols-2 gap-3 text-xs font-mono pt-1">
+                        <div className="bg-rose-950/30 border border-rose-500/20 rounded p-2 flex items-center justify-between">
+                          <span className="text-slate-400 text-[11px]">Saldırgan Ateşi:</span>
                           <strong className="text-rose-400 text-sm">
                             {currentRound.attackerDamageDealt} Hasar
                           </strong>
                         </div>
-                        <div>
-                          <span className="text-slate-400 block text-[11px]">Savunucu Ateşi</span>
+                        <div className="bg-blue-950/30 border border-blue-500/20 rounded p-2 flex items-center justify-between">
+                          <span className="text-slate-400 text-[11px]">Savunucu Ateşi:</span>
                           <strong className="text-blue-400 text-sm">
                             {currentRound.defenderDamageDealt} Hasar
                           </strong>

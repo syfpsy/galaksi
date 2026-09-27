@@ -3,6 +3,7 @@ import { Clock, Hammer, Shield, Swords, Wrench, X } from 'lucide-react';
 import { getShipBuildDurationMs, SHIP_STATS } from '../../engine/constants';
 import { Planet, ShipType } from '../../engine/types';
 import { formatDuration } from '../timeUtils';
+import { sound } from '../sound';
 
 interface ShipyardModalProps {
   planet: Planet | undefined;
@@ -169,7 +170,10 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
 
                     <button
                       disabled={isLocked || !canAfford}
-                      onClick={() => onBuildShip(planet.id, st, buildCount)}
+                      onClick={() => {
+                        sound.playClick();
+                        onBuildShip(planet.id, st, buildCount);
+                      }}
                       className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-all ${
                         isLocked
                           ? 'bg-slate-800 text-slate-500 cursor-not-allowed'

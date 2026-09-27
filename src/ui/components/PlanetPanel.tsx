@@ -22,6 +22,7 @@ import {
 } from '../../engine/constants';
 import { BuildingType, Planet, PlanetStance, ShipType } from '../../engine/types';
 import { formatDuration } from '../timeUtils';
+import { sound } from '../sound';
 
 interface PlanetPanelProps {
   planets: Planet[];
@@ -30,6 +31,8 @@ interface PlanetPanelProps {
   onUpgradeBuilding: (planetId: string, type: BuildingType) => void;
   onSetStance: (planetId: string, stance: PlanetStance) => void;
   currentTimeMs: number;
+  onOpenShipyard?: () => void;
+  onOpenResearch?: () => void;
 }
 
 export const PlanetPanel: React.FC<PlanetPanelProps> = ({
@@ -39,6 +42,8 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
   onUpgradeBuilding,
   onSetStance,
   currentTimeMs,
+  onOpenShipyard,
+  onOpenResearch,
 }) => {
   const currentPlanet = planets.find((p) => p.id === activePlanetId) || planets[0];
   if (!currentPlanet) {
@@ -76,7 +81,10 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
           {planets.map((p) => (
             <button
               key={p.id}
-              onClick={() => onSelectPlanet(p.id)}
+              onClick={() => {
+                sound.playClick();
+                onSelectPlanet(p.id);
+              }}
               className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
                 p.id === currentPlanet.id
                   ? 'bg-cyber-cyan/20 border border-cyber-cyan/50 text-cyber-cyan'
@@ -142,7 +150,10 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
           {/* Stance Selector */}
           <div className="flex items-center gap-1">
             <button
-              onClick={() => onSetStance(currentPlanet.id, 'hold_position')}
+              onClick={() => {
+                sound.playClick();
+                onSetStance(currentPlanet.id, 'hold_position');
+              }}
               className={`p-1.5 rounded text-xs transition-all ${
                 currentPlanet.stance === 'hold_position'
                   ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40'
@@ -153,7 +164,10 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
               <Shield className="w-4 h-4" />
             </button>
             <button
-              onClick={() => onSetStance(currentPlanet.id, 'evade_safeguard')}
+              onClick={() => {
+                sound.playClick();
+                onSetStance(currentPlanet.id, 'evade_safeguard');
+              }}
               className={`p-1.5 rounded text-xs transition-all ${
                 currentPlanet.stance === 'evade_safeguard'
                   ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
@@ -215,26 +229,59 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
                   </span>
                 </div>
 
-                {/* Upgrade Button or Countdown */}
-                {isQueueActive ? (
-                  <div className="flex items-center gap-1.5 text-xs font-mono text-cyber-cyan">
-                    <Clock className="w-3.5 h-3.5 animate-spin" />
-                    <span>{formatDuration(remainingMs)}</span>
-                  </div>
-                ) : (
-                  <button
-                    disabled={!canAfford || isAnyUpgrading}
-                    onClick={() => onUpgradeBuilding(currentPlanet.id, type)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
-                      canAfford && !isAnyUpgrading
-                        ? 'bg-cyber-cyan/20 border border-cyber-cyan/50 text-cyber-cyan hover:bg-cyber-cyan/30'
-                        : 'bg-slate-800/40 border border-slate-800 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <ArrowUpCircle className="w-3 h-3" />
-                    <span>Yükselt</span>
-                  </button>
-                )}
+                {/* Action Buttons: Shortcuts & Upgrade */}
+                <div className="flex items-center gap-1.5">
+                  {type === 'shipyard' && currentLevel > 0 && onOpenShipyard && (
+                    <button
+                      onClick={() => {
+                        sound.playClick();
+                        onOpenShipyard();
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-blue-500/20 border border-blue-500/40 text-blue-300 hover:bg-blue-500/30 transition-all"
+                      title="Tersane Üretim Panelini Aç"
+                    >
+                      <Rocket className="w-2.5 h-2.5 text-blue-400" />
+                      <span>Tersane</span>
+                    </button>
+                  )}
+                  {type === 'research_lab' && currentLevel > 0 && onOpenResearch && (
+                    <button
+                      onClick={() => {
+                        sound.playClick();
+                        onOpenResearch();
+                      }}
+                      className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-purple-500/20 border border-purple-500/40 text-purple-300 hover:bg-purple-500/30 transition-all"
+                      title="Teknoloji Araştırma Ağacını Aç"
+                    >
+                      <Compass className="w-2.5 h-2.5 text-purple-400" />
+                      <span>Ar-Ge</span>
+                    </button>
+                  )}
+
+                  {/* Upgrade Button or Countdown */}
+                  {isQueueActive ? (
+                    <div className="flex items-center gap-1.5 text-xs font-mono text-cyber-cyan">
+                      <Clock className="w-3.5 h-3.5 animate-spin" />
+                      <span>{formatDuration(remainingMs)}</span>
+                    </div>
+                  ) : (
+                    <button
+                      disabled={!canAfford || isAnyUpgrading}
+                      onClick={() => {
+                        sound.playClick();
+                        onUpgradeBuilding(currentPlanet.id, type);
+                      }}
+                      className={`flex items-center gap-1 px-2.5 py-1 rounded text-[11px] font-medium transition-all ${
+                        canAfford && !isAnyUpgrading
+                          ? 'bg-cyber-cyan/20 border border-cyber-cyan/50 text-cyber-cyan hover:bg-cyber-cyan/30'
+                          : 'bg-slate-800/40 border border-slate-800 text-slate-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <ArrowUpCircle className="w-3 h-3" />
+                      <span>Yükselt</span>
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* Progress Bar for active upgrade with laser shimmer */}

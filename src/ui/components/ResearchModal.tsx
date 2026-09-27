@@ -3,6 +3,7 @@ import { Activity, Clock, Compass, Crosshair, Eye, Sparkles, X, Zap } from 'luci
 import { getResearchCost, getResearchDurationMs, RESEARCH_STATS } from '../../engine/constants';
 import { Planet, Player, ResearchType } from '../../engine/types';
 import { formatDuration } from '../timeUtils';
+import { sound } from '../sound';
 
 interface ResearchModalProps {
   player: Player | undefined;
@@ -128,7 +129,10 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                   {/* Research Action Button */}
                   <button
                     disabled={isLabMissing || !canAfford || isAnyActive}
-                    onClick={() => onStartResearch(type)}
+                    onClick={() => {
+                      sound.playColonize();
+                      onStartResearch(type);
+                    }}
                     className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
                       isResearchingThis
                         ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'

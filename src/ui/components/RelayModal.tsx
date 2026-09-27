@@ -3,6 +3,7 @@ import { Award, Crown, Radio, Shield, Swords, Users, X, Zap } from 'lucide-react
 import { GameState, ShipType } from '../../engine/types';
 import { SHIP_STATS } from '../../engine/constants';
 import { formatClockTime, formatDuration } from '../timeUtils';
+import { sound } from '../sound';
 
 interface RelayModalProps {
   state: GameState;
@@ -97,6 +98,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
 
               <button
                 onClick={() => {
+                  sound.playLaunch();
                   onAssaultRelay();
                   onClose();
                 }}

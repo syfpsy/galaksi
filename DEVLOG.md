@@ -378,3 +378,25 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
 ### 4. Taktik Filo Kalkış Sesi & Komuta Paneli Cilalaması (`sound.ts`, `CommandPanel.tsx`)
 - Filo sevk edildiğinde derin plazma motoru ivmelenmesi ve alçak frekanslı roket ateşleme ses efekti (`sound.playLaunch()`) eklendi.
 - Komuta panelinde sefer emri verildiğinde oyuncuya güçlü ve tatmin edici bir işitsel geri bildirim sunuldu.
+
+---
+
+## [2026-09-28] — Faz M: Sinematik Muharebe Tekrarı, Dokunsal İşitsel Geri Bildirim ve Entegre Altyapı Kısayolları
+
+### 1. Sinematik Çatışma Tekrarı & Animasyonlu Lazer Koridoru (`CombatReplayModal.tsx`)
+- **Otomatik Oynatma (Autoplay):** Savaş kayıtlarında turları otomatik olarak sırayla oynatan `[▶ OTOMATİK OYNAT]` ve `[⏸ DURAKLAT]` kontrolü eklendi.
+- **Dinamik Lazer Ateşi Koridoru:** Saldırganın plazma atışları (sol-kızıl), savunucunun darbe lazeri (sağ-mavi) ve ortada parlayan enerji çarpışma çekirdeği ile her turun hasar takası animasyonlu bir koridorda görselleştirildi.
+- **Tur Başı Lazer Ses Efekti:** Her tur değişiminde ve otomatik oynatmada `sound.playLaser()` tetiklenerek çatışma anının gerilimi artırıldı.
+
+### 2. Gezegen Altyapısı Hızlı Kısayolları & Taktik Sesler (`PlanetPanel.tsx`, `App.tsx`)
+- **Doğrudan Üretim & Teknoloji Kısayolları:** Gezegende Seviye 1+ Tersane veya Araştırma Laboratuvarı olduğunda, bina listesinde ilgili binanın yanında `[🚀 Tersane]` ve `[🧭 Ar-Ge]` hızlı erişim butonları belirdi.
+- **Taktik Tıklama Geri Bildirimi:** Koloni hapları seçimi, savunma duruşu değişimleri (`Konumu Tut` / `Filoyu Koru`) ve bina yükseltmelerine anında `sound.playClick()` ses geri bildirimi bağlandı.
+
+### 3. Tersane, Teknoloji & Röle Seferlerinde İşitsel Entegrasyon (`ShipyardModal.tsx`, `ResearchModal.tsx`, `RelayModal.tsx`)
+- **Tersane Üretimi:** Gemi siparişi verildiğinde `sound.playClick()`.
+- **Teknoloji Geliştirme:** Yeni bir tanyon motoru, plazma silahı veya sensör dizini araştırıldığında muzaffer `sound.playColonize()` akoru.
+- **Röle Seferi:** Merkezi Nexus Megastrüktürüne sefer emri verildiğinde derin roket ateşleme sesi `sound.playLaunch()`.
+
+### 4. Arayüz Ergonomisi & Katman Ayrıştırma (`EventFeed.tsx`)
+- Ekranın sol altındaki olay bildirim akışı (`bottom-16 max-w-lg`) konumuna taşınarak haritanın alt-orta kısmındaki 2D/2.5D ve Sistem/Galaksi geçiş çubuğu ile çakışması önlendi.
+
