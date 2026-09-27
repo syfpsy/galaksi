@@ -212,3 +212,16 @@
   animation: tactical-bracket 2s ease-in-out infinite;
 }
 
+@keyframes galaxy-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-galaxy-spin {
+  animation: galaxy-spin 180s linear infinite;
+}
+

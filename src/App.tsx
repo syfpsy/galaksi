@@ -376,6 +376,12 @@ export function App() {
                 });
               }
             }}
+            onSelectPlanet={(systemId, planetId) => {
+              setSelectedTarget({ type: 'planet', systemId, planetId });
+              if (engineState.planets[planetId]?.ownerId === activePlayerId) {
+                setActivePlanetId(planetId);
+              }
+            }}
             onInspectSystem={(systemId) => setInspectedSystemId(systemId)}
           />
 

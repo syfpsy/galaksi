@@ -162,5 +162,45 @@ Kullanıcının *"Hazırladığım imajlar çok güzel görünüyor ama grafik d
 - Sol paneldeki gezegen başlığında yumuşak atmosferik ışıma ve çevresinde dönen yörünge savunma uydusu.
 - Bina inşaatı devam ederken sağa doğru akan holografik lazer ışıması (`animate-pulse`) ile donatılmış ilerleme çubuğu.
 
+---
+
+## [2026-09-27] — Faz E: 2D Stellaris Mimarisi & Çok Kademeli Yörünge-Galaksi Simülasyonu
+
+Kullanıcının *"Gerçek bir yıldız sistemi gibi düşün gezegenler çok yavaş bir şekilde dönüyorlar, belki günde bir döngü olabilir. Bunun projeksiyonunu görebiliyoruz. Aynı şekilde sistemin bir tier üst uzay ortamında (lokal grup, galaksi vs.) da böyle dinamik bir yapı olmalı. Çokça yakına zumlayabilmeliyiz, o açıdan 2D bir Stellaris gibi olmalı"* vizyonu doğrultusunda, oyun motoruna ve harita arayüzüne çok kademeli 2D uzay mimarisi kazandırıldı:
+
+### 1. Astronomik Yörünge Mekaniği Motoru (`src/engine/orbital.ts`)
+- **Ağır ve Gerçekçi Döngü:** Her gezegen yuvası slotuna göre kalibre edilmiş gerçek Keplerian yörünge sürelerine bağlandı:
+  - 1. Yuva (İç Gezegen): 14 saat / tam tur (25.7° / saat).
+  - 2. Yuva (Ana Dünya / Yaşanabilir Terran): **Tam 24 Saat (1 Galaktik Gün)** periyot (15.0° / saat).
+  - 3. Yuva (Dış Gezegen): 46 saat periyot (7.8° / saat).
+  - 4. Yuva (Uzak Gaz/Buzul): 76 saat periyot (4.7° / saat).
+- **Zaman Tabanlı Açısal Konumlandırma:**
+  - $\theta(t) = \theta_0 + \frac{2\pi \cdot t}{\text{orbitalPeriodMs}}$ formülü ile gezegenlerin gerçek zamanlı $(x, y)$ koordinatları 0.85 izometrik derinlikle hesaplanır.
+- **Yörünge Rota Projeksiyonu:**
+  - Mevcut konumdan +12 saat sonrasına uzanan kesikli projeksiyon yayı.
+  - Gelecekteki +2s, +6s ve +12s pozisyonlarını önceden gösteren hayalet projeksiyon noktaları (*ghost forecasts*).
+
+### 2. Tier 2: Makro Galaksi Kümesi Görünümü (`GalaxyMap.tsx` — Galaksi Modu)
+- **Kozmik Spiral Kollar:** 180 saniyede bir dönen devasa galaktik spiral gaz kolları (`animate-galaxy-spin`).
+- **Sektörel Hiyerarşi Çemberleri:**
+  - Nexus Çekirdek Sektörü (Kütleçekim dalgaları ve takyon tekilliği).
+  - İç Yıldız Kuşağı (Bağlantılı çekirdek koloniler).
+  - Dış Frontier Sınırı (Uzak araştırma ve akın sistemleri).
+- Çift tıklama veya seçimle anında o sistemin içine dalma olanağı.
+
+### 3. Tier 1: Stellaris Stili Sistem İçi 2D Orrery Görünümü (`GalaxyMap.tsx` — Sistem Modu)
+- Doğrudan ana harita tuvalinde merkezlenen devasa yıldız sistemi:
+  - Merkezde sol prominences ve korona fışkırmalarıyla alev saçan güneş.
+  - Eliptik yörünge izleri ve açısal kılavuzlar (0°, 90°, 180°).
+  - Fiziksel olarak yörüngesinde dönen 2D küresel gezegenler, gece/gündüz sonlandırıcı hilal gölgesi ve dönen uydular.
+  - Sistem çeperinde (410px mesafede) komşu sistemlere açılan **Hiperhat Atlama Şamandıraları** (*Hyperlane Warp Buoys*).
+  - Gezegen üzerine gelindiğinde canlı **Yörünge Telemetri Kartı** (Açı, Hız, AU Mesafesi, Periyot, Hakimiyet).
+
+### 4. Kesintisiz Stellaris Gezinme HUD'ı
+- Haritanın altında yüzen mod çubuğu: `[ 🌌 Galaksi Haritası (12 Sistem) ]` | `[ 🪐 {Sistem} Yörünge Sistemi ]`.
+- Hızlı sistemler arası geçiş sağlayan `< Önceki Sistem` ve `Sonraki Sistem >` okları.
+- Yörünge gelecek projeksiyonlarını tek tıkla gizleme/gösterme anahtarı.
+
+
 
 
