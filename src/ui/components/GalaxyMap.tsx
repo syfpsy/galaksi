@@ -241,6 +241,12 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         <svg
           viewBox="0 0 1000 800"
           className="w-full h-full max-w-[1300px] max-h-[950px] object-contain cursor-crosshair"
+          onDoubleClick={(e) => {
+            if (viewMode === 'system') {
+              sound.playClick();
+              setViewMode('galaxy');
+            }
+          }}
         >
         <defs>
           {/* Cyber Glow Filters */}
@@ -1053,7 +1059,20 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
             </g>
 
             {/* Central Radiant Sun at (500, 400) */}
-            <g transform="translate(500, 400)" className="pointer-events-none">
+            <g
+              transform="translate(500, 400)"
+              className="cursor-pointer group"
+              onClick={(e) => {
+                e.stopPropagation();
+                sound.playClick();
+                onSelectSystem(activeSystem.id);
+              }}
+              onDoubleClick={(e) => {
+                e.stopPropagation();
+                sound.playClick();
+                onSelectSystem(activeSystem.id);
+              }}
+            >
               {activeSystem.hasRelay ? (
                 /* Nexus Singularity Core */
                 <g filter="url(#glow-relay)">

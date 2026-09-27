@@ -332,10 +332,28 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
   - **Oyuncunun Kolonisi:** `[📦 İkmal / Transfer Seferi]` — Gezegenler arası ikmal görevini hazırlar.
 - Komuta Paneli hedef değişimlerini otomatik dinleyerek (`useEffect`) oyuncuyu zahmetli menü geçişlerinden kurtarır.
 
+---
 
+## [2026-09-27] — Faz K: Harita Navigasyonu, Tıklama ve Zoom İyileştirmeleri (Bug Temizliği)
 
+### 1. Yıldız Tıklama & Sistemde Kalma Garantisi
+- **Kök Neden:** 
+  - `systemOrreryGroup` içindeki merkezi yıldıza (`centralStarMesh`, `udata.type === 'star'`) tıklandığında veya çift tıklandığında bu nesne tipi `onDoubleClick` ve `onClick` içinde ayrıştırılmadığı için boşluğa çift tıklanmış gibi algılanıp galaksi haritasına geri dönülüyordu.
+  - Ayrıca `raycaster` tüm sahneyi (`scene.children`) taradığı için arka plandaki makro yıldızlar ve dev korona sprite'ları tıklamayı yutabiliyordu.
+- **Çözüm:**
+  - Raycaster sorguları aktif kademeye sınırlandı (`isSystemMode ? systemOrreryGroup.children : galaxyMacroGroup.children`).
+  - Merkezi yıldız (`type === 'star'`) tıklaması ve çift tıklaması özel olarak dinlendi; tıklandığında yalnızca ses çalar, yıldız/sistem seçilir ve sistem görünümünden asla çıkılmaz.
+  - Sistem görünümünde yıldız seçildiğinde merkezi yıldızı çevreleyen taktiksel seçim retikülü (`reticleMesh`) eklendi.
+  - Hem 2.5D WebGL hem de 2D SVG modunda merkezi yıldıza tıklanması güvene alındı.
 
+### 2. Zoom Out ile Galaksiye Otomatik Geçişin Kaldırılması
+- **Kullanıcı Talebi:** Zoom out yapıldığında galaksiye atmasın; serbestçe geriye zoom yapılabilmeli, galaksiye yalnızca bilinçli çift tıklama veya butonla geçilebilmelidir.
+- **Çözüm:**
+  - `onWheel` içerisindeki `targetCameraPos.z > 380` otomatik çıkış mekanizması tamamen kaldırıldı.
+  - Sistem modundaki maksimum geri çekilme mesafesi (`maxZ`) 420'den 700'e çıkarılarak oyuncunun tüm sistemi, hiperkapıları ve derin uzayı rahatça geniş açıdan inceleyebilmesi sağlandı.
+  - Galaksiye geri dönüş yalnızca boş uzaya çift tıklama, `Esc`/`M` tuşları veya arayüzdeki "Galaksi Haritası" butonuyla gerçekleştirilir hale getirildi.
 
-
-
+### 3. Dekoratif Nesnelerin Raycast Yutma Engeli & Kamera Pan İyileştirmesi
+- Atmosfer haloları, bulut tabakaları, gezegen halkaları, uydular, savunma istasyonları, devriye gemileri ve gelecek yörünge projeksiyon wireframe'lerinin raycast fonksiyonları devre dışı bırakıldı (`.raycast = () => {}`). Tıklamaların yalnızca doğrudan gezegen çekirdeğine, yıldıza veya hiperkapıya odaklanması garanti altına alındı.
+- `animate()` döngüsündeki per-frame `targetLookAt.set(500, 400, 0)` sıfırlaması kaldırılarak fare ile sürükleyerek serbest kamera kaydırma (pan) hareketi pürüzsüz hale getirildi.
 

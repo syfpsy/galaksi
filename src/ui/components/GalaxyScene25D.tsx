@@ -113,6 +113,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     }
   }, [viewMode]);
 
+  // Center camera when focusedSystemId changes
+  useEffect(() => {
+    targetLookAtRef.current.set(500, 400, 0);
+  }, [focusedSystemId]);
+
   // Sync camera when zoom prop changes from external HUD buttons (+ / - / 100%)
   useEffect(() => {
     const baseZ = viewModeRef.current === 'system' ? 260 : 750;
@@ -240,6 +245,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       depthWrite: false,
     });
     const spiralPoints = new THREE.Points(spiralGeo, spiralMat);
+    spiralPoints.raycast = () => {};
     spiralGroup.add(spiralPoints);
 
     // 2.2 Sector Constellation Boundary Rings
@@ -310,6 +316,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       });
       const coronaSprite = new THREE.Sprite(coronaSpriteMat);
       coronaSprite.scale.set(starRadius * 5.0, starRadius * 5.0, 1);
+      coronaSprite.raycast = () => {};
       group.add(coronaSprite);
 
       // Tactical System Boundary Ring
@@ -334,6 +341,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         depthWrite: false,
       });
       const territoryLine = new THREE.Line(territoryGeo, territoryMat);
+      territoryLine.raycast = () => {};
       group.add(territoryLine);
 
       galaxyMacroGroup.add(group);
@@ -375,12 +383,14 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         opacity: 0.55,
       });
       const line = new THREE.Line(laneGeo, laneMat);
+      line.raycast = () => {};
       hyperlaneGroup.add(line);
 
       if (lIdx % 2 === 0) {
         const pulseSprite = new THREE.Sprite(pulseSpriteMat);
         pulseSprite.position.copy(from);
         pulseSprite.scale.set(4, 4, 1);
+        pulseSprite.raycast = () => {};
         hyperlaneGroup.add(pulseSprite);
 
         lanePulses.push({
@@ -436,6 +446,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       });
       const thrusterMesh = new THREE.Mesh(thrusterConeGeo, thrusterMat);
       thrusterMesh.position.set(0, 0, -4.5);
+      thrusterMesh.raycast = () => {};
       group.add(thrusterMesh);
 
       const glowMat = new THREE.SpriteMaterial({
@@ -448,6 +459,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const glowSprite = new THREE.Sprite(glowMat);
       glowSprite.position.set(0, 0, -6.5);
       glowSprite.scale.set(8, 8, 1);
+      glowSprite.raycast = () => {};
       group.add(glowSprite);
 
       macroFleetsGroup.add(group);
@@ -531,6 +543,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const centralCorona = new THREE.Sprite(coronaSpriteMat);
       centralCorona.position.set(500, 400, 1);
       centralCorona.scale.set(centralStarRadius * 5.5, centralStarRadius * 5.5, 1);
+      centralCorona.raycast = () => {};
       systemOrreryGroup.add(centralCorona);
 
       // 3.2 Hyperlane Jump Gates at the outer boundary of this system (Radius ~ 340)
@@ -576,6 +589,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           opacity: 0.7,
         });
         const arrowLine = new THREE.Line(arrowGeo, arrowMat);
+        arrowLine.raycast = () => {};
         systemOrreryGroup.add(arrowLine);
 
         // Jump Gate Portal Sprite
@@ -619,6 +633,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           depthWrite: false,
         });
         const orbitLine = new THREE.Line(orbitGeo, orbitMat);
+        orbitLine.raycast = () => {};
         systemOrreryGroup.add(orbitLine);
         orbitLines.push(orbitLine);
 
@@ -665,6 +680,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         });
         const atmoSprite = new THREE.Sprite(atmoMat);
         atmoSprite.scale.set(planetRadius * 2.8, planetRadius * 2.8, 1);
+        atmoSprite.raycast = () => {};
         systemOrreryGroup.add(atmoSprite);
 
         // 4. Clouds (Terran / Ocean worlds)
@@ -678,6 +694,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             depthWrite: false,
           });
           cloudMesh = new THREE.Mesh(cloudGeo, cloudMat);
+          cloudMesh.raycast = () => {};
           systemOrreryGroup.add(cloudMesh);
         }
 
@@ -693,6 +710,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           });
           ringMesh = new THREE.Mesh(ringGeo, ringMat);
           ringMesh.rotation.x = Math.PI / 3;
+          ringMesh.raycast = () => {};
           systemOrreryGroup.add(ringMesh);
         }
 
@@ -705,6 +723,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             roughness: 0.8,
           });
           moonMesh = new THREE.Mesh(moonGeo, moonMat);
+          moonMesh.raycast = () => {};
           systemOrreryGroup.add(moonMesh);
         }
 
@@ -719,6 +738,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             roughness: 0.2,
           });
           stationMesh = new THREE.Mesh(stationGeo, stationMat);
+          stationMesh.raycast = () => {};
           systemOrreryGroup.add(stationMesh);
         }
 
@@ -741,6 +761,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               roughness: 0.25,
             });
             const pHullMesh = new THREE.Mesh(pHullGeo, pHullMat);
+            pHullMesh.raycast = () => {};
             pGroup.add(pHullMesh);
 
             // Plasma Thruster Flame
@@ -753,6 +774,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             });
             const pThrusterMesh = new THREE.Mesh(pThrusterGeo, pThrusterMat);
             pThrusterMesh.position.z = -2.5;
+            pThrusterMesh.raycast = () => {};
             pGroup.add(pThrusterMesh);
 
             systemOrreryGroup.add(pGroup);
@@ -777,6 +799,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
         for (let g = 0; g < 3; g++) {
           const gm = new THREE.Mesh(ghostGeo, ghostMat);
+          gm.raycast = () => {};
           systemOrreryGroup.add(gm);
           ghostMeshes.push(gm);
         }
@@ -817,6 +840,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     });
     const reticleMesh = new THREE.Mesh(reticleGeo, reticleMat);
     reticleMesh.visible = false;
+    reticleMesh.raycast = () => {};
     scene.add(reticleMesh);
 
     // =========================================================================
@@ -868,14 +892,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const zoomFactor = targetCameraPos.z < 250 ? 0.45 : 0.85;
       const zoomDelta = e.deltaY * zoomFactor;
 
-      // In System View, if zooming out past threshold, seamlessly offer return to Galaxy Map
-      if (viewModeRef.current === 'system' && targetCameraPos.z > 380 && zoomDelta > 0 && onExitSystemView) {
-        onExitSystemView();
-        return;
-      }
-
       const minZ = viewModeRef.current === 'system' ? 45 : 450;
-      const maxZ = viewModeRef.current === 'system' ? 420 : 1350;
+      const maxZ = viewModeRef.current === 'system' ? 700 : 1350;
 
       targetCameraPos.z = Math.max(minZ, Math.min(maxZ, targetCameraPos.z + zoomDelta));
 
@@ -897,7 +915,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       mouse.y = -((e.clientY - rect.top) / height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(scene.children, true);
+      const isSystemMode = viewModeRef.current === 'system';
+      const targetGroup = isSystemMode ? systemOrreryGroup : galaxyMacroGroup;
+      const intersects = raycaster.intersectObjects(targetGroup.children, true);
 
       for (const hit of intersects) {
         const udata = (hit.object as any).userData;
@@ -906,6 +926,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             sound.playWarp();
             if (onEnterSystemView) onEnterSystemView(udata.targetSystemId);
             else onSelectSystem(udata.targetSystemId);
+            return;
+          }
+          if (udata.type === 'star') {
+            sound.playClick();
+            onSelectSystem(udata.systemId);
             return;
           }
           if (udata.type === 'fleet') {
@@ -940,7 +965,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       mouse.y = -((e.clientY - rect.top) / height) * 2 + 1;
 
       raycaster.setFromCamera(mouse, camera);
-      const intersects = raycaster.intersectObjects(scene.children, true);
+      const isSystemMode = viewModeRef.current === 'system';
+      const targetGroup = isSystemMode ? systemOrreryGroup : galaxyMacroGroup;
+      const intersects = raycaster.intersectObjects(targetGroup.children, true);
 
       for (const hit of intersects) {
         const udata = (hit.object as any).userData;
@@ -949,6 +976,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             sound.playWarp();
             if (onEnterSystemView) onEnterSystemView(udata.targetSystemId);
             else onSelectSystem(udata.targetSystemId);
+            return;
+          }
+          if (udata.type === 'star') {
+            sound.playClick();
+            onSelectSystem(udata.systemId);
             return;
           }
           if (udata.type === 'system') {
@@ -970,8 +1002,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         }
       }
 
-      // If in system mode and double clicked on empty space (no hit), zoom back out to galaxy view
-      if (viewModeRef.current === 'system' && onExitSystemView) {
+      // If in system mode and double clicked on empty space (no hit on targetGroup), zoom back out to galaxy view
+      if (isSystemMode && onExitSystemView) {
         sound.playClick();
         onExitSystemView();
       }
@@ -1030,11 +1062,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
       // 6.2 Camera Positioning
       if (isSystemMode) {
-        targetLookAt.set(500, 400, 0);
         targetCameraPos.x = targetLookAt.x;
         targetCameraPos.y = targetLookAt.y - Math.min(220, targetCameraPos.z * 0.55);
       } else {
-        targetLookAt.set(500, 400, 0);
         targetCameraPos.x = targetLookAt.x;
         targetCameraPos.y = targetLookAt.y - Math.min(280, targetCameraPos.z * 0.5);
       }
@@ -1203,6 +1233,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             reticleMesh.scale.set(1.4, 1.4, 1);
             reticleMesh.rotation.z += delta * 1.8;
           }
+        } else if (isSystemMode && curSelected.type === 'system') {
+          reticleMesh.visible = true;
+          reticleMesh.position.set(500, 400, 8);
+          reticleMesh.scale.set(1.6, 1.6, 1);
+          reticleMesh.rotation.z += delta * 1.5;
         } else if (isSystemMode && curSelected.type === 'planet' && currentOrrery) {
           const pVis = currentOrrery.planetMeshes.find((p) => p.planetId === curSelected.planetId);
           if (pVis) {
@@ -1386,7 +1421,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 sound.playWarp();
                 if (onEnterSystemView) onEnterSystemView(lbl.targetSystemId);
                 else onSelectSystem(lbl.targetSystemId);
-              } else if (lbl.type === 'system') {
+              } else if (lbl.type === 'star' || lbl.type === 'system') {
                 onSelectSystem(lbl.systemId);
               } else if (lbl.type === 'planet' && onSelectPlanet && lbl.planetId) {
                 onSelectPlanet(lbl.systemId, lbl.planetId);
@@ -1394,11 +1429,15 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             }}
             onDoubleClick={(e) => {
               e.stopPropagation();
-              sound.playWarp();
               if (lbl.type === 'jump_gate' && lbl.targetSystemId) {
+                sound.playWarp();
                 if (onEnterSystemView) onEnterSystemView(lbl.targetSystemId);
                 else onSelectSystem(lbl.targetSystemId);
+              } else if (lbl.type === 'star') {
+                sound.playClick();
+                onSelectSystem(lbl.systemId);
               } else if (lbl.type === 'system') {
+                sound.playWarp();
                 if (onEnterSystemView) onEnterSystemView(lbl.systemId);
                 else onSelectSystem(lbl.systemId);
               }
