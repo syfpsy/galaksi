@@ -201,6 +201,37 @@ Kullanıcının *"Gerçek bir yıldız sistemi gibi düşün gezegenler çok yav
 - Hızlı sistemler arası geçiş sağlayan `< Önceki Sistem` ve `Sonraki Sistem >` okları.
 - Yörünge gelecek projeksiyonlarını tek tıkla gizleme/gösterme anahtarı.
 
+---
+
+## [2026-09-27] — Faz F: Three.js ile 2.5D WebGL Uzay Motoru Entegrasyonu
+
+Kullanıcının Unity yerine *"Web + Three.js (2.5D) açık ara en doğru yoldur"* stratejik kararı doğrultusunda, oyunun harita katmanı Three.js WebGL motoruyla gerçek 2.5D uzay ortamına kavuşturuldu:
+
+### 1. 2.5D İzometrik Uzay Sahnesi (`src/ui/components/GalaxyScene25D.tsx`)
+- **İzometrik Eğik Kamera Açısı:** 55 derecelik açıyla uzay düzlemine bakan dinamik perspektif kamera (Stellaris / Homeworld hissi).
+- **Yıldız Merkezli Dinamik Işıklandırma (`PointLight`):**
+  - Her yıldızın merkezine yerleştirilen ışık kaynağı, çevresindeki 3D gezegen kürelerini aydınlatır.
+  - Gezegenlerin arkasında güneşten uzağa düşen gerçek fiziksel gölgeler oluşur.
+- **3D Gezegen Küreleri & Biyom Malzemeleri:**
+  - Terran: Okyanuslar, kıtalar ve üzerinde bağımsız dönen şeffaf 3D bulut küresi (`getTerranTexture()`, `getCloudTexture()`).
+  - Çöl Gezegeni: Ekvatorunda 60 derece eğik yerleştirilmiş gerçek 3D gezegen halkası (`THREE.RingGeometry`).
+  - Okyanus, Buzul ve Volkanik PBR malzemeleri.
+- **1200 Parçacıklı 3D Derin Uzay Yıldız Tarlası:**
+  - Derinlikte süzülen çok katmanlı yıldızlar.
+- **İnteraktif Kontroller:**
+  - Sol tıkla sürükleme: Serbest pan/kaydırma.
+  - Fare tekerleği: Pürüzsüz yakınlaşma/uzaklaşma (zoom).
+  - Tıklama: Işın dökümü (*Raycasting*) ile yıldız ve gezegen seçimi.
+
+### 2. Sıfır Ağ Bağımlılıklı Prosedürel Doku Motoru (`src/ui/components/proceduralTextures.ts`)
+- Harici dosya indirme gecikmesini önlemek için HTML5 Canvas üzerinde çalışan procedürel doku üreteçleri.
+- Anında yüklenme, sıfır gecikme ve kalıcı önbellekleme (*texture caching*).
+
+### 3. Çift Motorlu Hibrit Harita Deneyimi (`src/ui/components/GalaxyMap.tsx`)
+- Sol üstteki `[ 🚀 2.5D WebGL ]` ve `[ 🛰️ 2D Vektör ]` düğmeleriyle oyuncu dilediği zaman 2.5D Three.js WebGL motoru ile 2D taktik SVG haritası arasında tek tıkla geçiş yapabilir.
+- Tüm React arayüzü (Tersane, İttifak, Liderlik Tablosu, Komuta Paneli) 3D sahne üzerinde kesintisiz çalışmaya devam eder.
+
+
 
 
 

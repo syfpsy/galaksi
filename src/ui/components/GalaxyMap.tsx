@@ -29,6 +29,7 @@ import { Fleet, GameState, IntelLevel, StarSystem } from '../../engine/types';
 import { SelectedTarget } from '../types';
 import { formatDuration } from '../timeUtils';
 import { sound } from '../sound';
+import { GalaxyScene25D } from './GalaxyScene25D';
 
 interface GalaxyMapProps {
   state: GameState;
@@ -65,6 +66,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
 }) => {
   // View mode: 'galaxy' (Macro Sector / Cluster) or 'system' (2D Stellaris-Style In-System Orrery)
   const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
+  const [renderEngine, setRenderEngine] = useState<'webgl_25d' | 'vector_2d'>('webgl_25d');
   const [focusedSystemId, setFocusedSystemId] = useState<string>('sys_relay');
   const [showProjections, setShowProjections] = useState<boolean>(true);
   const [hoveredPlanetSlotId, setHoveredPlanetSlotId] = useState<string | null>(null);
@@ -207,11 +209,31 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
       <div className="absolute w-[700px] h-[700px] rounded-full bg-cyan-950/20 blur-[130px] pointer-events-none" />
       <div className="absolute w-[550px] h-[550px] rounded-full bg-purple-950/25 blur-[110px] pointer-events-none" />
 
-      {/* SVG Canvas for Galaxy / System View */}
-      <svg
-        viewBox="0 0 1000 800"
-        className="w-full h-full max-w-[1300px] max-h-[950px] object-contain cursor-crosshair"
-      >
+      {/* 2.5D WebGL Three.js Scene Engine */}
+      {renderEngine === 'webgl_25d' ? (
+        <div className="absolute inset-0 z-0">
+          <GalaxyScene25D
+            state={state}
+            activePlayerId={activePlayerId}
+            selectedTarget={selectedTarget}
+            godMode={godMode}
+            focusedSystemId={focusedSystemId}
+            viewMode={viewMode}
+            showProjections={showProjections}
+            onSelectSystem={(sysId) => {
+              setFocusedSystemId(sysId);
+              onSelectSystem(sysId);
+            }}
+            onSelectPlanet={onSelectPlanet}
+            onSelectFleet={onSelectFleet}
+          />
+        </div>
+      ) : (
+        /* SVG Canvas for Galaxy / System View */
+        <svg
+          viewBox="0 0 1000 800"
+          className="w-full h-full max-w-[1300px] max-h-[950px] object-contain cursor-crosshair"
+        >
         <defs>
           {/* Cyber Glow Filters */}
           <filter id="glow-cyan" x="-50%" y="-50%" width="200%" height="200%">
@@ -1324,6 +1346,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
           </g>
         )}
       </svg>
+      )}
 
       {/* ========================================================================= */}
       {/* FLOATING HUD CONTROLS & STELLARIS-STYLE VIEW SWITCHER                    */}
@@ -1331,6 +1354,41 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
 
       {/* Top Left: Navigation & Mode Switch */}
       <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
+        {/* Engine Selector: 2.5D WebGL vs 2D Vector */}
+        <div className="flex items-center gap-1 bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 shadow-lg shadow-black/50">
+          <button
+            onClick={() => {
+              sound.playClick();
+              setRenderEngine('webgl_25d');
+            }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
+              renderEngine === 'webgl_25d'
+                ? 'bg-purple-600 text-white shadow-md shadow-purple-900/50'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="Three.js 2.5D WebGL Uzay Motoru (PBR Küreler, Işıklandırma, İzometrik Derinlik)"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-purple-300" />
+            <span>2.5D WebGL</span>
+          </button>
+
+          <button
+            onClick={() => {
+              sound.playClick();
+              setRenderEngine('vector_2d');
+            }}
+            className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
+              renderEngine === 'vector_2d'
+                ? 'bg-cyber-cyan text-space-950 shadow-md shadow-cyan-400'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+            title="2D Taktik Vektör HUD Haritası"
+          >
+            <Compass className="w-3.5 h-3.5" />
+            <span>2D Vektör</span>
+          </button>
+        </div>
+
         {/* Galaxy / System Mode Switch Toggle */}
         <div className="flex items-center gap-1.5 bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1.5 shadow-xl shadow-black/60">
           <button
