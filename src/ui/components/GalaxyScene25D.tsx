@@ -476,6 +476,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         atmoSprite?: THREE.Sprite;
         moonMesh?: THREE.Mesh;
         stationMesh?: THREE.Mesh;
+        patrolShips?: { group: THREE.Group; dist: number; speed: number; phase: number }[];
         ghostMeshes: THREE.Mesh[];
       }[];
       warpBuoys: {
@@ -721,6 +722,49 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           systemOrreryGroup.add(stationMesh);
         }
 
+        // 7.1 Orbital Patrol Craft (for colonized worlds)
+        const patrolShips: { group: THREE.Group; dist: number; speed: number; phase: number }[] = [];
+        if (planetObj && planetObj.ownerId) {
+          const ownerObj = stateRef.current.players[planetObj.ownerId];
+          const factionColor = ownerObj?.color || '#00f3ff';
+          const shipCount = 2;
+
+          for (let s = 0; s < shipCount; s++) {
+            const pGroup = new THREE.Group();
+
+            // Ship Hull (delta arrowhead)
+            const pHullGeo = new THREE.ConeGeometry(1.6, 4.5, 3);
+            pHullGeo.rotateX(Math.PI / 2);
+            const pHullMat = new THREE.MeshStandardMaterial({
+              color: new THREE.Color(factionColor),
+              metalness: 0.8,
+              roughness: 0.25,
+            });
+            const pHullMesh = new THREE.Mesh(pHullGeo, pHullMat);
+            pGroup.add(pHullMesh);
+
+            // Plasma Thruster Flame
+            const pThrusterGeo = new THREE.ConeGeometry(0.8, 2.2, 4);
+            pThrusterGeo.rotateX(-Math.PI / 2);
+            const pThrusterMat = new THREE.MeshBasicMaterial({
+              color: 0x00f3ff,
+              transparent: true,
+              opacity: 0.9,
+            });
+            const pThrusterMesh = new THREE.Mesh(pThrusterGeo, pThrusterMat);
+            pThrusterMesh.position.z = -2.5;
+            pGroup.add(pThrusterMesh);
+
+            systemOrreryGroup.add(pGroup);
+            patrolShips.push({
+              group: pGroup,
+              dist: planetRadius + 9 + s * 4.5,
+              speed: 0.0018 + s * 0.0008,
+              phase: s * Math.PI,
+            });
+          }
+        }
+
         // 8. Future Forecast Projection Wireframes
         const ghostMeshes: THREE.Mesh[] = [];
         const ghostGeo = new THREE.SphereGeometry(planetRadius * 0.6, 12, 12);
@@ -746,6 +790,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           atmoSprite,
           moonMesh,
           stationMesh,
+          patrolShips,
           ghostMeshes,
         });
       });
@@ -1119,6 +1164,18 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 );
                 pVis.stationMesh.rotation.x += delta;
                 pVis.stationMesh.rotation.y += delta * 1.2;
+              }
+
+              if (pVis.patrolShips) {
+                pVis.patrolShips.forEach((ps) => {
+                  const pTheta = currentTimeMs * ps.speed + ps.phase;
+                  const psx = px + Math.cos(pTheta) * ps.dist;
+                  const psy = py + Math.sin(pTheta) * ps.dist * 0.85;
+                  const psz = pz + 2.5 + Math.sin(pTheta * 2) * 1.5;
+
+                  ps.group.position.set(psx, psy, psz);
+                  ps.group.rotation.z = pTheta + Math.PI / 2;
+                });
               }
 
               pVis.ghostMeshes.forEach((gm, gIdx) => {

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Activity,
   Bed,
@@ -18,11 +18,14 @@ import {
   Sparkles,
   Swords,
   Users,
+  Volume2,
+  VolumeX,
   Wrench,
 } from 'lucide-react';
 import { calculateHourlyProduction } from '../../engine/constants';
 import { GameState, Planet } from '../../engine/types';
 import { formatSimClock } from '../timeUtils';
+import { sound } from '../sound';
 
 interface TopBarProps {
   state: GameState;
@@ -69,6 +72,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onToggleVacationMode,
   onReset,
 }) => {
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(sound.isMuted);
   // Calculate hourly rates for active planet
   const oreRate = activePlanet ? calculateHourlyProduction('ore', activePlanet.buildings.ore_mine) : 0;
   const crystalRate = activePlanet ? calculateHourlyProduction('crystal', activePlanet.buildings.crystal_synth) : 0;
@@ -299,6 +303,23 @@ export const TopBar: React.FC<TopBarProps> = ({
         >
           {godMode ? <Eye className="w-4 h-4 text-purple-400" /> : <EyeOff className="w-4 h-4" />}
           <span className="text-[11px] hidden md:inline">{godMode ? 'Hakim Görüş' : 'Sis'}</span>
+        </button>
+
+        {/* Audio Mute & Ambient Sound Toggle */}
+        <button
+          onClick={() => {
+            const nextMuted = sound.toggleMute();
+            setIsAudioMuted(nextMuted);
+          }}
+          className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition-all ${
+            !isAudioMuted
+              ? 'bg-cyber-cyan/15 border-cyber-cyan/50 text-cyber-cyan shadow-sm shadow-cyan-950/40'
+              : 'bg-space-850 border-slate-800 text-slate-500 hover:text-slate-300'
+          }`}
+          title={!isAudioMuted ? 'Ses & Ambiyans Açık (Susturmak için tıkla)' : 'Ses Susturuldu (Açmak için tıkla)'}
+        >
+          {!isAudioMuted ? <Volume2 className="w-4 h-4 text-cyber-cyan" /> : <VolumeX className="w-4 h-4" />}
+          <span className="text-[11px] hidden lg:inline">{!isAudioMuted ? 'Ses: Açık' : 'Ses: Kapalı'}</span>
         </button>
 
         {/* Sim Time & Controls */}

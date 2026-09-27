@@ -307,6 +307,32 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
 - **Tekerlek Zoom Eşiği:** Sistem görünümünde fare tekeriyle dışarı zoom yapıldığında eşik ($z > 380$) aşıldığında pürüzsüzce galaksi haritasına dönülür.
 - **Klavye Kısayolları (Hotkeys):** `Esc` veya `M` tuşlarına basıldığında iki harita kademesi arasında anında geçiş yapılır.
 
+---
+
+## [2026-09-27] — Faz J: Kozmik Ambiyans Sentetizörü, Yörünge Devriye Gemileri & Doğrudan Taktik Sefer Yönetimi
+
+### 1. Web Audio API Tabanlı Prosedürel Kozmik Ambiyans ve Ses Efektleri (`sound.ts`, `TopBar.tsx`)
+- **Prosedürel Derin Uzay Drone'u:**
+  - Sıfır harici dosya yüküyle çalışan Web Audio çift osilatörlü (55 Hz sinüs + 55.5 Hz üçgen sub-bass shimmer) rezonanslı alçak geçiren filtre tasarımı.
+  - Galakside derin yıldızlararası köprü hissi veren yumuşak 2 saniyelik fade-in ve fade-out dinamikleri.
+- **TopBar Ses & Ambiyans Düğmesi:**
+  - Oyuncu üst barda yer alan `[🔊 Ses: Açık]` / `[🔇 Ses: Kapalı]` butonuyla ses efektlerini ve ambiyansı tek tıkla açıp kapatabilir.
+- **Taktik Ses Efektleri:**
+  - Kolonizasyon ve seviye tamamlama için `C5-E5-G5-C6` zafer akoru (`playColonize`).
+  - Çatışma ve lazer vuruşları için `playLaser`.
+
+### 2. Kolonilerde 3D Yörünge Devriye Gemileri (`GalaxyScene25D.tsx`)
+- Sistem görünümünde (`isSystemMode`) oyuncunun veya botların kolonize ettiği gezegenlerin etrafında eğik açılı yörüngelerde devriye gezen 3D delta gövdeli avcı gemileri ve parlayan iyon/plazma itki alevleri eklendi.
+- Filonun ve gezegen garnizonunun varlığı görselleştirilerek kolonilerin yaşayan, korunan birer üs olduğu hissi güçlendirildi.
+
+### 3. Telemetri Kartından Tek Tıkla Sefer Sevk Etme & Otomatik Görev Tespiti (`GalaxyMap.tsx`, `CommandPanel.tsx`)
+- Sistem haritasında bir gezegen incelendiğinde telemetri kartının altında doğrudan bağlamsal operasyon butonları açılır:
+  - **Boş Gezegen:** `[🏛️ Koloni Seferi Düzenle]` — Tek tıkla Komuta Panelinde kolonizasyon modunu açar, 1 nakliye gemisi ve gereken kaynakları otomatik doldurur.
+  - **Düşman Kolonisi:** `[⚔️ Taarruz / Baskın Düzenle]` — Tek tıkla saldırı görevini seçip taktik kazanma ihtimalini hesaplar.
+  - **Oyuncunun Kolonisi:** `[📦 İkmal / Transfer Seferi]` — Gezegenler arası ikmal görevini hazırlar.
+- Komuta Paneli hedef değişimlerini otomatik dinleyerek (`useEffect`) oyuncuyu zahmetli menü geçişlerinden kurtarır.
+
+
 
 
 

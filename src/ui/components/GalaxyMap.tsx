@@ -1579,6 +1579,48 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                     {owner ? owner.name : 'Boş / Koloniye Uygun'}
                   </span>
                 </div>
+
+                {/* 1-Click Contextual Mission Action Button */}
+                {!owner ? (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      if (onSelectPlanet) {
+                        onSelectPlanet(activeSystem.id, slot.planetId);
+                      }
+                    }}
+                    className="w-full mt-2 py-1.5 px-2 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/60 hover:border-emerald-400 text-emerald-300 font-mono font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/50"
+                  >
+                    <Rocket className="w-3.5 h-3.5 text-emerald-400" />
+                    <span>🏛️ Koloni Seferi Düzenle</span>
+                  </button>
+                ) : owner.id !== activePlayerId ? (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      if (onSelectPlanet) {
+                        onSelectPlanet(activeSystem.id, slot.planetId);
+                      }
+                    }}
+                    className="w-full mt-2 py-1.5 px-2 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/60 hover:border-rose-400 text-rose-300 font-mono font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/50"
+                  >
+                    <Swords className="w-3.5 h-3.5 text-rose-400" />
+                    <span>⚔️ Taarruz / Baskın Düzenle</span>
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      if (onSelectPlanet) {
+                        onSelectPlanet(activeSystem.id, slot.planetId);
+                      }
+                    }}
+                    className="w-full mt-2 py-1.5 px-2 bg-cyber-cyan/15 hover:bg-cyber-cyan/30 border border-cyber-cyan/50 text-cyber-cyan font-mono font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5"
+                  >
+                    <Rocket className="w-3.5 h-3.5" />
+                    <span>📦 İkmal / Transfer Seferi</span>
+                  </button>
+                )}
               </div>
             );
           })()}

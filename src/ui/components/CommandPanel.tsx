@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
@@ -147,6 +147,44 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
       setCargo({ ...GAME_CONSTANTS.COLONY_COST });
     }
   };
+
+  // Auto-switch contextual mission when selected target changes
+  useEffect(() => {
+    if (!selectedTarget) return;
+
+    if (selectedTarget.fleetId) {
+      const fl = state.fleets[selectedTarget.fleetId];
+      if (fl && fl.ownerId !== activePlayerId) {
+        handleSelectMission('intercept');
+        return;
+      }
+    }
+
+    if (selectedTarget.planetId) {
+      const p = state.planets[selectedTarget.planetId];
+      if (p) {
+        if (!p.ownerId) {
+          handleSelectMission('colonize');
+        } else if (p.ownerId !== activePlayerId) {
+          handleSelectMission('attack');
+        } else if (p.id !== activePlanet?.id) {
+          handleSelectMission('transport');
+        }
+      }
+      return;
+    }
+
+    if (selectedTarget.systemId) {
+      const sys = state.map.systems[selectedTarget.systemId];
+      if (sys) {
+        if (sys.poi || !state.players[activePlayerId]?.intel.discoveredSystems[sys.id]) {
+          handleSelectMission('explore');
+        } else if (sys.hasRelay) {
+          handleSelectMission('support');
+        }
+      }
+    }
+  }, [selectedTarget?.systemId, selectedTarget?.planetId, selectedTarget?.fleetId, activePlayerId, activePlanet?.id]);
 
   // Determine eligible contextual missions for target
   const eligibleMissions = useMemo(() => {
