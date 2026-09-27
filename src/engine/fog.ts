@@ -1,0 +1,281 @@
+import { GAME_CONSTANTS } from './constants';
+import { Fleet, GameState, IntelLevel, Planet, SectorMap, ShipType, StarSystem } from './types';
+
+export interface MaskedFleet {
+  id: string;
+  name: string;
+  ownerId: string;
+  isHostile: boolean;
+  intelLevel: 'sensor_contact' | 'deep_intel' | 'full';
+  approxSize?: 'small' | 'medium' | 'large' | 'massive';
+  visibleRoles?: ShipType[];
+  ships?: Record<ShipType, number>;
+  originSystemId: string;
+  targetSystemId: string;
+  departureTime: number;
+  arrivalTime: number;
+  isReturning: boolean;
+  status: Fleet['status'];
+}
+
+export interface PlayerVisibleState {
+  timeMs: number;
+  playerId: string;
+  myPlanets: Planet[];
+  myFleets: Fleet[];
+  myResearch: Record<string, number>;
+  myResearchQueue: GameState['players'][string]['researchQueue'];
+  discoveredSystems: Record<string, {
+    system: StarSystem;
+    intelLevel: IntelLevel;
+    visiblePlanets: { id: string; name: string; ownerId: string | null; isHomeworld: boolean }[];
+    hasRelay: boolean;
+    hasDebris?: boolean;
+    hasPoi?: boolean;
+  }>;
+  visibleFleets: MaskedFleet[];
+  relayContest: {
+    systemId: string;
+    controllerId: string | null;
+    weeklyPoints: Record<string, number>;
+  };
+  recentBattles: GameState['battleReports'];
+}
+
+/**
+ * Calculates all star systems currently in sensor range for a player
+ */
+export function getPlayerSensorCoverage(
+  state: GameState,
+  playerId: string
+): Set<string> {
+  const coveredSystems = new Set<string>();
+
+  // 1. Systems with player's owned planets
+  for (const planet of Object.values(state.planets)) {
+    if (planet.ownerId === playerId) {
+      coveredSystems.add(planet.systemId);
+
+      // Sensor array bonus: +1 lane range per 2 levels + research
+      const sensorLevel = planet.buildings.sensor_array || 0;
+      const researchLevel = state.players[playerId]?.research.sensors || 0;
+      const range = GAME_CONSTANTS.BASE_SENSOR_RANGE + Math.floor(sensorLevel / 2) + Math.floor(researchLevel / 2);
+
+      addNeighborSystemsWithinHops(planet.systemId, range, state.map, coveredSystems);
+    }
+  }
+
+  // 2. Systems where player has fleets
+  for (const fleet of Object.values(state.fleets)) {
+    if (fleet.ownerId === playerId && fleet.status !== 'destroyed') {
+      coveredSystems.add(fleet.originSystemId);
+      coveredSystems.add(fleet.targetSystemId);
+
+      // If fleet includes scouts, grants extended sensor bubble
+      if (fleet.ships.scout > 0) {
+        addNeighborSystemsWithinHops(fleet.targetSystemId, 1, state.map, coveredSystems);
+      }
+    }
+  }
+
+  // 3. Relay control bonus (+2 hops from relay system)
+  if (state.relay.controllingPlayerId === playerId) {
+    coveredSystems.add(state.relay.systemId);
+    addNeighborSystemsWithinHops(
+      state.relay.systemId,
+      state.relay.sensorRadiusBonus || 2,
+      state.map,
+      coveredSystems
+    );
+  }
+
+  return coveredSystems;
+}
+
+function addNeighborSystemsWithinHops(
+  startSystemId: string,
+  hops: number,
+  map: SectorMap,
+  result: Set<string>
+) {
+  if (hops <= 0) return;
+  const queue: { id: string; depth: number }[] = [{ id: startSystemId, depth: 0 }];
+  const visited = new Set<string>([startSystemId]);
+
+  while (queue.length > 0) {
+    const { id, depth } = queue.shift()!;
+    result.add(id);
+
+    if (depth < hops) {
+      for (const lane of map.lanes) {
+        let next: string | null = null;
+        if (lane.fromSystemId === id) next = lane.toSystemId;
+        else if (lane.toSystemId === id) next = lane.fromSystemId;
+
+        if (next && !visited.has(next)) {
+          visited.add(next);
+          queue.push({ id: next, depth: depth + 1 });
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Categorizes fleet size into vague sensor readout
+ */
+export function getApproxFleetSize(totalShips: number): 'small' | 'medium' | 'large' | 'massive' {
+  if (totalShips <= 3) return 'small';
+  if (totalShips <= 10) return 'medium';
+  if (totalShips <= 25) return 'large';
+  return 'massive';
+}
+
+/**
+ * Server-authoritative fog of war filter.
+ * Strips confidential information from state before transmitting to a client.
+ */
+export function filterGameStateForPlayer(
+  state: GameState,
+  playerId: string
+): PlayerVisibleState {
+  const sensorCoverage = getPlayerSensorCoverage(state, playerId);
+  const player = state.players[playerId];
+
+  // My owned planets and fleets
+  const myPlanets = Object.values(state.planets).filter(p => p.ownerId === playerId);
+  const myFleets = Object.values(state.fleets).filter(f => f.ownerId === playerId && f.status !== 'destroyed');
+
+  // Discovered and visible systems
+  const discoveredSystems: PlayerVisibleState['discoveredSystems'] = {};
+
+  for (const sys of Object.values(state.map.systems)) {
+    const isCovered = sensorCoverage.has(sys.id);
+    const storedIntel = player?.intel.discoveredSystems[sys.id] || 'unexplored';
+
+    let intelLevel: IntelLevel = 'unexplored';
+    if (isCovered) {
+      intelLevel = 'sensor_contact';
+    } else if (storedIntel !== 'unexplored') {
+      intelLevel = 'mapped';
+    }
+
+    // Unexplored systems only reveal coordinates & name
+    if (intelLevel === 'unexplored') {
+      discoveredSystems[sys.id] = {
+        system: {
+          id: sys.id,
+          name: 'Bilinmeyen Sistem',
+          x: sys.x,
+          y: sys.y,
+          hasRelay: false,
+          slots: [],
+        },
+        intelLevel: 'unexplored',
+        visiblePlanets: [],
+        hasRelay: false,
+      };
+    } else {
+      // Mapped or sensor contact
+      discoveredSystems[sys.id] = {
+        system: sys,
+        intelLevel,
+        visiblePlanets: sys.slots.map(s => {
+          const planet = state.planets[s.planetId];
+          return {
+            id: s.planetId,
+            name: s.name,
+            ownerId: planet ? planet.ownerId : null,
+            isHomeworld: planet ? planet.isHomeworld : false,
+          };
+        }),
+        hasRelay: sys.hasRelay,
+        hasDebris: !!sys.hasDebris && (sys.hasDebris.ore > 0 || sys.hasDebris.crystal > 0),
+        hasPoi: !!sys.poi && !sys.poi.explored,
+      };
+    }
+  }
+
+  // Filter fleets
+  const visibleFleets: MaskedFleet[] = [];
+  const playerSensorsTech = player?.research.sensors || 0;
+
+  for (const fleet of Object.values(state.fleets)) {
+    if (fleet.status === 'destroyed') continue;
+
+    if (fleet.ownerId === playerId) {
+      // Own fleet: full visibility
+      visibleFleets.push({
+        id: fleet.id,
+        name: fleet.name,
+        ownerId: fleet.ownerId,
+        isHostile: false,
+        intelLevel: 'full',
+        ships: { ...fleet.ships },
+        originSystemId: fleet.originSystemId,
+        targetSystemId: fleet.targetSystemId,
+        departureTime: fleet.departureTime,
+        arrivalTime: fleet.arrivalTime,
+        isReturning: fleet.isReturning,
+        status: fleet.status,
+      });
+      continue;
+    }
+
+    // Hostile or neutral fleet: is it in sensor coverage?
+    const isInOriginSensor = sensorCoverage.has(fleet.originSystemId);
+    const isInTargetSensor = sensorCoverage.has(fleet.targetSystemId);
+
+    if (isInOriginSensor || isInTargetSensor) {
+      const totalShips = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
+      const approxSize = getApproxFleetSize(totalShips);
+
+      // Deep intel requires Sensor Array or Tech level 2+
+      const hasDeepIntel = playerSensorsTech >= 2;
+
+      const roles: ShipType[] = [];
+      for (const [type, count] of Object.entries(fleet.ships) as [ShipType, number][]) {
+        if (count > 0) roles.push(type);
+      }
+
+      visibleFleets.push({
+        id: fleet.id,
+        name: `Bilinmeyen Filo #${fleet.id.slice(-4)}`,
+        ownerId: fleet.ownerId,
+        isHostile: true,
+        intelLevel: hasDeepIntel ? 'deep_intel' : 'sensor_contact',
+        approxSize,
+        visibleRoles: hasDeepIntel ? roles : undefined,
+        ships: hasDeepIntel ? { ...fleet.ships } : undefined,
+        originSystemId: fleet.originSystemId,
+        targetSystemId: fleet.targetSystemId,
+        departureTime: fleet.departureTime,
+        arrivalTime: fleet.arrivalTime,
+        isReturning: fleet.isReturning,
+        status: fleet.status,
+      });
+    }
+  }
+
+  // Filter recent battle reports that involved the player
+  const myBattles = state.battleReports.filter(
+    b => b.attackerId === playerId || b.defenderId === playerId
+  );
+
+  return {
+    timeMs: state.timeMs,
+    playerId,
+    myPlanets,
+    myFleets,
+    myResearch: player?.research || { engines: 0, weapons: 0, sensors: 0 },
+    myResearchQueue: player?.researchQueue || null,
+    discoveredSystems,
+    visibleFleets,
+    relayContest: {
+      systemId: state.relay.systemId,
+      controllerId: state.relay.controllingPlayerId,
+      weeklyPoints: state.relay.weeklyPoints,
+    },
+    recentBattles: myBattles.slice(-10),
+  };
+}
