@@ -1184,6 +1184,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       renderer.setSize(width, height);
     };
     window.addEventListener('resize', onResize);
+    const resizeObserver = new ResizeObserver(() => {
+      onResize();
+    });
+    resizeObserver.observe(container);
 
     // =========================================================================
     // 6. Main 60 FPS Animation & Render Loop
@@ -1548,6 +1552,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     // =========================================================================
     return () => {
       cancelAnimationFrame(animationFrameId);
+      resizeObserver.disconnect();
       window.removeEventListener('resize', onResize);
       container.removeEventListener('mousedown', onMouseDown);
       window.removeEventListener('mousemove', onMouseMove);

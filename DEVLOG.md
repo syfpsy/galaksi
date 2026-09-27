@@ -400,3 +400,35 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
 ### 4. Arayüz Ergonomisi & Katman Ayrıştırma (`EventFeed.tsx`)
 - Ekranın sol altındaki olay bildirim akışı (`bottom-16 max-w-lg`) konumuna taşınarak haritanın alt-orta kısmındaki 2D/2.5D ve Sistem/Galaksi geçiş çubuğu ile çakışması önlendi.
 
+---
+
+## [2026-09-28] — Faz N: Stellaris Arayüz Revizyonu (Left Rail, Signature Outliner, Dynamic Drawers, Resource Clusters)
+
+### 1. Sol Dikey Navigasyon Şeridi (`StellarisLeftRail.tsx`)
+- Stellaris'in ikonik sol menü çubuğu oyuna uyarlandı:
+  - Üstte aktif fraksiyonun rengiyle parlayan İmparatorluk Arması (Empire Crest).
+  - Koloniler & Altyapı (`Globe`), Tersane (`Wrench`), Ar-Ge (`Activity`), Taktik Komuta (`Send`), Savaş Kayıtları (`Swords`), Nexus Rölesi (`Crown`), İttifak (`Users`), Sanat Galerisi (`Palette`).
+  - Altta Tanrı Modu gözü, Ses Aç/Kapa ve Tatil modu butonları.
+  - Kısayol tuşları entegre edildi: `F1` Koloniler, `F2` Tersane, `F3` Ar-Ge, `F4` Komuta, `Esc` açık çekmeceleri kapatma.
+
+### 2. İmparatorluk Sektör Çizelgesi (`StellarisOutliner.tsx`)
+- Stellaris'in vazgeçilmez sağ genel bakış çizelgesi (Outliner) geliştirildi:
+  - **Koloniler:** Tüm oyuncu dünyaları, ana gezegen rozeti, garnizon sayısı, savunma duruşu ve anlık inşaat/yükseltme mini ilerleme çubukları.
+  - **Muharip Filolar:** Avcı ve savaş gemisi filoları, anlık durumları (`Rotada`, `Geri Dönüş`, `Önleme`, `Yörüngede`), gemi sayısı ve kalan varış süresi.
+  - **Sivil Filolar:** Koloni ve keşif seferleri rotaları ve süreleri.
+  - **Nexus Megastrüktürü:** Merkezi röleyi elinde tutan güç ve haftalık skor.
+  - **Düşman Harekâtı & Tehditler:** Oyuncunun sistemlerine yönelen düşman baskın filoları için nabız gibi atan kırmızı alarm kartları.
+  - Tek tıkla genişletme/daraltma (`ChevronLeft` / `ChevronRight`) ve her bileşende işitsel geri bildirim.
+
+### 3. Üst Barın Stellaris Mimarisine Yükseltilmesi (`TopBar.tsx`)
+- **İmparatorluk Kimliği:** Fraksiyon arması, imparatorluk unvanı ve perspektif seçici.
+- **Kaynak Kümeleri:** Cevher, Kristal ve Yakıt için anlık miktar, saatlik net üretim, depo doluluk gösterge çubuğu (`%xx`) ve depo sınırı.
+- **Donanma Kapasitesi & Gücü:** İmparatorluk genelindeki toplam garnizon ve filo gemi adedi rozeti (`🛡️ Donanma: 24 Gemi`).
+- **Kozmik Saat & Hız:** `YIL 2240 • GÜN 1 • 14:32:00` saati, Stellaris tarzı dokunsal hız butonları (`⏸`, `▶ 1x`, `▶▶ 5x`, `▶▶▶ 20x`, `+15dk`, `+1sa`).
+
+### 4. Akışkan Sinematik Galaksi Sahnesi & Çekmece Mimarisi (`App.tsx`, `GalaxyScene25D.tsx`)
+- 3 sütunlu katı düzen yerine harita ekranın merkezini devasa ve kesintisiz şekilde dolduracak şekilde yapılandırıldı.
+- `PlanetPanel` ve `CommandPanel` ihtiyaç duyulduğunda açılan ve kapatılabilen (`[X]` butonlu) şık kayar çekmeceler (Drawers) haline getirildi.
+- `GalaxyScene25D` bileşenine `ResizeObserver` eklenerek paneller açılıp kapandığında 3D WebGL kamerasının ve render alanının sıfır gecikmeyle pürüzsüzce ölçeklenmesi sağlandı.
+
+

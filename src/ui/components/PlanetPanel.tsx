@@ -14,6 +14,7 @@ import {
   Shield,
   ShieldAlert,
   Wrench,
+  X,
 } from 'lucide-react';
 import {
   BUILDING_STATS,
@@ -33,6 +34,7 @@ interface PlanetPanelProps {
   currentTimeMs: number;
   onOpenShipyard?: () => void;
   onOpenResearch?: () => void;
+  onClose?: () => void;
 }
 
 export const PlanetPanel: React.FC<PlanetPanelProps> = ({
@@ -44,6 +46,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
   currentTimeMs,
   onOpenShipyard,
   onOpenResearch,
+  onClose,
 }) => {
   const currentPlanet = planets.find((p) => p.id === activePlanetId) || planets[0];
   if (!currentPlanet) {
@@ -71,9 +74,23 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
           <span className="text-[11px] font-mono text-slate-400 uppercase tracking-wider">
             İmparatorluk Kolonileri
           </span>
-          <span className="text-[10px] font-mono bg-cyber-cyan/10 text-cyber-cyan px-2 py-0.5 rounded border border-cyber-cyan/30">
-            {planets.length} / 3 Yuva
-          </span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-[10px] font-mono bg-cyber-cyan/10 text-cyber-cyan px-2 py-0.5 rounded border border-cyber-cyan/30">
+              {planets.length} / 3 Yuva
+            </span>
+            {onClose && (
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  onClose();
+                }}
+                className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+                title="Paneli Kapat"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Planet Selector Pills */}

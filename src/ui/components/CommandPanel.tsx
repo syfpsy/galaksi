@@ -19,6 +19,7 @@ import {
   Swords,
   TriangleAlert,
   Truck,
+  X,
 } from 'lucide-react';
 import { calculateRouteInfo, checkInterceptionFeasibility } from '../../engine/flight';
 import { calculatePlanetOrbit } from '../../engine/orbital';
@@ -51,6 +52,7 @@ interface CommandPanelProps {
   ) => void;
   onRecallFleet: (fleetId: string) => void;
   currentTimeMs: number;
+  onClose?: () => void;
 }
 
 export const CommandPanel: React.FC<CommandPanelProps> = ({
@@ -61,6 +63,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
   onDispatchFleet,
   onRecallFleet,
   currentTimeMs,
+  onClose,
 }) => {
   const [selectedMission, setSelectedMission] = useState<MissionType>('explore');
   const [ships, setShips] = useState<Record<ShipType, number>>({
@@ -345,30 +348,45 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
   return (
     <aside className="w-88 h-full border-l border-slate-800 bg-space-900/95 backdrop-blur-md flex flex-col z-20 select-none overflow-hidden">
-      {/* Top Tabs: Dispatch vs Active Fleets */}
-      <div className="flex border-b border-slate-800 bg-space-850/60 p-1">
-        <button
-          onClick={() => setActiveTab('dispatch')}
-          className={`flex-1 py-1.5 text-xs font-medium rounded transition-all flex items-center justify-center gap-1.5 ${
-            activeTab === 'dispatch'
-              ? 'bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/40'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Send className="w-3.5 h-3.5" />
-          <span>Filo Sevkiyatı</span>
-        </button>
-        <button
-          onClick={() => setActiveTab('active_fleets')}
-          className={`flex-1 py-1.5 text-xs font-medium rounded transition-all flex items-center justify-center gap-1.5 relative ${
-            activeTab === 'active_fleets'
-              ? 'bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/40'
-              : 'text-slate-400 hover:text-slate-200'
-          }`}
-        >
-          <Navigation className="w-3.5 h-3.5" />
-          <span>Uçuşlar ({myActiveFleets.length})</span>
-        </button>
+      {/* Top Tabs: Dispatch vs Active Fleets & Close Button */}
+      <div className="flex items-center justify-between border-b border-slate-800 bg-space-850/60 p-1">
+        <div className="flex flex-1 gap-1">
+          <button
+            onClick={() => setActiveTab('dispatch')}
+            className={`flex-1 py-1.5 text-xs font-medium rounded transition-all flex items-center justify-center gap-1.5 ${
+              activeTab === 'dispatch'
+                ? 'bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/40'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Send className="w-3.5 h-3.5" />
+            <span>Filo Sevkiyatı</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('active_fleets')}
+            className={`flex-1 py-1.5 text-xs font-medium rounded transition-all flex items-center justify-center gap-1.5 relative ${
+              activeTab === 'active_fleets'
+                ? 'bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/40'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Navigation className="w-3.5 h-3.5" />
+            <span>Uçuşlar ({myActiveFleets.length})</span>
+          </button>
+        </div>
+
+        {onClose && (
+          <button
+            onClick={() => {
+              sound.playClick();
+              onClose();
+            }}
+            className="p-1.5 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors ml-1"
+            title="Paneli Kapat"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
       </div>
 
       {activeTab === 'active_fleets' ? (

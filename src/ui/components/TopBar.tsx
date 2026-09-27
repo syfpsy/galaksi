@@ -15,6 +15,7 @@ import {
   Pickaxe,
   Play,
   RotateCcw,
+  Shield,
   Sparkles,
   Swords,
   Users,
@@ -86,32 +87,52 @@ export const TopBar: React.FC<TopBarProps> = ({
     ? state.players[state.relay.controllingPlayerId]
     : null;
 
+  // Calculate total empire naval capacity
+  const myFleets = Object.values(state.fleets).filter((f) => f.ownerId === activePlayerId);
+  const myPlanets = Object.values(state.planets).filter((p) => p.ownerId === activePlayerId);
+  let totalEmpireShips = 0;
+  myPlanets.forEach((p) => {
+    Object.values(p.garrison).forEach((cnt) => {
+      totalEmpireShips += cnt || 0;
+    });
+  });
+  myFleets.forEach((f) => {
+    Object.values(f.ships).forEach((cnt) => {
+      totalEmpireShips += cnt || 0;
+    });
+  });
+
   return (
-    <header className="h-16 border-b border-cyber-cyan/20 bg-space-900/90 backdrop-blur-md px-4 flex items-center justify-between z-30 select-none">
+    <header className="h-14 border-b border-[#1a2942] bg-[#070c17]/95 backdrop-blur-md px-3.5 flex items-center justify-between z-30 select-none shadow-lg">
       {/* Left: Brand & Perspective Switcher */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
         <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-lg bg-cyber-cyan/10 border border-cyber-cyan/40 flex items-center justify-center text-cyber-cyan shadow-sm shadow-cyber-cyan/20">
-            <Sparkles className="w-4 h-4 animate-pulse" />
+          <div
+            className="w-7 h-7 rounded-lg border flex items-center justify-center shadow-sm"
+            style={{
+              backgroundColor: `${activePlayer?.color || '#00f3ff'}20`,
+              borderColor: `${activePlayer?.color || '#00f3ff'}60`,
+            }}
+          >
+            <Sparkles className="w-3.5 h-3.5 animate-pulse" style={{ color: activePlayer?.color || '#00f3ff' }} />
           </div>
           <div>
-            <h1 className="text-base font-bold text-slate-100 tracking-wider font-display uppercase leading-tight">
-              Canlı Galaksi
+            <h1 className="text-xs font-bold text-slate-100 tracking-wider font-display uppercase leading-tight">
+              {activePlayer?.name || 'Canlı Galaksi'}
             </h1>
-            <span className="text-[10px] text-cyber-cyan tracking-widest font-mono">
-              AĞIR ASENKRON UZAY STRATEJİSİ
+            <span className="text-[9px] text-cyan-400 tracking-widest font-mono">
+              {activePlayer?.isBot ? 'OTONOM BOT FRONTIER' : 'GALAKTİK İMPARATORLUK'}
             </span>
           </div>
         </div>
 
         {/* Player / Bot Perspective Dropdown */}
-        <div className="h-8 border-l border-slate-700 mx-1" />
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-slate-400 font-medium">Perspektif:</span>
+        <div className="h-6 border-l border-slate-800 mx-0.5" />
+        <div className="flex items-center gap-1.5">
           <select
             value={activePlayerId}
             onChange={(e) => onSelectPlayer(e.target.value)}
-            className="bg-space-850 border border-slate-700 text-xs rounded-md px-2.5 py-1 text-slate-200 focus:outline-none focus:border-cyber-cyan"
+            className="bg-[#0b1324] border border-[#1a2942] hover:border-cyan-500/50 text-[11px] font-mono rounded px-2 py-0.5 text-slate-300 focus:outline-none focus:border-cyan-400"
           >
             {Object.values(state.players).map((p) => (
               <option key={p.id} value={p.id}>
@@ -122,71 +143,110 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
       </div>
 
-      {/* Center: Planetary Resources (Only 3 per GDD Section 5) */}
+      {/* Center: Planetary Resources (Stellaris Style) */}
       {activePlanet && (
-        <div className="flex items-center gap-6 bg-space-850/80 px-4 py-1.5 rounded-lg border border-slate-800">
+        <div className="flex items-center gap-4 bg-[#0a1120]/90 px-3 py-1 rounded-lg border border-[#1a2942] shadow-inner">
           {/* Cevher (Ore) */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-amber-400 border border-amber-500/30">
-              <Pickaxe className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-slate-900 flex items-center justify-center text-amber-400 border border-amber-500/30">
+              <Pickaxe className="w-3 h-3" />
             </div>
             <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold font-mono text-slate-100">
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs font-bold font-mono text-slate-100">
                   {Math.floor(activePlanet.resources.ore).toLocaleString()}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  /{activePlanet.storageCap.toLocaleString()}
+                <span className="text-[9px] text-slate-400 font-mono">
+                  /{activePlanet.storageCap >= 1000 ? `${Math.round(activePlanet.storageCap / 1000)}k` : activePlanet.storageCap}
                 </span>
               </div>
-              <div className="text-[10px] text-emerald-400 font-mono">+{oreRate}/saat</div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-amber-400 rounded-full"
+                    style={{ width: `${Math.min(100, (activePlanet.resources.ore / activePlanet.storageCap) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[9px] text-emerald-400 font-mono">+{oreRate}/sa</span>
+              </div>
             </div>
           </div>
 
-          <div className="w-px h-6 bg-slate-800" />
+          <div className="w-px h-5 bg-slate-800" />
 
           {/* Kristal (Crystal) */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-cyber-cyan border border-cyber-cyan/30">
-              <Gem className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-slate-900 flex items-center justify-center text-cyan-400 border border-cyan-500/30">
+              <Gem className="w-3 h-3" />
             </div>
             <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold font-mono text-slate-100">
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs font-bold font-mono text-slate-100">
                   {Math.floor(activePlanet.resources.crystal).toLocaleString()}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  /{activePlanet.storageCap.toLocaleString()}
+                <span className="text-[9px] text-slate-400 font-mono">
+                  /{activePlanet.storageCap >= 1000 ? `${Math.round(activePlanet.storageCap / 1000)}k` : activePlanet.storageCap}
                 </span>
               </div>
-              <div className="text-[10px] text-emerald-400 font-mono">+{crystalRate}/saat</div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-cyan-400 rounded-full"
+                    style={{ width: `${Math.min(100, (activePlanet.resources.crystal / activePlanet.storageCap) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[9px] text-emerald-400 font-mono">+{crystalRate}/sa</span>
+              </div>
             </div>
           </div>
 
-          <div className="w-px h-6 bg-slate-800" />
+          <div className="w-px h-5 bg-slate-800" />
 
           {/* Yakıt (Fuel) */}
-          <div className="flex items-center gap-2.5">
-            <div className="w-6 h-6 rounded bg-slate-800 flex items-center justify-center text-rose-400 border border-rose-500/30">
-              <Flame className="w-3.5 h-3.5" />
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-slate-900 flex items-center justify-center text-rose-400 border border-rose-500/30">
+              <Flame className="w-3 h-3" />
             </div>
             <div>
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-sm font-bold font-mono text-slate-100">
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs font-bold font-mono text-slate-100">
                   {Math.floor(activePlanet.resources.fuel).toLocaleString()}
                 </span>
-                <span className="text-[10px] text-slate-400 font-mono">
-                  /{activePlanet.storageCap.toLocaleString()}
+                <span className="text-[9px] text-slate-400 font-mono">
+                  /{activePlanet.storageCap >= 1000 ? `${Math.round(activePlanet.storageCap / 1000)}k` : activePlanet.storageCap}
                 </span>
               </div>
-              <div className="text-[10px] text-emerald-400 font-mono">+{fuelRate}/saat</div>
+              <div className="flex items-center gap-1.5">
+                <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-rose-400 rounded-full"
+                    style={{ width: `${Math.min(100, (activePlanet.resources.fuel / activePlanet.storageCap) * 100)}%` }}
+                  />
+                </div>
+                <span className="text-[9px] text-emerald-400 font-mono">+{fuelRate}/sa</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="w-px h-5 bg-slate-800" />
+
+          {/* Empire Fleet Strength */}
+          <div className="flex items-center gap-2">
+            <div className="w-5 h-5 rounded bg-slate-900 flex items-center justify-center text-purple-400 border border-purple-500/30">
+              <Shield className="w-3 h-3" />
+            </div>
+            <div>
+              <div className="text-xs font-bold font-mono text-slate-100">
+                {totalEmpireShips} <span className="text-[9px] text-slate-400 font-normal">Gemi</span>
+              </div>
+              <div className="text-[9px] text-purple-300 font-mono">Donanma Gücü</div>
             </div>
           </div>
         </div>
       )}
 
       {/* Right: Modals & Simulation Speed Controls */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         {/* Navigation Action Buttons */}
         <div className="flex items-center gap-1.5 bg-space-850 p-1 rounded-lg border border-slate-800">
           <button

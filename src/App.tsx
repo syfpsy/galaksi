@@ -28,7 +28,10 @@ import { ResearchModal } from './ui/components/ResearchModal';
 import { ShipyardModal } from './ui/components/ShipyardModal';
 import { SystemInspectionModal } from './ui/components/SystemInspectionModal';
 import { TopBar } from './ui/components/TopBar';
+import { StellarisLeftRail } from './ui/components/StellarisLeftRail';
+import { StellarisOutliner } from './ui/components/StellarisOutliner';
 import { SelectedTarget } from './ui/types';
+import { sound } from './ui/sound';
 
 export function App() {
   // Engine Instance reference
@@ -49,6 +52,11 @@ export function App() {
   const [timeScale, setTimeScale] = useState<number>(1);
   const [godMode, setGodMode] = useState<boolean>(false);
 
+  // Drawers & Stellaris Layout
+  const [isPlanetPanelOpen, setIsPlanetPanelOpen] = useState<boolean>(false);
+  const [isCommandPanelOpen, setIsCommandPanelOpen] = useState<boolean>(false);
+  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(sound.isMuted);
+
   // Modals
   const [isShipyardOpen, setIsShipyardOpen] = useState<boolean>(false);
   const [isResearchOpen, setIsResearchOpen] = useState<boolean>(false);
@@ -57,6 +65,37 @@ export function App() {
   const [isAllianceOpen, setIsAllianceOpen] = useState<boolean>(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState<boolean>(false);
   const [inspectedSystemId, setInspectedSystemId] = useState<string | null>(null);
+
+  // Hotkeys for Stellaris navigation
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.key === 'F1') {
+        e.preventDefault();
+        sound.playClick();
+        setIsPlanetPanelOpen((prev) => !prev);
+      } else if (e.key === 'F2') {
+        e.preventDefault();
+        sound.playClick();
+        setIsShipyardOpen((prev) => !prev);
+      } else if (e.key === 'F3') {
+        e.preventDefault();
+        sound.playClick();
+        setIsResearchOpen((prev) => !prev);
+      } else if (e.key === 'F4') {
+        e.preventDefault();
+        sound.playClick();
+        setIsCommandPanelOpen((prev) => !prev);
+      } else if (e.key === 'Escape') {
+        if (isPlanetPanelOpen || isCommandPanelOpen) {
+          setIsPlanetPanelOpen(false);
+          setIsCommandPanelOpen(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isPlanetPanelOpen, isCommandPanelOpen]);
 
   // Initialize engine & players
   const initGame = useCallback((seed: number = 42) => {
@@ -336,28 +375,65 @@ export function App() {
         onReset={() => initGame(Date.now())}
       />
 
-      {/* Main Game Interface (3-Column Layout: Planets, Galaxy Map, Commands) */}
+      {/* Main Game Interface (Stellaris Left Rail, Wide Center Galaxy Map, Stellaris Outliner, Sliding Drawers) */}
       <div className="flex-1 flex overflow-hidden relative">
-        {/* Left Column: Planet Infrastructure & Garrison */}
-        <PlanetPanel
-          planets={myPlanets}
-          activePlanetId={activePlanet?.id || ''}
-          onSelectPlanet={setActivePlanetId}
-          onUpgradeBuilding={handleUpgradeBuilding}
-          onSetStance={handleSetStance}
-          currentTimeMs={engineState.timeMs}
+        {/* Leftmost: Stellaris Vertical Navigation Icon Rail */}
+        <StellarisLeftRail
+          activePlayerColor={activePlayer?.color || '#00f3ff'}
+          isPlanetPanelOpen={isPlanetPanelOpen}
+          onTogglePlanetPanel={() => setIsPlanetPanelOpen(!isPlanetPanelOpen)}
+          isCommandPanelOpen={isCommandPanelOpen}
+          onToggleCommandPanel={() => setIsCommandPanelOpen(!isCommandPanelOpen)}
           onOpenShipyard={() => setIsShipyardOpen(true)}
           onOpenResearch={() => setIsResearchOpen(true)}
+          onOpenBattles={() => setIsBattlesOpen(true)}
+          onOpenRelay={() => setIsRelayOpen(true)}
+          onOpenAlliance={() => setIsAllianceOpen(true)}
+          onOpenGallery={() => setIsGalleryOpen(true)}
+          unreadBattlesCount={engineState.battleReports.length}
+          isRelayControlled={engineState.relay.controllingPlayerId === activePlayerId}
+          planetsCount={myPlanets.length}
+          godMode={godMode}
+          onToggleGodMode={() => setGodMode(!godMode)}
+          isMuted={isAudioMuted}
+          onToggleMute={() => {
+            const nextMuted = sound.toggleMute();
+            setIsAudioMuted(nextMuted);
+          }}
+          onToggleVacationMode={handleToggleVacationMode}
         />
 
-        {/* Center: Live 2D Galaxy Vector Map */}
-        <main className="flex-1 h-full relative">
+        {/* Planet Infrastructure Drawer (Floating next to Left Rail) */}
+        {isPlanetPanelOpen && (
+          <div className="absolute left-14 top-0 bottom-0 z-30 shadow-2xl animate-fade-in flex">
+            <PlanetPanel
+              planets={myPlanets}
+              activePlanetId={activePlanet?.id || ''}
+              onSelectPlanet={setActivePlanetId}
+              onUpgradeBuilding={handleUpgradeBuilding}
+              onSetStance={handleSetStance}
+              currentTimeMs={engineState.timeMs}
+              onOpenShipyard={() => setIsShipyardOpen(true)}
+              onOpenResearch={() => setIsResearchOpen(true)}
+              onClose={() => setIsPlanetPanelOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* Center: Live Galaxy Vector Map & 2.5D Orrery (Occupies Full Center Stage!) */}
+        <main className="flex-1 h-full relative overflow-hidden">
           {/* Incoming Threat Banner Alert */}
           <IncomingThreatBanner
             state={engineState}
             activePlayerId={activePlayerId}
-            onTargetThreat={handleTargetThreat}
-            onEvacuatePlanet={handleEvacuatePlanet}
+            onTargetThreat={(threat) => {
+              handleTargetThreat(threat);
+              setIsCommandPanelOpen(true);
+            }}
+            onEvacuatePlanet={(pId) => {
+              handleEvacuatePlanet(pId);
+              setIsCommandPanelOpen(true);
+            }}
           />
 
           <GalaxyMap
@@ -376,12 +452,16 @@ export function App() {
                   systemId: fl.targetSystemId,
                   fleetId,
                 });
+                setIsCommandPanelOpen(true);
               }
             }}
             onSelectPlanet={(systemId, planetId) => {
               setSelectedTarget({ type: 'planet', systemId, planetId });
               if (engineState.planets[planetId]?.ownerId === activePlayerId) {
                 setActivePlanetId(planetId);
+                setIsPlanetPanelOpen(true);
+              } else {
+                setIsCommandPanelOpen(true);
               }
             }}
             onInspectSystem={(systemId) => setInspectedSystemId(systemId)}
@@ -391,14 +471,46 @@ export function App() {
           <EventFeed events={engineState.eventLog} />
         </main>
 
-        {/* Right Column: Fleet Dispatch & Target Commands */}
-        <CommandPanel
+        {/* Fleet Dispatch & Target Command Deck (Floating Slide-over Drawer) */}
+        {isCommandPanelOpen && (
+          <div className="absolute right-72 top-0 bottom-0 z-30 shadow-2xl animate-fade-in flex">
+            <CommandPanel
+              state={engineState}
+              activePlayerId={activePlayerId}
+              activePlanet={activePlanet}
+              selectedTarget={selectedTarget}
+              onDispatchFleet={handleDispatchFleet}
+              onRecallFleet={handleRecallFleet}
+              currentTimeMs={engineState.timeMs}
+              onClose={() => setIsCommandPanelOpen(false)}
+            />
+          </div>
+        )}
+
+        {/* Rightmost: Stellaris Empire Outliner */}
+        <StellarisOutliner
           state={engineState}
           activePlayerId={activePlayerId}
-          activePlanet={activePlanet}
+          activePlanetId={activePlanet?.id || ''}
           selectedTarget={selectedTarget}
-          onDispatchFleet={handleDispatchFleet}
-          onRecallFleet={handleRecallFleet}
+          onSelectPlanet={(pId) => {
+            setActivePlanetId(pId);
+            const p = engineState.planets[pId];
+            if (p) {
+              setSelectedTarget({ type: 'planet', systemId: p.systemId, planetId: p.id });
+            }
+            setIsPlanetPanelOpen(true);
+          }}
+          onSelectFleet={(fleetId) => {
+            const fl = engineState.fleets[fleetId];
+            if (fl) {
+              setSelectedTarget({ type: 'fleet', systemId: fl.targetSystemId, fleetId: fl.id });
+              setIsCommandPanelOpen(true);
+            }
+          }}
+          onSelectSystem={(systemId) => {
+            setSelectedTarget({ type: 'system', systemId });
+          }}
           currentTimeMs={engineState.timeMs}
         />
       </div>
