@@ -21,6 +21,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { calculateRouteInfo, checkInterceptionFeasibility } from '../../engine/flight';
+import { calculatePlanetOrbit } from '../../engine/orbital';
 import {
   Fleet,
   GameState,
@@ -74,6 +75,17 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
   const targetSystem = selectedTarget ? state.map.systems[selectedTarget.systemId] : null;
   const targetFleet = selectedTarget?.fleetId ? state.fleets[selectedTarget.fleetId] : null;
 
+  // Resolve target planet & Keplerian orbital telemetry
+  const targetPlanetId = selectedTarget?.planetId;
+  const targetPlanet = targetPlanetId ? state.planets[targetPlanetId] : null;
+  const targetSlot = targetSystem?.slots.find((s) => s.planetId === targetPlanetId);
+  const targetPlanetOwner = targetPlanet?.ownerId ? state.players[targetPlanet.ownerId] : null;
+
+  const targetPlanetOrbit = useMemo(() => {
+    if (!targetSystem || !targetSlot || !targetPlanetId) return null;
+    return calculatePlanetOrbit(targetSystem.id, targetSlot.slotIndex, targetPlanetId, currentTimeMs);
+  }, [targetSystem, targetSlot, targetPlanetId, currentTimeMs]);
+
   // Active player research
   const activePlayer = state.players[activePlayerId];
   const engineTech = activePlayer?.research.engines || 0;
@@ -89,6 +101,17 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
       engineTech
     );
   }, [activePlanet, targetSystem, ships, state.map.lanes, engineTech]);
+
+  // Projected arrival orbital angle
+  const projectedArrivalAngleDeg = useMemo(() => {
+    if (!targetPlanetOrbit || !routeInfo) return null;
+    const arrivalTimeMs = currentTimeMs + routeInfo.durationMs;
+    const futureAngle =
+      (targetPlanetOrbit.initialAngle +
+        (arrivalTimeMs / targetPlanetOrbit.orbitalPeriodMs) * Math.PI * 2) %
+      (Math.PI * 2);
+    return Math.round((futureAngle * 180) / Math.PI);
+  }, [targetPlanetOrbit, routeInfo, currentTimeMs]);
 
   // Interception feasibility check
   const interceptCheck = useMemo(() => {
@@ -413,6 +436,64 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                   <span className="text-rose-400">Enkaz Alanı</span>
                 )}
               </div>
+
+              {/* Target Planet & Orbital Rendezvous Telemetry */}
+              {targetSlot && targetPlanetOrbit && (
+                <div className="mt-2.5 p-2.5 bg-space-950/80 border border-cyber-cyan/30 rounded-lg space-y-1.5 font-mono text-[11px]">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-1">
+                    <span className="font-bold text-slate-100 flex items-center gap-1.5">
+                      <span
+                        className="w-2 h-2 rounded-full inline-block"
+                        style={{ backgroundColor: targetPlanetOwner?.color || '#38bdf8' }}
+                      />
+                      {targetSlot.name}
+                    </span>
+                    <span className="text-[9.5px] text-cyber-cyan uppercase px-1 rounded bg-cyber-cyan/10">
+                      {targetSlot.type}
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5 text-[10px] text-slate-300">
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">Mevcut Yörünge Açısı</span>
+                      <span className="text-amber-400 font-bold">{targetPlanetOrbit.currentAngleDeg}°</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">Yörünge Periyodu</span>
+                      <span className="text-slate-200">
+                        {(targetPlanetOrbit.orbitalPeriodMs / (3600 * 1000)).toFixed(0)} Saat
+                      </span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">Açısal Hız</span>
+                      <span className="text-cyber-cyan">{targetPlanetOrbit.speedDegPerHour}° / saat</span>
+                    </div>
+                    <div>
+                      <span className="text-slate-500 block text-[9px]">Mesafe</span>
+                      <span className="text-slate-200">{targetPlanetOrbit.auDistance} AU</span>
+                    </div>
+                  </div>
+
+                  {projectedArrivalAngleDeg !== null && routeInfo && (
+                    <div className="pt-1.5 border-t border-slate-800 text-[10px] bg-cyber-cyan/5 -mx-1 px-1 py-1 rounded">
+                      <div className="flex items-center justify-between text-cyber-cyan">
+                        <span>🎯 Varış Randevusu:</span>
+                        <span className="font-bold">{projectedArrivalAngleDeg}°</span>
+                      </div>
+                      <div className="text-[9px] text-slate-400 mt-0.5">
+                        Uçuş süresince gezegen +{((projectedArrivalAngleDeg - targetPlanetOrbit.currentAngleDeg + 360) % 360)}° yörünge katedecek.
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-0.5">
+                    <span>Hakimiyet:</span>
+                    <span style={{ color: targetPlanetOwner?.color || '#10b981' }} className="font-semibold">
+                      {targetPlanetOwner ? targetPlanetOwner.name : 'Boş / Koloniye Uygun'}
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Debris Quick Salvage Action */}
               {targetSystem.hasDebris && (targetSystem.hasDebris.ore > 0 || targetSystem.hasDebris.crystal > 0) && (

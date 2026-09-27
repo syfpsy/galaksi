@@ -266,6 +266,24 @@ Kullanıcının *"Aynı şekilde sistemin bir tier üst uzay ortamında (lokal g
   - Atmosferik ışıma hale spreyleri (`getAtmosphereTexture`).
 - **Sıfır Çöp Toplayıcı (Zero GC Allocation):** Geometri ve malzemeler dinamik havuzda tutulur; her karede yeni geometri tahsis edilmeyerek yağ gibi akıcı 60 FPS garantilenir.
 
+---
+
+## [2026-09-27] — Faz H: Gezegen Telemetrisi, Yörünge Randevusu (Orbital Rendezvous) & 3D HUD İyileştirmeleri
+
+Kullanıcının ağır tempolu ve dinamik astronomik yörünge mekaniği vizyonu (`Keplerian orbits + slow flight pacing`) doğrultusunda stratejik planlama derinleştirildi:
+
+### 1. Sistem İçi Gezegen Telemetri HUD Kartı (`GalaxyMap.tsx`)
+- Yalnızca fare üzerine gelindiğinde değil, 3D WebGL veya 2D modunda herhangi bir gezegen tıklandığında/seçildiğinde de anında açılır.
+- **Canlı Yörünge Metrikleri:** Gezegenin anlık yörünge açısı ($\theta^\circ$), periyodu, açısal hızı ($^\circ/\text{saat}$), yıldız mesafesi (AU) ve kolonizasyon/hakimiyet durumu.
+- **Projeksiyon Tablosu:** +2 saat, +6 saat ve +12 saat sonraki yörünge açıları kompakt bir tahmin kartında sunulur.
+
+### 2. Astrodinamik Yörünge Randevusu Telemetrisi (`CommandPanel.tsx`)
+- Komuta Panelinde hedef olarak bir gezegen seçildiğinde, filonun tahmini seyahat süresi boyunca gezegenin yörüngesinde kat edeceği açısal mesafe ($\Delta \theta = \omega \cdot \Delta t$) hesaplanır.
+- **Varış Randevusu Göstergesi:**
+  - Filo gezegene vardığında gezegenin bulunacağı tam açı ($\theta_{\text{varış}}^\circ$) ve uçuş boyunca kat edeceği yörünge ilerlemesi oyuncuya gösterilir.
+  - Ağır tempolu uzay stratejisinde hareketli gezegen hedeflerine yönelik gerçekçi astrodinamik planlama hissi pekiştirildi.
+
+
 
 
 

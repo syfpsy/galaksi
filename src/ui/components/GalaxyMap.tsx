@@ -1507,18 +1507,22 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
       </div>
 
       {/* Top Right: In-System Planetary Telemetry HUD Card (When Hovering or Selected) */}
-      {viewMode === 'system' && hoveredPlanetSlotId && (
-        <div className="absolute top-4 right-4 w-72 bg-space-900/95 backdrop-blur-md border border-cyber-cyan/40 rounded-xl p-3 shadow-2xl z-20 font-mono text-xs animate-in fade-in duration-150">
+      {viewMode === 'system' && (hoveredPlanetSlotId || (selectedTarget?.type === 'planet' && selectedTarget.systemId === activeSystem.id)) && (
+        <div className="absolute top-4 right-4 w-80 bg-space-900/95 backdrop-blur-md border border-cyber-cyan/40 rounded-xl p-3 shadow-2xl z-20 font-mono text-xs animate-in fade-in duration-150">
           {(() => {
-            const item = systemPlanetOrbits.find((p) => p.slot.planetId === hoveredPlanetSlotId);
+            const targetId = hoveredPlanetSlotId || (selectedTarget?.type === 'planet' ? selectedTarget.planetId : null);
+            const item = systemPlanetOrbits.find((p) => p.slot.planetId === targetId);
             if (!item) return null;
             const { slot, orbit, planetObj, owner } = item;
             return (
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
-                  <span className="font-bold text-slate-100 font-display text-sm">
-                    {slot.name}
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: owner?.color || '#38bdf8' }} />
+                    <span className="font-bold text-slate-100 font-display text-sm">
+                      {slot.name}
+                    </span>
+                  </div>
                   <span className="text-[10px] text-cyber-cyan uppercase px-1.5 py-0.2 bg-cyber-cyan/10 rounded border border-cyber-cyan/30">
                     {slot.type}
                   </span>
@@ -1526,7 +1530,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
 
                 <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-300">
                   <div>
-                    <span className="text-slate-500 block text-[9.5px]">Mevcut Açı</span>
+                    <span className="text-slate-500 block text-[9.5px]">Mevcut Yörünge Açısı</span>
                     <span className="font-bold text-amber-400">{orbit.currentAngleDeg}°</span>
                   </div>
                   <div>
@@ -1536,12 +1540,25 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                     </span>
                   </div>
                   <div>
-                    <span className="text-slate-500 block text-[9.5px]">Yörünge Hızı</span>
+                    <span className="text-slate-500 block text-[9.5px]">Açısal Hız</span>
                     <span className="text-cyber-cyan">{orbit.speedDegPerHour}° / saat</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[9.5px]">Yıldız Mesafesi</span>
                     <span className="text-slate-200">{orbit.auDistance} AU</span>
+                  </div>
+                </div>
+
+                {/* 2h, 6h, 12h Orbital Forecast Table */}
+                <div className="pt-1.5 border-t border-slate-800/80">
+                  <span className="text-[9.5px] text-slate-400 block mb-1">🔭 Gelecek Yörünge Projeksiyonları</span>
+                  <div className="grid grid-cols-3 gap-1 text-[10px] text-center font-mono">
+                    {orbit.projections.map((p) => (
+                      <div key={`proj_${p.hoursAhead}`} className="bg-space-950/70 border border-slate-800/80 rounded py-1 px-0.5">
+                        <span className="text-slate-500 block text-[9px]">+{p.hoursAhead}s</span>
+                        <span className="text-cyber-cyan font-bold">{p.angleDeg}°</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
 
