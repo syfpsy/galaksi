@@ -21,6 +21,7 @@ import {
   getBuildingUpgradeCost,
 } from '../../engine/constants';
 import { BuildingType, Planet, PlanetStance, ShipType } from '../../engine/types';
+import { formatDuration } from '../timeUtils';
 
 interface PlanetPanelProps {
   planets: Planet[];
@@ -158,12 +159,12 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
           const isAnyUpgrading = !!currentPlanet.buildingQueue;
 
           // Calculate upgrade countdown if active
-          let remainingSec = 0;
+          let remainingMs = 0;
           let progressPercent = 0;
           if (isQueueActive && currentPlanet.buildingQueue) {
             const total = currentPlanet.buildingQueue.finishTime - currentPlanet.buildingQueue.startTime;
             const elapsed = currentTimeMs - currentPlanet.buildingQueue.startTime;
-            remainingSec = Math.max(0, Math.round((currentPlanet.buildingQueue.finishTime - currentTimeMs) / 1000));
+            remainingMs = Math.max(0, currentPlanet.buildingQueue.finishTime - currentTimeMs);
             progressPercent = Math.min(100, Math.round((elapsed / total) * 100));
           }
 
@@ -190,7 +191,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
                 {isQueueActive ? (
                   <div className="flex items-center gap-1.5 text-xs font-mono text-cyber-cyan">
                     <Clock className="w-3.5 h-3.5 animate-spin" />
-                    <span>{remainingSec}s</span>
+                    <span>{formatDuration(remainingMs)}</span>
                   </div>
                 ) : (
                   <button

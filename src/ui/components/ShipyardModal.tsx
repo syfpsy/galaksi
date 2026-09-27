@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Clock, Hammer, Shield, Swords, Wrench, X } from 'lucide-react';
 import { getShipBuildDurationMs, SHIP_STATS } from '../../engine/constants';
 import { Planet, ShipType } from '../../engine/types';
+import { formatDuration } from '../timeUtils';
 
 interface ShipyardModalProps {
   planet: Planet | undefined;
@@ -62,7 +63,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
             </div>
             <div className="space-y-1.5">
               {planet.shipyardQueue.map((item, idx) => {
-                const remainingSec = Math.max(0, Math.round((item.nextUnitFinishTime - currentTimeMs) / 1000));
+                const remainingMs = Math.max(0, item.nextUnitFinishTime - currentTimeMs);
                 return (
                   <div
                     key={idx}
@@ -73,7 +74,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
                     </span>
                     <span className="text-cyber-cyan flex items-center gap-1">
                       <Clock className="w-3.5 h-3.5 animate-spin" />
-                      {remainingSec}s
+                      {formatDuration(remainingMs)}
                     </span>
                   </div>
                 );
@@ -99,7 +100,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
               planet.resources.fuel >= totalCost.fuel;
 
             const isLocked = st === 'battleship' && shipyardLevel < 3;
-            const unitTimeSec = Math.round(getShipBuildDurationMs(st, shipyardLevel) / 1000);
+            const unitTimeMs = getShipBuildDurationMs(st, shipyardLevel);
 
             return (
               <div
@@ -127,7 +128,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
                       <span>Gövde+Kalkan: <strong className="text-emerald-400">{stats.hull + stats.shield}</strong></span>
                       <span>Hız: <strong className="text-cyber-cyan">{stats.speed}</strong></span>
                       <span>Kargo: <strong className="text-amber-400">{stats.cargoCapacity}</strong></span>
-                      <span>Süre: {unitTimeSec}s</span>
+                      <span>Süre: {formatDuration(unitTimeMs)}</span>
                     </div>
                   </div>
 

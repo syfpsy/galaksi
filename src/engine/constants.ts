@@ -56,7 +56,7 @@ export const SHIP_STATS: Record<ShipType, ShipStats> = {
     cargoCapacity: 120,
     fuelConsumptionPerUnit: 0.3,
     cost: { ore: 160, crystal: 90, fuel: 40 },
-    buildTimeSec: 25,
+    buildTimeSec: 120, // 2 minutes
   },
   transport: {
     type: 'transport',
@@ -70,7 +70,7 @@ export const SHIP_STATS: Record<ShipType, ShipStats> = {
     cargoCapacity: 2800,
     fuelConsumptionPerUnit: 0.6,
     cost: { ore: 380, crystal: 160, fuel: 90 },
-    buildTimeSec: 50,
+    buildTimeSec: 240, // 4 minutes
   },
   fighter: {
     type: 'fighter',
@@ -84,7 +84,7 @@ export const SHIP_STATS: Record<ShipType, ShipStats> = {
     cargoCapacity: 60,
     fuelConsumptionPerUnit: 0.5,
     cost: { ore: 320, crystal: 180, fuel: 80 },
-    buildTimeSec: 40,
+    buildTimeSec: 180, // 3 minutes
   },
   battleship: {
     type: 'battleship',
@@ -98,7 +98,7 @@ export const SHIP_STATS: Record<ShipType, ShipStats> = {
     cargoCapacity: 750,
     fuelConsumptionPerUnit: 1.8,
     cost: { ore: 1350, crystal: 950, fuel: 420 },
-    buildTimeSec: 150,
+    buildTimeSec: 720, // 12 minutes
   },
 };
 
@@ -110,7 +110,7 @@ export const BUILDING_STATS: Record<BuildingType, BuildingStats> = {
     descriptionTr: 'Gezegen kabuğundan cevher çıkarır. Yapıların ve filonun temel maddesidir.',
     baseCost: { ore: 80, crystal: 30, fuel: 0 },
     costMultiplier: 1.45,
-    baseBuildTimeSec: 20,
+    baseBuildTimeSec: 90, // 1.5 minutes
     timeMultiplier: 1.25,
   },
   crystal_synth: {
@@ -120,7 +120,7 @@ export const BUILDING_STATS: Record<BuildingType, BuildingStats> = {
     descriptionTr: 'Yüksek saflıkta kristal üretir. İleri teknoloji ve gemi kalkanları için şarttır.',
     baseCost: { ore: 110, crystal: 60, fuel: 10 },
     costMultiplier: 1.5,
-    baseBuildTimeSec: 30,
+    baseBuildTimeSec: 150, // 2.5 minutes
     timeMultiplier: 1.28,
   },
   fuel_refinery: {
@@ -130,7 +130,7 @@ export const BUILDING_STATS: Record<BuildingType, BuildingStats> = {
     descriptionTr: 'Uçuş hatlarında filo hareketi için gerekli hiper-yakıtı üretir.',
     baseCost: { ore: 130, crystal: 80, fuel: 20 },
     costMultiplier: 1.55,
-    baseBuildTimeSec: 40,
+    baseBuildTimeSec: 210, // 3.5 minutes
     timeMultiplier: 1.3,
   },
   shipyard: {
@@ -140,7 +140,7 @@ export const BUILDING_STATS: Record<BuildingType, BuildingStats> = {
     descriptionTr: 'Uzay filosu üretir. Yüksek seviyeler gemi üretim süresini hızlandırır.',
     baseCost: { ore: 250, crystal: 150, fuel: 60 },
     costMultiplier: 1.6,
-    baseBuildTimeSec: 60,
+    baseBuildTimeSec: 300, // 5 minutes
     timeMultiplier: 1.3,
   },
   research_lab: {
@@ -150,7 +150,7 @@ export const BUILDING_STATS: Record<BuildingType, BuildingStats> = {
     descriptionTr: 'İmparatorluk geneli teknolojileri geliştirir. Seviyesi araştırma hızını artırır.',
     baseCost: { ore: 200, crystal: 220, fuel: 80 },
     costMultiplier: 1.6,
-    baseBuildTimeSec: 80,
+    baseBuildTimeSec: 360, // 6 minutes
     timeMultiplier: 1.35,
   },
   sensor_array: {
@@ -160,7 +160,7 @@ export const BUILDING_STATS: Record<BuildingType, BuildingStats> = {
     descriptionTr: 'Sektördeki filo hareketlerini erken fark eder; düşman filoların rotasını çözer.',
     baseCost: { ore: 180, crystal: 160, fuel: 90 },
     costMultiplier: 1.5,
-    baseBuildTimeSec: 50,
+    baseBuildTimeSec: 240, // 4 minutes
     timeMultiplier: 1.3,
   },
 };
@@ -173,7 +173,7 @@ export const RESEARCH_STATS: Record<ResearchType, ResearchStats> = {
     descriptionTr: 'Tüm filoların hızını ve rota önleme yeteneğini artırır (+12% hız / seviye).',
     baseCost: { ore: 220, crystal: 300, fuel: 180 },
     costMultiplier: 1.7,
-    baseResearchTimeSec: 90,
+    baseResearchTimeSec: 420, // 7 minutes
     timeMultiplier: 1.35,
   },
   weapons: {
@@ -183,7 +183,7 @@ export const RESEARCH_STATS: Record<ResearchType, ResearchStats> = {
     descriptionTr: 'Filoların çatışma hasarını ve kalkan delme gücünü artırır (+10% saldırı / seviye).',
     baseCost: { ore: 320, crystal: 280, fuel: 140 },
     costMultiplier: 1.7,
-    baseResearchTimeSec: 100,
+    baseResearchTimeSec: 480, // 8 minutes
     timeMultiplier: 1.35,
   },
   sensors: {
@@ -193,7 +193,7 @@ export const RESEARCH_STATS: Record<ResearchType, ResearchStats> = {
     descriptionTr: 'İstihbarat seviyesini artırır; düşman filoların tam gemi kompozisyonunu açar.',
     baseCost: { ore: 200, crystal: 340, fuel: 220 },
     costMultiplier: 1.7,
-    baseResearchTimeSec: 110,
+    baseResearchTimeSec: 540, // 9 minutes
     timeMultiplier: 1.35,
   },
 };

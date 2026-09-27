@@ -4,51 +4,33 @@ Bu dosya, GDD v0.1.0 doğrultusunda yapılan tüm mimari kararların, aşamalar�
 
 ---
 
-## [2026-09-27] — Faz A (Ekransız Çekirdek & Botlar) ve Faz B (İzlenebilir Sektör Arayüzü) Kurulumu
+## [2026-09-27] — Faz A & B Kurulumu ve Ağır Strateji (Slow Persistent Strategy) Kalibrasyonu
 
-### 1. Mimari Kararlar ve Uygulama Özeti
-- **Bağımsız Başsız (Headless) Motor:** `src/engine/` katmanı hiçbir DOM veya tarayıcı kütüphanesine bağımlı olmadan Node.js, CLI, Vitest ve React içinde deterministik olarak çalışacak şekilde inşa edildi.
-- **Deterministik PRNG (`src/engine/prng.ts`):** Mulberry32 tabanlı deterministik rastgele sayı üreteci ile tohum bazlı harita ve savaş simülasyonları istemci ve sunucuda birebir aynı sonucu üretir.
-- **Ekonomi & 3 Kaynak Modeli (`src/engine/constants.ts`):**
-  - Cevher (Ore), Kristal (Crystal), Yakıt (Fuel).
-  - Maden seviyelerine bağlı pasif üretim formülleri, depo tavanı ve yağmaya karşı korumalı depo kapasitesi.
-  - Baskın tavanı (GDD Bölüm 10): Korunmasız stokun en fazla %20'si yağmalanabilir.
-- **Gemi Rolleri ve Görevler:**
-  - 4 Gemi: Keşif (Scout), Nakliye (Transport), Avcı (Fighter), Savaş Gemisi (Battleship).
-  - 5 Bağlamsal Görev: Keşfet, Taşı/Topla, Saldır, Önle, Destekle, Kolonileştir.
-- **Uçuş & Önleme Modeli (`src/engine/flight.ts`):**
-  - Dijkstra ile hat ağı üzerinde rota ve mesafe hesabı.
-  - En yavaş gemi ve motor araştırma seviyesine bağlı filo hızı.
-  - `checkInterceptionFeasibility`: Hareket halindeki hedef filoya rota düğümünde yetişilip yetişilemeyeceğini önceden hesaplar.
-  - Son yaklaşma kilidi: Yolculuğun ilk %50'sinde yakıt maliyetiyle geri çağırma açık, son %50'de kilitlenir.
-- **Savaş Motoru & Enkaz Sahası (`src/engine/combat.ts`):**
-  - 6 turlu çatışma simülasyonu, tur olay kayıtları, hasar dağılımı.
-  - Kayıpların %30'undan salvage edilebilir enkaz sahası (debris field) oluşumu.
-- **Sis ve Kısmi Bilgi Katmanı (`src/engine/fog.ts`):**
-  - Sensör dizisi, keşif filoları ve Nexus Rölesi kontrolüne bağlı görüş menzilleri.
-  - `filterGameStateForPlayer`: İstemciye düşman verileri filtrelenerek gönderilir.
-- **Dört Bot Arketipi ve QA Ajanı (`src/bots/`):**
-  - Sanayici (Industrialist), Akıncı (Raider), Muhafız (Guardian), Kâşif (Explorer).
-  - QA Exploit Ajanı: Geçersiz komutları ve değişmezleri (negatif kaynak vb.) 7/24 denetler.
-- **Hızlandırılmış Test Çalıştırıcısı (`src/sim/runMatch.ts`):**
-  - 4 oyun saatini ~0.03 saniyede simüle eder, filo sevk, koloni, önleme ve röle istatistiklerini raporlar.
+### 1. Ağır Oynanış ve Uzun Sefer Kalibrasyonu (GDD Bölüm 1, 4, 10 ve 15 Uyumu)
+Kullanıcı geribildirimi doğrultusunda oyunun temel karakteri olan **"ağır, asenkron ve uzun vadeli uzay stratejisi"** hissi kalibre edildi:
+- **Uçuş Süreleri Ölçeklendi (`src/engine/flight.ts`):**
+  - Komşu sistemler arası uçuşlar ~15–30 dakikaya, uzak sektör atlamaları 1–2.5 saate bağlandı.
+  - Hızlı avcılar (hız 220) ve keşifler (hız 260), yola çıkmış ağır savaş gemilerini (hız 95) rotada takip edip önleyebilecek stratejik hız farkına kavuşturuldu.
+- **İnşa ve Araştırma Süreleri (`src/engine/constants.ts`):**
+  - İlk seviye madenler 1.5–3.5 dakika, ileri seviyeler saatler sürecek şekilde geometrik katsayılarla dengelendi.
+  - Gemi üretim süreleri (Keşif 2 dk, Nakliye 4 dk, Avcı 3 dk, Savaş Gemisi 12 dk) tersane seviyesine göre hızlanacak biçimde uyarlandı.
+  - Araştırmalar 7–9 dakika temel süreden başlayıp laboratuvar seviyesine göre hızlandırıldı.
 
-### 2. Faz B İzlenebilir Arayüz (React + Tailwind CSS)
-- **Canlı 2D Vektörel Harita (`GalaxyMap.tsx`):**
-  - Yıldız sistemleri, bağlantı hatları, merkezi Nexus Rölesi dalgaları.
-  - Hareket halindeki filoların zaman damgalarına göre yumuşak vektörel interpolasyonu.
-  - Sis kaplaması ve hedef seçim halkaları.
-- **3 Sütunlu Komuta Düzeni:**
-  - Üst Bar (`TopBar.tsx`): Kaynaklar, saatlik üretim, simülasyon zamanı (1x, 5x, 20x, 60x), perspektif seçici ve Hakim Görüş (God Mode) anahtarı.
-  - Sol Panel (`PlanetPanel.tsx`): Gezegen altyapısı yükseltmeleri, sayaçlar, garnizon ve savunma duruşları ("Konumu Tut" / "Filoyu Koru").
-  - Sağ Panel (`CommandPanel.tsx`): Hedef istihbaratı, bağlamsal görev seçimi, uçuş önizlemesi, önleme hesaplayıcısı ve yoldaki filoların geri çağırma kontrolü.
-- **Taktik Pencereler:**
-  - Tersane Penceresi (`ShipyardModal.tsx`): Gemi inşası ve kuyruk takibi.
-  - Araştırma Penceresi (`ResearchModal.tsx`): İmparatorluk teknoloji ağacı.
-  - Savaş Tekrar Oynatıcısı (`CombatReplayModal.tsx`): Taktik muharebe turları, hasar dökümü, yağma ve enkaz gösterimi.
-  - Telsiz Bildirim Akışı (`EventFeed.tsx`): Sektör içi canlı olay akışı.
+### 2. Taktik Karşı Hamle ve Erken Uyarı Sistemi
+- **Zaman Formatlama & Takvim Saati (`src/ui/timeUtils.ts`):**
+  - Tüm arayüzde ham saniyeler yerine `formatDuration` (örn: `24 dk 15 sn`, `1 sa 40 dk`) ve `formatSimClock` (`Gün 1 • 14:28:10`) devreye alındı.
+- **Yaklaşan Tehdit Alarmı (`IncomingThreatBanner.tsx`):**
+  - Sensör menzilinde oyuncunun gezegenine doğru rota çizmiş bir düşman filosu tespit edildiğinde ekranın üstünde kırmızı taktik alarm paneli açılır.
+  - Düşmanın varış saatini, kalan süresini ve son yaklaşma kilidi öncesindeki **önleme/karşı hamle penceresini** gösterir.
+  - Tek tıkla `🎯 Önleme Hazırla` (hedef filoyu kilitler ve avcıları seçer) veya `📦 Tahliye / Fleet-Save` (boşta kalan korunmasız kaynakları nakliyeyle güvenli rotaya sevk eder) butonları sunar.
+- **%50 Geri Çağırma Kilidi (Point of No Return) Görseli (`GalaxyMap.tsx`):**
+  - Uçuş vektöründe filonun yolculuğunun ilk %50'sinde dönüş açık; son %50'sinde kilitlendiği haritada çizgi stili ve rozetle açıkça gösterilir.
+- **Simülasyon Hız Kontrolü & "Gece Uykusu" Atlaması (`TopBar.tsx`):**
+  - Varsayılan hız `1x (Reel Zaman)`.
+  - Hızlı testler için `10x`, `60x`, `300x` hızlandırma seçenekleri.
+  - `+15dk`, `+1sa` ve GDD Bölüm 15'te belirtilen 8 saatlik çevrimdışı kalma toparlanma dengesini sınamak için `+8sa (Gece Uykusu)` butonları eklendi.
 
 ### 3. Doğrulama
 - `npm test`: 6/6 test başarılı.
-- `npm run sim`: 4 saatlik maçta 148 filo sevk edildi, 12 önleme/savaş çözüldü, 960 QA istismar testi engellendi.
-- `npm run build`: TypeScript ve Vite derlemesi hatasız tamamlandı.
+- `npm run sim`: 4 saatlik maçta 34 filo sevk edildi, 12 önleme savaşı çözüldü, tüm QA testleri geçti.
+- `npm run build`: Hatasız üretim derlemesi.

@@ -1,13 +1,14 @@
 import React from 'react';
 import {
   Activity,
-  Award,
+  Bed,
   CircleDot,
   Eye,
   EyeOff,
   FastForward,
   Flame,
   Gem,
+  Moon,
   Pause,
   Pickaxe,
   Play,
@@ -18,6 +19,7 @@ import {
 } from 'lucide-react';
 import { calculateHourlyProduction } from '../../engine/constants';
 import { GameState, Planet } from '../../engine/types';
+import { formatSimClock } from '../timeUtils';
 
 interface TopBarProps {
   state: GameState;
@@ -29,7 +31,7 @@ interface TopBarProps {
   onTogglePlay: () => void;
   onSetTimeScale: (scale: number) => void;
   onStepTick: () => void;
-  onFastForwardHour: () => void;
+  onFastForwardMinutes: (minutes: number) => void;
   onToggleGodMode: () => void;
   onSelectPlayer: (id: string) => void;
   onOpenShipyard: () => void;
@@ -48,7 +50,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onTogglePlay,
   onSetTimeScale,
   onStepTick,
-  onFastForwardHour,
+  onFastForwardMinutes,
   onToggleGodMode,
   onSelectPlayer,
   onOpenShipyard,
@@ -56,20 +58,12 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenBattles,
   onReset,
 }) => {
-  const activePlayer = state.players[activePlayerId];
-
   // Calculate hourly rates for active planet
   const oreRate = activePlanet ? calculateHourlyProduction('ore', activePlanet.buildings.ore_mine) : 0;
   const crystalRate = activePlanet ? calculateHourlyProduction('crystal', activePlanet.buildings.crystal_synth) : 0;
   const fuelRate = activePlanet ? calculateHourlyProduction('fuel', activePlanet.buildings.fuel_refinery) : 0;
 
-  // Format time as hh:mm:ss
-  const totalSeconds = Math.floor(state.timeMs / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-  const formattedTime = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
-
+  const formattedTime = formatSimClock(state.timeMs);
   const unreadBattlesCount = state.battleReports.length;
 
   return (
@@ -85,7 +79,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               Canlı Galaksi
             </h1>
             <span className="text-[10px] text-cyber-cyan tracking-widest font-mono">
-              GDD v0.1.0 • SEKTÖR 01
+              AĞIR ASENKRON UZAY STRATEJİSİ
             </span>
           </div>
         </div>
@@ -236,9 +230,9 @@ export const TopBar: React.FC<TopBarProps> = ({
             {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
           </button>
 
-          {/* Speed Selector */}
+          {/* Speed Selector (1x real-time up to 1200x) */}
           <div className="flex items-center gap-0.5 bg-space-900 rounded p-0.5 border border-slate-800 text-[10px] font-mono">
-            {[1, 5, 20, 60].map((s) => (
+            {[1, 10, 60, 300].map((s) => (
               <button
                 key={s}
                 onClick={() => onSetTimeScale(s)}
@@ -247,26 +241,37 @@ export const TopBar: React.FC<TopBarProps> = ({
                     ? 'bg-cyber-cyan/20 text-cyber-cyan font-bold'
                     : 'text-slate-400 hover:text-slate-200'
                 }`}
+                title={s === 1 ? '1x: Gerçek Zamanlı Ağır Hız' : `${s}x Hızlandırma`}
               >
-                {s}x
+                {s === 1 ? '1x (Reel)' : `${s}x`}
               </button>
             ))}
           </div>
 
+          {/* Jump Buttons */}
           <button
-            onClick={onStepTick}
-            className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800"
-            title="+10 Saniye İlerle"
+            onClick={() => onFastForwardMinutes(15)}
+            className="px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-cyber-cyan hover:bg-slate-800 border border-slate-800"
+            title="+15 Dakika İlerle"
           >
-            <CircleDot className="w-3.5 h-3.5" />
+            +15dk
           </button>
 
           <button
-            onClick={onFastForwardHour}
-            className="p-1 rounded text-slate-400 hover:text-cyber-cyan hover:bg-slate-800"
-            title="+1 Saat Hızlı İlerle"
+            onClick={() => onFastForwardMinutes(60)}
+            className="px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-cyber-cyan hover:bg-slate-800 border border-slate-800"
+            title="+1 Saat İlerle"
           >
-            <FastForward className="w-3.5 h-3.5" />
+            +1sa
+          </button>
+
+          <button
+            onClick={() => onFastForwardMinutes(480)}
+            className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-950/40 text-purple-300 hover:text-purple-200 hover:bg-purple-900/60 border border-purple-700/50 flex items-center gap-1"
+            title="+8 Saat: Gece Uykusu Simülasyonu (Sekiz saat uzakta kalan toparlanabiliyor mu test et)"
+          >
+            <Moon className="w-3 h-3 text-purple-400" />
+            <span>+8sa</span>
           </button>
 
           <button

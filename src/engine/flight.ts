@@ -144,10 +144,12 @@ export function calculateRouteInfo(
   if (!route) return null;
 
   const speed = calculateFleetSpeed(ships, engineResearchLevel);
-  // duration = (distance / speed) * 1000 in seconds converted to ms
-  // scale distance so 100 distance @ 100 speed takes 30 seconds
-  const scaledDistanceSec = (route.totalDistance / speed) * 30;
-  const durationMs = Math.max(5000, Math.round(scaledDistanceSec * 1000));
+  // Heavy persistent strategy flight scaling:
+  // 100 distance @ 100 speed = 900 seconds (15 minutes).
+  // A 200 distance jump takes ~31 min for Battleship (spd 95), ~13.6 min for Fighter (spd 220).
+  // This allows fast fighters to detect and intercept slower attack fleets mid-flight.
+  const scaledDistanceSec = (route.totalDistance / speed) * 900;
+  const durationMs = Math.max(30000, Math.round(scaledDistanceSec * 1000));
   const fuelCost = calculateFuelCost(ships, route.totalDistance);
 
   return {

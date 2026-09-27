@@ -7,6 +7,7 @@ import { IBotAgent } from './bots/types';
 import { GameEngine } from './engine/engine';
 import {
   BuildingType,
+  Fleet,
   MissionType,
   PlanetStance,
   ResearchType,
@@ -17,6 +18,7 @@ import { CombatReplayModal } from './ui/components/CombatReplayModal';
 import { CommandPanel } from './ui/components/CommandPanel';
 import { EventFeed } from './ui/components/EventFeed';
 import { GalaxyMap } from './ui/components/GalaxyMap';
+import { IncomingThreatBanner } from './ui/components/IncomingThreatBanner';
 import { PlanetPanel } from './ui/components/PlanetPanel';
 import { ResearchModal } from './ui/components/ResearchModal';
 import { ShipyardModal } from './ui/components/ShipyardModal';
@@ -37,9 +39,9 @@ export function App() {
   const [activePlanetId, setActivePlanetId] = useState<string>('');
   const [selectedTarget, setSelectedTarget] = useState<SelectedTarget | null>(null);
 
-  // Simulation controls
+  // Simulation controls (default 1x for real-time slow persistent pace, up to 300x)
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [timeScale, setTimeScale] = useState<number>(5); // default 5x for good pacing
+  const [timeScale, setTimeScale] = useState<number>(1);
   const [godMode, setGodMode] = useState<boolean>(false);
 
   // Modals
@@ -93,8 +95,8 @@ export function App() {
       const simDeltaMs = realIntervalMs * timeScale;
       engine.tick(simDeltaMs);
 
-      // Run bots every 30 seconds of simulated time
-      if (engine.state.timeMs - lastBotUpdateMsRef.current >= 30 * 1000) {
+      // In slow strategy, bots evaluate every 60 seconds of game time
+      if (engine.state.timeMs - lastBotUpdateMsRef.current >= 60 * 1000) {
         lastBotUpdateMsRef.current = engine.state.timeMs;
         for (const bot of botsRef.current) {
           bot.update(engine);
@@ -191,17 +193,45 @@ export function App() {
 
   const handleStepTick = () => {
     if (!engineRef.current) return;
-    engineRef.current.tick(10 * 1000); // +10s
+    engineRef.current.tick(60 * 1000); // +1 min step
     setEngineState({ ...engineRef.current.state });
   };
 
-  const handleFastForwardHour = () => {
+  const handleFastForwardMinutes = (minutes: number) => {
     if (!engineRef.current) return;
-    engineRef.current.tick(3600 * 1000); // +1 hour
+    const deltaMs = minutes * 60 * 1000;
+    engineRef.current.tick(deltaMs);
     for (const bot of botsRef.current) {
       bot.update(engineRef.current);
     }
     setEngineState({ ...engineRef.current.state });
+  };
+
+  // Tactical Reaction: Lock on incoming threat to launch intercept
+  const handleTargetThreat = (threat: Fleet) => {
+    setSelectedTarget({
+      type: 'fleet',
+      systemId: threat.targetSystemId,
+      fleetId: threat.id,
+    });
+  };
+
+  // Tactical Reaction: Evacuate resources (Fleet-save)
+  const handleEvacuatePlanet = (planetId: string) => {
+    setActivePlanetId(planetId);
+    // Find closest safe system to jump to
+    const p = engineState.planets[planetId];
+    if (p) {
+      const otherSys = Object.values(engineState.map.systems).find(
+        (s) => s.id !== p.systemId && !s.hasRelay
+      );
+      if (otherSys) {
+        setSelectedTarget({
+          type: 'system',
+          systemId: otherSys.id,
+        });
+      }
+    }
   };
 
   return (
@@ -217,7 +247,7 @@ export function App() {
         onTogglePlay={() => setIsPlaying(!isPlaying)}
         onSetTimeScale={setTimeScale}
         onStepTick={handleStepTick}
-        onFastForwardHour={handleFastForwardHour}
+        onFastForwardMinutes={handleFastForwardMinutes}
         onToggleGodMode={() => setGodMode(!godMode)}
         onSelectPlayer={(id) => {
           setActivePlayerId(id);
@@ -244,6 +274,14 @@ export function App() {
 
         {/* Center: Live 2D Galaxy Vector Map */}
         <main className="flex-1 h-full relative">
+          {/* Incoming Threat Banner Alert */}
+          <IncomingThreatBanner
+            state={engineState}
+            activePlayerId={activePlayerId}
+            onTargetThreat={handleTargetThreat}
+            onEvacuatePlanet={handleEvacuatePlanet}
+          />
+
           <GalaxyMap
             state={engineState}
             activePlayerId={activePlayerId}

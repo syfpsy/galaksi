@@ -2,6 +2,7 @@ import React from 'react';
 import { Activity, Clock, Compass, Crosshair, Eye, Sparkles, X, Zap } from 'lucide-react';
 import { getResearchCost, getResearchDurationMs, RESEARCH_STATS } from '../../engine/constants';
 import { Planet, Player, ResearchType } from '../../engine/types';
+import { formatDuration } from '../timeUtils';
 
 interface ResearchModalProps {
   player: Player | undefined;
@@ -70,7 +71,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
               </span>
               <span className="text-slate-300 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                {Math.max(0, Math.round((player.researchQueue.finishTime - currentTimeMs) / 1000))}s kaldı
+                {formatDuration(Math.max(0, player.researchQueue.finishTime - currentTimeMs))} kaldı
               </span>
             </div>
           </div>
@@ -154,7 +155,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                   <span className={homeworld.resources.fuel >= nextCost.fuel ? 'text-rose-400' : 'text-rose-600'}>
                     {nextCost.fuel} Yakıt
                   </span>
-                  <span className="text-slate-500 ml-auto">Süre: {durationSec}s</span>
+                  <span className="text-slate-500 ml-auto">Süre: {formatDuration(durationSec * 1000)}</span>
                 </div>
               </div>
             );

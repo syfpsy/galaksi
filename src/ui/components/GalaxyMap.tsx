@@ -15,6 +15,7 @@ import { getFleetCurrentPosition } from '../../engine/flight';
 import { getPlayerSensorCoverage } from '../../engine/fog';
 import { Fleet, GameState, IntelLevel, StarSystem } from '../../engine/types';
 import { SelectedTarget } from '../types';
+import { formatDuration } from '../timeUtils';
 
 interface GalaxyMapProps {
   state: GameState;
@@ -181,7 +182,8 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
               ? (Math.atan2(targetSys.y - pos.y, targetSys.x - pos.x) * 180) / Math.PI
               : 0;
 
-            const remainingSec = Math.max(0, Math.round((fleet.arrivalTime - state.timeMs) / 1000));
+            const remainingMs = Math.max(0, fleet.arrivalTime - state.timeMs);
+            const isRecallLocked = state.timeMs >= fleet.recallLockedAfterTime;
             const totalShips = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
 
             return (
@@ -201,10 +203,10 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                     y1="0"
                     x2={targetSys.x - pos.x}
                     y2={targetSys.y - pos.y}
-                    stroke={color}
-                    strokeWidth="1"
-                    strokeDasharray="3,3"
-                    opacity="0.4"
+                    stroke={isRecallLocked ? '#f43f5e' : color}
+                    strokeWidth="1.2"
+                    strokeDasharray={isRecallLocked ? '4,2' : '3,3'}
+                    opacity="0.5"
                   />
                 )}
 
@@ -232,14 +234,14 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                 {/* Fleet Label / ETA Tag */}
                 <g transform="translate(0, 18)" className="pointer-events-none">
                   <rect
-                    x="-40"
-                    y="-8"
-                    width="80"
-                    height="16"
+                    x="-55"
+                    y="-9"
+                    width="110"
+                    height="18"
                     rx="3"
                     fill="#070d1d"
                     fillOpacity="0.9"
-                    stroke={isOwn ? '#00f3ff' : '#f43f5e'}
+                    stroke={isOwn ? (isRecallLocked ? '#f43f5e' : '#00f3ff') : '#f43f5e'}
                     strokeWidth="0.8"
                   />
                   <text
@@ -250,7 +252,9 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                     fontSize="9"
                     fontFamily="monospace"
                   >
-                    {isOwn ? `${totalShips}G • ${remainingSec}s` : `DÜŞMAN • ${remainingSec}s`}
+                    {isOwn
+                      ? `${totalShips}G • ${formatDuration(remainingMs)}`
+                      : `DÜŞMAN • ${formatDuration(remainingMs)}`}
                   </text>
                 </g>
               </g>

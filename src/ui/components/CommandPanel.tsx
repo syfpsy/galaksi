@@ -29,6 +29,7 @@ import {
 } from '../../engine/types';
 import { SelectedTarget } from '../types';
 import { GAME_CONSTANTS, SHIP_STATS } from '../../engine/constants';
+import { formatClockTime, formatDuration } from '../timeUtils';
 
 interface CommandPanelProps {
   state: GameState;
@@ -203,7 +204,8 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
             </div>
           ) : (
             myActiveFleets.map((fleet) => {
-              const remainingSec = Math.max(0, Math.round((fleet.arrivalTime - currentTimeMs) / 1000));
+              const remainingMs = Math.max(0, fleet.arrivalTime - currentTimeMs);
+              const remainingRecallWindowMs = Math.max(0, fleet.recallLockedAfterTime - currentTimeMs);
               const canRecall = currentTimeMs < fleet.recallLockedAfterTime && !fleet.isReturning;
               const totalShips = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
               const targetSys = state.map.systems[fleet.targetSystemId];
@@ -224,11 +226,24 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
                   <div className="text-[11px] text-slate-400 font-mono flex items-center justify-between">
                     <span>Hedef: {targetSys?.name || fleet.targetSystemId}</span>
-                    <span className="text-cyber-cyan font-bold">{remainingSec}s kaldı</span>
+                    <span className="text-cyber-cyan font-bold">
+                      {formatDuration(remainingMs)}
+                    </span>
+                  </div>
+
+                  <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between">
+                    <span>Varış Saati: {formatClockTime(fleet.arrivalTime)}</span>
+                    {canRecall ? (
+                      <span className="text-amber-400 font-medium">
+                        Dönüş İzni: {formatDuration(remainingRecallWindowMs)}
+                      </span>
+                    ) : (
+                      <span className="text-rose-400">🔒 Kilitlendi</span>
+                    )}
                   </div>
 
                   {/* Recall Button with Locked warning */}
-                  <div className="pt-1 flex items-center justify-between">
+                  <div className="pt-1 flex items-center justify-between border-t border-slate-800/80">
                     <span className="text-[10px] text-slate-500 font-mono">
                       {totalShips} Gemi • Yakıt: {fleet.fuelCost}
                     </span>
@@ -236,14 +251,14 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                     {canRecall ? (
                       <button
                         onClick={() => onRecallFleet(fleet.id)}
-                        className="flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-rose-500/20 text-rose-400 border border-rose-500/40 hover:bg-rose-500/30"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-medium bg-rose-500/20 text-rose-400 border border-rose-500/40 hover:bg-rose-500/30 transition-all"
                       >
                         <RotateCcw className="w-3 h-3" />
                         <span>Geri Çağır</span>
                       </button>
                     ) : (
                       <span className="text-[9px] text-slate-500 italic">
-                        {fleet.isReturning ? 'Dönüş rotasında' : '🔒 Kilitlendi (>%50)'}
+                        {fleet.isReturning ? 'Dönüş rotasında' : '🔒 Son yaklaşma kilitlendi'}
                       </span>
                     )}
                   </div>
@@ -436,7 +451,13 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               <div className="flex items-center justify-between text-slate-300">
                 <span>Tahmini Uçuş Süresi:</span>
                 <span className="text-cyber-cyan font-bold">
-                  {Math.round(routeInfo.durationMs / 1000)} saniye
+                  {formatDuration(routeInfo.durationMs)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-slate-300">
+                <span>Tahmini Varış Saati:</span>
+                <span className="text-slate-200">
+                  {formatClockTime(currentTimeMs + routeInfo.durationMs)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
@@ -466,7 +487,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                       <Crosshair className="w-3.5 h-3.5 text-emerald-400" />
                       <span>
                         Önleme Mümkün: Hedef varışından{' '}
-                        {Math.round((interceptCheck.timeMarginMs || 0) / 1000)}s önce yetişilir.
+                        {formatDuration(Math.abs(interceptCheck.timeMarginMs || 0))} önce yetişilir.
                       </span>
                     </div>
                   ) : (
