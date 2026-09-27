@@ -220,6 +220,9 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
             focusedSystemId={focusedSystemId}
             viewMode={viewMode}
             showProjections={showProjections}
+            zoom={zoom}
+            onZoomChange={setZoom}
+            sensorCoverage={sensorCoverage}
             onSelectSystem={(sysId) => {
               setFocusedSystemId(sysId);
               onSelectSystem(sysId);

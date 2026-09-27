@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { calculatePlanetOrbit } from '../../engine/orbital';
 import { getFleetCurrentPosition } from '../../engine/flight';
@@ -28,10 +28,26 @@ interface GalaxyScene25DProps {
   focusedSystemId: string;
   viewMode: 'galaxy' | 'system';
   showProjections: boolean;
+  zoom: number;
+  onZoomChange?: (newZoom: number) => void;
+  sensorCoverage: Set<string>;
   onSelectSystem: (systemId: string) => void;
   onEnterSystemView?: (systemId: string) => void;
   onSelectPlanet?: (systemId: string, planetId: string) => void;
   onSelectFleet: (fleetId: string) => void;
+}
+
+interface ScreenLabel {
+  id: string;
+  type: 'system' | 'planet';
+  title: string;
+  subtitle?: string;
+  color: string;
+  systemId: string;
+  planetId?: string;
+  x: number;
+  y: number;
+  visible: boolean;
 }
 
 export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
@@ -42,14 +58,18 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   focusedSystemId,
   viewMode,
   showProjections,
+  zoom,
+  onZoomChange,
+  sensorCoverage,
   onSelectSystem,
   onEnterSystemView,
   onSelectPlanet,
   onSelectFleet,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
+  const [hudLabels, setHudLabels] = useState<ScreenLabel[]>([]);
 
-  // References for live animation loop
+  // Live references for requestAnimationFrame render loop
   const stateRef = useRef(state);
   stateRef.current = state;
 
@@ -71,6 +91,22 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   const godModeRef = useRef(godMode);
   godModeRef.current = godMode;
 
+  const sensorCoverageRef = useRef(sensorCoverage);
+  sensorCoverageRef.current = sensorCoverage;
+
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
+
+  // Track external zoom prop changes from HUD buttons (+ / - / 100%)
+  const targetCameraPosRef = useRef<THREE.Vector3>(new THREE.Vector3(500, 120, 750));
+  const targetLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3(500, 400, 0));
+
+  useEffect(() => {
+    // When external HUD zoom prop changes, sync camera distance
+    const desiredZ = Math.max(45, Math.min(1350, 750 / (zoom || 1)));
+    targetCameraPosRef.current.z = desiredZ;
+  }, [zoom]);
+
   useEffect(() => {
     const container = mountRef.current;
     if (!container) return;
@@ -79,16 +115,16 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     let height = container.clientHeight || window.innerHeight;
 
     // =========================================================================
-    // 1. Scene, Camera & Renderer Setup
+    // 1. Scene, Camera & WebGL Renderer Setup
     // =========================================================================
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x020617); // Deep cosmic void slate-950
 
     const camera = new THREE.PerspectiveCamera(45, width / height, 1, 5000);
-    const targetCameraPos = new THREE.Vector3(500, 120, 750);
-    const targetLookAt = new THREE.Vector3(500, 400, 0);
+    const targetCameraPos = targetCameraPosRef.current;
+    const targetLookAt = targetLookAtRef.current;
 
-    camera.position.set(500, 120, 750);
+    camera.position.copy(targetCameraPos);
     camera.lookAt(targetLookAt);
 
     const renderer = new THREE.WebGLRenderer({
@@ -102,7 +138,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     renderer.toneMappingExposure = 1.25;
     container.appendChild(renderer.domElement);
 
-    // Atmospheric Space Ambience
     const ambientLight = new THREE.AmbientLight(0x38bdf8, 0.45);
     scene.add(ambientLight);
 
@@ -113,7 +148,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     spiralGroup.position.set(500, 400, -25);
     scene.add(spiralGroup);
 
-    // 2.1 Galactic Spiral Particles
     const spiralParticleCount = 900;
     const spiralGeo = new THREE.BufferGeometry();
     const spiralPos = new Float32Array(spiralParticleCount * 3);
@@ -126,7 +160,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const angle = arm + t * 0.7 + (Math.random() - 0.5) * 0.45;
 
       const px = Math.cos(angle) * r;
-      const py = Math.sin(angle) * r * 0.85; // isometric galactic tilt
+      const py = Math.sin(angle) * r * 0.85;
       const pz = (Math.random() - 0.5) * 40;
 
       spiralPos[i * 3] = px;
@@ -163,7 +197,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     const spiralPoints = new THREE.Points(spiralGeo, spiralMat);
     spiralGroup.add(spiralPoints);
 
-    // 2.2 Sector Constellation Boundary Rings
+    // Sector Boundary Rings
     const boundaryGroup = new THREE.Group();
     scene.add(boundaryGroup);
 
@@ -186,9 +220,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       return new THREE.Line(ringGeo, ringMat);
     };
 
-    boundaryGroup.add(createSectorRing(140, 0xa855f7, 0.22)); // Nexus Core
-    boundaryGroup.add(createSectorRing(265, 0x38bdf8, 0.16)); // Inner Belt
-    boundaryGroup.add(createSectorRing(410, 0x64748b, 0.12)); // Outer Frontier
+    boundaryGroup.add(createSectorRing(140, 0xa855f7, 0.22));
+    boundaryGroup.add(createSectorRing(265, 0x38bdf8, 0.16));
+    boundaryGroup.add(createSectorRing(410, 0x64748b, 0.12));
 
     // =========================================================================
     // 3. Background Deep Starfield
@@ -223,7 +257,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     // =========================================================================
     // 4. Star Systems, Incandescent Suns & Circular Corona Flares
     // =========================================================================
-    const starMeshes = new Map<string, { group: THREE.Group; mesh: THREE.Mesh; light: THREE.PointLight }>();
+    const starMeshes = new Map<string, { group: THREE.Group; mesh: THREE.Mesh; light: THREE.PointLight; corona: THREE.Sprite }>();
     const systemPositions = new Map<string, THREE.Vector3>();
 
     Object.values(stateRef.current.map.systems).forEach((sys, idx) => {
@@ -252,7 +286,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       pointLight.position.set(0, 0, 12);
       group.add(pointLight);
 
-      // 4.3 Corona Halo Flare Sprite: Guaranteed smooth radial glow with ZERO square/rectangular clipping!
+      // 4.3 Corona Halo Flare Sprite: Guaranteed smooth radial glow with ZERO square clipping!
       const coronaTexture = getStarCoronaGlowTexture(starColorHex);
       const coronaSpriteMat = new THREE.SpriteMaterial({
         map: coronaTexture,
@@ -262,7 +296,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         depthWrite: false,
       });
       const coronaSprite = new THREE.Sprite(coronaSpriteMat);
-      coronaSprite.scale.set(starRadius * 5.2, starRadius * 5.2, 1);
+      coronaSprite.scale.set(starRadius * 5.0, starRadius * 5.0, 1);
       group.add(coronaSprite);
 
       // 4.4 Clean Tactical System Boundary Line
@@ -290,7 +324,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       group.add(territoryLine);
 
       scene.add(group);
-      starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight });
+      starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight, corona: coronaSprite });
     });
 
     // =========================================================================
@@ -321,7 +355,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const to = systemPositions.get(lane.toSystemId);
       if (!from || !to) return;
 
-      // Base hyperlane conduit line: sleek, subtle deep blue-cyan cyber line
       const points = [from.clone(), to.clone()];
       const laneGeo = new THREE.BufferGeometry().setFromPoints(points);
       const laneMat = new THREE.LineBasicMaterial({
@@ -333,7 +366,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const line = new THREE.Line(laneGeo, laneMat);
       hyperlaneGroup.add(line);
 
-      // Add a subtle flowing photon packet only on a subset of lanes for a clean, living network
       if (lIdx % 2 === 0) {
         const pulseSprite = new THREE.Sprite(pulseSpriteMat);
         pulseSprite.position.copy(from);
@@ -387,7 +419,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       (hullMesh as any).userData = { type: 'fleet', fleetId: fleet.id };
       group.add(hullMesh);
 
-      // Plasma Thruster Flame Cone
       const thrusterMat = new THREE.MeshBasicMaterial({
         color: factionColor,
         transparent: true,
@@ -398,7 +429,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       thrusterMesh.position.set(0, 0, -4.5);
       group.add(thrusterMesh);
 
-      // Thruster Flare Sprite
       const glowMat = new THREE.SpriteMaterial({
         map: getShipEngineGlowTexture(isOwn ? '#00f3ff' : '#f43f5e'),
         transparent: true,
@@ -452,7 +482,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const planetMeshes: PlanetVisualObjects['planetMeshes'] = [];
       const warpBuoys: THREE.Sprite[] = [];
 
-      // 7.1 Jump Gate Warp Buoys positioned at the outer perimeter of this system
+      // Jump Gate Warp Buoys positioned at the outer perimeter of this system
       const connectedLanes = stateRef.current.map.lanes.filter(
         (l) => l.fromSystemId === system.id || l.toSystemId === system.id
       );
@@ -471,7 +501,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         if (!otherSys) return;
 
         const dir = new THREE.Vector3(otherSys.x - system.x, otherSys.y - system.y, 0).normalize();
-        const buoyDist = 220; // At system outer perimeter
+        const buoyDist = 220;
 
         const buoy = new THREE.Sprite(warpSpriteMat);
         buoy.position.set(system.x + dir.x * buoyDist, system.y + dir.y * buoyDist * 0.85, 4);
@@ -480,11 +510,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         warpBuoys.push(buoy);
       });
 
-      // 7.2 Planets & Orbits
+      // Planets & Orbits
       system.slots.forEach((slot) => {
         const orbit = calculatePlanetOrbit(system.id, slot.slotIndex, slot.planetId, stateRef.current.timeMs);
 
-        // 1. Orbit Loop Line
         const orbitPoints: THREE.Vector3[] = [];
         const segments = 64;
         for (let s = 0; s <= segments; s++) {
@@ -505,7 +534,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         orreryGroup.add(orbitLine);
         orbitLines.push(orbitLine);
 
-        // 2. Planet Sphere Mesh
         const planetRadius = 7 + (slot.size % 4);
         const planetGeo = new THREE.SphereGeometry(planetRadius, 28, 28);
 
@@ -538,7 +566,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         };
         orreryGroup.add(planetMesh);
 
-        // 3. Atmospheric Halo Glow Sprite (Guaranteed smooth circular limb glow)
         const atmoMat = new THREE.SpriteMaterial({
           map: getAtmosphereTexture(atmoColor),
           transparent: true,
@@ -550,7 +577,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         atmoSprite.scale.set(planetRadius * 2.8, planetRadius * 2.8, 1);
         orreryGroup.add(atmoSprite);
 
-        // 4. Clouds (Terran / Ocean worlds)
         let cloudMesh: THREE.Mesh | undefined;
         if (slot.type === 'terran' || slot.type === 'ocean') {
           const cloudGeo = new THREE.SphereGeometry(planetRadius * 1.03, 24, 24);
@@ -564,7 +590,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           orreryGroup.add(cloudMesh);
         }
 
-        // 5. Planetary Rings (Desert / Gas worlds)
         let ringMesh: THREE.Mesh | undefined;
         if (slot.type === 'desert') {
           const ringGeo = new THREE.RingGeometry(planetRadius * 1.4, planetRadius * 2.2, 36);
@@ -579,7 +604,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           orreryGroup.add(ringMesh);
         }
 
-        // 6. Natural Planetary Moonlet
         let moonMesh: THREE.Mesh | undefined;
         if (slot.slotIndex === 1 || slot.type === 'terran') {
           const moonGeo = new THREE.SphereGeometry(planetRadius * 0.28, 16, 16);
@@ -591,7 +615,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           orreryGroup.add(moonMesh);
         }
 
-        // 7. Orbital Defense Station / Starbase
         let stationMesh: THREE.Mesh | undefined;
         const planetObj = stateRef.current.planets[slot.planetId];
         if (planetObj && planetObj.ownerId) {
@@ -605,7 +628,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           orreryGroup.add(stationMesh);
         }
 
-        // 8. Future Forecast Projection Wireframes
         const ghostMeshes: THREE.Mesh[] = [];
         const ghostGeo = new THREE.SphereGeometry(planetRadius * 0.6, 12, 12);
         const ghostMat = new THREE.MeshBasicMaterial({
@@ -643,15 +665,36 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     };
 
     // =========================================================================
-    // 8. Interactive Mouse Controls (Pan, Deep Zoom & Stellaris Fly-in)
+    // 8. 3D Selection Reticle (High-Tech Rotating Cyan Targeting Bracket)
+    // =========================================================================
+    const reticleGeo = new THREE.RingGeometry(22, 25, 32);
+    const reticleMat = new THREE.MeshBasicMaterial({
+      color: 0x00f3ff,
+      transparent: true,
+      opacity: 0.9,
+      side: THREE.DoubleSide,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const reticleMesh = new THREE.Mesh(reticleGeo, reticleMat);
+    reticleMesh.visible = false;
+    scene.add(reticleMesh);
+
+    // =========================================================================
+    // 9. Interactive Mouse Controls (Pan, Deep Zoom & Click-Drag Guard)
     // =========================================================================
     let isDragging = false;
+    let hasDragged = false;
+    let dragStartPos = { x: 0, y: 0 };
     let previousMousePosition = { x: 0, y: 0 };
     const raycaster = new THREE.Raycaster();
     const mouse = new THREE.Vector2();
 
     const onMouseDown = (e: MouseEvent) => {
+      if (e.button !== 0 && e.button !== 1) return;
       isDragging = true;
+      hasDragged = false;
+      dragStartPos = { x: e.clientX, y: e.clientY };
       previousMousePosition = { x: e.clientX, y: e.clientY };
     };
 
@@ -665,8 +708,15 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const deltaX = e.clientX - previousMousePosition.x;
       const deltaY = e.clientY - previousMousePosition.y;
 
-      targetLookAt.x -= deltaX * (targetCameraPos.z / 900);
-      targetLookAt.y += deltaY * (targetCameraPos.z / 900);
+      const distMoved = Math.hypot(e.clientX - dragStartPos.x, e.clientY - dragStartPos.y);
+      if (distMoved > 4) {
+        hasDragged = true;
+      }
+
+      // Consistent, unskewed isometric pan
+      const panFactor = targetCameraPos.z / 950;
+      targetLookAt.x -= deltaX * panFactor;
+      targetLookAt.y += deltaY * panFactor;
 
       previousMousePosition = { x: e.clientX, y: e.clientY };
     };
@@ -681,9 +731,20 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const zoomDelta = e.deltaY * zoomFactor;
 
       targetCameraPos.z = Math.max(45, Math.min(1350, targetCameraPos.z + zoomDelta));
+
+      if (onZoomChange) {
+        const computedZoom = +(750 / targetCameraPos.z).toFixed(2);
+        onZoomChange(computedZoom);
+      }
     };
 
     const onClick = (e: MouseEvent) => {
+      // Guard: Ignore click event if the user was dragging/panning the map!
+      if (hasDragged) {
+        hasDragged = false;
+        return;
+      }
+
       const rect = container.getBoundingClientRect();
       mouse.x = ((e.clientX - rect.left) / width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / height) * 2 + 1;
@@ -702,11 +763,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           if (udata.type === 'system') {
             sound.playClick();
             onSelectSystem(udata.systemId);
-            const sys = stateRef.current.map.systems[udata.systemId];
-            if (sys) {
-              targetLookAt.set(sys.x, sys.y, 0);
-              targetCameraPos.set(sys.x, sys.y - 120, Math.min(targetCameraPos.z, 280));
-            }
             return;
           }
           if (udata.type === 'planet') {
@@ -721,6 +777,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     };
 
     const onDoubleClick = (e: MouseEvent) => {
+      if (hasDragged) {
+        hasDragged = false;
+        return;
+      }
+
       const rect = container.getBoundingClientRect();
       mouse.x = ((e.clientX - rect.left) / width) * 2 - 1;
       mouse.y = -((e.clientY - rect.top) / height) * 2 + 1;
@@ -741,7 +802,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             const sys = stateRef.current.map.systems[udata.systemId];
             if (sys) {
               targetLookAt.set(sys.x, sys.y, 0);
-              targetCameraPos.set(sys.x, sys.y - 80, 160);
+              targetCameraPos.set(sys.x, sys.y - 120, 220);
             }
             return;
           }
@@ -776,36 +837,50 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     window.addEventListener('resize', onResize);
 
     // =========================================================================
-    // 9. Main Animation & 60 FPS Render Loop
+    // 10. Main Animation & 60 FPS Render Loop
     // =========================================================================
     let animationFrameId: number;
     let clock = new THREE.Clock();
+    let frameCounter = 0;
+    const tempProjVec = new THREE.Vector3();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
       const delta = clock.getDelta();
       const currentTimeMs = stateRef.current.timeMs;
+      frameCounter++;
 
-      // 9.1 Camera Smooth Interpolation
+      // 10.1 Camera Positioning & Smooth Tracking (Parallel to isometric plane, no horizontal skew)
       if (viewModeRef.current === 'system') {
         const focusedSys = stateRef.current.map.systems[focusedSystemIdRef.current];
         if (focusedSys) {
           targetLookAt.lerp(new THREE.Vector3(focusedSys.x, focusedSys.y, 0), 0.08);
-          targetCameraPos.x = targetLookAt.x;
-          targetCameraPos.y = targetLookAt.y - Math.min(220, targetCameraPos.z * 0.6);
         }
+        targetCameraPos.x = targetLookAt.x;
+        targetCameraPos.y = targetLookAt.y - Math.min(200, targetCameraPos.z * 0.55);
       } else {
-        targetCameraPos.y = targetLookAt.y - Math.min(320, targetCameraPos.z * 0.5);
+        targetCameraPos.x = targetLookAt.x;
+        targetCameraPos.y = targetLookAt.y - Math.min(260, targetCameraPos.z * 0.5);
       }
 
       camera.position.lerp(targetCameraPos, 0.08);
       camera.lookAt(targetLookAt);
 
-      // 9.2 Cosmic Rotation: Galactic Spiral Arms & Distant Starfield
+      // 10.2 Cosmic Rotation: Galactic Spiral Arms & Distant Starfield
       spiralGroup.rotation.z += 0.00018;
       starField.rotation.z += 0.00008;
 
-      // 9.3 Flowing Subspace Energy Pulses along Hyperlanes
+      // 10.3 Fog of War Dimming on Unmonitored Star Systems
+      const currentCoverage = sensorCoverageRef.current;
+      const isGodMode = godModeRef.current;
+
+      starMeshes.forEach(({ group, light, corona }, sysId) => {
+        const isVisible = isGodMode || currentCoverage.has(sysId);
+        light.intensity = isVisible ? 2.5 : 0.6;
+        corona.material.opacity = isVisible ? 0.88 : 0.3;
+      });
+
+      // 10.4 Flowing Subspace Energy Pulses along Hyperlanes
       lanePulses.forEach((pulse) => {
         pulse.progress += delta * pulse.speed;
         if (pulse.progress > 1) pulse.progress = 0;
@@ -814,18 +889,17 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         pulse.sprite.position.z = 2;
       });
 
-      // 9.4 Dynamic 3D Fleets along Hyperlanes & Planetary Orbits
+      // 10.5 Dynamic 3D Fleets along Hyperlanes & Planetary Orbits
       const activeFleets = Object.values(stateRef.current.fleets);
       const activeFleetIds = new Set<string>();
 
       activeFleets.forEach((fleet) => {
         const isOwn = fleet.ownerId === activePlayerIdRef.current;
         const isVisible =
-          godModeRef.current ||
+          isGodMode ||
           isOwn ||
-          fleet.status === 'in_transit' ||
-          fleet.status === 'returning' ||
-          fleet.status === 'intercepting';
+          currentCoverage.has(fleet.originSystemId) ||
+          currentCoverage.has(fleet.targetSystemId);
 
         if (!isVisible) return;
         activeFleetIds.add(fleet.id);
@@ -859,7 +933,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         }
       });
 
-      // 9.5 Planetary Orrery Update (Zero GC Allocation per frame)
+      // 10.6 Planetary Orrery Update (Zero GC Allocation per frame)
       const activeSysId = focusedSystemIdRef.current;
       const currentSystem = stateRef.current.map.systems[activeSysId];
 
@@ -938,13 +1012,119 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         }
       }
 
+      // 10.7 Selection Reticle Update
+      const curSelected = selectedTargetRef.current;
+      if (curSelected) {
+        if (curSelected.type === 'system') {
+          const sys = stateRef.current.map.systems[curSelected.systemId];
+          if (sys) {
+            reticleMesh.visible = true;
+            reticleMesh.position.set(sys.x, sys.y, 8);
+            reticleMesh.scale.set(1.4, 1.4, 1);
+            reticleMesh.rotation.z += delta * 1.8;
+          }
+        } else if (curSelected.type === 'planet') {
+          if (currentOrrery) {
+            const pVis = currentOrrery.planetMeshes.find((p) => p.planetId === curSelected.planetId);
+            if (pVis) {
+              reticleMesh.visible = true;
+              reticleMesh.position.copy(pVis.planetMesh.position);
+              reticleMesh.position.z = 10;
+              reticleMesh.scale.set(0.9, 0.9, 1);
+              reticleMesh.rotation.z += delta * 2.2;
+            }
+          }
+        } else if (curSelected.type === 'fleet') {
+          const fv = fleetVisuals.get(curSelected.fleetId || '');
+          if (fv) {
+            reticleMesh.visible = true;
+            reticleMesh.position.copy(fv.group.position);
+            reticleMesh.position.z = 12;
+            reticleMesh.scale.set(0.7, 0.7, 1);
+            reticleMesh.rotation.z += delta * 2.5;
+          }
+        }
+      } else {
+        reticleMesh.visible = false;
+      }
+
+      // 10.8 Project 3D Positions to 2D Screen for HTML Billboard Labels (Calculated every 2 frames)
+      if (frameCounter % 2 === 0) {
+        const labels: ScreenLabel[] = [];
+
+        // Project Star System Labels
+        Object.values(stateRef.current.map.systems).forEach((sys) => {
+          tempProjVec.set(sys.x, sys.y - 24, 0);
+          tempProjVec.project(camera);
+
+          const screenX = ((tempProjVec.x + 1) * width) / 2;
+          const screenY = ((-tempProjVec.y + 1) * height) / 2;
+          const isVisible = tempProjVec.z < 1 && tempProjVec.z > -1;
+
+          if (isVisible) {
+            const isHomeworld = Object.values(stateRef.current.planets).some(
+              (p) => p.systemId === sys.id && p.ownerId === activePlayerIdRef.current && p.isHomeworld
+            );
+            const isRelay = sys.hasRelay;
+            const starColor = isRelay ? '#c084fc' : '#38bdf8';
+
+            let subtitle = `${sys.slots.length} Gezegen`;
+            if (isHomeworld) subtitle = 'ANA DÜNYA';
+            else if (isRelay) subtitle = 'NEXUS RÖLESİ';
+
+            labels.push({
+              id: sys.id,
+              type: 'system',
+              title: sys.name,
+              subtitle,
+              color: isHomeworld ? '#10b981' : starColor,
+              systemId: sys.id,
+              x: screenX,
+              y: screenY,
+              visible: true,
+            });
+          }
+        });
+
+        // Project Planet Labels (When in System View or Close Zoom)
+        if (currentOrrery && (viewModeRef.current === 'system' || camera.position.z < 450)) {
+          currentOrrery.planetMeshes.forEach((pVis) => {
+            tempProjVec.copy(pVis.planetMesh.position);
+            tempProjVec.y -= 14;
+            tempProjVec.project(camera);
+
+            const screenX = ((tempProjVec.x + 1) * width) / 2;
+            const screenY = ((-tempProjVec.y + 1) * height) / 2;
+            const isVisible = tempProjVec.z < 1 && tempProjVec.z > -1;
+
+            if (isVisible) {
+              const slot = currentSystem.slots.find((s) => s.planetId === pVis.planetId);
+              labels.push({
+                id: pVis.planetId,
+                type: 'planet',
+                title: slot ? slot.name : 'Gezegen',
+                subtitle: slot ? slot.type.toUpperCase() : undefined,
+                color: '#38bdf8',
+                systemId: currentSystem.id,
+                planetId: pVis.planetId,
+                x: screenX,
+                y: screenY,
+                visible: true,
+              });
+            }
+          });
+        }
+
+        setHudLabels(labels);
+      }
+
       renderer.render(scene, camera);
     };
 
     animate();
 
     // =========================================================================
-    // 10. Clean Cleanup on Unmount
+    // 11. Clean Cleanup on Unmount
     // =========================================================================
     return () => {
       cancelAnimationFrame(animationFrameId);
@@ -967,13 +1147,83 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       pulseSpriteMat.dispose();
       shipHullGeo.dispose();
       thrusterConeGeo.dispose();
+      reticleGeo.dispose();
+      reticleMat.dispose();
     };
   }, []);
 
   return (
-    <div
-      ref={mountRef}
-      className="relative w-full h-full overflow-hidden cursor-grab active:cursor-grabbing select-none"
-    />
+    <div className="relative w-full h-full overflow-hidden select-none">
+      {/* 2.5D WebGL Canvas Mount Container */}
+      <div
+        ref={mountRef}
+        className="w-full h-full cursor-grab active:cursor-grabbing"
+      />
+
+      {/* Floating 2.5D Sci-Fi HUD Billboard Labels */}
+      <div className="absolute inset-0 pointer-events-none overflow-hidden">
+        {hudLabels.map((lbl) => (
+          <div
+            key={`hud_${lbl.type}_${lbl.id}`}
+            style={{
+              position: 'absolute',
+              left: `${lbl.x}px`,
+              top: `${lbl.y}px`,
+              transform: 'translate(-50%, 0)',
+            }}
+            className="pointer-events-auto cursor-pointer transition-opacity duration-150 hover:scale-105"
+            onClick={(e) => {
+              e.stopPropagation();
+              sound.playClick();
+              if (lbl.type === 'system') {
+                onSelectSystem(lbl.systemId);
+              } else if (lbl.type === 'planet' && onSelectPlanet && lbl.planetId) {
+                onSelectPlanet(lbl.systemId, lbl.planetId);
+              }
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              sound.playWarp();
+              if (lbl.type === 'system') {
+                if (onEnterSystemView) onEnterSystemView(lbl.systemId);
+                else onSelectSystem(lbl.systemId);
+              }
+            }}
+          >
+            {lbl.type === 'system' ? (
+              <div className="flex flex-col items-center">
+                <div className="px-2 py-0.5 rounded-md bg-space-950/85 border border-slate-700/80 shadow-lg text-[11px] font-mono font-bold text-white flex items-center gap-1.5 backdrop-blur-md hover:border-cyber-cyan transition-colors">
+                  <span
+                    className="w-2 h-2 rounded-full inline-block shadow-sm"
+                    style={{ backgroundColor: lbl.color }}
+                  />
+                  <span>{lbl.title}</span>
+                </div>
+                {lbl.subtitle && (
+                  <span
+                    className={`text-[9px] font-mono font-semibold tracking-wider mt-0.5 px-1 rounded shadow-sm ${
+                      lbl.subtitle === 'ANA DÜNYA'
+                        ? 'text-emerald-400 bg-emerald-950/70 border border-emerald-800/60'
+                        : lbl.subtitle === 'NEXUS RÖLESİ'
+                        ? 'text-purple-300 bg-purple-950/70 border border-purple-800/60'
+                        : 'text-slate-400 bg-space-900/60'
+                    }`}
+                  >
+                    {lbl.subtitle}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="px-1.5 py-0.5 rounded bg-space-950/80 border border-slate-700/60 text-[10px] font-mono text-slate-200 shadow-md backdrop-blur-sm hover:border-cyber-cyan transition-colors flex items-center gap-1">
+                <span>{lbl.title}</span>
+                {lbl.subtitle && (
+                  <span className="text-[8.5px] text-cyber-cyan/90 uppercase">{lbl.subtitle}</span>
+                )}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
   );
 };
