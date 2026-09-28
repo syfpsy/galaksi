@@ -641,3 +641,37 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
   4. **Zaman Kontrolleri, Tehditler & Nexus Rölesi:** `Space` ve `1-4` simülasyon hızları, korsan akınları ve haftalık zafer puanı kazandıran merkezi Nexus Rölesi (`F8`).
 - `localStorage` (`galaksi_orientation_seen`) ile ilk açılışta otomatik gösterim; sonrasında `TopBar` üzerindeki `❓ Rehber` butonu veya `StellarisLeftRail` altındaki soru işareti butonuyla istenildiğinde tekrar açılabilir.
 
+---
+
+## 2026-09-28 — Faz S: 2D Vektör Modunun Kaldırılması, Three.js 2.5D Tek Motor Standardı & Magnific Fotogerçekçi Gezegen Varlıkları (Uzay & Yüzey)
+
+### 1. 2D SVG Vektör Görünümünün Kaldırılması & Kod Sadeleştirmesi
+- `GalaxyMap.tsx` içerisindeki ~1500 satırlık eski SVG çizim blokları ve `renderEngine` ayrımı tamamen temizlendi.
+- Oyun haritası artık münhasıran Three.js 2.5D WebGL uzay motoru (`GalaxyScene25D`) üzerinde çalışır.
+- Alt konsoldaki (`StellarisBottomDeck`) ve sol üst HUD'daki 2D/3D motor geçiş butonları arayüzden kaldırıldı; harita motoru basitleştirildi ve `GalaxyMap.tsx` 2226 satırdan 326 satıra düşürüldü (-1822 satır kod temizliği).
+
+### 2. Magnific AI ile 12 Adet AAA Fotogerçekçi Gezegen Görseli Üretimi
+- Magnific MCP kullanılarak 6 temel biyom için hem 1:1 uzay küresi hem de 16:9 sinematik yüzey manzaraları üretilip `public/planets/` dizinine yerleştirildi:
+  - **Terran (Dünya Benzeri):** `planet_terra_space.png` & `planet_terra_surface.png` (Geniş nehir vadileri, fütüristik kıyı limanları).
+  - **Okyanus (Ocean):** `planet_ocean_space.png` & `planet_ocean_surface.png` (Biyolüminesans derin sular, yüzen teknoloji platformları).
+  - **Çöl (Desert):** `planet_desert_space.png` & `planet_desert_surface.png` (Kristal kanyonlar, kum fırtınaları, antik maden tesisleri).
+  - **Gaz Devi (Gas):** `planet_gas_space.png` & `planet_gas_surface.png` (Muazzam halkalar, girdaplar, üst atmosfer hidrokarbon rafinerileri).
+  - **Buzul (Ice):** `planet_ice_space.png` & `planet_ice_surface.png` (Kriyosferik buz yarıkları, termal araştırma üsleri).
+  - **Volkanik (Volcanic):** `planet_volcanic_space.png` & `planet_volcanic_surface.png` (Lav nehirleri, bazaltik kratere kurulu dökümhaneler).
+
+### 3. Arayüz & 3D Sahne Entegrasyonu
+- **`src/ui/planetAssets.ts`:** Gezegen türlerini görseller, Türkçe biyom isimleri, tema renkleri, atmosfer ışıması, yaşanabilirlik oranları ve lore açıklamalarıyla bağlayan merkezi katalog oluşturuldu.
+- **`PlanetPanel.tsx`:**
+  - Panelin üst kısmına 16:9 oranında sinematik yüzey manzarası kahraman afişi (`surfaceImage`) yerleştirildi.
+  - Biyom türü ve yaşanabilirlik yüzdesi çipleri afişin üzerine zarifçe işlendi.
+  - Savunma uydusunun etrafında döndüğü gezegen küre avatarı fotogerçekçi `spaceImage` ile yenilendi.
+  - Koloni seçim haplarına minyatür gezegen uzay avatarları eklendi.
+- **`SystemInspectionModal.tsx`:**
+  - Yuva kartlarına hover edildiğinde arka planda sinematik yüzey manzarası yarı-saydam olarak belirir.
+  - Standart renkli çemberler yerine atmosferik ışıma halkalı 52x52 uzay küre avatarları, yaşanabilirlik oranları ve bonus detayları eklendi.
+- **`StellarisOutliner.tsx`:**
+  - Sektör çizelgesindeki koloni listesinde her gezegenin soluna minyatür uzay avatarları ve ana gezegen/koloni göstergesi eklendi.
+- **`GalaxyScene25D.tsx`:**
+  - 3D sistem içi yörünge sahnesindeki gezegen küreleri artık Magnific tarafından üretilen yüksek çözünürlüklü dokuları (`planetTextureLoader` önbelleği ile) PBR materyalinde doğrudan kullanır.
+
+
