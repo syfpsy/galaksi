@@ -94,7 +94,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
       </div>
 
       {/* Main Navigation Rail Buttons */}
-      <div className="flex-1 flex flex-col items-center gap-2 w-full px-1.5">
+      <div className="flex-1 flex flex-col items-center gap-2 w-full px-1.5 overflow-y-auto overflow-x-hidden scrollbar-none">
         {/* Planets & Colonies Drawer (F1) */}
         <div className="relative group w-10 h-10">
           <button

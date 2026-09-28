@@ -66,7 +66,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
   };
 
   const content = (
-    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-rose-500/40 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl shadow-rose-950/40 overflow-hidden"}>
+    <div className={isDocked ? "w-[820px] min-w-[820px] max-w-[820px] shrink-0 h-full bg-[#080d19]/98 border-r border-[#1b314d] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-rose-500/40 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl shadow-rose-950/40 overflow-hidden"}>
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
           <div className="flex items-center gap-3">
@@ -98,7 +98,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
         ) : (
           <div className="flex-1 flex overflow-hidden">
             {/* Left: Reports List */}
-            <div className="w-72 border-r border-slate-800 overflow-y-auto p-2.5 space-y-1.5 bg-space-950/60">
+            <div className="w-72 border-r border-slate-800 overflow-y-auto p-2.5 pb-32 space-y-1.5 bg-[#060b14]">
               {reports.map((report) => {
                 const isSelected = (currentReport && currentReport.id === report.id);
                 return (
@@ -133,7 +133,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
 
             {/* Right: Replay Viewer */}
             {currentReport && (
-              <div className="flex-1 flex flex-col overflow-y-auto p-4 space-y-4">
+              <div className="flex-1 flex flex-col overflow-y-auto p-4 pb-32 space-y-4">
                 {/* Battle Metadata Banner */}
                 <div className="bg-space-850/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between">
                   <div>

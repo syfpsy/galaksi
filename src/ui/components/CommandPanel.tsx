@@ -143,14 +143,22 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
     return cap;
   }, [ships]);
 
-  // Auto configure for colonize mission
+  // Auto configure for colonize and transport missions
   const handleSelectMission = (mission: MissionType) => {
     setSelectedMission(mission);
     if (mission === 'colonize') {
       setShips((prev) => ({ ...prev, transport: Math.max(1, prev.transport) }));
       setCargo({ ...GAME_CONSTANTS.COLONY_COST });
+    } else if (mission === 'transport') {
+      setShips((prev) => ({
+        ...prev,
+        transport: prev.transport > 0 ? prev.transport : (garrison.transport > 0 ? 1 : 0),
+      }));
     }
   };
+
+  const totalCargoWeight = (cargo.ore || 0) + (cargo.crystal || 0) + (cargo.fuel || 0);
+  const isCargoOverCapacity = (selectedMission === 'transport' || selectedMission === 'colonize') && totalCargoWeight > totalCargoCap;
 
   // Auto-switch contextual mission when selected target changes
   useEffect(() => {
@@ -347,7 +355,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
   }, [selectedMission, totalSelectedShips, ships, activePlayer, targetFleet, selectedTarget, state.planets, state.players]);
 
   return (
-    <aside className="w-88 h-full border-l border-slate-800 bg-space-900/95 backdrop-blur-md flex flex-col z-20 select-none overflow-hidden">
+    <aside className="w-[380px] min-w-[380px] max-w-[380px] shrink-0 h-full border-l border-[#1b314d] bg-[#080d19]/98 backdrop-blur-xl flex flex-col z-20 select-none overflow-hidden shadow-2xl">
       {/* Top Tabs: Dispatch vs Active Fleets & Close Button */}
       <div className="flex items-center justify-between border-b border-slate-800 bg-space-850/60 p-1">
         <div className="flex flex-1 gap-1">
@@ -391,7 +399,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
       {activeTab === 'active_fleets' ? (
         /* Active Fleets In Flight */
-        <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+        <div className="flex-1 overflow-y-auto p-3 pb-32 space-y-2.5">
           <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">
             Yoldaki Filolarınız
           </div>
@@ -467,7 +475,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
         </div>
       ) : (
         /* Dispatch Form */
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
+        <div className="flex-1 overflow-y-auto p-3 pb-32 space-y-3">
           {/* Target System Header */}
           {targetSystem ? (
             <div className="bg-space-850/90 border border-slate-800 rounded-lg p-3">
@@ -684,54 +692,111 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
           {/* Cargo Controls (Enabled for transport / colonize) */}
           {(selectedMission === 'transport' || selectedMission === 'colonize') && (
-            <div>
-              <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">
-                <span>Taşınacak Kaynak (Yük)</span>
-                <span className="text-slate-400">
-                  Kapasite: {totalCargoCap.toLocaleString()}
+            <div className="bg-[#0b1426] border border-[#1b314d] rounded-lg p-2.5 space-y-2">
+              <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider">
+                <span className="text-slate-300 font-bold">Taşınacak Kaynak (Yük)</span>
+                <span
+                  className={
+                    isCargoOverCapacity
+                      ? 'text-rose-400 font-bold animate-pulse'
+                      : totalCargoCap === 0
+                      ? 'text-amber-400 font-semibold'
+                      : 'text-slate-300'
+                  }
+                >
+                  {totalCargoCap === 0
+                    ? 'Kapasite: 0 (Nakliye Gemisi seçin)'
+                    : isCargoOverCapacity
+                    ? `⚠️ Kapasite Aşıldı: ${totalCargoWeight.toLocaleString()} / ${totalCargoCap.toLocaleString()}`
+                    : `Kapasite: ${totalCargoWeight.toLocaleString()} / ${totalCargoCap.toLocaleString()}`}
                 </span>
               </div>
 
               <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-                <div className="bg-space-850 p-1.5 rounded border border-slate-800">
-                  <span className="text-amber-400 text-[10px] block">Cevher</span>
+                <div className="bg-[#060b14] p-2 rounded border border-slate-800">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-amber-400 text-[10px] font-bold">Cevher</span>
+                    <span className="text-[9px] text-slate-400">{Math.floor(activePlanet?.resources.ore || 0)}</span>
+                  </div>
                   <input
                     type="number"
                     min="0"
                     max={activePlanet?.resources.ore || 0}
-                    value={cargo.ore}
-                    onChange={(e) =>
-                      setCargo((prev) => ({ ...prev, ore: parseInt(e.target.value) || 0 }))
-                    }
-                    className="w-full bg-transparent text-slate-100 focus:outline-none"
+                    value={cargo.ore === 0 ? '' : cargo.ore}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      const maxAvail = Math.floor(activePlanet?.resources.ore || 0);
+                      setCargo((prev) => ({ ...prev, ore: Math.min(maxAvail, val) }));
+                    }}
+                    className="w-full bg-transparent text-slate-100 border-b border-slate-700 focus:border-amber-400 focus:outline-none text-xs"
                   />
                 </div>
-                <div className="bg-space-850 p-1.5 rounded border border-slate-800">
-                  <span className="text-cyber-cyan text-[10px] block">Kristal</span>
+                <div className="bg-[#060b14] p-2 rounded border border-slate-800">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-cyber-cyan text-[10px] font-bold">Kristal</span>
+                    <span className="text-[9px] text-slate-400">{Math.floor(activePlanet?.resources.crystal || 0)}</span>
+                  </div>
                   <input
                     type="number"
                     min="0"
                     max={activePlanet?.resources.crystal || 0}
-                    value={cargo.crystal}
-                    onChange={(e) =>
-                      setCargo((prev) => ({ ...prev, crystal: parseInt(e.target.value) || 0 }))
-                    }
-                    className="w-full bg-transparent text-slate-100 focus:outline-none"
+                    value={cargo.crystal === 0 ? '' : cargo.crystal}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      const maxAvail = Math.floor(activePlanet?.resources.crystal || 0);
+                      setCargo((prev) => ({ ...prev, crystal: Math.min(maxAvail, val) }));
+                    }}
+                    className="w-full bg-transparent text-slate-100 border-b border-slate-700 focus:border-cyan-400 focus:outline-none text-xs"
                   />
                 </div>
-                <div className="bg-space-850 p-1.5 rounded border border-slate-800">
-                  <span className="text-rose-400 text-[10px] block">Yakıt</span>
+                <div className="bg-[#060b14] p-2 rounded border border-slate-800">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-rose-400 text-[10px] font-bold">Yakıt</span>
+                    <span className="text-[9px] text-slate-400">{Math.floor(activePlanet?.resources.fuel || 0)}</span>
+                  </div>
                   <input
                     type="number"
                     min="0"
                     max={activePlanet?.resources.fuel || 0}
-                    value={cargo.fuel}
-                    onChange={(e) =>
-                      setCargo((prev) => ({ ...prev, fuel: parseInt(e.target.value) || 0 }))
-                    }
-                    className="w-full bg-transparent text-slate-100 focus:outline-none"
+                    value={cargo.fuel === 0 ? '' : cargo.fuel}
+                    placeholder="0"
+                    onChange={(e) => {
+                      const val = Math.max(0, parseInt(e.target.value) || 0);
+                      const maxAvail = Math.floor(activePlanet?.resources.fuel || 0);
+                      setCargo((prev) => ({ ...prev, fuel: Math.min(maxAvail, val) }));
+                    }}
+                    className="w-full bg-transparent text-slate-100 border-b border-slate-700 focus:border-rose-400 focus:outline-none text-xs"
                   />
                 </div>
+              </div>
+
+              {/* Quick Preset Buttons */}
+              <div className="flex items-center justify-between pt-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const oreAvail = Math.floor(activePlanet?.resources.ore || 0);
+                    const cryAvail = Math.floor(activePlanet?.resources.crystal || 0);
+                    const cap = totalCargoCap;
+                    const half = Math.floor(cap / 2);
+                    const ore = Math.min(oreAvail, half);
+                    const cry = Math.min(cryAvail, cap - ore);
+                    setCargo({ ore, crystal: cry, fuel: 0 });
+                  }}
+                  disabled={totalCargoCap === 0}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono border border-cyan-500/40 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60 disabled:opacity-40 transition-colors"
+                >
+                  Oto Doldur (Cevher+Kristal)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCargo({ ore: 0, crystal: 0, fuel: 0 })}
+                  className="px-2 py-0.5 rounded text-[10px] font-mono border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200 transition-colors"
+                >
+                  Sıfırla
+                </button>
               </div>
             </div>
           )}
@@ -852,7 +917,8 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               !routeInfo ||
               (activePlanet?.resources.fuel || 0) < (routeInfo?.fuelCost || 0) ||
               (selectedMission === 'intercept' && !interceptCheck?.canIntercept) ||
-              !!targetProtectionStatus?.isBlocked
+              !!targetProtectionStatus?.isBlocked ||
+              isCargoOverCapacity
             }
             onClick={() => {
               if (targetSystem && activePlanet) {

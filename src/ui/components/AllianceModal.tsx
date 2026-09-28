@@ -36,7 +36,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
   const allAlliances = Object.values(state.alliances);
 
   const content = (
-    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-blue-500/40 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-blue-950/40 overflow-hidden"}>
+    <div className={isDocked ? "w-[540px] min-w-[540px] max-w-[540px] shrink-0 h-full bg-[#080d19]/98 border-r border-[#1b314d] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-blue-500/40 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-blue-950/40 overflow-hidden"}>
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
           <div className="flex items-center gap-3">
@@ -61,7 +61,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
           {myAlliance ? (
             /* Active Alliance View */
             <div className="space-y-4">

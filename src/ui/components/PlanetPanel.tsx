@@ -67,7 +67,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
   ];
 
   return (
-    <aside className="w-84 h-full border-r border-slate-800 bg-space-900/95 backdrop-blur-md flex flex-col z-20 select-none overflow-hidden">
+    <aside className="w-[390px] min-w-[390px] max-w-[390px] shrink-0 h-full border-r border-[#1b314d] bg-[#080d19]/98 backdrop-blur-xl flex flex-col z-20 select-none overflow-hidden shadow-2xl">
       {/* Header: Planet Tabs */}
       <div className="p-3 border-b border-slate-800 bg-space-850/60">
         <div className="flex items-center justify-between mb-2">
@@ -199,7 +199,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
       </div>
 
       {/* Buildings List (Scrollable) */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+      <div className="flex-1 overflow-y-auto p-3.5 pb-32 space-y-2.5">
         <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">
           Gezegen Altyapısı & Üretim
         </div>
@@ -232,8 +232,8 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
               key={type}
               className={`p-2.5 rounded-lg border transition-all ${
                 isQueueActive
-                  ? 'bg-cyber-cyan/10 border-cyber-cyan/40 shadow-sm shadow-cyber-cyan/10'
-                  : 'bg-space-850/80 border-slate-800 hover:border-slate-700'
+                  ? 'bg-cyber-cyan/15 border-cyber-cyan/50 shadow-sm shadow-cyber-cyan/20'
+                  : 'bg-[#0b1426] border-[#1b314d] hover:border-slate-600'
               }`}
             >
               <div className="flex items-center justify-between mb-1">
@@ -353,7 +353,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
               return (
                 <div
                   key={st}
-                  className="bg-space-850 border border-slate-800 rounded p-2 flex items-center justify-between"
+                  className="bg-[#0b1426] border border-[#1b314d] rounded p-2 flex items-center justify-between"
                 >
                   <span className="text-[11px] text-slate-300">{names[st]}</span>
                   <span className="text-xs font-mono font-bold text-cyber-cyan">{count}</span>

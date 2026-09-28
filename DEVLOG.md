@@ -4,6 +4,34 @@ Bu dosya, GDD v0.1.0 doğrultusunda yapılan tüm mimari kararların, aşamalar�
 
 ---
 
+## [2026-09-28] — Taşı/Topla Glitch Düzeltmesi & Sol Menü Görünürlük/Altta Kalma Revizyonu
+
+Kullanıcının *"taşı topla butonu seçilince glitch oluyor. ayrıca bazı left rail menüleri altta kalıp okunmuyor, genel bir menu arkaplanı ve görünürlülük testi yap de bütün hataları düzelt"* talebi doğrultusunda:
+
+### 1. `Taşı/Topla` (Transport) Görevi Glitch ve Genişlik Atlama Düzeltmesi (`CommandPanel.tsx`)
+- **Geçersiz Tailwind `w-88` Sınıfı Giderildi:** Tailwind varsayılanında `w-88` bulunmadığından çekmece genişliği içerik değiştikçe (`width: auto`) sağa sola sıçrıyordu. Panel `w-[380px] min-w-[380px] max-w-[380px] shrink-0` olarak sabitlendi.
+- **Otomatik Nakliye Gemisi Ataması:** Kullanıcı "Taşı/Topla" butonuna bastığında garnizonda nakliye gemisi varsa ve seçili sayısı 0 ise otomatik 1 adet nakliye seçilerek kapasitenin `0` kalması ve hata durumu engellendi.
+- **Yük Girdileri & Kapasite Aşımı Koruması:**
+  - Girdiler temizlendi (`placeholder="0"`), negatif veya depodaki kaynağı aşan değerler engellendi.
+  - "Oto Doldur (Cevher+Kristal)" ve "Sıfırla" hızlı önayar butonları eklendi.
+  - Kargo filo kapasitesini aştığında kırmızı uyarı (`⚠️ Kapasite Aşıldı: X / Y`) verilerek sevk butonu otomatik kilitlendi.
+
+### 2. Sol Menü (Left Rail) Docked Panellerinin Altta Kalması ve Okunurluk Revizyonu
+- **Sabit Genişlikler:** Docked moddaki tüm paneller flex konteynerinde bozulmayacak net genişliklere bağlandı:
+  - `PlanetPanel`: `w-[390px]`
+  - `ShipyardModal`: `w-[480px]`
+  - `ResearchModal`: `w-[480px]`
+  - `SituationLogModal`: `w-[680px]`
+  - `CombatReplayModal`: `w-[820px]`
+  - `AllianceModal`: `w-[540px]`
+  - `RelayModal`: `w-[540px]`
+  - `ArtGalleryModal`: `w-[860px]`
+- **Alt Boşluk (`pb-32`):** Tüm kaydırılabilir panellerin iç konteynerlerine `pb-32` (128px) alt boşluk eklendi. Böylece en alttaki butonlar ("İnşa Et", "Araştır", "Garnizon Tablosu", "İttifak Kur", "Röle Liderliği") ekranın alt kenarında kesilmez veya alt operasyon güvertesinin arkasında kaybolmaz.
+- **Yüksek Kontrastlı Stellaris Arka Planı:** Yarı saydam açık renkler yerine derin obsidyen mavi/siyah (`bg-[#080d19]/98 border-[#1b314d]`) ve kartlarda `bg-[#0b1426] border-[#1b314d]` kullanılarak galaksi haritası önünde metinlerin parıldayan yıldızlarla karışması engellendi.
+- **Düşük Çözünürlük Koruması:** `StellarisLeftRail` buton alanına `overflow-y-auto overflow-x-hidden scrollbar-none` ve `StellarisOutliner` gövdesine `pb-32` eklendi.
+
+---
+
 ## [2026-09-27] — Faz A & B Kurulumu ve Ağır Strateji (Slow Persistent Strategy) Kalibrasyonu
 
 ### 1. Ağır Oynanış ve Uzun Sefer Kalibrasyonu (GDD Bölüm 1, 4, 10 ve 15 Uyumu)

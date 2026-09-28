@@ -37,7 +37,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
   };
 
   const content = (
-    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-amber-500/30 rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl shadow-amber-950/40 overflow-hidden"}>
+    <div className={isDocked ? "w-[480px] min-w-[480px] max-w-[480px] shrink-0 h-full bg-[#080d19]/98 border-r border-[#1b314d] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-amber-500/30 rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl shadow-amber-950/40 overflow-hidden"}>
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
           <div className="flex items-center gap-2.5">
@@ -80,7 +80,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
         )}
 
         {/* Tech Tree List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-3">
           {techList.map((type) => {
             const stats = RESEARCH_STATS[type];
             const currentLevel = player.research[type] || 0;
@@ -103,8 +103,8 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                 key={type}
                 className={`p-3 rounded-lg border transition-all ${
                   isResearchingThis
-                    ? 'bg-amber-500/10 border-amber-500/40 shadow-sm shadow-amber-500/10'
-                    : 'bg-space-850/80 border-slate-800 hover:border-slate-700'
+                    ? 'bg-amber-500/15 border-amber-500/50 shadow-sm shadow-amber-500/20'
+                    : 'bg-[#0b1426] border-[#1b314d] hover:border-slate-600'
                 }`}
               >
                 <div className="flex items-start justify-between">

@@ -137,7 +137,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
       </div>
 
       {/* Outliner Scrollable Body */}
-      <div className="flex-1 overflow-y-auto p-2 space-y-2.5 text-xs font-mono scrollbar-none">
+      <div className="flex-1 overflow-y-auto p-2 pb-32 space-y-2.5 text-xs font-mono scrollbar-none">
         {/* 1. Hostile Threats Alert (if any) */}
         {hostileThreats.length > 0 && (
           <div className="border border-rose-500/50 bg-rose-950/20 rounded-lg overflow-hidden">

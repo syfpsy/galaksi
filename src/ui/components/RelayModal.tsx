@@ -41,7 +41,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
     : 0;
 
   const content = (
-    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-purple-500/40 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-purple-950/40 overflow-hidden"}>
+    <div className={isDocked ? "w-[540px] min-w-[540px] max-w-[540px] shrink-0 h-full bg-[#080d19]/98 border-r border-[#1b314d] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-purple-500/40 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-purple-950/40 overflow-hidden"}>
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
           <div className="flex items-center gap-3">
@@ -66,7 +66,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
           {/* Hero Visual Banner of Nexus Relay */}
           <div className="relative w-full h-44 rounded-xl overflow-hidden border border-purple-500/40 bg-space-950 shadow-lg shadow-purple-950/40 flex items-center justify-center group">
             <img

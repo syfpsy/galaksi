@@ -42,7 +42,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
   const shipyardLevel = planet.buildings.shipyard || 0;
 
   const content = (
-    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-cyber-cyan/30 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-cyan-950/40 overflow-hidden"}>
+    <div className={isDocked ? "w-[480px] min-w-[480px] max-w-[480px] shrink-0 h-full bg-[#080d19]/98 border-r border-[#1b314d] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-cyber-cyan/30 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-cyan-950/40 overflow-hidden"}>
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
           <div className="flex items-center gap-2.5">
@@ -93,7 +93,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
         )}
 
         {/* Ship List */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-3">
           {shipTypes.map((st) => {
             const stats = SHIP_STATS[st];
             const buildCount = counts[st];
@@ -135,7 +135,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
                 className={`p-3 rounded-lg border transition-all ${
                   isLocked
                     ? 'bg-space-950/40 border-slate-800/40 opacity-60'
-                    : 'bg-space-850/80 border-slate-800 hover:border-slate-700'
+                    : 'bg-[#0b1426] border-[#1b314d] hover:border-slate-600'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">

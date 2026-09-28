@@ -70,7 +70,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
   const isRelayMine = state.relay.controllingPlayerId === activePlayerId;
 
   const content = (
-    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none relative" : "bg-[#080d19] border border-[#1a2942] rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col text-slate-100 overflow-hidden relative"}>
+    <div className={isDocked ? "w-[680px] min-w-[680px] max-w-[680px] shrink-0 h-full bg-[#080d19]/98 border-r border-[#1b314d] flex flex-col shadow-2xl overflow-hidden select-none relative" : "bg-[#080d19] border border-[#1a2942] rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col text-slate-100 overflow-hidden relative"}>
         {/* Stellaris Cyan Top Accent Line */}
         <div className="h-1.5 w-full bg-cyan-400 shadow-[0_0_12px_#00f3ff]" />
 
@@ -163,7 +163,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
         </div>
 
         {/* Tab Content Area */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 pb-32 space-y-4">
           {/* TAB 1: ANOMALIES & DEBRIS */}
           {activeTab === 'anomalies' && (
             <div className="space-y-4">
