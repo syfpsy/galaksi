@@ -27,6 +27,7 @@ import { sound } from '../sound';
 
 interface SituationLogModalProps {
   isOpen: boolean;
+  isDocked?: boolean;
   onClose: () => void;
   state: GameState;
   activePlayerId: string;
@@ -37,6 +38,7 @@ interface SituationLogModalProps {
 
 export const SituationLogModal: React.FC<SituationLogModalProps> = ({
   isOpen,
+  isDocked = false,
   onClose,
   state,
   activePlayerId,
@@ -67,9 +69,8 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
     : null;
   const isRelayMine = state.relay.controllingPlayerId === activePlayerId;
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in select-none">
-      <div className="bg-[#080d19] border border-[#1a2942] rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col text-slate-100 overflow-hidden relative">
+  const content = (
+    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none relative" : "bg-[#080d19] border border-[#1a2942] rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col text-slate-100 overflow-hidden relative"}>
         {/* Stellaris Cyan Top Accent Line */}
         <div className="h-1.5 w-full bg-cyan-400 shadow-[0_0_12px_#00f3ff]" />
 
@@ -427,6 +428,13 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
           )}
         </div>
       </div>
+  );
+
+  if (isDocked) return content;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in select-none">
+      {content}
     </div>
   );
 };

@@ -19,6 +19,7 @@ interface AnomalyEventModalProps {
   onClose: () => void;
   system: StarSystem | null;
   onDispatchScout?: (systemId: string) => void;
+  isDocked?: boolean;
 }
 
 export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
@@ -26,6 +27,7 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
   onClose,
   system,
   onDispatchScout,
+  isDocked,
 }) => {
   if (!isOpen || !system || !system.poi) return null;
 
@@ -77,17 +79,16 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
     analysis: 'Detaylı analiz için bir keşif filosunun bölgeye intikal etmesi önerilir.',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in select-none">
-      <div className="bg-[#080d19] border border-[#1a2942] rounded-2xl shadow-2xl max-w-xl w-full text-slate-100 overflow-hidden relative">
-        {/* Stellaris Holographic Top Line */}
-        <div
-          className="h-1.5 w-full"
-          style={{
-            backgroundColor: currentDetail.color,
-            boxShadow: `0 0 16px ${currentDetail.color}`,
-          }}
-        />
+  const content = (
+    <div className={`bg-[#080d19] border border-[#1a2942] ${isDocked ? 'w-[440px] md:w-[480px] h-full flex flex-col shadow-2xl' : 'rounded-2xl shadow-2xl max-w-xl w-full'} text-slate-100 overflow-hidden relative`}>
+      {/* Stellaris Holographic Top Line */}
+      <div
+        className="h-1.5 w-full shrink-0"
+        style={{
+          backgroundColor: currentDetail.color,
+          boxShadow: `0 0 16px ${currentDetail.color}`,
+        }}
+      />
 
         {/* Header */}
         <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
@@ -205,6 +206,15 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
           )}
         </div>
       </div>
+  );
+
+  if (isDocked) {
+    return content;
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in select-none">
+      {content}
     </div>
   );
 };

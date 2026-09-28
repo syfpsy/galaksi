@@ -6,6 +6,7 @@ interface AllianceModalProps {
   state: GameState;
   activePlayerId: string;
   isOpen: boolean;
+  isDocked?: boolean;
   onClose: () => void;
   onCreateAlliance: (name: string, tag: string) => void;
   onJoinAlliance: (allianceId: string) => void;
@@ -17,6 +18,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
   state,
   activePlayerId,
   isOpen,
+  isDocked = false,
   onClose,
   onCreateAlliance,
   onJoinAlliance,
@@ -33,9 +35,8 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
   const myAlliance = player?.allianceId ? state.alliances[player.allianceId] : null;
   const allAlliances = Object.values(state.alliances);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none">
-      <div className="bg-space-900 border border-blue-500/40 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-blue-950/40 overflow-hidden">
+  const content = (
+    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-blue-500/40 rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl shadow-blue-950/40 overflow-hidden"}>
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
           <div className="flex items-center gap-3">
@@ -263,6 +264,13 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
           )}
         </div>
       </div>
+  );
+
+  if (isDocked) return content;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none">
+      {content}
     </div>
   );
 };

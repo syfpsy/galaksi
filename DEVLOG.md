@@ -543,3 +543,32 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
 - **3D / 2D Motor Anahtarı:** `3D` (Three.js 2.5D) ve `2D` (SVG Canvas) motorları arasında anında geçiş.
 - **Yörünge Projeksiyonları:** Gelecek gezegen konumlarını açıp kapatma (`🔭 Projeksiyon`).
 - **Kamera Yakınlaştırma:** `-%+` butonlarıyla kontrollü zoom.
+
+---
+
+## 2026-09-28 — Faz R: Soldan Yanaşan Docked Paneller, Katlanabilir Alt Operasyon Güvertesi & Başlangıç Oryantasyon Rehberi
+
+### 1. Haritadan Asla Ayrılmayan Sol Docked Yan Paneller (`isDocked` Mimarisi)
+- **Problem:** Left Rail menüsündeki öğelere (Tersane, Ar-Ge, Durum Kütüğü, Savaş Kayıtları, İttifak, Röle, Galeri) tıklandığında tam ekran koyu overlay (`fixed inset-0 bg-black/80`) açılarak haritayı gizliyor ve oyuncuyu bağlamından koparıyordu.
+- **Çözüm:** Tüm modal bileşenlerine (`ShipyardModal`, `ResearchModal`, `SituationLogModal`, `CombatReplayModal`, `RelayModal`, `AllianceModal`, `ArtGalleryModal`, `AnomalyEventModal`) `isDocked?: boolean` desteği eklendi.
+- `App.tsx` içerisindeki birleşik `activeLeftPanel` state'i sayesinde butonlara basıldığında veya `F1-F9` tuşlarına basıldığında panel, `PlanetPanel` gibi sol rayın hemen yanında (`absolute left-14 top-0 bottom-0 z-30 w-[440px] md:w-[480px]`) pürüzsüzce açılır.
+- Arka plan karartması tamamen kalktı; 3D/2D galaksi haritası, gezegen yörüngeleri, filo uçuşları ve zaman akışı panel açıkken bile arka planda tam olarak görünmeye ve etkileşime devam eder.
+
+### 2. Katlanabilir ve Genişletilebilir Alt Operasyon Konsolu (`StellarisBottomDeck.tsx`)
+- **Kompakt Mod (Collapsed):** Haritanın alt merkezinde her zaman görünür durumda olan ince operasyon çubuğu; aktif sefer sayısı (`🛸`), tersane üretimleri (`🚀`), koloni bina inşaatları (`🏗️`) ve devam eden teknoloji araştırmalarını (`🔬`) kompakt çipler ve geri sayımlarla gösterir.
+- **Genişletilmiş Gösterge Paneli (Expanded):** Çipe tıklandığında yukarı doğru genişleyen tam operasyon konsolu:
+  - **Filtre Sekmeleri:** `[Tümü | 🛸 Seferler | 🚀 Tersane | 🏗️ İnşaat | 🔬 Ar-Ge]`.
+  - **Filo Sefer Takibi:** Uçuş rotası (`Kalkış ➔ Hedef`), toplam gemi sayısı, dinamik ilerleme çubuğu, varış süresi ve %50 sınırına kadar çalışan anında `Geri Çağır (Recall)` butonu.
+  - **Tersane Kuyruğu:** Koloni adı, üretilen gemi tipi, tamamlanan/toplam gemi adedi, birim üretim ilerleme çubuğu ve toplam kalan süre.
+  - **Bina İnşaatları:** Yükseltilen yapı adı, hedef seviye, ilerleme çubuğu ve tamamlanma süresi.
+  - **Teknoloji / Ar-Ge:** Araştırılan teknoloji kategorisi, kalan süre ve yüzde çubuğu.
+  - Tıklanan üretim veya koloniye tıklandığında harita ve paneller ilgili konuma doğrudan odaklanır.
+
+### 3. İnteraktif Başlangıç & Filo Uçuş Oryantasyon Rehberi (`OrientationGuideModal.tsx`)
+- Yeni oyuncuların oyunun derinlikli mekaniklerini ve filo intikal kurallarını kolayca öğrenebilmesi için 4 adımlı rehber:
+  1. **Galaksi ve Sistem Haritaları:** `M` tuşu, çift tıklama ve makro/mikro navigasyon.
+  2. **Filo Seferleri & %50 Geri Dönüş Kilidi (Recall Lock):** Filoların anında ışınlanmadığı, gerçek zamanlı hiper-hat uçuş süreleri, 4 sefer tipi ve yolculuğun ilk yarısından sonra devreye giren taktik geri dönüş kilidi kuralı.
+  3. **Ekonomi, Koloni Binaları & Tersane:** 3 temel kaynak, maden/enerji santralleri yükseltme (`F1`) ve tersanede savaş filosu üretimi (`F2`).
+  4. **Zaman Kontrolleri, Tehditler & Nexus Rölesi:** `Space` ve `1-4` simülasyon hızları, korsan akınları ve haftalık zafer puanı kazandıran merkezi Nexus Rölesi (`F8`).
+- `localStorage` (`galaksi_orientation_seen`) ile ilk açılışta otomatik gösterim; sonrasında `TopBar` üzerindeki `❓ Rehber` butonu veya `StellarisLeftRail` altındaki soru işareti butonuyla istenildiğinde tekrar açılabilir.
+

@@ -9,6 +9,7 @@ interface ResearchModalProps {
   player: Player | undefined;
   homeworld: Planet | undefined;
   isOpen: boolean;
+  isDocked?: boolean;
   onClose: () => void;
   onStartResearch: (type: ResearchType) => void;
   currentTimeMs: number;
@@ -18,6 +19,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
   player,
   homeworld,
   isOpen,
+  isDocked = false,
   onClose,
   onStartResearch,
   currentTimeMs,
@@ -34,9 +36,8 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
     sensors: Eye,
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none">
-      <div className="bg-space-900 border border-amber-500/30 rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl shadow-amber-950/40 overflow-hidden">
+  const content = (
+    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-amber-500/30 rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl shadow-amber-950/40 overflow-hidden"}>
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
           <div className="flex items-center gap-2.5">
@@ -166,6 +167,13 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
           })}
         </div>
       </div>
+  );
+
+  if (isDocked) return content;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none">
+      {content}
     </div>
   );
 };

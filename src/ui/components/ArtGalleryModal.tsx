@@ -136,10 +136,11 @@ export const GALLERY_ASSETS: GalleryAsset[] = [
 
 interface ArtGalleryModalProps {
   isOpen: boolean;
+  isDocked?: boolean;
   onClose: () => void;
 }
 
-export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, onClose }) => {
+export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDocked = false, onClose }) => {
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'ships' | 'planets' | 'structures'>('all');
   const [activeAsset, setActiveAsset] = useState<GalleryAsset>(GALLERY_ASSETS[0]);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -151,9 +152,8 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, onClos
       ? GALLERY_ASSETS
       : GALLERY_ASSETS.filter((a) => a.category === selectedCategory);
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 select-none animate-in fade-in duration-200">
-      <div className="bg-space-900 border border-cyber-cyan/40 rounded-2xl w-full max-w-5xl h-[88vh] flex flex-col shadow-2xl shadow-cyan-950/50 overflow-hidden">
+  const content = (
+    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-cyber-cyan/40 rounded-2xl w-full max-w-5xl h-[88vh] flex flex-col shadow-2xl shadow-cyan-950/50 overflow-hidden"}>
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
           <div className="flex items-center gap-3">
@@ -371,6 +371,17 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, onClos
           </div>
         </div>
       </div>
+  );
+
+  return (
+    <>
+      {isDocked ? (
+        content
+      ) : (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 select-none animate-in fade-in duration-200">
+          {content}
+        </div>
+      )}
 
       {/* Lightbox Modal */}
       {isLightboxOpen && (
@@ -391,6 +402,6 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, onClos
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 };

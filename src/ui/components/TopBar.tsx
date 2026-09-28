@@ -19,6 +19,7 @@ import {
   Volume2,
   VolumeX,
   Zap,
+  HelpCircle,
 } from 'lucide-react';
 import { calculateHourlyProduction } from '../../engine/constants';
 import { GameState, Planet } from '../../engine/types';
@@ -45,6 +46,7 @@ interface TopBarProps {
   onOpenRelay?: () => void;
   onOpenAlliance?: () => void;
   onOpenGallery?: () => void;
+  onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
   onReset: () => void;
 }
@@ -69,6 +71,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenRelay,
   onOpenAlliance,
   onOpenGallery,
+  onOpenOrientation,
   onToggleVacationMode,
   onReset,
 }) => {
@@ -413,6 +416,20 @@ export const TopBar: React.FC<TopBarProps> = ({
         >
           {godMode ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
         </button>
+
+        {onOpenOrientation && (
+          <button
+            onClick={() => {
+              sound.playClick();
+              onOpenOrientation();
+            }}
+            className="p-1.5 rounded border border-amber-500/40 bg-amber-950/40 text-amber-400 hover:text-amber-200 hover:border-amber-400 transition-all flex items-center gap-1 text-[11px] font-mono"
+            title="Oyun Rehberi & Filo Hareket Oryantasyonu"
+          >
+            <HelpCircle className="w-3.5 h-3.5" />
+            <span className="hidden lg:inline text-[10px] font-bold">Rehber</span>
+          </button>
+        )}
 
         <button
           onClick={() => {

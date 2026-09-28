@@ -21,12 +21,14 @@ import { sound } from '../sound';
 interface CombatReplayModalProps {
   reports: BattleReport[];
   isOpen: boolean;
+  isDocked?: boolean;
   onClose: () => void;
 }
 
 export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
   reports,
   isOpen,
+  isDocked = false,
   onClose,
 }) => {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
@@ -63,9 +65,8 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
     relay_contest: 'NEXUS RÖLESİ HAKİMİYET SAVAŞI',
   };
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none">
-      <div className="bg-space-900 border border-rose-500/40 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl shadow-rose-950/40 overflow-hidden">
+  const content = (
+    <div className={isDocked ? "w-full h-full bg-[#080d19]/98 border-r border-[#1a2942] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-rose-500/40 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl shadow-rose-950/40 overflow-hidden"}>
         {/* Header */}
         <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
           <div className="flex items-center gap-3">
@@ -328,6 +329,13 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
           </div>
         )}
       </div>
+  );
+
+  if (isDocked) return content;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-md p-4 select-none">
+      {content}
     </div>
   );
 };
