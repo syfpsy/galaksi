@@ -10,6 +10,7 @@ import {
   Globe,
   Hammer,
   Palette,
+  Radio,
   Send,
   Sparkles,
   Swords,
@@ -31,11 +32,14 @@ interface StellarisLeftRailProps {
   onOpenOrientation?: () => void;
   onOpenShipyard: () => void;
   onOpenResearch: () => void;
+  onOpenTransitRadar?: () => void;
   onOpenSituationLog?: () => void;
   onOpenBattles: () => void;
   onOpenRelay: () => void;
   onOpenAlliance: () => void;
   onOpenGallery: () => void;
+  movingFleetsCount?: number;
+  threatsCount?: number;
   unreadBattlesCount: number;
   isRelayControlled: boolean;
   planetsCount: number;
@@ -56,11 +60,14 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
   onOpenOrientation,
   onOpenShipyard,
   onOpenResearch,
+  onOpenTransitRadar,
   onOpenSituationLog,
   onOpenBattles,
   onOpenRelay,
   onOpenAlliance,
   onOpenGallery,
+  movingFleetsCount = 0,
+  threatsCount = 0,
   unreadBattlesCount,
   isRelayControlled,
   planetsCount,
@@ -71,6 +78,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
   onToggleVacationMode,
 }) => {
   const isPlanetActive = isPlanetPanelOpen || activeLeftPanel === 'planets';
+  const isRadarActive = activeLeftPanel === 'transit_radar';
 
   return (
     <aside className="w-14 h-full bg-[#070c17]/95 border-r border-[#1a2942] flex flex-col items-center py-3 z-30 select-none shadow-2xl relative">
@@ -203,7 +211,56 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           </div>
         </div>
 
-        {/* Fleet Command Deck (F4) */}
+        {/* Tactical Fleet Transit Radar (F4) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenTransitRadar) onOpenTransitRadar();
+            }}
+            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
+              isRadarActive
+                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/30'
+                : threatsCount > 0
+                ? 'bg-rose-950/80 text-rose-300 border border-rose-500 animate-pulse'
+                : 'text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent'
+            }`}
+          >
+            <Radio className="w-5 h-5 transition-transform group-hover:scale-110" />
+            {threatsCount > 0 ? (
+              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-rose-600 text-white text-[9px] font-mono rounded-full flex items-center justify-center font-bold animate-ping">
+                !
+              </span>
+            ) : movingFleetsCount > 0 ? (
+              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-cyan-900 border border-cyan-500 text-cyan-300 text-[9px] font-mono rounded-full flex items-center justify-center font-bold">
+                {movingFleetsCount}
+              </span>
+            ) : null}
+            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-cyan-400 font-bold">
+              F4
+            </span>
+            {isRadarActive && (
+              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-cyan-400 rounded-r-full" />
+            )}
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
+              <span>TAKTİK İNTİKAL RADARI</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F4</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+              Hareket halindeki dost filolar, düşman intikalleri ve tehdit takibi.
+            </p>
+            {threatsCount > 0 && (
+              <div className="mt-1.5 pt-1.5 border-t border-rose-900/80 text-[9px] text-rose-400 font-mono font-bold">
+                🚨 {threatsCount} Düşman Baskını Yolda!
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Fleet Command Deck (F5) */}
         <div className="relative group w-10 h-10">
           <button
             onClick={() => {
@@ -218,7 +275,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           >
             <Send className="w-5 h-5 transition-transform group-hover:scale-110" />
             <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-amber-400 font-bold">
-              F4
+              F5
             </span>
             {isCommandPanelOpen && (
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-amber-400 rounded-r-full" />
@@ -227,8 +284,8 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
 
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>FİLO KOMUTASI & SEFERLER</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F4</span>
+              <span>FİLO SEVK & SEFER EMRİ</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F5</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Taarruz, önleme, ikmal ve keşif seferlerinin sevk idaresi.
@@ -236,7 +293,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           </div>
         </div>
 
-        {/* Galactic Situation Log & Quests (F5) */}
+        {/* Galactic Situation Log & Quests (F6) */}
         <div className="relative group w-10 h-10">
           <button
             onClick={() => {
@@ -251,7 +308,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           >
             <Compass className="w-5 h-5 transition-transform group-hover:scale-110 text-cyan-400" />
             <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-cyan-400 font-bold">
-              F5
+              F6
             </span>
             {activeLeftPanel === 'situation' && (
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-cyan-400 rounded-r-full" />
@@ -261,7 +318,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
               <span>DURUM KÜTÜĞÜ & ANOMALİLER</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F5</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F6</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Keşfedilmemiş uzay anomalileri, enkaz kurtarma ve galaksi puan durumu.
@@ -269,7 +326,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           </div>
         </div>
 
-        {/* Battle Logs & Replay (F6) */}
+        {/* Battle Logs & Replay (F7) */}
         <div className="relative group w-10 h-10">
           <button
             onClick={() => {
@@ -284,7 +341,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           >
             <Swords className="w-5 h-5 transition-transform group-hover:scale-110" />
             <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-rose-400 font-bold">
-              F6
+              F7
             </span>
             {unreadBattlesCount > 0 && (
               <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-rose-600 text-white text-[9px] font-mono rounded-full flex items-center justify-center font-bold animate-pulse">
@@ -299,7 +356,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
               <span>MUHAREBE KAYITLARI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F6</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F7</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Geçmiş çatışmalar, hasar dağılımı ve tur bazlı savaş tekrarı.
@@ -348,7 +405,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           </div>
         </div>
 
-        {/* Galactic Alliance / Diplomacy (F7) */}
+        {/* Galactic Alliance / Diplomacy (F9) */}
         <div className="relative group w-10 h-10">
           <button
             onClick={() => {
@@ -363,7 +420,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           >
             <Users className="w-5 h-5 transition-transform group-hover:scale-110" />
             <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-blue-400 font-bold">
-              F7
+              F9
             </span>
             {activeLeftPanel === 'alliance' && (
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-blue-400 rounded-r-full" />
@@ -373,7 +430,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
               <span>GALAKTİK İTTİFAKLAR</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F7</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F9</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Diplomatik paktlar, ortak sensör görüşü ve askeri müttefik savunması.
@@ -381,7 +438,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           </div>
         </div>
 
-        {/* Concept Art Gallery (F9) */}
+        {/* Concept Art Gallery (F10) */}
         <div className="relative group w-10 h-10">
           <button
             onClick={() => {
@@ -396,7 +453,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           >
             <Palette className="w-5 h-5 transition-transform group-hover:scale-110" />
             <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-emerald-400 font-bold">
-              F9
+              F10
             </span>
             {activeLeftPanel === 'gallery' && (
               <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-emerald-400 rounded-r-full" />
@@ -406,7 +463,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
             <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
               <span>KONSEPT SANAT GALERİSİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F9</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F10</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Magnific AI ile üretilen görsel atmosfer, gemiler ve koloniler.

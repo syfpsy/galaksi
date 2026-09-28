@@ -30,6 +30,7 @@ interface GalaxyMapProps {
   onRecallFleet?: (fleetId: string) => void;
   onOpenShipyard?: () => void;
   onOpenResearch?: () => void;
+  onOpenTransitRadar?: () => void;
 }
 
 export const GalaxyMap: React.FC<GalaxyMapProps> = ({
@@ -44,6 +45,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
   onRecallFleet,
   onOpenShipyard,
   onOpenResearch,
+  onOpenTransitRadar,
 }) => {
   // View mode: 'galaxy' (Macro Sector / Cluster) or 'system' (Three.js 2.5D In-System Orrery)
   const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
@@ -437,6 +439,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         onRecallFleet={onRecallFleet}
         onOpenShipyard={onOpenShipyard}
         onOpenResearch={onOpenResearch}
+        onOpenTransitRadar={onOpenTransitRadar}
       />
 
       {/* Map Legend (Bottom-Left) */}

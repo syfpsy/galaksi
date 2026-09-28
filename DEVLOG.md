@@ -4,6 +4,33 @@ Bu dosya, GDD v0.1.0 doğrultusunda yapılan tüm mimari kararların, aşamalar�
 
 ---
 
+## [2026-09-28] — Arayüz Sadeleştirmesi & Taktik İntikal Radarı (HUD Overhaul)
+
+Kullanıcının talebi doğrultusunda:
+- *"Oyunun arayüzünü komple sadeleştirme yoluna gidebilir miyiz? Mümkün olan her şeyi tooltipler veya açılabilir ekstra pencereler veya genişletilebilir menüler şekilde tasarlayalım. Net olarak görebileceğimiz bazı şeyler olsun. Kaç tane gezegenimiz olduğu, kaç tane gemimiz olduğu ve bunlara kolayca ulaşabildiğimiz gibi şeyler mutlaka panellerde bulunsun. Hareket halindeki filoları görebileceğimiz yerler olsun. Hem bizim hem düşmanın tespit ettiğimiz hareket halinde filoları gösteren ayrı bir panel olmalı."*
+
+### 1. Üst Bar Sadeleştirmesi & Canlı Çipler (`TopBar.tsx`)
+- Ekranı kapatan statik buton kalabalığı kaldırıldı.
+- **🪐 Koloni Çipi (`X/Y Koloni`):** Zengin hover tooltip'i (ana dünya, koloniler, yüzey tipleri, aktif inşaatlar). Tıklama ile `PlanetPanel` (`F1`) açılır.
+- **⚔️ Donanma Çipi (`X Gemi`):** Zengin hover tooltip'i (Kruvazör, Avcı, Nakliye, Keşif dağılımı, garnizon vs intikal sayıları). Tıklama ile Tersane (`F2`) açılır.
+- **🛸 İntikal Radarı Çipi (`X İntikal` / `🚨 1 TEHDİT!`):** Canlı hareket eden filo sayısını ve yaklaşan tehditleri gösterir. Tıklama ile Radarı (`F4`) açılır.
+- **Kaynak Göstergeleri:** Saatlik gelir ve kapasite dökümü hover tooltip'lerine taşındı, üst bar minimalist ve okunaklı hale getirildi.
+
+### 2. Taktik İntikal Radarı (`FleetTransitRadarModal.tsx` & `F4`)
+- Tüm dost ve tespit edilen düşman uçuşlarını listeleyen dedicated panel.
+- Canlı şematik rota (`[Kalkış] ──[% ilerleme]──▶ [Hedef]`), kalan süre, gemi kompozisyonu, %50 geri çağırma kilidi.
+- `🎯 Haritada Odaklan`, `🔄 Geri Çağır` ve `🛡️ Savunmayı Aç` aksiyonları.
+
+### 3. Haritayı Karartmayan Tehdit Şeridi (`IncomingThreatBanner.tsx`)
+- Ekranın ortasını kapatan sabit şerit, sağ üstten küçültülebilir (`isMinimized`) hale getirildi.
+- Küçültüldüğünde haritayı engellemeyen kompakt bir hap rozet olarak kalır. "Radarda İncele" butonu eklendi.
+
+### 4. Alt Operasyon Paneli & Entegrasyonlar
+- `StellarisBottomDeck`: Başlığa `[🛸 Taktik Radar]` butonu eklendi.
+- `StellarisNotificationStrip`: Tehdit bildirimine tıklandığında doğrudan İntikal Radarı açılır.
+
+---
+
 ## [2026-09-28] — Sürüklenebilir/Katlanabilir Filo Kartı (Floating HUD) & Galaksi/Sistem Rota Görünürlüğü
 
 Kullanıcının talebi doğrultusunda:

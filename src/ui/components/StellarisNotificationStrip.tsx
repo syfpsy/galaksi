@@ -37,6 +37,7 @@ interface StellarisNotificationStripProps {
   onOpenResearch: () => void;
   onOpenShipyard: () => void;
   onOpenSituationLog: () => void;
+  onOpenTransitRadar?: () => void;
 }
 
 export const StellarisNotificationStrip: React.FC<StellarisNotificationStripProps> = ({
@@ -47,6 +48,7 @@ export const StellarisNotificationStrip: React.FC<StellarisNotificationStripProp
   onOpenResearch,
   onOpenShipyard,
   onOpenSituationLog,
+  onOpenTransitRadar,
 }) => {
   const [notifications, setNotifications] = useState<EmpireNotification[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -193,7 +195,9 @@ export const StellarisNotificationStrip: React.FC<StellarisNotificationStripProp
 
   const handleClick = (notif: EmpireNotification) => {
     sound.playClick();
-    if (notif.type === 'battle') {
+    if (notif.type === 'threat' && onOpenTransitRadar) {
+      onOpenTransitRadar();
+    } else if (notif.type === 'battle') {
       onOpenBattles();
     } else if (notif.type === 'research') {
       onOpenResearch();

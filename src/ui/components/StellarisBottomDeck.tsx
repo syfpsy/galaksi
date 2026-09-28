@@ -16,6 +16,7 @@ import {
   Maximize2,
   Navigation,
   Pickaxe,
+  Radio,
   Rocket,
   RotateCcw,
   Shield,
@@ -49,6 +50,7 @@ interface StellarisBottomDeckProps {
   onRecallFleet?: (fleetId: string) => void;
   onOpenShipyard?: () => void;
   onOpenResearch?: () => void;
+  onOpenTransitRadar?: () => void;
 }
 
 export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
@@ -70,6 +72,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
   onRecallFleet,
   onOpenShipyard,
   onOpenResearch,
+  onOpenTransitRadar,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'fleets' | 'shipyard' | 'buildings' | 'research'>('all');
@@ -306,17 +309,32 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                sound.playClick();
-                setIsExpanded(false);
-              }}
-              className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1 transition-all"
-              title="Alt Paneli Daralt"
-            >
-              <span>Daralt</span>
-              <ChevronDown className="w-3.5 h-3.5" />
-            </button>
+            <div className="flex items-center gap-2">
+              {onOpenTransitRadar && (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onOpenTransitRadar();
+                  }}
+                  className="px-2.5 py-1 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm"
+                  title="Detaylı Taktik İntikal Radarını Aç"
+                >
+                  <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                  <span>Taktik Radar</span>
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setIsExpanded(false);
+                }}
+                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1 transition-all"
+                title="Alt Paneli Daralt"
+              >
+                <span>Daralt</span>
+                <ChevronDown className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
 
           {/* Dashboard Scrollable Body */}

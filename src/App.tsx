@@ -28,6 +28,7 @@ import { PlanetPanel } from './ui/components/PlanetPanel';
 import { RelayModal } from './ui/components/RelayModal';
 import { ResearchModal } from './ui/components/ResearchModal';
 import { ShipyardModal } from './ui/components/ShipyardModal';
+import { FleetTransitRadarModal } from './ui/components/FleetTransitRadarModal';
 import { SystemInspectionModal } from './ui/components/SystemInspectionModal';
 import { TopBar } from './ui/components/TopBar';
 import { StellarisLeftRail } from './ui/components/StellarisLeftRail';
@@ -42,6 +43,7 @@ type LeftPanelType =
   | 'planets'
   | 'shipyard'
   | 'research'
+  | 'transit_radar'
   | 'situation'
   | 'battles'
   | 'alliance'
@@ -116,24 +118,28 @@ export function App() {
       } else if (e.key === 'F4') {
         e.preventDefault();
         sound.playClick();
-        setIsCommandPanelOpen((prev) => !prev);
+        setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'));
       } else if (e.key === 'F5') {
         e.preventDefault();
         sound.playClick();
-        setActiveLeftPanel((prev) => (prev === 'situation' ? null : 'situation'));
+        setIsCommandPanelOpen((prev) => !prev);
       } else if (e.key === 'F6') {
         e.preventDefault();
         sound.playClick();
-        setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'));
+        setActiveLeftPanel((prev) => (prev === 'situation' ? null : 'situation'));
       } else if (e.key === 'F7') {
         e.preventDefault();
         sound.playClick();
-        setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'));
+        setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'));
       } else if (e.key === 'F8') {
         e.preventDefault();
         sound.playClick();
         setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'));
       } else if (e.key === 'F9') {
+        e.preventDefault();
+        sound.playClick();
+        setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'));
+      } else if (e.key === 'F10') {
         e.preventDefault();
         sound.playClick();
         setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'));
@@ -235,6 +241,24 @@ export function App() {
   );
   const activePlanet = myPlanets.find((p) => p.id === activePlanetId) || myPlanets[0];
   const activePlayer = engineState.players[activePlayerId];
+
+  // Active player moving fleets & incoming threats
+  const movingFleetsCount = Object.values(engineState.fleets).filter(
+    (f) =>
+      f.ownerId === activePlayerId &&
+      (f.status === 'in_transit' || f.status === 'returning' || f.status === 'intercepting')
+  ).length;
+
+  const threatsCount = Object.values(engineState.fleets).filter((f) => {
+    if (f.ownerId === activePlayerId || f.status === 'destroyed') return false;
+    if (f.targetPlanetId && engineState.planets[f.targetPlanetId]?.ownerId === activePlayerId) {
+      return true;
+    }
+    const isTargetSystemMyColony = Object.values(engineState.planets).some(
+      (p) => p.ownerId === activePlayerId && p.systemId === f.targetSystemId
+    );
+    return isTargetSystemMyColony && f.mission === 'attack';
+  }).length;
 
   // Command handlers
   const handleUpgradeBuilding = (planetId: string, buildingType: BuildingType) => {
@@ -434,6 +458,7 @@ export function App() {
         onOpenPlanetPanel={() => setActiveLeftPanel((prev) => (prev === 'planets' ? null : 'planets'))}
         onOpenShipyard={() => setActiveLeftPanel((prev) => (prev === 'shipyard' ? null : 'shipyard'))}
         onOpenResearch={() => setActiveLeftPanel((prev) => (prev === 'research' ? null : 'research'))}
+        onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
         onOpenBattles={() => setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'))}
         onOpenRelay={() => setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'))}
         onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
@@ -455,12 +480,15 @@ export function App() {
           onToggleCommandPanel={() => setIsCommandPanelOpen(!isCommandPanelOpen)}
           onOpenShipyard={() => setActiveLeftPanel((prev) => (prev === 'shipyard' ? null : 'shipyard'))}
           onOpenResearch={() => setActiveLeftPanel((prev) => (prev === 'research' ? null : 'research'))}
+          onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
           onOpenSituationLog={() => setActiveLeftPanel((prev) => (prev === 'situation' ? null : 'situation'))}
           onOpenBattles={() => setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'))}
           onOpenRelay={() => setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'))}
           onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
+          movingFleetsCount={movingFleetsCount}
+          threatsCount={threatsCount}
           unreadBattlesCount={engineState.battleReports.length}
           isRelayControlled={engineState.relay.controllingPlayerId === activePlayerId}
           planetsCount={myPlanets.length}
@@ -512,6 +540,35 @@ export function App() {
                 onClose={() => setActiveLeftPanel(null)}
                 onStartResearch={handleStartResearch}
                 currentTimeMs={engineState.timeMs}
+              />
+            )}
+
+            {activeLeftPanel === 'transit_radar' && (
+              <FleetTransitRadarModal
+                state={engineState}
+                activePlayerId={activePlayerId}
+                isOpen={true}
+                isDocked={true}
+                onClose={() => setActiveLeftPanel(null)}
+                onFocusFleet={(fleetId) => {
+                  const fl = engineState.fleets[fleetId];
+                  if (fl) {
+                    setSelectedTarget({
+                      type: 'fleet',
+                      systemId: fl.targetSystemId,
+                      fleetId: fl.id,
+                    });
+                  }
+                }}
+                onFocusSystem={(sysId) => {
+                  setSelectedTarget({ type: 'system', systemId: sysId });
+                }}
+                onSelectPlanet={(sysId, planetId) => {
+                  setSelectedTarget({ type: 'planet', systemId: sysId, planetId });
+                  setActivePlanetId(planetId);
+                }}
+                onRecallFleet={handleRecallFleet}
+                onOpenCommandPanel={() => setIsCommandPanelOpen(true)}
               />
             )}
 
@@ -581,6 +638,7 @@ export function App() {
           <IncomingThreatBanner
             state={engineState}
             activePlayerId={activePlayerId}
+            onOpenRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
             onTargetThreat={(threat) => {
               handleTargetThreat(threat);
               setIsCommandPanelOpen(true);
@@ -602,6 +660,7 @@ export function App() {
             onOpenResearch={() => setActiveLeftPanel('research')}
             onOpenShipyard={() => setActiveLeftPanel('shipyard')}
             onOpenSituationLog={() => setActiveLeftPanel('situation')}
+            onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
           />
 
           <GalaxyMap
@@ -635,6 +694,7 @@ export function App() {
             onRecallFleet={handleRecallFleet}
             onOpenShipyard={() => setActiveLeftPanel('shipyard')}
             onOpenResearch={() => setActiveLeftPanel('research')}
+            onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
           />
 
           {/* Stellaris Fleet Inspector Bottom Card HUD */}
