@@ -20,6 +20,7 @@ import {
   TriangleAlert,
   Truck,
   X,
+  Zap,
 } from 'lucide-react';
 import { calculateRouteInfo, checkInterceptionFeasibility } from '../../engine/flight';
 import { calculatePlanetOrbit } from '../../engine/orbital';
@@ -143,17 +144,25 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
     return cap;
   }, [ships]);
 
-  // Auto configure for colonize and transport missions
+  // Mission selection handler with clean resets to avoid glitching
   const handleSelectMission = (mission: MissionType) => {
     setSelectedMission(mission);
     if (mission === 'colonize') {
-      setShips((prev) => ({ ...prev, transport: Math.max(1, prev.transport) }));
+      const availTransports = garrison.transport || 0;
+      setShips((prev) => ({ ...prev, transport: Math.max(1, Math.min(availTransports, Math.max(1, prev.transport))) }));
       setCargo({ ...GAME_CONSTANTS.COLONY_COST });
     } else if (mission === 'transport') {
+      // If targeting debris, keep cargo clean (0) so ship can scoop debris
+      if (targetSystem?.hasDebris && (!targetPlanet || targetPlanet.ownerId !== activePlayerId)) {
+        setCargo({ ore: 0, crystal: 0, fuel: 0 });
+      }
       setShips((prev) => ({
         ...prev,
         transport: prev.transport > 0 ? prev.transport : (garrison.transport > 0 ? 1 : 0),
       }));
+    } else {
+      // Clear cargo when switching away to missions that don't carry cargo
+      setCargo({ ore: 0, crystal: 0, fuel: 0 });
     }
   };
 
@@ -193,6 +202,8 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
           handleSelectMission('explore');
         } else if (sys.hasRelay) {
           handleSelectMission('support');
+        } else if (sys.hasDebris && (sys.hasDebris.ore > 0 || sys.hasDebris.crystal > 0)) {
+          handleSelectMission('transport');
         }
       }
     }
@@ -354,28 +365,44 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
     return null;
   }, [selectedMission, totalSelectedShips, ships, activePlayer, targetFleet, selectedTarget, state.planets, state.players]);
 
+  // Military power calculation for selected fleet
+  const selectedFleetPower = useMemo(() => {
+    return (
+      (ships.battleship || 0) * 140 +
+      (ships.fighter || 0) * 35 +
+      (ships.scout || 0) * 12 +
+      (ships.transport || 0) * 6
+    );
+  }, [ships]);
+
   return (
-    <aside className="w-[380px] min-w-[380px] max-w-[380px] shrink-0 h-full border-l border-[#1b314d] bg-[#080d19]/98 backdrop-blur-xl flex flex-col z-20 select-none overflow-hidden shadow-2xl">
+    <aside className="w-[390px] min-w-[390px] max-w-[390px] shrink-0 h-full border-l border-[#1c3647] stellaris-outliner flex flex-col z-20 select-none overflow-hidden shadow-2xl">
       {/* Top Tabs: Dispatch vs Active Fleets & Close Button */}
-      <div className="flex items-center justify-between border-b border-slate-800 bg-space-850/60 p-1">
-        <div className="flex flex-1 gap-1">
+      <div className="p-2 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
+        <div className="flex flex-1 gap-1.5 bg-[#091522]/80 p-1 rounded border border-[#142d3d]">
           <button
-            onClick={() => setActiveTab('dispatch')}
-            className={`flex-1 py-1.5 text-xs font-medium rounded transition-all flex items-center justify-center gap-1.5 ${
+            onClick={() => {
+              sound.playClick();
+              setActiveTab('dispatch');
+            }}
+            className={`flex-1 py-1 px-2 text-[11px] font-mono tracking-wider uppercase rounded transition-all flex items-center justify-center gap-1.5 ${
               activeTab === 'dispatch'
-                ? 'bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/40'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'stellaris-switcher-btn active font-bold shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-[#12283a]'
             }`}
           >
             <Send className="w-3.5 h-3.5" />
-            <span>Filo Sevkiyatı</span>
+            <span>Sevkiyat</span>
           </button>
           <button
-            onClick={() => setActiveTab('active_fleets')}
-            className={`flex-1 py-1.5 text-xs font-medium rounded transition-all flex items-center justify-center gap-1.5 relative ${
+            onClick={() => {
+              sound.playClick();
+              setActiveTab('active_fleets');
+            }}
+            className={`flex-1 py-1 px-2 text-[11px] font-mono tracking-wider uppercase rounded transition-all flex items-center justify-center gap-1.5 relative ${
               activeTab === 'active_fleets'
-                ? 'bg-cyber-cyan/20 text-cyber-cyan border border-cyber-cyan/40'
-                : 'text-slate-400 hover:text-slate-200'
+                ? 'stellaris-switcher-btn active font-bold shadow-sm'
+                : 'text-slate-400 hover:text-slate-200 hover:bg-[#12283a]'
             }`}
           >
             <Navigation className="w-3.5 h-3.5" />
@@ -389,7 +416,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               sound.playClick();
               onClose();
             }}
-            className="p-1.5 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors ml-1"
+            className="p-1.5 rounded ml-2 text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
             title="Paneli Kapat"
           >
             <X className="w-4 h-4" />
@@ -399,14 +426,19 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
       {activeTab === 'active_fleets' ? (
         /* Active Fleets In Flight */
-        <div className="flex-1 overflow-y-auto p-3 pb-32 space-y-2.5">
-          <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">
-            Yoldaki Filolarınız
+        <div className="flex-1 overflow-y-auto p-3 space-y-2.5">
+          <div className="stellaris-section-header px-2 py-1 text-[10px] font-mono uppercase tracking-wider flex items-center justify-between">
+            <span>Yoldaki Filolarınız</span>
+            <span className="text-[#3ca8d1]">{myActiveFleets.length} Aktif</span>
           </div>
 
           {myActiveFleets.length === 0 ? (
-            <div className="text-xs text-slate-500 text-center py-8">
-              Aktif uçuşta filonuz bulunmuyor.
+            <div className="stellaris-item-card text-xs text-slate-400 text-center py-10 p-4 border-dashed border-[#1c3647]">
+              <Navigation className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-50" />
+              <span>Aktif uçuşta filonuz bulunmuyor.</span>
+              <p className="text-[10px] text-slate-500 mt-1">
+                Hedef seçip filolarınızı yeni keşif veya harekat görevlerine sevk edebilirsiniz.
+              </p>
             </div>
           ) : (
             myActiveFleets.map((fleet) => {
@@ -415,56 +447,58 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               const canRecall = currentTimeMs < fleet.recallLockedAfterTime && !fleet.isReturning;
               const totalShips = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
               const targetSys = state.map.systems[fleet.targetSystemId];
+              const fleetPower =
+                (fleet.ships.battleship || 0) * 140 +
+                (fleet.ships.fighter || 0) * 35 +
+                (fleet.ships.scout || 0) * 12 +
+                (fleet.ships.transport || 0) * 6;
 
               return (
                 <div
                   key={fleet.id}
-                  className="bg-space-850/90 border border-slate-800 rounded-lg p-3 space-y-2"
+                  className="stellaris-item-card p-3 space-y-2 border border-[#1c3647] hover:border-[#3885a8] transition-all"
                 >
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-semibold text-slate-200 font-display">
+                    <span className="text-xs font-semibold text-slate-100 font-display">
                       {fleet.name}
                     </span>
-                    <span className="text-[10px] font-mono text-cyber-cyan bg-space-900 px-1.5 py-0.5 rounded border border-slate-800 uppercase">
+                    <span className="text-[10px] font-mono text-[#3ca8d1] bg-[#07131e] px-2 py-0.5 rounded border border-[#1c3647] uppercase font-bold">
                       {fleet.isReturning ? 'Dönüşte' : fleet.mission}
                     </span>
                   </div>
 
-                  <div className="text-[11px] text-slate-400 font-mono flex items-center justify-between">
+                  <div className="text-[11px] text-slate-300 font-mono flex items-center justify-between">
                     <span>Hedef: {targetSys?.name || fleet.targetSystemId}</span>
-                    <span className="text-cyber-cyan font-bold">
+                    <span className="text-[#3ca8d1] font-bold">
                       {formatDuration(remainingMs)}
                     </span>
                   </div>
 
-                  <div className="text-[10px] text-slate-500 font-mono flex items-center justify-between">
-                    <span>Varış Saati: {formatClockTime(fleet.arrivalTime)}</span>
-                    {canRecall ? (
-                      <span className="text-amber-400 font-medium">
-                        Dönüş İzni: {formatDuration(remainingRecallWindowMs)}
-                      </span>
-                    ) : (
-                      <span className="text-rose-400">🔒 Kilitlendi</span>
-                    )}
+                  <div className="text-[10px] text-slate-400 font-mono flex items-center justify-between">
+                    <span>Varış: {formatClockTime(fleet.arrivalTime)}</span>
+                    <span className="stellaris-power text-[11px]">⚡ {fleetPower}</span>
                   </div>
 
-                  {/* Recall Button with Locked warning */}
-                  <div className="pt-1 flex items-center justify-between border-t border-slate-800/80">
-                    <span className="text-[10px] text-slate-500 font-mono">
+                  <div className="text-[10px] font-mono flex items-center justify-between pt-1 border-t border-[#18374b]/60">
+                    <span className="text-slate-400">
                       {totalShips} Gemi • Yakıt: {fleet.fuelCost}
                     </span>
 
                     {canRecall ? (
                       <button
-                        onClick={() => onRecallFleet(fleet.id)}
-                        className="flex items-center gap-1 px-2.5 py-1 rounded text-[10px] font-medium bg-rose-500/20 text-rose-400 border border-rose-500/40 hover:bg-rose-500/30 transition-all"
+                        onClick={() => {
+                          sound.playClick();
+                          onRecallFleet(fleet.id);
+                        }}
+                        className="flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950/60 text-rose-300 border border-rose-500/50 hover:bg-rose-900/60 transition-all shadow-sm"
+                        title="Filoyu geri çağır"
                       >
                         <RotateCcw className="w-3 h-3" />
-                        <span>Geri Çağır</span>
+                        <span>Geri Çağır ({formatDuration(remainingRecallWindowMs)})</span>
                       </button>
                     ) : (
-                      <span className="text-[9px] text-slate-500 italic">
-                        {fleet.isReturning ? 'Dönüş rotasında' : '🔒 Son yaklaşma kilitlendi'}
+                      <span className="text-[10px] text-slate-500 italic">
+                        {fleet.isReturning ? 'Dönüş rotasında' : '🔒 %50 Kilidi Devrede'}
                       </span>
                     )}
                   </div>
@@ -475,37 +509,47 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
         </div>
       ) : (
         /* Dispatch Form */
-        <div className="flex-1 overflow-y-auto p-3 pb-32 space-y-3">
+        <div className="flex-1 overflow-y-auto p-3 space-y-3.5">
           {/* Target System Header */}
           {targetSystem ? (
-            <div className="bg-space-850/90 border border-slate-800 rounded-lg p-3">
-              <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">
-                Hedef Konum
+            <div className="stellaris-item-card p-3 space-y-2 border border-[#234b66]">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono text-[#3ca8d1] uppercase tracking-wider font-semibold">
+                  Hedef Koordinat
+                </span>
+                <span className="text-[10px] font-mono text-slate-400">
+                  ({targetSystem.x}, {targetSystem.y})
+                </span>
               </div>
-              <div className="text-sm font-bold text-slate-100 font-display flex items-center gap-2">
-                {targetSystem.name}
+
+              <div className="text-sm font-bold text-slate-100 font-display flex items-center justify-between">
+                <span className="flex items-center gap-2">
+                  <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#3ca8d1]" />
+                  {targetSystem.name} SİSTEMİ
+                </span>
                 {targetSystem.hasRelay && (
-                  <span className="text-[9px] bg-purple-500/20 text-purple-300 border border-purple-500/30 px-1.5 py-0.2 rounded font-mono">
+                  <span className="text-[9px] bg-purple-950/80 text-purple-300 border border-purple-500/50 px-2 py-0.5 rounded font-mono font-bold">
                     NEXUS RÖLESİ
                   </span>
                 )}
               </div>
-              <div className="text-[11px] text-slate-400 mt-1 flex items-center gap-3">
+
+              <div className="text-[11px] text-slate-300 flex items-center gap-3 pt-1 border-t border-[#18374b]/60 font-mono">
                 <span>{targetSystem.slots.length} Gezegen Yuvası</span>
                 {targetSystem.poi && !targetSystem.poi.explored && (
-                  <span className="text-amber-400 flex items-center gap-1">
-                    <Sparkles className="w-3 h-3" /> POI Mevcut
+                  <span className="text-amber-400 flex items-center gap-1 font-bold">
+                    <Sparkles className="w-3 h-3" /> Anomali Mevcut
                   </span>
                 )}
                 {targetSystem.hasDebris && (targetSystem.hasDebris.ore > 0 || targetSystem.hasDebris.crystal > 0) && (
-                  <span className="text-rose-400">Enkaz Alanı</span>
+                  <span className="text-amber-300 font-bold">Enkaz Alanı</span>
                 )}
               </div>
 
               {/* Target Planet & Orbital Rendezvous Telemetry */}
               {targetSlot && targetPlanetOrbit && (
-                <div className="mt-2.5 p-2.5 bg-space-950/80 border border-cyber-cyan/30 rounded-lg space-y-1.5 font-mono text-[11px]">
-                  <div className="flex items-center justify-between border-b border-slate-800 pb-1">
+                <div className="mt-2 p-2 bg-[#06121c] border border-[#1b3e54] rounded space-y-1.5 font-mono text-[11px]">
+                  <div className="flex items-center justify-between border-b border-[#18374b] pb-1">
                     <span className="font-bold text-slate-100 flex items-center gap-1.5">
                       <span
                         className="w-2 h-2 rounded-full inline-block"
@@ -513,7 +557,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                       />
                       {targetSlot.name}
                     </span>
-                    <span className="text-[9.5px] text-cyber-cyan uppercase px-1 rounded bg-cyber-cyan/10">
+                    <span className="text-[9.5px] text-[#3ca8d1] uppercase px-1.5 py-0.5 rounded bg-[#0b2233] border border-[#1c445c]">
                       {targetSlot.type}
                     </span>
                   </div>
@@ -531,7 +575,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                     </div>
                     <div>
                       <span className="text-slate-500 block text-[9px]">Açısal Hız</span>
-                      <span className="text-cyber-cyan">{targetPlanetOrbit.speedDegPerHour}° / saat</span>
+                      <span className="text-[#3ca8d1]">{targetPlanetOrbit.speedDegPerHour}° / sa</span>
                     </div>
                     <div>
                       <span className="text-slate-500 block text-[9px]">Mesafe</span>
@@ -540,8 +584,8 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                   </div>
 
                   {projectedArrivalAngleDeg !== null && routeInfo && (
-                    <div className="pt-1.5 border-t border-slate-800 text-[10px] bg-cyber-cyan/5 -mx-1 px-1 py-1 rounded">
-                      <div className="flex items-center justify-between text-cyber-cyan">
+                    <div className="pt-1.5 border-t border-[#18374b] text-[10px] bg-[#0c2438]/40 -mx-1 px-1.5 py-1 rounded">
+                      <div className="flex items-center justify-between text-[#3ca8d1]">
                         <span>🎯 Varış Randevusu:</span>
                         <span className="font-bold">{projectedArrivalAngleDeg}°</span>
                       </div>
@@ -562,29 +606,39 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
               {/* Debris Quick Salvage Action */}
               {targetSystem.hasDebris && (targetSystem.hasDebris.ore > 0 || targetSystem.hasDebris.crystal > 0) && (
-                <div className="mt-2.5 p-2 bg-amber-500/10 border border-amber-500/30 rounded flex items-center justify-between">
+                <div className="mt-2 p-2.5 bg-amber-950/30 border border-amber-500/40 rounded flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-amber-400 font-mono font-bold block">
-                      ⚙️ Enkaz: {targetSystem.hasDebris.ore}C, {targetSystem.hasDebris.crystal}K
+                    <span className="text-[10px] text-amber-300 font-mono font-bold block">
+                      ⚙️ Enkaz: {targetSystem.hasDebris.ore} Cevher, {targetSystem.hasDebris.crystal} Kristal
                     </span>
                     <span className="text-[9px] text-slate-400">
-                      Gereken: {Math.ceil((targetSystem.hasDebris.ore + targetSystem.hasDebris.crystal) / SHIP_STATS.transport.cargoCapacity)} Nakliye
+                      Gereken: {Math.max(1, Math.ceil(((targetSystem.hasDebris.ore || 0) + (targetSystem.hasDebris.crystal || 0)) / SHIP_STATS.transport.cargoCapacity))} Nakliye Gemisi
+                      {garrison.transport === 0 && (
+                        <span className="text-rose-400 block font-bold mt-0.5">
+                          ⚠️ Garnizonda Nakliye Gemisi yok!
+                        </span>
+                      )}
                     </span>
                   </div>
                   <button
                     onClick={() => {
                       if (!targetSystem?.hasDebris) return;
+                      sound.playClick();
                       const debrisTotal = (targetSystem.hasDebris.ore || 0) + (targetSystem.hasDebris.crystal || 0);
                       const needed = Math.max(1, Math.ceil(debrisTotal / SHIP_STATS.transport.cargoCapacity));
-                      handleSelectMission('transport');
+                      setSelectedMission('transport');
+                      // Clear cargo: Salvage transports fly empty to pick up debris from space!
+                      setCargo({ ore: 0, crystal: 0, fuel: 0 });
+                      const availTransports = garrison.transport || 0;
+                      const toSend = Math.min(availTransports, needed);
                       setShips({
                         scout: 0,
-                        transport: Math.min(garrison.transport, needed),
-                        fighter: garrison.fighter > 0 ? 1 : 0,
+                        transport: toSend > 0 ? toSend : (availTransports > 0 ? 1 : 0),
+                        fighter: (garrison.fighter || 0) > 0 ? 1 : 0,
                         battleship: 0,
                       });
                     }}
-                    className="px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/40 text-amber-300 rounded text-[10px] font-mono font-bold transition-colors"
+                    className="px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 rounded text-[10px] font-mono font-bold transition-all shadow-sm active:scale-95"
                   >
                     Enkazı Topla
                   </button>
@@ -593,25 +647,26 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
               {/* Target Protection / Vacation Mode Alert Banner */}
               {targetProtectionStatus?.isBlocked && (
-                <div className="mt-2.5 p-2 bg-rose-500/15 border border-rose-500/40 rounded flex items-center gap-2 text-rose-300 text-xs">
+                <div className="mt-2 p-2 bg-rose-950/40 border border-rose-500/50 rounded flex items-center gap-2 text-rose-300 text-xs">
                   <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
                   <span>{targetProtectionStatus.reason}</span>
                 </div>
               )}
             </div>
           ) : (
-            <div className="bg-space-850/40 border border-dashed border-slate-800 rounded-lg p-4 text-center text-xs text-slate-400">
-              Haritadan bir yıldız sistemi, filo veya röle seçin.
+            <div className="stellaris-item-card border-dashed border-[#1c3647] p-5 text-center text-xs text-slate-400">
+              <Compass className="w-8 h-8 text-slate-600 mx-auto mb-2 opacity-60" />
+              <span>Haritadan bir yıldız sistemi, filo veya koloni seçin.</span>
             </div>
           )}
 
           {/* Mission Selector Tabs */}
           {targetSystem && (
             <div>
-              <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">
+              <div className="stellaris-section-header px-2 py-1 text-[10px] font-mono uppercase tracking-wider mb-2">
                 Görev Türü
               </div>
-              <div className="grid grid-cols-3 gap-1">
+              <div className="grid grid-cols-3 gap-1.5">
                 {[
                   { id: 'explore', label: 'Keşfet', icon: Compass },
                   { id: 'transport', label: 'Taşı/Topla', icon: Truck },
@@ -621,20 +676,24 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                   { id: 'colonize', label: 'Koloni', icon: Sparkles },
                 ].map(({ id, label, icon: Icon }) => {
                   const isEligible = eligibleMissions.includes(id as MissionType);
+                  const isCurrent = selectedMission === id;
                   return (
                     <button
                       key={id}
                       disabled={!isEligible}
-                      onClick={() => handleSelectMission(id as MissionType)}
-                      className={`p-1.5 rounded text-[11px] font-medium flex items-center justify-center gap-1 transition-all ${
-                        selectedMission === id
-                          ? 'bg-cyber-cyan/20 border border-cyber-cyan/50 text-cyber-cyan font-bold'
+                      onClick={() => {
+                        sound.playClick();
+                        handleSelectMission(id as MissionType);
+                      }}
+                      className={`p-2 rounded text-[11px] font-mono font-medium flex items-center justify-center gap-1.5 transition-all ${
+                        isCurrent
+                          ? 'bg-[#153448] border border-[#3ca8d1] text-cyan-300 font-bold shadow-[0_0_10px_rgba(60,168,209,0.3)]'
                           : isEligible
-                          ? 'bg-space-850 border border-slate-800 text-slate-300 hover:border-slate-700'
-                          : 'bg-space-900 border border-slate-800/40 text-slate-600 cursor-not-allowed'
+                          ? 'bg-[#0d1e2b] border border-[#1b3a4f] text-slate-300 hover:border-[#3885a8] hover:text-white'
+                          : 'bg-[#09131c]/60 border border-[#142633]/60 text-slate-600 cursor-not-allowed opacity-50'
                       }`}
                     >
-                      <Icon className="w-3 h-3" />
+                      <Icon className="w-3.5 h-3.5" />
                       <span>{label}</span>
                     </button>
                   );
@@ -645,9 +704,11 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
           {/* Ship Selection Sliders */}
           <div>
-            <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1.5">
+            <div className="stellaris-section-header px-2 py-1 text-[10px] font-mono uppercase tracking-wider mb-2 flex items-center justify-between">
               <span>Sevk Edilecek Gemiler</span>
-              <span className="text-cyber-cyan">Toplam: {totalSelectedShips}</span>
+              <span className="stellaris-power text-[11px]">
+                {totalSelectedShips} Gemi (⚡ {selectedFleetPower})
+              </span>
             </div>
 
             <div className="space-y-2">
@@ -659,12 +720,17 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                 return (
                   <div
                     key={st}
-                    className="bg-space-850/80 border border-slate-800 rounded p-2 text-xs"
+                    className="stellaris-item-card p-2 text-xs border border-[#1c3647]"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-slate-200">{stats.nameTr}</span>
-                      <span className="font-mono text-slate-400 text-[11px]">
-                        Garnizon: {available}
+                      <span className="font-semibold text-slate-100 flex items-center gap-1.5">
+                        <span className="text-[#3ca8d1] font-mono font-bold">
+                          {st === 'battleship' ? '🛡️' : st === 'fighter' ? '⚔️' : st === 'transport' ? '📦' : '🔭'}
+                        </span>
+                        {stats.nameTr}
+                      </span>
+                      <span className="font-mono text-slate-400 text-[10px]">
+                        Garnizon: <span className="text-slate-200 font-bold">{available}</span>
                       </span>
                     </div>
 
@@ -678,9 +744,17 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                         onChange={(e) =>
                           setShips((prev) => ({ ...prev, [st]: parseInt(e.target.value) || 0 }))
                         }
-                        className="flex-1 accent-cyber-cyan h-1.5 bg-space-900 rounded"
+                        className="flex-1 accent-[#3ca8d1] h-1.5 bg-[#081521] rounded cursor-pointer disabled:cursor-not-allowed"
                       />
-                      <span className="font-mono text-xs w-6 text-right font-bold text-cyber-cyan">
+                      <button
+                        type="button"
+                        disabled={available === 0}
+                        onClick={() => setShips((prev) => ({ ...prev, [st]: available }))}
+                        className="px-1.5 py-0.5 rounded text-[9px] font-mono border border-[#1c3d52] bg-[#0d2232] text-slate-300 hover:text-white disabled:opacity-30"
+                      >
+                        Tümü
+                      </button>
+                      <span className="font-mono text-xs w-6 text-right font-bold text-[#3ca8d1]">
                         {selected}
                       </span>
                     </div>
@@ -692,9 +766,15 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
           {/* Cargo Controls (Enabled for transport / colonize) */}
           {(selectedMission === 'transport' || selectedMission === 'colonize') && (
-            <div className="bg-[#0b1426] border border-[#1b314d] rounded-lg p-2.5 space-y-2">
+            <div className="stellaris-item-card p-2.5 space-y-2 border border-[#234b66]">
               <div className="flex items-center justify-between text-[10px] font-mono uppercase tracking-wider">
-                <span className="text-slate-300 font-bold">Taşınacak Kaynak (Yük)</span>
+                <span className="text-slate-200 font-bold">
+                  {selectedMission === 'colonize'
+                    ? 'Koloni Teçhizatı (Gereksinim)'
+                    : targetSystem?.hasDebris && (!targetPlanet || targetPlanet.ownerId !== activePlayerId)
+                    ? 'Kurtarma Operasyonu (Enkaz Toplama)'
+                    : 'Taşınacak Kaynak (Yük)'}
+                </span>
                 <span
                   className={
                     isCargoOverCapacity
@@ -705,15 +785,21 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                   }
                 >
                   {totalCargoCap === 0
-                    ? 'Kapasite: 0 (Nakliye Gemisi seçin)'
+                    ? 'Kapasite: 0 (Nakliye seçin)'
                     : isCargoOverCapacity
-                    ? `⚠️ Kapasite Aşıldı: ${totalCargoWeight.toLocaleString()} / ${totalCargoCap.toLocaleString()}`
+                    ? `⚠️ Aşım: ${totalCargoWeight.toLocaleString()} / ${totalCargoCap.toLocaleString()}`
                     : `Kapasite: ${totalCargoWeight.toLocaleString()} / ${totalCargoCap.toLocaleString()}`}
                 </span>
               </div>
 
+              {selectedMission === 'transport' && targetSystem?.hasDebris && (!targetPlanet || targetPlanet.ownerId !== activePlayerId) && (
+                <div className="text-[10px] text-amber-300/90 font-mono bg-amber-950/30 p-2 rounded border border-amber-500/30">
+                  ℹ️ Enkaz alanına sevk edilen nakliye filoları boş hareket eder ve sistemdeki sahipsiz cevher/kristalleri toplayarak otomatik üsse getirir.
+                </div>
+              )}
+
               <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-                <div className="bg-[#060b14] p-2 rounded border border-slate-800">
+                <div className="bg-[#081521] p-2 rounded border border-[#18374b]">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-amber-400 text-[10px] font-bold">Cevher</span>
                     <span className="text-[9px] text-slate-400">{Math.floor(activePlanet?.resources.ore || 0)}</span>
@@ -729,12 +815,12 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                       const maxAvail = Math.floor(activePlanet?.resources.ore || 0);
                       setCargo((prev) => ({ ...prev, ore: Math.min(maxAvail, val) }));
                     }}
-                    className="w-full bg-transparent text-slate-100 border-b border-slate-700 focus:border-amber-400 focus:outline-none text-xs"
+                    className="w-full bg-transparent text-slate-100 border-b border-[#1c3d52] focus:border-amber-400 focus:outline-none text-xs"
                   />
                 </div>
-                <div className="bg-[#060b14] p-2 rounded border border-slate-800">
+                <div className="bg-[#081521] p-2 rounded border border-[#18374b]">
                   <div className="flex items-center justify-between mb-1">
-                    <span className="text-cyber-cyan text-[10px] font-bold">Kristal</span>
+                    <span className="text-[#3ca8d1] text-[10px] font-bold">Kristal</span>
                     <span className="text-[9px] text-slate-400">{Math.floor(activePlanet?.resources.crystal || 0)}</span>
                   </div>
                   <input
@@ -748,10 +834,10 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                       const maxAvail = Math.floor(activePlanet?.resources.crystal || 0);
                       setCargo((prev) => ({ ...prev, crystal: Math.min(maxAvail, val) }));
                     }}
-                    className="w-full bg-transparent text-slate-100 border-b border-slate-700 focus:border-cyan-400 focus:outline-none text-xs"
+                    className="w-full bg-transparent text-slate-100 border-b border-[#1c3d52] focus:border-[#3ca8d1] focus:outline-none text-xs"
                   />
                 </div>
-                <div className="bg-[#060b14] p-2 rounded border border-slate-800">
+                <div className="bg-[#081521] p-2 rounded border border-[#18374b]">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-rose-400 text-[10px] font-bold">Yakıt</span>
                     <span className="text-[9px] text-slate-400">{Math.floor(activePlanet?.resources.fuel || 0)}</span>
@@ -767,7 +853,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                       const maxAvail = Math.floor(activePlanet?.resources.fuel || 0);
                       setCargo((prev) => ({ ...prev, fuel: Math.min(maxAvail, val) }));
                     }}
-                    className="w-full bg-transparent text-slate-100 border-b border-slate-700 focus:border-rose-400 focus:outline-none text-xs"
+                    className="w-full bg-transparent text-slate-100 border-b border-[#1c3d52] focus:border-rose-400 focus:outline-none text-xs"
                   />
                 </div>
               </div>
@@ -786,14 +872,14 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                     setCargo({ ore, crystal: cry, fuel: 0 });
                   }}
                   disabled={totalCargoCap === 0}
-                  className="px-2 py-0.5 rounded text-[10px] font-mono border border-cyan-500/40 bg-cyan-950/40 text-cyan-300 hover:bg-cyan-900/60 disabled:opacity-40 transition-colors"
+                  className="px-2 py-0.5 rounded text-[10px] font-mono border border-[#234b66] bg-[#0c2233] text-cyan-300 hover:bg-[#123149] disabled:opacity-40 transition-colors"
                 >
                   Oto Doldur (Cevher+Kristal)
                 </button>
                 <button
                   type="button"
                   onClick={() => setCargo({ ore: 0, crystal: 0, fuel: 0 })}
-                  className="px-2 py-0.5 rounded text-[10px] font-mono border border-slate-700 bg-slate-900 text-slate-400 hover:text-slate-200 transition-colors"
+                  className="px-2 py-0.5 rounded text-[10px] font-mono border border-[#18374b] bg-[#091522] text-slate-400 hover:text-slate-200 transition-colors"
                 >
                   Sıfırla
                 </button>
@@ -803,25 +889,28 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
           {/* Pre-Flight Preview Card */}
           {routeInfo && (
-            <div className="bg-space-850/90 border border-slate-800 rounded-lg p-2.5 space-y-1.5 text-xs font-mono">
+            <div className="stellaris-item-card p-3 space-y-1.5 text-xs font-mono border border-[#1c3647]">
+              <div className="stellaris-section-header px-1.5 py-0.5 text-[10px] uppercase tracking-wider mb-1">
+                Uçuş Telemetrisi
+              </div>
               <div className="flex items-center justify-between text-slate-300">
                 <span>Uçuş Mesafesi:</span>
-                <span className="text-slate-100">{routeInfo.totalDistance} br</span>
+                <span className="text-slate-100 font-bold">{routeInfo.totalDistance} br</span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
                 <span>Tahmini Uçuş Süresi:</span>
-                <span className="text-cyber-cyan font-bold">
+                <span className="text-[#3ca8d1] font-bold">
                   {formatDuration(routeInfo.durationMs)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
-                <span>Tahmini Varış Saati:</span>
+                <span>Tahmini Varış:</span>
                 <span className="text-slate-200">
                   {formatClockTime(currentTimeMs + routeInfo.durationMs)}
                 </span>
               </div>
               <div className="flex items-center justify-between text-slate-300">
-                <span>Yakıt Bedeli:</span>
+                <span>Gerekli Yakıt:</span>
                 <span
                   className={
                     (activePlanet?.resources.fuel || 0) >= routeInfo.fuelCost
@@ -838,8 +927,8 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                 <div
                   className={`mt-2 p-2 rounded text-[11px] border ${
                     interceptCheck.canIntercept
-                      ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
-                      : 'bg-rose-500/10 border-rose-500/30 text-rose-300'
+                      ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
+                      : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
                   }`}
                 >
                   {interceptCheck.canIntercept ? (
@@ -863,19 +952,19 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
           {/* Tactical Combat Outcome Predictor (GDD Section 7 & 15) */}
           {combatPrediction && (
-            <div className="bg-space-850/90 border border-purple-500/40 rounded-lg p-3 space-y-2">
+            <div className="stellaris-item-card p-3 space-y-2 border border-purple-500/40">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-1.5 text-xs font-bold text-purple-300 font-display">
                   <Swords className="w-3.5 h-3.5 text-purple-400" />
                   <span>Taktik Muharebe Simülasyonu</span>
                 </div>
                 <span
-                  className={`text-[10px] font-mono px-1.5 py-0.5 rounded font-bold ${
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
                     combatPrediction.winRate >= 70
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+                      ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-500/50'
                       : combatPrediction.winRate >= 45
-                      ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
+                      ? 'bg-amber-950/70 text-amber-300 border border-amber-500/50'
+                      : 'bg-rose-950/70 text-rose-300 border border-rose-500/50'
                   }`}
                 >
                   {combatPrediction.isIntelClear
@@ -889,7 +978,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               </div>
 
               {combatPrediction.defenderShipsCount !== null && (
-                <div className="text-[10px] text-slate-400 flex items-center justify-between font-mono pt-1 border-t border-slate-800">
+                <div className="text-[10px] text-slate-400 flex items-center justify-between font-mono pt-1 border-t border-[#18374b]">
                   <span>Hedef Savunma Gücü:</span>
                   <span className="text-slate-200">{combatPrediction.defenderShipsCount} Gemi</span>
                 </div>
@@ -933,10 +1022,10 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                 );
               }
             }}
-            className="w-full py-2.5 px-4 rounded-lg bg-cyber-cyan text-space-950 font-bold font-display text-sm tracking-wide flex items-center justify-center gap-2 hover:bg-cyan-300 disabled:bg-slate-800 disabled:text-slate-500 disabled:cursor-not-allowed transition-all shadow-md shadow-cyber-cyan/10"
+            className="w-full py-2.5 px-4 rounded stellaris-btn-metallic text-cyan-200 font-bold font-mono tracking-wider text-xs uppercase flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg active:scale-98"
           >
-            <Send className="w-4 h-4" />
-            <span>Filoyu Sevk Et</span>
+            <Send className="w-4 h-4 text-[#3ca8d1]" />
+            <span>Filoyu Sevk Et (⚡ {selectedFleetPower})</span>
           </button>
         </div>
       )}

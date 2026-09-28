@@ -211,29 +211,29 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
 
   return (
     <aside
-      className={`w-[470px] min-w-[470px] max-w-[470px] shrink-0 h-full border-r border-[#1b314d] bg-[#070d1a]/98 backdrop-blur-xl flex flex-col z-30 select-none overflow-hidden shadow-2xl animate-fade-in ${
+      className={`w-[450px] min-w-[450px] max-w-[450px] shrink-0 h-full border-r border-[#1c3647] stellaris-outliner flex flex-col z-30 select-none overflow-hidden shadow-2xl animate-fade-in ${
         isDocked ? '' : 'fixed left-14 top-0 bottom-0'
       }`}
     >
       {/* Header */}
-      <div className="p-3.5 border-b border-slate-800 bg-[#091222]/90 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-cyan-950/70 border border-cyan-500/50 flex items-center justify-center text-cyan-400 shadow-md shadow-cyan-950/50">
-            <Radio className="w-5 h-5 animate-pulse" />
+      <div className="p-3 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded bg-[#092233] border border-[#204963] flex items-center justify-center text-[#3ca8d1] shadow-inner">
+            <Radio className="w-4 h-4 animate-pulse" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold text-slate-100 font-display uppercase tracking-wider">
+              <h2 className="text-xs font-bold text-slate-100 font-mono uppercase tracking-wider">
                 Taktik İntikal Radarı
               </h2>
               {threatCount > 0 && (
-                <span className="text-[9px] font-mono px-2 py-0.5 rounded-full bg-rose-600 text-white font-bold animate-pulse">
+                <span className="text-[9px] font-mono px-2 py-0.5 rounded bg-rose-950 text-rose-300 border border-rose-500 font-bold animate-pulse">
                   {threatCount} TEHDİT
                 </span>
               )}
             </div>
-            <p className="text-[10px] text-slate-400 font-mono">
-              Hiper-hat intikalleri, filo rotaları ve radar izleme telemetrisi
+            <p className="text-[9px] text-slate-400 font-mono">
+              Hiper-hat intikalleri & filo radar telemetrisi
             </p>
           </div>
         </div>
@@ -243,7 +243,7 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
             sound.playClick();
             onClose();
           }}
-          className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+          className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
           title="Radarı Kapat"
         >
           <X className="w-4 h-4" />
@@ -251,7 +251,7 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
       </div>
 
       {/* Filter Tabs & Sort Controls */}
-      <div className="px-3 py-2 border-b border-slate-800/80 bg-[#060a14] flex items-center justify-between gap-2 text-xs font-mono">
+      <div className="px-3 py-1.5 border-b border-[#18374b] bg-[#07131e] flex items-center justify-between gap-2 text-xs font-mono">
         {/* Filter Pills */}
         <div className="flex items-center gap-1">
           <button
@@ -365,17 +365,15 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
             return (
               <div
                 key={fleet.id}
-                className={`p-3 rounded-xl border transition-all relative overflow-hidden group ${
+                className={`p-3 rounded border transition-all relative overflow-hidden group ${
                   isThreat
-                    ? 'bg-rose-950/30 border-rose-500/70 shadow-lg shadow-rose-950/40'
-                    : isOwn
-                    ? 'bg-[#0a1324]/80 border-slate-800 hover:border-cyan-500/50'
-                    : 'bg-[#0e1629]/70 border-slate-800/80 hover:border-slate-700'
+                    ? 'bg-rose-950/40 border-rose-500/70 shadow-lg shadow-rose-950/40'
+                    : 'stellaris-item-card border-[#1c3647] hover:border-[#3885a8]'
                 }`}
               >
                 {/* Threat Top Banner */}
                 {isThreat && (
-                  <div className="mb-2 px-2 py-1 rounded bg-rose-600/20 border border-rose-500/50 flex items-center justify-between text-[10px] font-mono text-rose-300">
+                  <div className="mb-2 px-2 py-1 rounded bg-rose-600/30 border border-rose-500/60 flex items-center justify-between text-[10px] font-mono text-rose-300">
                     <div className="flex items-center gap-1 font-bold animate-pulse">
                       <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
                       <span>🚨 TEHDİT: {targetPlanet?.name || targetSys?.name} ÜZERİNE BASKIN!</span>
@@ -400,7 +398,7 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
                   </div>
 
                   <span
-                    className={`text-[9.5px] font-mono px-2 py-0.5 rounded-md border flex items-center gap-1 font-semibold ${missionInfo.color}`}
+                    className={`text-[9.5px] font-mono px-2 py-0.5 rounded border flex items-center gap-1 font-semibold ${missionInfo.color}`}
                   >
                     {missionInfo.icon}
                     <span>{missionInfo.label}</span>
@@ -408,14 +406,14 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
                 </div>
 
                 {/* Route Visualizer Schematic */}
-                <div className="my-2.5 p-2 rounded-lg bg-black/40 border border-slate-800/80">
+                <div className="my-2.5 p-2 rounded bg-[#06121c] border border-[#18374b]">
                   <div className="flex items-center justify-between text-[11px] font-mono mb-1.5">
                     <div className="flex items-center gap-1 text-slate-300 font-semibold truncate max-w-[170px]">
                       <span className="text-slate-500 text-[10px]">Kalkış:</span>
-                      <span className="text-cyan-300">{originSys?.name || 'Bilinmeyen'}</span>
+                      <span className="text-[#3ca8d1]">{originSys?.name || 'Bilinmeyen'}</span>
                     </div>
 
-                    <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-500 shrink-0" />
 
                     <div className="flex items-center gap-1 text-slate-300 font-semibold truncate max-w-[170px] justify-end">
                       <span className="text-slate-500 text-[10px]">Hedef:</span>
@@ -426,7 +424,7 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
                   </div>
 
                   {/* Progress Line */}
-                  <div className="relative w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                  <div className="relative w-full h-2 bg-[#07131e] rounded-full overflow-hidden border border-[#18374b]">
                     <div
                       className={`h-full rounded-full transition-all duration-300 ${
                         isThreat
@@ -441,7 +439,7 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
 
                   <div className="flex items-center justify-between text-[9.5px] font-mono text-slate-400 mt-1">
                     <span>İlerleme: %{progressPct}</span>
-                    <span className="text-slate-300 font-bold">
+                    <span className="text-slate-200 font-bold">
                       Kalan Süre: {formatDuration(remainingMs)}
                     </span>
                   </div>
@@ -449,8 +447,8 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
 
                 {/* Ship Composition Badges */}
                 <div className="flex flex-wrap items-center gap-1.5 my-2 text-[10px] font-mono">
-                  <span className="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700 text-slate-200 font-bold flex items-center gap-1">
-                    <Shield className="w-3 h-3 text-cyan-400" />
+                  <span className="px-2 py-0.5 rounded bg-[#0b1f2e] border border-[#1c445c] text-slate-200 font-bold flex items-center gap-1">
+                    <Shield className="w-3 h-3 text-[#3ca8d1]" />
                     <span>{totalShips} Gemi</span>
                   </span>
 
@@ -484,7 +482,7 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
 
                 {/* Recall Status Bar (For Own Fleets) */}
                 {isOwn && fleet.status !== 'returning' && (
-                  <div className="mt-1 text-[9px] font-mono flex items-center justify-between border-t border-slate-800/60 pt-1.5 text-slate-400">
+                  <div className="mt-1 text-[9px] font-mono flex items-center justify-between border-t border-[#18374b]/60 pt-1.5 text-slate-400">
                     <span>Geri Dönüş Emniyet Penceresi:</span>
                     {!isRecallLocked ? (
                       <span className="text-emerald-400 font-bold">
@@ -499,16 +497,16 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
                 )}
 
                 {/* Action Controls */}
-                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-slate-800/60">
+                <div className="flex items-center gap-2 mt-2 pt-2 border-t border-[#18374b]/60">
                   <button
                     onClick={() => {
                       sound.playClick();
                       onFocusFleet(fleet.id);
                     }}
-                    className="flex-1 py-1.5 px-2 bg-space-850 hover:bg-space-800 border border-slate-700 hover:border-cyan-500/50 text-slate-200 hover:text-cyan-300 text-xs font-mono font-semibold rounded-lg transition-all flex items-center justify-center gap-1.5"
+                    className="flex-1 py-1 px-2 stellaris-btn-metallic text-slate-200 hover:text-cyan-300 text-xs font-mono font-semibold rounded transition-all flex items-center justify-center gap-1.5"
                     title="Bu filoyu haritada seç ve kamerayı odakla"
                   >
-                    <Crosshair className="w-3.5 h-3.5 text-cyan-400" />
+                    <Crosshair className="w-3.5 h-3.5 text-[#3ca8d1]" />
                     <span>Haritada Odaklan</span>
                   </button>
 
@@ -520,10 +518,10 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
                         onRecallFleet(fleet.id);
                       }}
                       disabled={isRecallLocked}
-                      className={`py-1.5 px-3 rounded-lg text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
+                      className={`py-1 px-3 rounded text-xs font-mono font-bold transition-all flex items-center gap-1.5 ${
                         !isRecallLocked
                           ? 'bg-rose-950/80 hover:bg-rose-900 border border-rose-500/60 text-rose-300 shadow-sm shadow-rose-950/50'
-                          : 'bg-slate-900 border border-slate-800 text-slate-600 cursor-not-allowed'
+                          : 'bg-[#091522] border border-[#142633] text-slate-600 cursor-not-allowed'
                       }`}
                       title={
                         !isRecallLocked
@@ -543,7 +541,7 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
                         sound.playClick();
                         onSelectPlanet(fleet.targetSystemId, targetPlanet.id);
                       }}
-                      className="py-1.5 px-3 bg-rose-600 hover:bg-rose-500 text-white text-xs font-mono font-bold rounded-lg transition-all flex items-center gap-1.5 shadow-md shadow-rose-950"
+                      className="py-1 px-3 bg-rose-700 hover:bg-rose-600 text-white text-xs font-mono font-bold rounded transition-all flex items-center gap-1.5 shadow-md shadow-rose-950"
                       title="Saldırı altındaki gezegene git ve garnizonu hazırla"
                     >
                       <Shield className="w-3.5 h-3.5" />
@@ -558,12 +556,12 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
       </div>
 
       {/* Footer Info Strip */}
-      <div className="p-2.5 border-t border-slate-800 bg-[#060a14] flex items-center justify-between text-[10px] font-mono text-slate-400">
+      <div className="p-2.5 border-t border-[#1c3d52] bg-[#07131e] flex items-center justify-between text-[10px] font-mono text-slate-400">
         <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          <span className="w-2 h-2 rounded-full bg-[#3ca8d1] animate-pulse" />
           <span>Sensör Dizini: Aktif</span>
         </div>
-        <span>{movingFleets.length} Toplam İntikal</span>
+        <span className="text-[#3ca8d1] font-bold">{movingFleets.length} Toplam İntikal</span>
       </div>
     </aside>
   );

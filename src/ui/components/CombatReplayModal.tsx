@@ -66,52 +66,57 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
   };
 
   const content = (
-    <div className={isDocked ? "w-[820px] min-w-[820px] max-w-[820px] shrink-0 h-full bg-[#080d19]/98 border-r border-[#1b314d] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-rose-500/40 rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl shadow-rose-950/40 overflow-hidden"}>
+    <div className={isDocked ? "w-[820px] min-w-[820px] max-w-[820px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none" : "stellaris-outliner border border-[#1c3647] rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"}>
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
-              <Swords className="w-5 h-5" />
+        <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded bg-rose-950/60 border border-rose-500/50 flex items-center justify-center text-rose-400">
+              <Swords className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-base font-bold text-slate-100 font-display">
+              <h2 className="text-xs font-bold text-slate-100 font-mono uppercase tracking-wider">
                 Taktik Savaş Kayıtları & Çatışma Tekrarı
               </h2>
-              <span className="text-xs text-rose-400 font-mono">
+              <span className="text-[10px] text-rose-400 font-mono">
                 {reports.length} Kayıtlı Muharebe Raporu
               </span>
             </div>
           </div>
           <button
-            onClick={onClose}
-            className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800"
+            onClick={() => {
+              sound.playClick();
+              onClose();
+            }}
+            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
+            title="Kapat"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Content Body */}
         {reports.length === 0 ? (
-          <div className="p-12 text-center text-slate-500 font-mono text-sm">
+          <div className="p-12 text-center text-slate-500 font-mono text-xs">
             Henüz gerçekleşen bir savaş veya önleme bulunmuyor.
           </div>
         ) : (
           <div className="flex-1 flex overflow-hidden">
             {/* Left: Reports List */}
-            <div className="w-72 border-r border-slate-800 overflow-y-auto p-2.5 pb-32 space-y-1.5 bg-[#060b14]">
+            <div className="w-72 border-r border-[#18374b] overflow-y-auto p-2.5 pb-32 space-y-1.5 bg-[#06121c]">
               {reports.map((report) => {
                 const isSelected = (currentReport && currentReport.id === report.id);
                 return (
                   <button
                     key={report.id}
                     onClick={() => {
+                      sound.playClick();
                       setSelectedReportId(report.id);
                       setCurrentRoundIdx(0);
                     }}
-                    className={`w-full text-left p-2.5 rounded-lg border transition-all ${
+                    className={`w-full text-left p-2.5 rounded border transition-all ${
                       isSelected
-                        ? 'bg-rose-500/15 border-rose-500/50 shadow-sm'
-                        : 'bg-space-850/60 border-slate-800/80 hover:border-slate-700 text-slate-300'
+                        ? 'bg-rose-950/60 border-rose-500/60 text-white shadow-sm'
+                        : 'stellaris-item-card border-[#1c3647] hover:border-[#3885a8] text-slate-300'
                     }`}
                   >
                     <div className="flex items-center justify-between text-[10px] font-mono text-slate-400 mb-1">
@@ -135,7 +140,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
             {currentReport && (
               <div className="flex-1 flex flex-col overflow-y-auto p-4 pb-32 space-y-4">
                 {/* Battle Metadata Banner */}
-                <div className="bg-space-850/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between">
+                <div className="stellaris-item-card border-[#1c3647] p-3 flex items-center justify-between">
                   <div>
                     <div className="text-xs font-mono text-rose-400 font-bold uppercase tracking-wider">
                       {contextTitles[currentReport.context]} • {currentReport.systemName}

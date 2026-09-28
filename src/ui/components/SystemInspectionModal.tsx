@@ -88,24 +88,32 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 select-none animate-in fade-in duration-200">
-      <div className="bg-space-900 border border-cyber-cyan/40 rounded-2xl w-full max-w-4xl max-h-[88vh] flex flex-col shadow-2xl shadow-cyan-950/50 overflow-hidden">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          sound.playClick();
+          onClose();
+        }
+      }}
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 select-none animate-in fade-in duration-200"
+    >
+      <div className="stellaris-outliner border border-[#1c3647] rounded-xl w-full max-w-4xl max-h-[88vh] flex flex-col shadow-2xl shadow-black/80 overflow-hidden">
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cyber-cyan/15 border border-cyber-cyan/40 flex items-center justify-center text-cyber-cyan shadow-sm shadow-cyan-500/20">
-              <Globe className="w-5 h-5 animate-pulse" />
+        <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded bg-[#092233] border border-[#204963] flex items-center justify-center text-[#3ca8d1] shadow-inner">
+              <Globe className="w-4 h-4 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-100 font-display tracking-wider">
+                <h2 className="text-xs font-bold text-slate-100 font-mono tracking-wider">
                   {system.name.toUpperCase()} SİSTEMİ
                 </h2>
-                <span className="text-[10px] bg-cyber-cyan/20 text-cyber-cyan px-2 py-0.5 rounded-full font-mono border border-cyber-cyan/30">
+                <span className="text-[10px] bg-[#0b2336] text-[#3ca8d1] px-2 py-0.5 rounded border border-[#1c445c] font-mono font-bold">
                   {system.slots.length} Gezegen Yörüngesi
                 </span>
               </div>
-              <span className="text-xs text-slate-400 font-mono">
+              <span className="text-[10px] text-slate-400 font-mono">
                 Sektörel Koordinat ({system.x}, {system.y}) • Taktik Yörünge Şematiği
               </span>
             </div>
@@ -115,9 +123,10 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
               sound.playClick();
               onClose();
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
+            title="Kapat"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 

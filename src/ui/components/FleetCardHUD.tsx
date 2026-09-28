@@ -111,17 +111,16 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
     if (isDragging) {
       window.addEventListener('mousemove', handleMouseMove);
       window.addEventListener('mouseup', handleMouseUp);
-      return () => {
-        window.removeEventListener('mousemove', handleMouseMove);
-        window.removeEventListener('mouseup', handleMouseUp);
-      };
     }
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
   }, [isDragging, handleMouseMove, handleMouseUp]);
 
-  // Touch Drag Handlers
+  // Touch Drag Support for Mobile/Tablets
   const handleTouchStart = (e: React.TouchEvent) => {
     if ((e.target as HTMLElement).closest('button')) return;
-    if (e.touches.length !== 1) return;
     const touch = e.touches[0];
     setIsDragging(true);
 
@@ -137,7 +136,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!dragStartRef.current || e.touches.length !== 1) return;
+    if (!dragStartRef.current) return;
     const touch = e.touches[0];
     const dx = touch.clientX - dragStartRef.current.mouseX;
     const dy = touch.clientY - dragStartRef.current.mouseY;
@@ -163,10 +162,10 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
   const originSys = state.map.systems[fleet.originSystemId];
   const targetSys = state.map.systems[fleet.targetSystemId];
 
-  // Calculate combat power and hull stats
+  // Tactical summary stats
+  let totalShipCount = 0;
   let totalAttack = 0;
   let totalDurability = 0;
-  let totalShipCount = 0;
 
   (['scout', 'transport', 'fighter', 'battleship'] as ShipType[]).forEach((st) => {
     const count = fleet.ships[st] || 0;
@@ -174,6 +173,14 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
     totalAttack += count * SHIP_STATS[st].attack;
     totalDurability += count * (SHIP_STATS[st].hull + SHIP_STATS[st].shield);
   });
+
+  const militaryPower = Math.round(
+    (fleet.ships.battleship || 0) * 140 +
+    (fleet.ships.fighter || 0) * 35 +
+    (fleet.ships.scout || 0) * 12 +
+    (fleet.ships.transport || 0) * 6
+  );
+  const formattedPower = militaryPower >= 1000 ? `${(militaryPower / 1000).toFixed(1)}K` : `${militaryPower}`;
 
   // Transit calculations
   const totalTravelMs = Math.max(1, fleet.arrivalTime - fleet.departureTime);
@@ -201,7 +208,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
   };
 
   const statusLabels: Record<string, { label: string; color: string }> = {
-    in_transit: { label: 'Rotada İlerliyor', color: 'text-cyan-400 bg-cyan-950/60 border-cyan-500/40' },
+    in_transit: { label: 'Rotada İlerliyor', color: 'text-cyan-400 bg-[#0c1a24] border-cyan-500/40' },
     returning: { label: 'Geri Dönüş Rotasında', color: 'text-amber-400 bg-amber-950/60 border-amber-500/40' },
     intercepting: { label: 'Hedef Önleniyor', color: 'text-rose-400 bg-rose-950/60 border-rose-500/40' },
     orbiting: { label: 'Yörüngede Konuşlu', color: 'text-emerald-400 bg-emerald-950/60 border-emerald-500/40' },
@@ -227,13 +234,13 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
         isDragging ? 'shadow-cyan-950/80 shadow-2xl cursor-grabbing' : 'shadow-2xl'
       }`}
     >
-      <div className="bg-[#080d19]/98 backdrop-blur-xl border border-[#1b3454] rounded-2xl shadow-2xl overflow-hidden relative text-slate-100 flex flex-col animate-fade-in">
+      <div className="stellaris-outliner border border-[#18374b] rounded-sm shadow-2xl overflow-hidden relative text-slate-100 flex flex-col animate-fade-in">
         {/* Top Accent Line in Owner Color with Neon Glow */}
         <div
-          className="h-1 w-full"
+          className="h-0.5 w-full"
           style={{
             backgroundColor: owner?.color || '#00f3ff',
-            boxShadow: `0 0 10px ${owner?.color || '#00f3ff'}`,
+            boxShadow: `0 0 8px ${owner?.color || '#00f3ff'}`,
           }}
         />
 
@@ -243,8 +250,8 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
-          className={`px-3 py-2 bg-[#09152a] border-b border-[#1b3454] flex items-center justify-between cursor-grab active:cursor-grabbing transition-colors ${
-            isDragging ? 'bg-[#0f2142]' : 'hover:bg-[#0c1c38]'
+          className={`px-3 py-2 stellaris-outliner-header flex items-center justify-between cursor-grab active:cursor-grabbing transition-colors ${
+            isDragging ? 'bg-[#152e40]' : ''
           }`}
         >
           <div className="flex items-center gap-2 min-w-0">
@@ -253,7 +260,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
 
             {/* Faction Emblem Badge */}
             <div
-              className="w-6 h-6 rounded-md flex items-center justify-center border shrink-0"
+              className="w-6 h-6 rounded-sm flex items-center justify-center border shrink-0"
               style={{
                 backgroundColor: `${owner?.color || '#00f3ff'}20`,
                 borderColor: `${owner?.color || '#00f3ff'}60`,
@@ -266,8 +273,11 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
               <span className="text-xs font-bold font-display text-white truncate">
                 {fleet.name || 'Filo'}
               </span>
+              <span className="stellaris-power text-[11px] font-mono shrink-0">
+                ⚡ {formattedPower}
+              </span>
               <span
-                className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border shrink-0"
+                className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-sm border shrink-0"
                 style={{
                   backgroundColor: `${owner?.color || '#00f3ff'}15`,
                   borderColor: `${owner?.color || '#00f3ff'}40`,
@@ -283,7 +293,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
           <div className="flex items-center gap-1.5 shrink-0">
             {/* Status Pill */}
             <span
-              className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded border ${
+              className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded-sm border ${
                 statusLabels[fleet.status]?.color || 'text-slate-300'
               }`}
             >
@@ -302,7 +312,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                   sound.playClick();
                   onRecallFleet(fleet.id);
                 }}
-                className="p-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50"
+                className="p-1 rounded-sm bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50 cursor-pointer"
                 title="Geri Çağır"
               >
                 <RotateCcw className="w-3 h-3" />
@@ -317,7 +327,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                   sound.playClick();
                   setSizeMode((prev) => (prev === 'compact' ? 'wide' : 'compact'));
                 }}
-                className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                className="p-1 rounded-sm text-slate-400 hover:text-slate-200 hover:bg-[#1a384f] transition-colors cursor-pointer"
                 title={sizeMode === 'compact' ? 'Genişletilmiş Detay Görünümü' : 'Kompakt Görünüm'}
               >
                 {sizeMode === 'compact' ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
@@ -331,7 +341,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                 sound.playClick();
                 setIsCollapsed((prev) => !prev);
               }}
-              className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+              className="p-1 rounded-sm text-slate-400 hover:text-slate-200 hover:bg-[#1a384f] transition-colors cursor-pointer"
               title={isCollapsed ? 'Paneli Genişlet' : 'Paneli Küçült (Kollaps)'}
             >
               {isCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-cyan-400" /> : <ChevronUp className="w-3.5 h-3.5" />}
@@ -344,7 +354,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                 sound.playClick();
                 onClose();
               }}
-              className="p-1 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-950/40 transition-colors"
+              className="p-1 rounded-sm text-slate-400 hover:text-rose-300 hover:bg-rose-950/40 transition-colors cursor-pointer"
               title="Kapat"
             >
               <X className="w-3.5 h-3.5" />
@@ -356,8 +366,8 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
         {!isCollapsed && (
           <div className="p-3.5 flex flex-col gap-3 font-mono text-xs">
             {/* Sub-header: Mission Name & Target */}
-            <div className="flex items-center justify-between text-[11px] pb-1 border-b border-slate-800/80">
-              <span className="text-slate-300 font-bold">
+            <div className="flex items-center justify-between text-[11px] pb-1 border-b border-[#18374b]">
+              <span className="stellaris-gold font-bold">
                 {missionLabels[fleet.mission] || 'Standart Sefer'}
               </span>
               <span className="text-slate-400 text-[10px]">
@@ -367,7 +377,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
 
             {/* Flight Progress Bar (if in flight) */}
             {fleet.status !== 'orbiting' && (
-              <div className="bg-[#0b1325]/90 p-2.5 rounded-xl border border-[#1b3454] space-y-1.5 text-xs">
+              <div className="bg-[#070e17]/90 p-2.5 rounded-sm border border-[#18374b] space-y-1.5 text-xs">
                 <div className="flex items-center justify-between text-[11px]">
                   <div className="flex items-center gap-1.5 text-slate-300">
                     <span className="text-slate-400">{originSys?.name || 'Başlangıç'}</span>
@@ -385,7 +395,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                 </div>
 
                 {/* Visual Progress Bar with 50% Recall Lock Indicator */}
-                <div className="relative w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/80">
+                <div className="relative w-full h-2 bg-[#060c14] rounded-full overflow-hidden border border-[#18374b]">
                   <div
                     className="h-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-white transition-all duration-300 rounded-full shadow-[0_0_8px_#00f3ff]"
                     style={{ width: `${progressPercent}%` }}
@@ -419,7 +429,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
 
             {/* Cargo Payload Row (if any) */}
             {hasCargo && (
-              <div className="p-2 rounded-lg bg-[#0b1426] border border-amber-500/30 flex items-center justify-between text-[11px]">
+              <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between text-[11px]">
                 <div className="flex items-center gap-1.5 text-amber-300 font-bold">
                   <Package className="w-3.5 h-3.5 text-amber-400" />
                   <span>Taşınan Kargo:</span>
@@ -436,7 +446,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
             <div>
               <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
                 <span>Filo Bileşimi</span>
-                <span className="text-cyan-400">{totalShipCount} Gemi</span>
+                <span className="text-cyan-400 font-bold">{totalShipCount} Gemi</span>
               </div>
               <div className="grid grid-cols-4 gap-1.5">
                 {(['scout', 'transport', 'fighter', 'battleship'] as ShipType[]).map((st) => {
@@ -445,16 +455,14 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                     scout: 'Keşif',
                     transport: 'Nakliye',
                     fighter: 'Avcı',
-                    battleship: 'Savaş G.',
+                    battleship: 'Kruvazör',
                   };
 
                   return (
                     <div
                       key={st}
-                      className={`p-1.5 rounded-lg border text-center transition-all ${
-                        count > 0
-                          ? 'bg-[#0c162c] border-cyan-500/40 text-slate-200 shadow-sm'
-                          : 'bg-[#070e1c]/50 border-slate-800 text-slate-600'
+                      className={`p-1.5 rounded-sm stellaris-item-card text-center transition-all ${
+                        count > 0 ? '!border-cyan-500/50' : 'opacity-40'
                       }`}
                     >
                       <div className="text-[10px] text-slate-400">{names[st]}</div>
@@ -466,7 +474,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
             </div>
 
             {/* Bottom Metrics & Tactical Actions */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
+            <div className="flex items-center justify-between pt-2 border-t border-[#18374b] text-xs">
               <div className="flex items-center gap-3 text-slate-400 text-[10.5px]">
                 <span>
                   💥 Güç: <strong className="text-rose-400">{totalAttack}</strong>
@@ -484,7 +492,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                       sound.playClick();
                       onRecallFleet(fleet.id);
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-amber-950/30"
+                    className="stellaris-btn-metallic !border-amber-500/60 text-amber-300 font-bold text-xs px-3 py-1.5 rounded-sm flex items-center gap-1.5 cursor-pointer"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
                     <span>Geri Çağır</span>
@@ -497,7 +505,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                       sound.playAlert();
                       onOpenCommandPanel();
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-rose-950/30"
+                    className="stellaris-btn-metallic !border-rose-500/60 text-rose-300 font-bold text-xs px-3 py-1.5 rounded-sm flex items-center gap-1.5 cursor-pointer"
                   >
                     <Crosshair className="w-3.5 h-3.5" />
                     <span>Önleme Hazırla</span>
@@ -510,7 +518,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                       sound.playClick();
                       onOpenCommandPanel();
                     }}
-                    className="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-cyan-950/30"
+                    className="stellaris-btn-metallic !border-cyan-500/60 text-cyan-300 font-bold text-xs px-3 py-1.5 rounded-sm flex items-center gap-1.5 cursor-pointer"
                   >
                     <Send className="w-3.5 h-3.5" />
                     <span>Sefer Sevk Et</span>

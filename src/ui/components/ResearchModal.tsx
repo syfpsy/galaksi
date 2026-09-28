@@ -37,142 +37,152 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
   };
 
   const content = (
-    <div className={isDocked ? "w-[480px] min-w-[480px] max-w-[480px] shrink-0 h-full bg-[#080d19]/98 border-r border-[#1b314d] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-amber-500/30 rounded-xl w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl shadow-amber-950/40 overflow-hidden"}>
-        {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
-          <div className="flex items-center gap-2.5">
-            <Activity className="w-5 h-5 text-amber-400" />
-            <div>
-              <h2 className="text-base font-bold text-slate-100 font-display">
-                İmparatorluk Araştırma Merkezi
-              </h2>
-              <span className="text-xs text-amber-400 font-mono">
-                {isLabMissing
-                  ? '⚠️ Araştırma Merkezi (Seviye 1+) İnşa Edilmelidir'
-                  : `Laboratuvar Seviyesi: ${labLevel} (+${labLevel * 15}% Hız)`}
-              </span>
-            </div>
+    <div
+      className={
+        isDocked
+          ? 'w-[480px] min-w-[480px] max-w-[480px] shrink-0 h-full border-r border-[#18374b] stellaris-outliner flex flex-col shadow-2xl overflow-hidden select-none'
+          : 'stellaris-outliner border border-[#18374b] rounded-sm w-full max-w-xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden'
+      }
+    >
+      {/* Header */}
+      <div className="p-3.5 border-b border-[#18374b] stellaris-outliner-header flex items-center justify-between">
+        <div className="flex items-center gap-2.5">
+          <Activity className="w-5 h-5 text-amber-400" />
+          <div>
+            <h2 className="text-sm font-bold stellaris-gold font-display uppercase tracking-wider">
+              İmparatorluk Araştırma Merkezi
+            </h2>
+            <span className="text-[11px] text-amber-300 font-mono">
+              {isLabMissing
+                ? '⚠️ Araştırma Merkezi (Seviye 1+) İnşa Edilmelidir'
+                : `Laboratuvar Seviyesi: ${labLevel} (+${labLevel * 15}% Hız)`}
+            </span>
           </div>
-          <button
-            onClick={onClose}
-            className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800"
-          >
-            <X className="w-5 h-5" />
-          </button>
         </div>
-
-        {/* Active Research Progress */}
-        {player.researchQueue && (
-          <div className="p-3 bg-space-950/80 border-b border-slate-800">
-            <div className="text-[10px] font-mono text-slate-400 uppercase tracking-wider mb-1">
-              Devam Eden Teknoloji Geliştirmesi
-            </div>
-            <div className="flex items-center justify-between text-xs font-mono">
-              <span className="text-amber-400 font-bold">
-                {RESEARCH_STATS[player.researchQueue.type].nameTr} (Seviye {player.researchQueue.targetLevel})
-              </span>
-              <span className="text-slate-300 flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                {formatDuration(Math.max(0, player.researchQueue.finishTime - currentTimeMs))} kaldı
-              </span>
-            </div>
-          </div>
-        )}
-
-        {/* Tech Tree List */}
-        <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-3">
-          {techList.map((type) => {
-            const stats = RESEARCH_STATS[type];
-            const currentLevel = player.research[type] || 0;
-            const nextCost = getResearchCost(type, currentLevel);
-            const durationSec = Math.round(
-              getResearchDurationMs(type, currentLevel, Math.max(1, labLevel)) / 1000
-            );
-
-            const canAfford =
-              homeworld.resources.ore >= nextCost.ore &&
-              homeworld.resources.crystal >= nextCost.crystal &&
-              homeworld.resources.fuel >= nextCost.fuel;
-
-            const isResearchingThis = player.researchQueue?.type === type;
-            const isAnyActive = !!player.researchQueue;
-            const Icon = icons[type];
-
-            return (
-              <div
-                key={type}
-                className={`p-3 rounded-lg border transition-all ${
-                  isResearchingThis
-                    ? 'bg-amber-500/15 border-amber-500/50 shadow-sm shadow-amber-500/20'
-                    : 'bg-[#0b1426] border-[#1b314d] hover:border-slate-600'
-                }`}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <div className="w-8 h-8 rounded bg-space-900 border border-slate-700 flex items-center justify-center text-amber-400 mt-0.5">
-                      <Icon className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-bold text-slate-100 font-display">
-                          {stats.nameTr}
-                        </span>
-                        <span className="text-xs font-mono font-bold bg-space-900 px-2 py-0.5 rounded text-amber-400 border border-slate-800">
-                          Seviye {currentLevel}
-                        </span>
-                      </div>
-                      <p className="text-xs text-slate-400 mt-1 max-w-sm">
-                        {stats.descriptionTr}
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Research Action Button */}
-                  <button
-                    disabled={isLabMissing || !canAfford || isAnyActive}
-                    onClick={() => {
-                      sound.playColonize();
-                      onStartResearch(type);
-                    }}
-                    className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap ${
-                      isResearchingThis
-                        ? 'bg-amber-500/20 text-amber-400 border border-amber-500/40'
-                        : canAfford && !isAnyActive && !isLabMissing
-                        ? 'bg-amber-500 text-space-950 hover:bg-amber-400 font-bold'
-                        : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    <span>{isResearchingThis ? 'Geliştiriliyor' : 'Araştır'}</span>
-                  </button>
-                </div>
-
-                {/* Cost Badges */}
-                <div className="flex items-center gap-3 mt-3 pt-2 border-t border-slate-800/80 text-[11px] font-mono">
-                  <span className={homeworld.resources.ore >= nextCost.ore ? 'text-amber-400' : 'text-rose-400'}>
-                    {nextCost.ore} Cevher
-                  </span>
-                  <span>•</span>
-                  <span className={homeworld.resources.crystal >= nextCost.crystal ? 'text-cyber-cyan' : 'text-rose-400'}>
-                    {nextCost.crystal} Kristal
-                  </span>
-                  <span>•</span>
-                  <span className={homeworld.resources.fuel >= nextCost.fuel ? 'text-rose-400' : 'text-rose-600'}>
-                    {nextCost.fuel} Yakıt
-                  </span>
-                  <span className="text-slate-500 ml-auto">Süre: {formatDuration(durationSec * 1000)}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
+        <button
+          onClick={() => {
+            sound.playClick();
+            onClose();
+          }}
+          className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#163345] transition-colors cursor-pointer"
+          title="Paneli Kapat"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
+
+      {/* Active Research Progress */}
+      {player.researchQueue && (
+        <div className="p-3 bg-[#070e17]/90 border-b border-[#18374b]">
+          <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1">
+            DEVAM EDEN TEKNOLOJİ GELİŞTİRMESİ
+          </div>
+          <div className="flex items-center justify-between text-xs font-mono stellaris-item-card px-3 py-1.5 rounded-sm">
+            <span className="text-amber-300 font-bold">
+              {RESEARCH_STATS[player.researchQueue.type].nameTr} (Seviye {player.researchQueue.targetLevel})
+            </span>
+            <span className="text-slate-200 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
+              {formatDuration(Math.max(0, player.researchQueue.finishTime - currentTimeMs))} kaldı
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* Tech Tree List */}
+      <div className="flex-1 overflow-y-auto p-3.5 pb-32 space-y-2.5 scrollbar-none text-xs font-mono">
+        {techList.map((type) => {
+          const stats = RESEARCH_STATS[type];
+          const currentLevel = player.research[type] || 0;
+          const nextCost = getResearchCost(type, currentLevel);
+          const durationSec = Math.round(
+            getResearchDurationMs(type, currentLevel, Math.max(1, labLevel)) / 1000
+          );
+
+          const canAfford =
+            homeworld.resources.ore >= nextCost.ore &&
+            homeworld.resources.crystal >= nextCost.crystal &&
+            homeworld.resources.fuel >= nextCost.fuel;
+
+          const isResearchingThis = player.researchQueue?.type === type;
+          const isAnyActive = !!player.researchQueue;
+          const Icon = icons[type];
+
+          return (
+            <div
+              key={type}
+              className={`p-3 rounded-sm stellaris-item-card transition-all ${
+                isResearchingThis ? '!border-amber-500/70 shadow-sm shadow-amber-950/40' : ''
+              }`}
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-8 h-8 rounded-sm bg-[#08121a] border border-[#1b3b50] flex items-center justify-center text-amber-400 mt-0.5 shrink-0">
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-slate-100 font-display">
+                        {stats.nameTr}
+                      </span>
+                      <span className="text-[10px] font-mono font-bold bg-[#0c1a24] px-1.5 py-0.2 rounded-sm text-amber-300 border border-[#1b3b50]">
+                        Seviye {currentLevel}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-slate-400 mt-1 max-w-sm leading-snug">
+                      {stats.descriptionTr}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Research Action Button */}
+                <button
+                  disabled={isLabMissing || !canAfford || isAnyActive}
+                  onClick={() => {
+                    sound.playColonize();
+                    onStartResearch(type);
+                  }}
+                  className={`px-3 py-1.5 rounded-sm text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
+                    isResearchingThis
+                      ? 'stellaris-rail-btn active text-amber-300'
+                      : canAfford && !isAnyActive && !isLabMissing
+                      ? 'stellaris-btn-metallic !border-amber-500/70 text-[#e5c578] font-bold'
+                      : 'bg-[#09121a] border border-[#142637] text-slate-600 cursor-not-allowed'
+                  }`}
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>{isResearchingThis ? 'Geliştiriliyor' : 'Araştır'}</span>
+                </button>
+              </div>
+
+              {/* Cost Badges */}
+              <div className="flex items-center gap-3 mt-2.5 pt-2 border-t border-[#18374b] text-[10.5px] font-mono">
+                <span className={homeworld.resources.ore >= nextCost.ore ? 'text-slate-300' : 'text-rose-400 font-bold'}>
+                  {nextCost.ore} Cevher
+                </span>
+                <span>•</span>
+                <span className={homeworld.resources.crystal >= nextCost.crystal ? 'text-cyan-300' : 'text-rose-400 font-bold'}>
+                  {nextCost.crystal} Kristal
+                </span>
+                <span>•</span>
+                <span className={homeworld.resources.fuel >= nextCost.fuel ? 'text-amber-400' : 'text-rose-400 font-bold'}>
+                  {nextCost.fuel} Yakıt
+                </span>
+                <span className="text-slate-400 ml-auto font-mono">
+                  Süre: {formatDuration(durationSec * 1000)}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
   );
 
   if (isDocked) return content;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 select-none">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 select-none">
       {content}
     </div>
   );
