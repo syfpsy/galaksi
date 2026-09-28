@@ -498,6 +498,48 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
 - **Hızlı Çarpan Preseleri:** Tek tek girmek yerine `+1x`, `+5x`, `+10x` ve mevcut kaynaklara göre anında hesaplanan `Maks (N)` butonları.
 - **Canlı İmalat İlerleme Çubuğu:** Kuyruktaki gemiler için anlık tamamlanma yüzdesini gösteren parlayan turkuaz ilerleme çubuğu ve kalan süre sayacı.
 
+---
 
+## [Phase Q] — Tam Stellaris Arayüz Düzeni ve Pozisyonel Sadakat (TopBar, Left Rail F1-F9, Outliner, Bottom Deck)
 
+### 1. Otantik Stellaris Üst Stratejik Kaynak Şeridi (`TopBar.tsx`)
+- **Sol Köşe:** İmparatorluk Arması, Oyuncu / Otonom Bot perspektif seçicisi, İmparatorluk Ünvanı.
+- **Orta Stratejik Kaynak Şeridi:**
+  - ⚡ **Enerji / Yakıt:** Canlı rezerv, saatlik üretim (`+X`), depo doluluk çubuğu.
+  - ⛏ **Cevher / Maden:** Canlı rezerv, saatlik üretim (`+X`), depo doluluk çubuğu.
+  - 💎 **Nadir Kristaller:** Canlı rezerv, saatlik üretim (`+X`), depo doluluk çubuğu.
+  - 🔬 **Ar-Ge / Bilim:** Aktif araştırma kuyruğu (`Motor L2`, `Silah L3`, `Sensör L1`) veya kümülatif teknoloji düzeyi. Tıklandığında doğrudan `F3` Teknoloji penceresini açar.
+  - 🪐 **Koloniler:** `1/3` yuva sayısı. Tıklandığında doğrudan `F1` Gezegen Altyapı çekmecesini açar.
+  - 🛡️ **Donanma Kapasitesi:** Toplam filolar + garnizon gemi sayısı (`14 / 30 Donanma`). Tıklandığında doğrudan `F2` Tersanesini açar.
+  - 👑 **Nexus Rölesi Skoru:** Haftalık sektör kontrol puanı. Tıklandığında doğrudan `F8` Röle penceresini açar.
+- **Sağ Köşe:**
+  - Kozmik Güneş Saati (`YYYY.MM.DD`, örn: `2240.04.12`).
+  - Duraklatma Butonu (`⏸ DURAKLATILDI` / `▶ ÇALIŞIYOR`, `Space`).
+  - Hız Kademesi Seçici (`>`, `>>`, `>>>`, `>>>>`, `1-4`).
+  - Hızlı Zaman Atlatıcı (`+15dk`, `+1sa`).
+  - Ses, Sis / Gözlemci Modu ve Simülasyon Sıfırlama.
 
+### 2. Sol Dikey Stellaris Navigasyon Şeridi & Zengin Hover Kartları (`StellarisLeftRail.tsx`, `App.tsx`)
+- **F1 - F9 Kısayol Seti:** Her butonun üzerinde kalıcı/hover kısayol etiketi (`F1` - `F9`).
+- **Taktik Floating Hover Tooltip'leri:** Her buton üzerine gelindiğinde anında açılan koyu cam metalik arka planlı Stellaris taktik hover kartı:
+  - `F1`: Gezegenler & Sektörler (`Globe`) — Koloni altyapısı, madenler, santraller ve garnizon yönetimi.
+  - `F2`: Tersane & Gemi İnşası (`Wrench`) — Avcı, kruvazör, keşif ve taşıma gemisi imalatı.
+  - `F3`: Bilim & Teknoloji Ağacı (`Activity`) — İtki motorları, silahlar ve sensör dizinleri.
+  - `F4`: Filo Komutası & Seferler (`Send`) — Taarruz, önleme, ikmal ve keşif seferlerinin sevk idaresi.
+  - `F5`: Durum Kütüğü & Anomaliler (`Compass`) — Anomaliler, enkaz kurtarma ve sektör puan tablosu.
+  - `F6`: Muharebe Kayıtları (`Swords`) — Geçmiş çatışmalar, hasar dağılımı ve savaş tekrarı.
+  - `F7`: Galaktik İttifaklar (`Users`) — Diplomatik paktlar, ortak sensör görüşü ve savunma.
+  - `F8`: Nexus Rölesi (`Crown`) — Merkezi megastrüktür kontrolü ve haftalık yarışma.
+  - `F9`: AI Sanat Galerisi (`Palette`) — Magnific AI ile üretilen görsel atmosfer ve konsept sanatı.
+- **Gelişmiş Escape Davranışı:** Açık pencere veya çekmece varsa onları kapatır; hepsi kapalıysa haritadaki hedef seçimini (`selectedTarget`) sıfırlar.
+
+### 3. Sektör Çizelgesi Duyarlılığı & Canlı Tersane Kuyruğu (`StellarisOutliner.tsx`, `App.tsx`)
+- **Dinamik Kenar Boşluğu:** Çizelge katlandığında Filo Komuta Çekmecesi ekran boşluğu bırakmadan sağ kenara (`right-4`) yanaşır; çizelge açıkken (`right-72`) hizasında durur.
+- **Gezegen Kartlarında Canlı Tersane İlerlemesi:** Gezegenlerin altında sadece bina inşası değil, tersanedeki aktif gemi üretimi (`Rocket`, gemi tipi, adedi ve kalan süre) de canlı olarak izlenir.
+
+### 4. Alt Merkez Galaksi / Sistem Gezinme Güvertesi (`GalaxyMap.tsx`)
+- **Sistemler Arası Hızlı Döngü:** Sistem görünümündeyken `<` ve `>` butonlarıyla galaksi haritasına çıkmaya gerek kalmadan yıldız sistemleri arasında döngüsel geçiş.
+- **Sistem Odaklama Seçicisi:** Galaksi haritasındayken doğrudan istenen yıldıza merkezlenme (`select`).
+- **3D / 2D Motor Anahtarı:** `3D` (Three.js 2.5D) ve `2D` (SVG Canvas) motorları arasında anında geçiş.
+- **Yörünge Projeksiyonları:** Gelecek gezegen konumlarını açıp kapatma (`🔭 Projeksiyon`).
+- **Kamera Yakınlaştırma:** `-%+` butonlarıyla kontrollü zoom.

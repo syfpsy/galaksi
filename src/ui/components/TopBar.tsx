@@ -1,27 +1,24 @@
 import React, { useState } from 'react';
 import {
   Activity,
-  Bed,
+  ChevronDown,
   CircleDot,
   Crown,
   Eye,
   EyeOff,
-  FastForward,
   Flame,
   Gem,
+  Globe,
   Moon,
-  Palette,
   Pause,
   Pickaxe,
   Play,
   RotateCcw,
   Shield,
   Sparkles,
-  Swords,
-  Users,
   Volume2,
   VolumeX,
-  Wrench,
+  Zap,
 } from 'lucide-react';
 import { calculateHourlyProduction } from '../../engine/constants';
 import { GameState, Planet } from '../../engine/types';
@@ -41,9 +38,10 @@ interface TopBarProps {
   onFastForwardMinutes: (minutes: number) => void;
   onToggleGodMode: () => void;
   onSelectPlayer: (id: string) => void;
-  onOpenShipyard: () => void;
-  onOpenResearch: () => void;
-  onOpenBattles: () => void;
+  onOpenPlanetPanel?: () => void;
+  onOpenShipyard?: () => void;
+  onOpenResearch?: () => void;
+  onOpenBattles?: () => void;
   onOpenRelay?: () => void;
   onOpenAlliance?: () => void;
   onOpenGallery?: () => void;
@@ -64,6 +62,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   onFastForwardMinutes,
   onToggleGodMode,
   onSelectPlayer,
+  onOpenPlanetPanel,
   onOpenShipyard,
   onOpenResearch,
   onOpenBattles,
@@ -74,18 +73,13 @@ export const TopBar: React.FC<TopBarProps> = ({
   onReset,
 }) => {
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(sound.isMuted);
+
   // Calculate hourly rates for active planet
   const oreRate = activePlanet ? calculateHourlyProduction('ore', activePlanet.buildings.ore_mine) : 0;
   const crystalRate = activePlanet ? calculateHourlyProduction('crystal', activePlanet.buildings.crystal_synth) : 0;
   const fuelRate = activePlanet ? calculateHourlyProduction('fuel', activePlanet.buildings.fuel_refinery) : 0;
 
-  const formattedTime = formatSimClock(state.timeMs);
-  const unreadBattlesCount = state.battleReports.length;
   const activePlayer = state.players[activePlayerId];
-  const activeAlliance = activePlayer?.allianceId ? state.alliances[activePlayer.allianceId] : null;
-  const relayController = state.relay.controllingPlayerId
-    ? state.players[state.relay.controllingPlayerId]
-    : null;
 
   // Calculate total empire naval capacity
   const myFleets = Object.values(state.fleets).filter((f) => f.ownerId === activePlayerId);
@@ -102,53 +96,94 @@ export const TopBar: React.FC<TopBarProps> = ({
     });
   });
 
+  // Relay weekly score
+  const myRelayPoints = state.relay.weeklyPoints?.[activePlayerId] || 0;
+
+  // Format date in classic Stellaris format: YYYY.MM.DD
+  const baseYear = 2240;
+  const totalDays = Math.floor(state.timeMs / (24 * 3600 * 1000));
+  const year = baseYear + Math.floor(totalDays / 360);
+  const month = Math.floor((totalDays % 360) / 30) + 1;
+  const day = (totalDays % 30) + 1;
+  const stellarisDate = `${year}.${month < 10 ? '0' : ''}${month}.${day < 10 ? '0' : ''}${day}`;
+
   return (
-    <header className="h-14 border-b border-[#1a2942] bg-[#070c17]/95 backdrop-blur-md px-3.5 flex items-center justify-between z-30 select-none shadow-lg">
-      {/* Left: Brand & Perspective Switcher */}
+    <header className="h-12 border-b border-[#14263b] bg-[#050b14]/98 backdrop-blur-md px-3 flex items-center justify-between z-30 select-none shadow-xl relative">
+      {/* Top Subtle Metallic Specular Line */}
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
+
+      {/* LEFT: Empire Crest, Name & Government Identity */}
       <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2">
-          <div
-            className="w-7 h-7 rounded-lg border flex items-center justify-center shadow-sm"
-            style={{
-              backgroundColor: `${activePlayer?.color || '#00f3ff'}20`,
-              borderColor: `${activePlayer?.color || '#00f3ff'}60`,
-            }}
-          >
-            <Sparkles className="w-3.5 h-3.5 animate-pulse" style={{ color: activePlayer?.color || '#00f3ff' }} />
-          </div>
-          <div>
-            <h1 className="text-xs font-bold text-slate-100 tracking-wider font-display uppercase leading-tight">
-              {activePlayer?.name || 'Canlı Galaksi'}
-            </h1>
-            <span className="text-[9px] text-cyan-400 tracking-widest font-mono">
-              {activePlayer?.isBot ? 'OTONOM BOT FRONTIER' : 'GALAKTİK İMPARATORLUK'}
-            </span>
-          </div>
+        {/* Stellaris Empire Crest Badge */}
+        <div
+          className="w-8 h-8 rounded-full border-2 flex items-center justify-center shadow-lg transition-transform hover:scale-105 shrink-0"
+          style={{
+            borderColor: activePlayer?.color || '#00f3ff',
+            backgroundColor: `${activePlayer?.color || '#00f3ff'}18`,
+            boxShadow: `0 0 10px ${activePlayer?.color || '#00f3ff'}50`,
+          }}
+          title={activePlayer?.name || 'İmparatorluk'}
+        >
+          <Sparkles className="w-4 h-4" style={{ color: activePlayer?.color || '#00f3ff' }} />
         </div>
 
-        {/* Player / Bot Perspective Dropdown */}
-        <div className="h-6 border-l border-slate-800 mx-0.5" />
-        <div className="flex items-center gap-1.5">
-          <select
-            value={activePlayerId}
-            onChange={(e) => onSelectPlayer(e.target.value)}
-            className="bg-[#0b1324] border border-[#1a2942] hover:border-cyan-500/50 text-[11px] font-mono rounded px-2 py-0.5 text-slate-300 focus:outline-none focus:border-cyan-400"
-          >
-            {Object.values(state.players).map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.isBot ? `🤖 [BOT] ${p.name}` : `👤 ${p.name}`}
-              </option>
-            ))}
-          </select>
+        <div className="flex flex-col">
+          <div className="flex items-center gap-2">
+            <h1 className="text-xs font-bold text-slate-100 tracking-wider font-display uppercase leading-none">
+              {activePlayer?.name || 'Galaktik İmparatorluk'}
+            </h1>
+            {/* Observer / Bot Perspective Switcher */}
+            <select
+              value={activePlayerId}
+              onChange={(e) => {
+                sound.playClick();
+                onSelectPlayer(e.target.value);
+              }}
+              className="bg-[#081220] border border-[#1a2f4c] hover:border-cyan-500/60 text-[10px] font-mono rounded px-1.5 py-0.2 text-cyan-400 focus:outline-none cursor-pointer"
+              title="Gözlemci / Oyuncu Perspektifi Değiştir"
+            >
+              {Object.values(state.players).map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.isBot ? `🤖 [BOT] ${p.name}` : `👤 ${p.name}`}
+                </option>
+              ))}
+            </select>
+          </div>
+          <span className="text-[9px] text-slate-400 font-mono tracking-wider mt-0.5">
+            {activePlayer?.isBot ? 'OTONOM BOT HÜKÜMETİ' : 'GALAKTİK BAŞKANLIK'}
+          </span>
         </div>
       </div>
 
-      {/* Center: Planetary Resources (Stellaris Style) */}
+      {/* CENTER: Stellaris Horizontal Strategic Resource Ribbon */}
       {activePlanet && (
-        <div className="flex items-center gap-4 bg-[#0a1120]/90 px-3 py-1 rounded-lg border border-[#1a2942] shadow-inner">
-          {/* Cevher (Ore) */}
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-slate-900 flex items-center justify-center text-amber-400 border border-amber-500/30">
+        <div className="hidden md:flex items-center gap-4 bg-[#07101c]/90 px-3.5 py-1 rounded-md border border-[#14263b] shadow-inner">
+          {/* Energy / Fuel */}
+          <div className="flex items-center gap-2 group cursor-pointer" title="Enerji / Yakıt Rezervi (Gemi manevraları ve filo seferleri için tüketilir)">
+            <div className="w-5 h-5 rounded bg-amber-950/40 flex items-center justify-center text-amber-400 border border-amber-500/30">
+              <Zap className="w-3 h-3" />
+            </div>
+            <div>
+              <div className="flex items-baseline gap-1">
+                <span className="text-xs font-bold font-mono text-slate-100">
+                  {Math.floor(activePlanet.resources.fuel).toLocaleString()}
+                </span>
+                <span className="text-[9px] text-emerald-400 font-mono">+{fuelRate}</span>
+              </div>
+              <div className="w-12 h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                <div
+                  className="h-full bg-amber-400 rounded-full"
+                  style={{ width: `${Math.min(100, (activePlanet.resources.fuel / activePlanet.storageCap) * 100)}%` }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="w-px h-5 bg-slate-800/80" />
+
+          {/* Minerals / Ore */}
+          <div className="flex items-center gap-2 group cursor-pointer" title="Cevher / Maden Rezervi (Bina inşası ve gemi gövde üretimi)">
+            <div className="w-5 h-5 rounded bg-orange-950/40 flex items-center justify-center text-orange-400 border border-orange-500/30">
               <Pickaxe className="w-3 h-3" />
             </div>
             <div>
@@ -156,27 +191,22 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <span className="text-xs font-bold font-mono text-slate-100">
                   {Math.floor(activePlanet.resources.ore).toLocaleString()}
                 </span>
-                <span className="text-[9px] text-slate-400 font-mono">
-                  /{activePlanet.storageCap >= 1000 ? `${Math.round(activePlanet.storageCap / 1000)}k` : activePlanet.storageCap}
-                </span>
+                <span className="text-[9px] text-emerald-400 font-mono">+{oreRate}</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-amber-400 rounded-full"
-                    style={{ width: `${Math.min(100, (activePlanet.resources.ore / activePlanet.storageCap) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-[9px] text-emerald-400 font-mono">+{oreRate}/sa</span>
+              <div className="w-12 h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                <div
+                  className="h-full bg-orange-400 rounded-full"
+                  style={{ width: `${Math.min(100, (activePlanet.resources.ore / activePlanet.storageCap) * 100)}%` }}
+                />
               </div>
             </div>
           </div>
 
-          <div className="w-px h-5 bg-slate-800" />
+          <div className="w-px h-5 bg-slate-800/80" />
 
-          {/* Kristal (Crystal) */}
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-slate-900 flex items-center justify-center text-cyan-400 border border-cyan-500/30">
+          {/* Rare Crystals */}
+          <div className="flex items-center gap-2 group cursor-pointer" title="Nadir Kristaller (Gelişmiş kalkan, teknoloji ve avcı üretimi)">
+            <div className="w-5 h-5 rounded bg-cyan-950/40 flex items-center justify-center text-cyan-400 border border-cyan-500/30">
               <Gem className="w-3 h-3" />
             </div>
             <div>
@@ -184,272 +214,216 @@ export const TopBar: React.FC<TopBarProps> = ({
                 <span className="text-xs font-bold font-mono text-slate-100">
                   {Math.floor(activePlanet.resources.crystal).toLocaleString()}
                 </span>
-                <span className="text-[9px] text-slate-400 font-mono">
-                  /{activePlanet.storageCap >= 1000 ? `${Math.round(activePlanet.storageCap / 1000)}k` : activePlanet.storageCap}
-                </span>
+                <span className="text-[9px] text-emerald-400 font-mono">+{crystalRate}</span>
               </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-cyan-400 rounded-full"
-                    style={{ width: `${Math.min(100, (activePlanet.resources.crystal / activePlanet.storageCap) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-[9px] text-emerald-400 font-mono">+{crystalRate}/sa</span>
+              <div className="w-12 h-1 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                <div
+                  className="h-full bg-cyan-400 rounded-full"
+                  style={{ width: `${Math.min(100, (activePlanet.resources.crystal / activePlanet.storageCap) * 100)}%` }}
+                />
               </div>
             </div>
           </div>
 
-          <div className="w-px h-5 bg-slate-800" />
+          <div className="w-px h-5 bg-slate-800/80" />
 
-          {/* Yakıt (Fuel) */}
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-slate-900 flex items-center justify-center text-rose-400 border border-rose-500/30">
-              <Flame className="w-3 h-3" />
+          {/* Technology & Research (Ar-Ge) */}
+          <div
+            onClick={() => {
+              sound.playClick();
+              if (onOpenResearch) onOpenResearch();
+            }}
+            className="flex items-center gap-1.5 text-xs font-mono cursor-pointer group hover:text-cyan-300 transition-colors"
+            title="İmparatorluk Ar-Ge & Teknoloji Ağacı (F3)"
+          >
+            <div className="w-5 h-5 rounded bg-blue-950/40 flex items-center justify-center text-blue-400 border border-blue-500/30 group-hover:border-cyan-400 group-hover:scale-105 transition-all">
+              <Activity className="w-3 h-3 text-cyan-400" />
             </div>
             <div>
               <div className="flex items-baseline gap-1">
-                <span className="text-xs font-bold font-mono text-slate-100">
-                  {Math.floor(activePlanet.resources.fuel).toLocaleString()}
+                <span className="text-xs font-bold font-mono text-slate-100 group-hover:text-cyan-300">
+                  {activePlayer?.researchQueue
+                    ? `${activePlayer.researchQueue.type === 'engines' ? 'Motor' : activePlayer.researchQueue.type === 'weapons' ? 'Silah' : 'Sensör'} L${activePlayer.researchQueue.targetLevel}`
+                    : `L${(activePlayer?.research.engines || 0) + (activePlayer?.research.weapons || 0) + (activePlayer?.research.sensors || 0)}`}
                 </span>
-                <span className="text-[9px] text-slate-400 font-mono">
-                  /{activePlanet.storageCap >= 1000 ? `${Math.round(activePlanet.storageCap / 1000)}k` : activePlanet.storageCap}
-                </span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <div className="w-10 h-1 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full bg-rose-400 rounded-full"
-                    style={{ width: `${Math.min(100, (activePlanet.resources.fuel / activePlanet.storageCap) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-[9px] text-emerald-400 font-mono">+{fuelRate}/sa</span>
+                <span className="text-[9px] text-cyan-400 font-mono">Ar-Ge</span>
               </div>
             </div>
           </div>
 
-          <div className="w-px h-5 bg-slate-800" />
+          <div className="w-px h-5 bg-slate-800/80" />
 
-          {/* Empire Fleet Strength */}
-          <div className="flex items-center gap-2">
-            <div className="w-5 h-5 rounded bg-slate-900 flex items-center justify-center text-purple-400 border border-purple-500/30">
-              <Shield className="w-3 h-3" />
-            </div>
-            <div>
-              <div className="text-xs font-bold font-mono text-slate-100">
-                {totalEmpireShips} <span className="text-[9px] text-slate-400 font-normal">Gemi</span>
-              </div>
-              <div className="text-[9px] text-purple-300 font-mono">Donanma Gücü</div>
-            </div>
+          {/* Empire Colonies Count */}
+          <div
+            onClick={() => {
+              sound.playClick();
+              if (onOpenPlanetPanel) onOpenPlanetPanel();
+            }}
+            className="flex items-center gap-1.5 text-xs font-mono cursor-pointer group hover:text-emerald-300 transition-colors"
+            title="Kolonileştirilmiş Dünyalar & Altyapı (F1)"
+          >
+            <Globe className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span className="text-slate-200 font-bold group-hover:text-emerald-300">{myPlanets.length}</span>
+            <span className="text-slate-500">/ 3</span>
           </div>
+
+          <div className="w-px h-5 bg-slate-800/80" />
+
+          {/* Naval Fleet Capacity */}
+          <div
+            onClick={() => {
+              sound.playClick();
+              if (onOpenShipyard) onOpenShipyard();
+            }}
+            className="flex items-center gap-1.5 text-xs font-mono cursor-pointer group hover:text-blue-300 transition-colors"
+            title="İmparatorluk Donanma Gücü & Tersane (F2)"
+          >
+            <Shield className="w-3.5 h-3.5 text-blue-400 group-hover:scale-110 transition-transform" />
+            <span className="text-slate-200 font-bold group-hover:text-blue-300">{totalEmpireShips}</span>
+            <span className="text-slate-500 text-[10px]">/ 30 Donanma</span>
+          </div>
+
+          {/* Nexus Relay Control Points */}
+          {myRelayPoints > 0 && (
+            <>
+              <div className="w-px h-5 bg-slate-800/80" />
+              <div
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenRelay) onOpenRelay();
+                }}
+                className="flex items-center gap-1.5 text-xs font-mono cursor-pointer group hover:text-purple-300 transition-colors"
+                title="Nexus Röle Haftalık Hakimiyet Puanı (F8)"
+              >
+                <Crown className="w-3.5 h-3.5 text-purple-400 group-hover:scale-110 transition-transform" />
+                <span className="text-purple-300 font-bold group-hover:text-purple-200">{myRelayPoints}</span>
+                <span className="text-slate-500 text-[10px]">Puan</span>
+              </div>
+            </>
+          )}
         </div>
       )}
 
-      {/* Right: Modals & Simulation Speed Controls */}
-      <div className="flex items-center gap-2.5">
-        {/* Navigation Action Buttons */}
-        <div className="flex items-center gap-1.5 bg-space-850 p-1 rounded-lg border border-slate-800">
-          <button
-            onClick={onOpenShipyard}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-cyber-cyan hover:bg-slate-800/80 rounded transition-all"
-            title="Tersane & Gemi İnşası"
-          >
-            <Wrench className="w-3.5 h-3.5 text-cyber-cyan" />
-            <span className="hidden sm:inline">Tersane</span>
-          </button>
-          <button
-            onClick={onOpenResearch}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-amber-400 hover:bg-slate-800/80 rounded transition-all"
-            title="İmparatorluk Araştırmaları"
-          >
-            <Activity className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Araştırma</span>
-          </button>
-          <button
-            onClick={onOpenBattles}
-            className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-rose-400 hover:bg-slate-800/80 rounded transition-all relative"
-            title="Savaş Kayıtları & Çatışma Tekrarı"
-          >
-            <Swords className="w-3.5 h-3.5 text-rose-400" />
-            <span className="hidden sm:inline">Savaşlar</span>
-            {unreadBattlesCount > 0 && (
-              <span className="absolute -top-1 -right-1 px-1.5 py-0.2 bg-rose-500 text-[10px] font-bold text-white rounded-full">
-                {unreadBattlesCount}
-              </span>
-            )}
-          </button>
-
-          {/* Relay Modal Button */}
-          {onOpenRelay && (
-            <button
-              onClick={onOpenRelay}
-              className={`flex items-center gap-1.5 px-2.5 py-1 text-xs rounded transition-all relative ${
-                relayController?.id === activePlayerId
-                  ? 'bg-purple-900/50 text-purple-200 border border-purple-500/50'
-                  : 'text-slate-300 hover:text-purple-400 hover:bg-slate-800/80'
-              }`}
-              title="Nexus Rölesi & Haftalık Hakimiyet Sıralaması"
-            >
-              <Crown className="w-3.5 h-3.5 text-purple-400" />
-              <span className="hidden sm:inline">Nexus</span>
-              {relayController && (
-                <span
-                  className="w-2 h-2 rounded-full inline-block"
-                  style={{ backgroundColor: relayController.color }}
-                  title={`Röle Hâkimi: ${relayController.name}`}
-                />
-              )}
-            </button>
-          )}
-
-          {/* Alliance Modal Button */}
-          {onOpenAlliance && (
-            <button
-              onClick={onOpenAlliance}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-slate-300 hover:text-blue-400 hover:bg-slate-800/80 rounded transition-all"
-              title="Galaktik İttifak & Diplomasi"
-            >
-              <Users className="w-3.5 h-3.5 text-blue-400" />
-              <span className="hidden sm:inline">
-                {activeAlliance ? `[${activeAlliance.tag}]` : 'İttifak'}
-              </span>
-            </button>
-          )}
-
-          {/* Magnific Art Gallery Button */}
-          {onOpenGallery && (
-            <button
-              onClick={onOpenGallery}
-              className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-cyber-cyan hover:text-white bg-cyber-cyan/10 hover:bg-cyber-cyan/20 border border-cyber-cyan/30 rounded transition-all shadow-sm shadow-cyan-950/30"
-              title="Magnific AI Konsept Sanat ve Görsel Galerisi"
-            >
-              <Palette className="w-3.5 h-3.5 text-cyber-cyan" />
-              <span className="font-semibold hidden sm:inline">Galeri</span>
-            </button>
-          )}
-        </div>
-
-        {/* Vacation Mode Toggle */}
-        {onToggleVacationMode && (
-          <button
-            onClick={onToggleVacationMode}
-            className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition-all ${
-              activePlayer?.vacationMode
-                ? 'bg-amber-950/70 border-amber-500/60 text-amber-300 animate-pulse'
-                : 'bg-space-850 border-slate-800 text-slate-400 hover:text-slate-200'
-            }`}
-            title={
-              activePlayer?.vacationMode
-                ? 'Tatil Modu Aktif (Üretim donduruldu, saldırı almaz/yapamaz). Çıkmak için tıkla.'
-                : 'Tatil Moduna Geç (Asenkron koruma - 24 saatlik minimum blok)'
-            }
-          >
-            <Bed className="w-4 h-4 text-amber-400" />
-            <span className="text-[11px] hidden xl:inline">
-              {activePlayer?.vacationMode ? 'Tatil Modunda' : 'Tatil'}
-            </span>
-          </button>
-        )}
-
-        {/* God Mode Fog of War Toggle */}
+      {/* RIGHT: Stellaris Cosmic Clock & Speed Controls */}
+      <div className="flex items-center gap-2">
+        {/* Pause/Play Alert Banner */}
         <button
-          onClick={onToggleGodMode}
-          className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition-all ${
-            godMode
-              ? 'bg-purple-950/60 border-purple-500/50 text-purple-300'
-              : 'bg-space-850 border-slate-800 text-slate-400 hover:text-slate-200'
+          onClick={() => {
+            sound.playClick();
+            onTogglePlay();
+          }}
+          className={`px-2 py-1 rounded border text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
+            !isPlaying
+              ? 'bg-rose-950/80 border-rose-500 text-rose-300 animate-pulse shadow-md shadow-rose-950/60'
+              : 'bg-emerald-950/60 border-emerald-500/50 text-emerald-300 hover:bg-emerald-900/60'
           }`}
-          title={godMode ? 'Tüm Bilgi Görünür (Gözlemci Modu)' : 'Sis & Kısmi Bilgi Aktif'}
+          title="Zamanı Durdur / Başlat (Space)"
         >
-          {godMode ? <Eye className="w-4 h-4 text-purple-400" /> : <EyeOff className="w-4 h-4" />}
-          <span className="text-[11px] hidden md:inline">{godMode ? 'Hakim Görüş' : 'Sis'}</span>
+          {!isPlaying ? (
+            <>
+              <Pause className="w-3.5 h-3.5 text-rose-400" />
+              <span>DURAKLATILDI</span>
+            </>
+          ) : (
+            <>
+              <Play className="w-3.5 h-3.5 text-emerald-400" />
+              <span>ÇALIŞIYOR</span>
+            </>
+          )}
         </button>
 
-        {/* Audio Mute & Ambient Sound Toggle */}
+        {/* Speed Selector Pips (Stellaris > >> >>> Pips) */}
+        <div className="flex items-center bg-[#07101c] border border-[#14263b] rounded p-0.5 text-xs font-mono">
+          {[
+            { scale: 1, label: '>' },
+            { scale: 5, label: '>>' },
+            { scale: 20, label: '>>>' },
+            { scale: 60, label: '>>>>' },
+          ].map((s) => (
+            <button
+              key={s.scale}
+              onClick={() => {
+                sound.playClick();
+                onSetTimeScale(s.scale);
+              }}
+              className={`px-2 py-0.5 rounded transition-all font-bold ${
+                timeScale === s.scale
+                  ? 'bg-cyan-500/30 text-cyan-300 border border-cyan-500/60 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+              title={`${s.scale}x Hızlandırma`}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Stellaris Calendar Date Display */}
+        <div className="bg-[#07101c] border border-[#14263b] px-2.5 py-1 rounded text-xs font-mono font-bold text-cyan-400 tracking-wider flex items-center gap-1.5 shadow-inner">
+          <span>{stellarisDate}</span>
+        </div>
+
+        {/* Quick Time Step Buttons */}
+        <div className="hidden xl:flex items-center gap-1">
+          <button
+            onClick={() => onFastForwardMinutes(15)}
+            className="px-1.5 py-1 rounded text-[10px] font-mono text-slate-400 hover:text-cyan-300 bg-[#07101c] border border-[#14263b] hover:border-slate-600 transition-all"
+            title="+15 Dakika İlerle"
+          >
+            +15dk
+          </button>
+          <button
+            onClick={() => onFastForwardMinutes(60)}
+            className="px-1.5 py-1 rounded text-[10px] font-mono text-slate-400 hover:text-cyan-300 bg-[#07101c] border border-[#14263b] hover:border-slate-600 transition-all"
+            title="+1 Saat İlerle"
+          >
+            +1sa
+          </button>
+        </div>
+
+        <div className="h-5 w-px bg-slate-800" />
+
+        {/* Utility Toggles: Sound, Fog, Reset */}
         <button
           onClick={() => {
             const nextMuted = sound.toggleMute();
             setIsAudioMuted(nextMuted);
           }}
-          className={`p-1.5 rounded-lg border text-xs flex items-center gap-1 transition-all ${
+          className={`p-1.5 rounded border transition-all ${
             !isAudioMuted
-              ? 'bg-cyber-cyan/15 border-cyber-cyan/50 text-cyber-cyan shadow-sm shadow-cyan-950/40'
-              : 'bg-space-850 border-slate-800 text-slate-500 hover:text-slate-300'
+              ? 'bg-cyan-950/40 border-cyan-500/40 text-cyan-400'
+              : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
           }`}
-          title={!isAudioMuted ? 'Ses & Ambiyans Açık (Susturmak için tıkla)' : 'Ses Susturuldu (Açmak için tıkla)'}
+          title={!isAudioMuted ? 'Ses Açık' : 'Ses Kapalı'}
         >
-          {!isAudioMuted ? <Volume2 className="w-4 h-4 text-cyber-cyan" /> : <VolumeX className="w-4 h-4" />}
-          <span className="text-[11px] hidden lg:inline">{!isAudioMuted ? 'Ses: Açık' : 'Ses: Kapalı'}</span>
+          {!isAudioMuted ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
         </button>
 
-        {/* Sim Time & Controls */}
-        <div className="flex items-center gap-2 bg-space-850/90 border border-slate-800 px-3 py-1.5 rounded-lg">
-          <div className="font-mono text-xs text-cyber-cyan font-bold tracking-wider mr-1">
-            {formattedTime}
-          </div>
+        <button
+          onClick={() => {
+            sound.playClick();
+            onToggleGodMode();
+          }}
+          className={`p-1.5 rounded border transition-all ${
+            godMode
+              ? 'bg-purple-950/60 border-purple-500/50 text-purple-300'
+              : 'bg-slate-900 border-slate-800 text-slate-500 hover:text-slate-300'
+          }`}
+          title={godMode ? 'Tüm Bilgi Görünür (Gözlemci Modu)' : 'Sis & Kısmi Bilgi Aktif'}
+        >
+          {godMode ? <Eye className="w-3.5 h-3.5" /> : <EyeOff className="w-3.5 h-3.5" />}
+        </button>
 
-          <button
-            onClick={onTogglePlay}
-            className={`p-1 rounded hover:bg-slate-800 ${
-              isPlaying ? 'text-amber-400' : 'text-emerald-400'
-            }`}
-            title={isPlaying ? 'Durdur' : 'Başlat'}
-          >
-            {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4" />}
-          </button>
-
-          {/* Speed Selector (1x real-time up to 1200x) */}
-          <div className="flex items-center gap-0.5 bg-space-900 rounded p-0.5 border border-slate-800 text-[10px] font-mono">
-            {[1, 10, 60, 300].map((s) => (
-              <button
-                key={s}
-                onClick={() => onSetTimeScale(s)}
-                className={`px-1.5 py-0.5 rounded ${
-                  timeScale === s
-                    ? 'bg-cyber-cyan/20 text-cyber-cyan font-bold'
-                    : 'text-slate-400 hover:text-slate-200'
-                }`}
-                title={s === 1 ? '1x: Gerçek Zamanlı Ağır Hız' : `${s}x Hızlandırma`}
-              >
-                {s === 1 ? '1x (Reel)' : `${s}x`}
-              </button>
-            ))}
-          </div>
-
-          {/* Jump Buttons */}
-          <button
-            onClick={() => onFastForwardMinutes(15)}
-            className="px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-cyber-cyan hover:bg-slate-800 border border-slate-800"
-            title="+15 Dakika İlerle"
-          >
-            +15dk
-          </button>
-
-          <button
-            onClick={() => onFastForwardMinutes(60)}
-            className="px-1.5 py-0.5 rounded text-[10px] font-mono text-slate-400 hover:text-cyber-cyan hover:bg-slate-800 border border-slate-800"
-            title="+1 Saat İlerle"
-          >
-            +1sa
-          </button>
-
-          <button
-            onClick={() => onFastForwardMinutes(480)}
-            className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-purple-950/40 text-purple-300 hover:text-purple-200 hover:bg-purple-900/60 border border-purple-700/50 flex items-center gap-1"
-            title="+8 Saat: Gece Uykusu Simülasyonu (Sekiz saat uzakta kalan toparlanabiliyor mu test et)"
-          >
-            <Moon className="w-3 h-3 text-purple-400" />
-            <span>+8sa</span>
-          </button>
-
-          <button
-            onClick={onReset}
-            className="p-1 rounded text-slate-400 hover:text-rose-400 hover:bg-slate-800 ml-1"
-            title="Simülasyonu Sıfırla"
-          >
-            <RotateCcw className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        <button
+          onClick={() => {
+            sound.playClick();
+            onReset();
+          }}
+          className="p-1.5 rounded border border-slate-800 bg-slate-900 text-slate-500 hover:text-rose-400 hover:border-rose-500/40 transition-all"
+          title="Simülasyonu Sıfırla"
+        >
+          <RotateCcw className="w-3.5 h-3.5" />
+        </button>
       </div>
     </header>
   );

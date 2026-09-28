@@ -33,6 +33,8 @@ interface StellarisOutlinerProps {
   onSelectFleet: (fleetId: string) => void;
   onSelectSystem: (systemId: string) => void;
   currentTimeMs: number;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
 export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
@@ -44,8 +46,13 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
   onSelectFleet,
   onSelectSystem,
   currentTimeMs,
+  isCollapsed: propIsCollapsed,
+  onToggleCollapse,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [internalCollapsed, setInternalCollapsed] = useState(false);
+  const isCollapsed = propIsCollapsed !== undefined ? propIsCollapsed : internalCollapsed;
+  const handleToggleCollapse = onToggleCollapse || (() => setInternalCollapsed(!internalCollapsed));
+
   const [sectionsOpen, setSectionsOpen] = useState({
     threats: true,
     planets: true,
@@ -90,7 +97,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
         <button
           onClick={() => {
             sound.playClick();
-            setIsCollapsed(false);
+            handleToggleCollapse();
           }}
           className="pointer-events-auto mt-4 bg-[#0a1120]/95 hover:bg-[#121e36] text-cyan-400 border-l border-y border-cyan-500/40 px-2 py-3 rounded-l-lg shadow-xl backdrop-blur-md flex flex-col items-center gap-2 group transition-all"
           title="Çizelgeyi Aç (Outliner)"
@@ -120,7 +127,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
         <button
           onClick={() => {
             sound.playClick();
-            setIsCollapsed(true);
+            handleToggleCollapse();
           }}
           className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 transition-all"
           title="Çizelgeyi Gizle"
@@ -265,6 +272,21 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                         <span>
                           {formatDuration(
                             Math.max(0, planet.buildingQueue.finishTime - currentTimeMs)
+                          )}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Shipyard Queue Indicator */}
+                    {planet.shipyardQueue && planet.shipyardQueue.length > 0 && (
+                      <div className="mt-1 pt-1 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-amber-400">
+                        <span className="flex items-center gap-1 truncate max-w-[150px]">
+                          <Rocket className="w-2.5 h-2.5" />
+                          {planet.shipyardQueue[0].count}x {SHIP_STATS[planet.shipyardQueue[0].shipType]?.nameTr || 'Gemi'}
+                        </span>
+                        <span>
+                          {formatDuration(
+                            Math.max(0, planet.shipyardQueue[0].nextUnitFinishTime - currentTimeMs)
                           )}
                         </span>
                       </div>

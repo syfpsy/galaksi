@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   ArrowLeft,
   ChevronLeft,
@@ -187,6 +187,24 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
     setZoom(1);
     onSelectSystem(systemId);
   };
+
+  // Keyboard shortcut M: Toggle Galaxy View <-> System View (Stellaris standard)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault();
+        sound.playClick();
+        if (viewMode === 'system') {
+          setViewMode('galaxy');
+        } else {
+          enterSystemView(focusedSystemId);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, focusedSystemId]);
 
   // Handle cycling between systems in system view
   const cycleSystem = (direction: 'next' | 'prev') => {
@@ -1747,37 +1765,130 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         </div>
       )}
 
-      {/* Bottom Center: Stellaris-Style Mode Bar */}
-      <div className="absolute bottom-4 z-20 flex items-center gap-3">
-        <div className="flex items-center gap-1 bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-full px-3 py-1.5 shadow-2xl">
+      {/* Bottom Center: Stellaris Signature Galaxy / System Toggle Deck */}
+      <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2 select-none pointer-events-auto">
+        <div className="bg-[#060d19]/95 backdrop-blur-md border border-[#163552] rounded-xl p-1.5 shadow-2xl flex items-center gap-1.5 text-xs font-mono">
+          {/* Main View Toggle Button */}
+          {viewMode === 'system' ? (
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => cycleSystem('prev')}
+                className="p-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition-all flex items-center justify-center"
+                title="Önceki Yıldız Sistemi (Döngü)"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setViewMode('galaxy');
+                }}
+                className="px-3.5 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 font-bold flex items-center gap-2 shadow-lg shadow-cyan-950/60 transition-all group"
+                title="Galaksi Haritasına Geç (M)"
+              >
+                <Compass className="w-4 h-4 text-cyan-400 group-hover:rotate-45 transition-transform" />
+                <span>🌌 GALAKSİ HARİTASI (M)</span>
+              </button>
+
+              <button
+                onClick={() => cycleSystem('next')}
+                className="p-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition-all flex items-center justify-center"
+                title="Sonraki Yıldız Sistemi (Döngü)"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => {
+                  enterSystemView(focusedSystemId);
+                }}
+                className="px-3.5 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400 text-amber-300 font-bold flex items-center gap-2 shadow-lg shadow-amber-950/60 transition-all group"
+                title="Sistem Yörünge Haritasına Gir (M / Çift Tık)"
+              >
+                <Globe className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span>🪐 {activeSystem.name.toUpperCase()} SİSTEMİ (M)</span>
+              </button>
+
+              <select
+                value={focusedSystemId}
+                onChange={(e) => {
+                  sound.playClick();
+                  setFocusedSystemId(e.target.value);
+                  onSelectSystem(e.target.value);
+                }}
+                className="bg-slate-900 border border-slate-700 text-slate-300 hover:border-slate-500 rounded-lg px-2 py-2 text-[11px] focus:outline-none cursor-pointer"
+                title="Sisteme Odaklan"
+              >
+                {systems.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name} {s.hasRelay ? '👑' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          <div className="h-6 w-px bg-slate-850 mx-1" />
+
+          {/* 2D / 2.5D Engine Toggle */}
           <button
             onClick={() => {
               sound.playClick();
-              setViewMode('galaxy');
+              setRenderEngine(renderEngine === 'webgl_25d' ? 'vector_2d' : 'webgl_25d');
             }}
-            className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition-all ${
-              viewMode === 'galaxy'
-                ? 'bg-cyber-cyan text-space-950'
-                : 'text-slate-400 hover:text-white'
-            }`}
+            className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition-all flex items-center gap-1 text-[11px]"
+            title="Grafik Motoru Değiştir (2.5D WebGL / 2D Vektör)"
           >
-            🌌 Galaksi Haritası (12 Sistem)
+            <span>{renderEngine === 'webgl_25d' ? '3D' : '2D'}</span>
           </button>
 
-          <span className="text-slate-600">•</span>
+          {/* Projections Toggle (if system view) */}
+          {viewMode === 'system' && (
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowProjections(!showProjections);
+              }}
+              className={`px-2.5 py-1.5 rounded-lg border transition-all text-[11px] ${
+                showProjections
+                  ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
+                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+              }`}
+              title="Gelecek Yörünge Projeksiyonlarını Göster/Gizle"
+            >
+              🔭 Projeksiyon
+            </button>
+          )}
 
-          <button
-            onClick={() => {
-              enterSystemView(focusedSystemId);
-            }}
-            className={`px-3 py-1 rounded-full text-xs font-mono font-bold transition-all ${
-              viewMode === 'system'
-                ? 'bg-cyber-cyan text-space-950'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            🪐 {activeSystem.name} Yörünge Sistemi
-          </button>
+          {/* Zoom Buttons */}
+          <div className="flex items-center gap-0.5 bg-slate-900 border border-slate-800 rounded p-0.5 text-[11px]">
+            <button
+              onClick={() => {
+                sound.playClick();
+                setZoom((prev) => Math.max(0.6, prev - 0.2));
+              }}
+              className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800"
+              title="Uzaklaş"
+            >
+              -
+            </button>
+            <span className="px-1.5 text-[10px] text-slate-300 font-bold">
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              onClick={() => {
+                sound.playClick();
+                setZoom((prev) => Math.min(2.5, prev + 0.2));
+              }}
+              className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800"
+              title="Yakınlaş"
+            >
+              +
+            </button>
+          </div>
         </div>
       </div>
 

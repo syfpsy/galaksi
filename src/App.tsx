@@ -59,6 +59,7 @@ export function App() {
   // Drawers & Stellaris Layout
   const [isPlanetPanelOpen, setIsPlanetPanelOpen] = useState<boolean>(false);
   const [isCommandPanelOpen, setIsCommandPanelOpen] = useState<boolean>(false);
+  const [isOutlinerCollapsed, setIsOutlinerCollapsed] = useState<boolean>(false);
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(sound.isMuted);
 
   // Modals
@@ -116,25 +117,64 @@ export function App() {
         e.preventDefault();
         sound.playClick();
         setIsBattlesOpen((prev) => !prev);
+      } else if (e.key === 'F7') {
+        e.preventDefault();
+        sound.playClick();
+        setIsAllianceOpen((prev) => !prev);
+      } else if (e.key === 'F8') {
+        e.preventDefault();
+        sound.playClick();
+        setIsRelayOpen((prev) => !prev);
+      } else if (e.key === 'F9') {
+        e.preventDefault();
+        sound.playClick();
+        setIsGalleryOpen((prev) => !prev);
       } else if (e.key === 'Escape') {
-        if (isPlanetPanelOpen || isCommandPanelOpen) {
+        const hasOpenModalOrDrawer =
+          isPlanetPanelOpen ||
+          isCommandPanelOpen ||
+          isSituationLogOpen ||
+          isShipyardOpen ||
+          isResearchOpen ||
+          isBattlesOpen ||
+          isRelayOpen ||
+          isAllianceOpen ||
+          isGalleryOpen ||
+          !!inspectedSystemId ||
+          !!anomalyModalSystemId;
+
+        if (hasOpenModalOrDrawer) {
           setIsPlanetPanelOpen(false);
           setIsCommandPanelOpen(false);
+          setIsSituationLogOpen(false);
+          setIsShipyardOpen(false);
+          setIsResearchOpen(false);
+          setIsBattlesOpen(false);
+          setIsRelayOpen(false);
+          setIsAllianceOpen(false);
+          setIsGalleryOpen(false);
+          setInspectedSystemId(null);
+          setAnomalyModalSystemId(null);
+        } else {
+          setSelectedTarget(null);
         }
-        setIsSituationLogOpen(false);
-        setIsShipyardOpen(false);
-        setIsResearchOpen(false);
-        setIsBattlesOpen(false);
-        setIsRelayOpen(false);
-        setIsAllianceOpen(false);
-        setIsGalleryOpen(false);
-        setInspectedSystemId(null);
-        setAnomalyModalSystemId(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isPlanetPanelOpen, isCommandPanelOpen]);
+  }, [
+    isPlanetPanelOpen,
+    isCommandPanelOpen,
+    isSituationLogOpen,
+    isShipyardOpen,
+    isResearchOpen,
+    isBattlesOpen,
+    isRelayOpen,
+    isAllianceOpen,
+    isGalleryOpen,
+    inspectedSystemId,
+    anomalyModalSystemId,
+  ]);
 
   // Initialize engine & players
   const initGame = useCallback((seed: number = 42) => {
@@ -404,6 +444,7 @@ export function App() {
           const firstP = Object.values(engineState.planets).find((p) => p.ownerId === id);
           if (firstP) setActivePlanetId(firstP.id);
         }}
+        onOpenPlanetPanel={() => setIsPlanetPanelOpen(true)}
         onOpenShipyard={() => setIsShipyardOpen(true)}
         onOpenResearch={() => setIsResearchOpen(true)}
         onOpenBattles={() => setIsBattlesOpen(true)}
@@ -538,7 +579,7 @@ export function App() {
 
         {/* Fleet Dispatch & Target Command Deck (Floating Slide-over Drawer) */}
         {isCommandPanelOpen && (
-          <div className="absolute right-72 top-0 bottom-0 z-30 shadow-2xl animate-fade-in flex">
+          <div className={`absolute ${isOutlinerCollapsed ? 'right-4' : 'right-72'} top-0 bottom-0 z-30 shadow-2xl animate-fade-in flex`}>
             <CommandPanel
               state={engineState}
               activePlayerId={activePlayerId}
@@ -558,6 +599,8 @@ export function App() {
           activePlayerId={activePlayerId}
           activePlanetId={activePlanet?.id || ''}
           selectedTarget={selectedTarget}
+          isCollapsed={isOutlinerCollapsed}
+          onToggleCollapse={() => setIsOutlinerCollapsed(!isOutlinerCollapsed)}
           onSelectPlanet={(pId) => {
             setActivePlanetId(pId);
             const p = engineState.planets[pId];
