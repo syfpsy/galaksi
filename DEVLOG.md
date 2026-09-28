@@ -4,6 +4,47 @@ Bu dosya, GDD v0.1.0 doğrultusunda yapılan tüm mimari kararların, aşamalar�
 
 ---
 
+## [2026-09-28] — Sürüklenebilir/Katlanabilir Filo Kartı (Floating HUD) & Galaksi/Sistem Rota Görünürlüğü
+
+Kullanıcının talebi doğrultusunda:
+- *"Bütün panelleri yani sağ sol alt paneller dursun. Ama onun dışında alttan açılan diğer panelleri hareket eden bir filonun detay paneli gibi. Bunun gibi panelleri tıklayınca pop-up gibi açılan kartlar yapalım."*
+- *"Harita üzerinde mutlaka görelim rotalarıyla birlikte. Sistem haritasında mutlaka görelim. Sistemler arası hareket eden filoları da yine galakside görebilmeliyiz."*
+- *"Açılan yeni koyacağımız açılan kart şeklindeki paneller sürüklenebilir, küçültülebilir, genişletilebilir, kollaps edilebilir, ekspant edilebilir ve sağ üst köşesine tıklayarak kapatılabilir olsun."*
+
+### 1. Sürüklenebilir, Katlanabilir & Boyutlandırılabilir Filo Kartı (`FleetCardHUD.tsx`)
+- **Sürüklenebilir (Draggable Floating Window):**
+  - Başlık alanından mouse ve touch ile ekranın herhangi bir yerine serbestçe taşınabilir (`onMouseDown`, `onTouchStart`, `onTouchMove`, `onTouchEnd`).
+  - Ekran sınırları dışına kaçmaması için pencere koordinatlarına otomatik sınırlama (clamping) uygulandı.
+- **Kollaps / Ekspant (Katlanabilir):**
+  - `ChevronDown` / `ChevronUp` butonuyla kart, haritayı kapatmayacak mini bir başlık çubuğuna (`w-[360px]`) katlanabilir. Katlanmış modda filo adı, kalan süre ve hızlı geri çağırma butonu yer alır.
+- **Küçültülebilir / Genişletilebilir (Kompakt vs Geniş Görünüm):**
+  - `Maximize2` / `Minimize2` butonuyla `430px` (Kompakt Taktik HUD) ile `560px` (Genişletilmiş Detay Dosyası) arasında geçiş yapılabilir.
+- **Sağ Üst Köşeden Kapatma:**
+  - Sağ üstte net 'X' kapatma butonu ile panel anında kapatılabilir.
+- **Taktik Bilgi & Aksiyonlar:**
+  - Uçuş ilerleme çubuğu üzerinde %50 Geri Çağırma Kilidi (Point of No Return) göstergesi.
+  - Kargo yük dökümü (Cevher, Kristal, Yakıt).
+  - Gemi bileşimi (Keşif, Nakliye, Avcı, Savaş Gemisi), toplam saldırı gücü ve dayanıklılık.
+  - Geri Çağır (`RotateCcw`), Rota Önle (`Crosshair`) ve Emirlere Git (`Send`) butonları.
+
+### 2. Galaksi Haritası Rota Görünürlüğü (`GalaxyMap.tsx` & `GalaxyScene25D.tsx`)
+- **Tüm Uçuş Rotası Gösterimi:**
+  - **Kat Edilen Yol (Trail):** Başlangıç sisteminden filonun anlık koordinatına kadar kesikli iz çizgisi ve kalkış işaretçisi.
+  - **Kalan Uçuş Vektörü (Trajectory):** Filonun anlık koordinatından hedef sisteme kadar animasyonlu neon akış çizgisi.
+  - **Varış Hedef Halkası:** Hedef sistem üzerinde puls yapan varış waypoint halkası.
+  - Filonun altında anlık gemi sayısı ve kalan varış süresi göstergesi.
+
+### 3. Sistem İçi Haritada Filoların & Rotaların Gösterilmesi (`GalaxyMap.tsx` & `GalaxyScene25D.tsx`)
+- **Sistem İçi Filo Katmanı (`systemActiveFleets`):**
+  - **Sisteme Gelen Filolar (Inbound):** İlgili sistemin kenarındaki hiperuzay atlama şamandırasından (jump gate) varış gezegenine doğru yaklaşma rotası ve anlık konumu.
+  - **Sistemden Ayrılan Filolar (Outbound):** Kalkış gezegeninden hedef sisteme giden çıkış şamandırasına doğru kalkış rotası ve anlık konumu.
+  - **Yörüngedeki Filolar (Orbiting):** İlgili gezegenin veya merkezi yıldızın etrafında devriye yörüngesi çizen filo konumu ve yörünge çemberi.
+  - **Sistem İçi Uçuşlar (Intra-system):** Gezegenler arası intikal rotaları.
+- **2D & 3D Etkileşim:**
+  - Hem 2D Vektör SVG modunda hem de Three.js 2.5D WebGL modunda filolar görünür, thruster alev efektleriyle parlar, tıklanabilir durumdadır ve tıklandığında yüzen `FleetCardHUD` kartını açar.
+
+---
+
 ## [2026-09-28] — Taşı/Topla Glitch Düzeltmesi & Sol Menü Görünürlük/Altta Kalma Revizyonu
 
 Kullanıcının *"taşı topla butonu seçilince glitch oluyor. ayrıca bazı left rail menüleri altta kalıp okunmuyor, genel bir menu arkaplanı ve görünürlülük testi yap de bütün hataları düzelt"* talebi doğrultusunda:

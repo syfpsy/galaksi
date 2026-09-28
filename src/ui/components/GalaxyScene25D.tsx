@@ -21,6 +21,7 @@ import {
   getTerritoryInfluenceTexture,
 } from './proceduralTextures';
 import { sound } from '../sound';
+import { formatDuration } from '../timeUtils';
 
 interface GalaxyScene25DProps {
   state: GameState;
@@ -43,13 +44,14 @@ interface GalaxyScene25DProps {
 
 interface ScreenLabel {
   id: string;
-  type: 'system' | 'planet' | 'jump_gate' | 'star';
+  type: 'system' | 'planet' | 'jump_gate' | 'star' | 'fleet';
   title: string;
   subtitle?: string;
   color: string;
   systemId: string;
   planetId?: string;
   targetSystemId?: string;
+  fleetId?: string;
   x: number;
   y: number;
   visible: boolean;
@@ -465,6 +467,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       thrusterMesh: THREE.Mesh;
       glowSprite: THREE.Sprite;
       fleetId: string;
+      routeLine?: THREE.Line;
+      targetMarker?: THREE.Sprite;
     }
     const fleetVisuals = new Map<string, FleetVisual>();
 
@@ -508,9 +512,36 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       glowSprite.raycast = () => {};
       group.add(glowSprite);
 
+      // Trajectory Line (Origin -> Ship -> Target)
+      const routePoints = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)];
+      const routeGeo = new THREE.BufferGeometry().setFromPoints(routePoints);
+      const routeMat = new THREE.LineBasicMaterial({
+        color: factionColor,
+        transparent: true,
+        opacity: 0.65,
+        depthWrite: false,
+      });
+      const routeLine = new THREE.Line(routeGeo, routeMat);
+      routeLine.raycast = () => {};
+      routeLine.visible = false;
+      macroFleetsGroup.add(routeLine);
+
+      // Target Arrival Marker
+      const targetMarkerMat = new THREE.SpriteMaterial({
+        map: getWarpGateTexture(),
+        transparent: true,
+        opacity: 0.75,
+        blending: THREE.AdditiveBlending,
+      });
+      const targetMarker = new THREE.Sprite(targetMarkerMat);
+      targetMarker.scale.set(10, 10, 1);
+      targetMarker.raycast = () => {};
+      targetMarker.visible = false;
+      macroFleetsGroup.add(targetMarker);
+
       macroFleetsGroup.add(group);
 
-      const fv: FleetVisual = { group, hullMesh, thrusterMesh, glowSprite, fleetId: fleet.id };
+      const fv: FleetVisual = { group, hullMesh, thrusterMesh, glowSprite, fleetId: fleet.id, routeLine, targetMarker };
       fleetVisuals.set(fleet.id, fv);
       return fv;
     };
@@ -543,6 +574,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         targetSystemName: string;
         position: THREE.Vector3;
       }[];
+      systemFleetsGroup: THREE.Group;
+      systemFleetVisuals: Map<string, FleetVisual>;
     }
     let currentOrrery: PlanetVisualObjects | null = null;
 
@@ -874,11 +907,17 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         });
       });
 
+      const systemFleetsGroup = new THREE.Group();
+      systemOrreryGroup.add(systemFleetsGroup);
+      const systemFleetVisuals = new Map<string, FleetVisual>();
+
       currentOrrery = {
         systemId: system.id,
         orbitLines,
         planetMeshes,
         warpBuoys,
+        systemFleetsGroup,
+        systemFleetVisuals,
       };
     };
 
@@ -1307,6 +1346,19 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               const dx = targetSys.x - originSys.x;
               const dy = targetSys.y - originSys.y;
               visual.group.rotation.z = Math.atan2(dy, dx) - Math.PI / 2;
+
+              if (visual.routeLine) {
+                const posAttr = (visual.routeLine.geometry as THREE.BufferGeometry).attributes.position;
+                posAttr.setXYZ(0, originSys.x, originSys.y, 4);
+                posAttr.setXYZ(1, pos.x, pos.y, 8);
+                posAttr.setXYZ(2, targetSys.x, targetSys.y, 4);
+                posAttr.needsUpdate = true;
+                visual.routeLine.visible = true;
+              }
+              if (visual.targetMarker) {
+                visual.targetMarker.position.set(targetSys.x, targetSys.y, 6);
+                visual.targetMarker.visible = true;
+              }
             }
             const pulseScale = 1.0 + Math.sin(currentTimeMs * 0.015) * 0.25;
             visual.thrusterMesh.scale.set(pulseScale, pulseScale, pulseScale);
@@ -1314,12 +1366,16 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           } else {
             visual.group.rotation.z += delta * 0.5;
             visual.thrusterMesh.scale.set(0.6, 0.6, 0.6);
+            if (visual.routeLine) visual.routeLine.visible = false;
+            if (visual.targetMarker) visual.targetMarker.visible = false;
           }
         });
 
         fleetVisuals.forEach((visual, fleetId) => {
           if (!activeFleetIds.has(fleetId)) {
             macroFleetsGroup.remove(visual.group);
+            if (visual.routeLine) macroFleetsGroup.remove(visual.routeLine);
+            if (visual.targetMarker) macroFleetsGroup.remove(visual.targetMarker);
             fleetVisuals.delete(fleetId);
           }
         });
@@ -1405,6 +1461,181 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 }
               });
             });
+
+            // 6.5.2 In-System Active & Moving Fleets Update (3D System View)
+            if (currentOrrery.systemFleetsGroup) {
+              const activeInSystemFleetIds = new Set<string>();
+              const sysFleets = Object.values(stateRef.current.fleets).filter(
+                (f) =>
+                  f.originSystemId === currentSystem.id ||
+                  f.targetSystemId === currentSystem.id
+              );
+
+              sysFleets.forEach((fleet) => {
+                const isOwn = fleet.ownerId === activePlayerIdRef.current;
+                const isVisible =
+                  isGodMode ||
+                  isOwn ||
+                  currentCoverage.has(currentSystem.id) ||
+                  currentCoverage.has(fleet.originSystemId) ||
+                  currentCoverage.has(fleet.targetSystemId);
+
+                if (!isVisible) return;
+                activeInSystemFleetIds.add(fleet.id);
+
+                let vis = currentOrrery!.systemFleetVisuals.get(fleet.id);
+                if (!vis) {
+                  const group = new THREE.Group();
+                  (group as any).userData = { type: 'fleet', fleetId: fleet.id };
+
+                  const factionColor = isOwn ? 0x00f3ff : 0xf43f5e;
+                  const hullMat = new THREE.MeshStandardMaterial({
+                    color: factionColor,
+                    roughness: 0.35,
+                    metalness: 0.8,
+                  });
+                  const hullMesh = new THREE.Mesh(shipHullGeo, hullMat);
+                  (hullMesh as any).userData = { type: 'fleet', fleetId: fleet.id };
+                  group.add(hullMesh);
+
+                  const thrusterMat = new THREE.MeshBasicMaterial({
+                    color: factionColor,
+                    transparent: true,
+                    opacity: 0.9,
+                    blending: THREE.AdditiveBlending,
+                  });
+                  const thrusterMesh = new THREE.Mesh(thrusterConeGeo, thrusterMat);
+                  thrusterMesh.position.set(0, 0, -4.5);
+                  thrusterMesh.raycast = () => {};
+                  group.add(thrusterMesh);
+
+                  const glowMat = new THREE.SpriteMaterial({
+                    map: getShipEngineGlowTexture(isOwn ? '#00f3ff' : '#f43f5e'),
+                    transparent: true,
+                    opacity: 0.85,
+                    blending: THREE.AdditiveBlending,
+                    depthWrite: false,
+                  });
+                  const glowSprite = new THREE.Sprite(glowMat);
+                  glowSprite.position.set(0, 0, -6.5);
+                  glowSprite.scale.set(7, 7, 1);
+                  glowSprite.raycast = () => {};
+                  group.add(glowSprite);
+
+                  // 3D In-system route line
+                  const routePts = [new THREE.Vector3(0, 0, 0), new THREE.Vector3(0, 0, 0)];
+                  const routeGeo = new THREE.BufferGeometry().setFromPoints(routePts);
+                  const routeMat = new THREE.LineBasicMaterial({
+                    color: factionColor,
+                    transparent: true,
+                    opacity: 0.6,
+                    depthWrite: false,
+                  });
+                  const routeLine = new THREE.Line(routeGeo, routeMat);
+                  routeLine.raycast = () => {};
+                  currentOrrery!.systemFleetsGroup.add(routeLine);
+
+                  currentOrrery!.systemFleetsGroup.add(group);
+
+                  vis = { group, hullMesh, thrusterMesh, glowSprite, fleetId: fleet.id, routeLine };
+                  currentOrrery!.systemFleetVisuals.set(fleet.id, vis);
+                }
+
+                // Compute position in system coordinates
+                const totalTravelMs = Math.max(1, fleet.arrivalTime - fleet.departureTime);
+                const elapsedMs = Math.max(0, currentTimeMs - fleet.departureTime);
+                const progress = Math.min(1, elapsedMs / totalTravelMs);
+
+                let startX = 500;
+                let startY = 400;
+                let targetX = 500;
+                let targetY = 400;
+
+                const getPlanetPos = (planetId?: string) => {
+                  if (!planetId || !currentOrrery) return null;
+                  const p = currentOrrery.planetMeshes.find((pm) => pm.planetId === planetId);
+                  return p ? p.planetMesh.position : null;
+                };
+
+                const getBuoyPos = (otherSysId: string) => {
+                  const b = currentOrrery?.warpBuoys.find((wb) => wb.targetSystemId === otherSysId);
+                  if (b) return b.position;
+                  const otherSys = stateRef.current.map.systems[otherSysId];
+                  if (!otherSys) return new THREE.Vector3(500, 100, 4);
+                  const angle = Math.atan2(otherSys.y - currentSystem.y, otherSys.x - currentSystem.x);
+                  return new THREE.Vector3(
+                    500 + Math.cos(angle) * 410,
+                    400 + Math.sin(angle) * 410 * 0.85,
+                    4
+                  );
+                };
+
+                if (fleet.status === 'orbiting') {
+                  const pPos = getPlanetPos(fleet.targetPlanetId);
+                  const ox = pPos ? pPos.x : 500;
+                  const oy = pPos ? pPos.y : 400;
+                  const orbitR = pPos ? 22 : 46;
+                  const theta = currentTimeMs * 0.0012 + (fleet.id.charCodeAt(0) % 10);
+                  const fx = ox + Math.cos(theta) * orbitR;
+                  const fy = oy + Math.sin(theta) * orbitR * 0.85;
+
+                  vis.group.position.set(fx, fy, 8);
+                  vis.group.rotation.z = theta + Math.PI / 2;
+                  if (vis.routeLine) vis.routeLine.visible = false;
+                } else {
+                  if (
+                    fleet.originSystemId === currentSystem.id &&
+                    fleet.targetSystemId === currentSystem.id
+                  ) {
+                    const pTarget = getPlanetPos(fleet.targetPlanetId);
+                    targetX = pTarget ? pTarget.x : 500;
+                    targetY = pTarget ? pTarget.y : 400;
+                  } else if (fleet.targetSystemId === currentSystem.id) {
+                    const bPos = getBuoyPos(fleet.originSystemId);
+                    startX = bPos.x;
+                    startY = bPos.y;
+                    const pTarget = getPlanetPos(fleet.targetPlanetId);
+                    targetX = pTarget ? pTarget.x : 500;
+                    targetY = pTarget ? pTarget.y : 400;
+                  } else {
+                    const bPos = getBuoyPos(fleet.targetSystemId);
+                    targetX = bPos.x;
+                    targetY = bPos.y;
+                    const pOrigin = getPlanetPos(fleet.targetPlanetId);
+                    startX = pOrigin ? pOrigin.x : 500;
+                    startY = pOrigin ? pOrigin.y : 400;
+                  }
+
+                  const fx = startX + (targetX - startX) * progress;
+                  const fy = startY + (targetY - startY) * progress;
+                  vis.group.position.set(fx, fy, 8);
+
+                  const angle = Math.atan2(targetY - startY, targetX - startX);
+                  vis.group.rotation.z = angle - Math.PI / 2;
+
+                  if (vis.routeLine) {
+                    const posAttr = (vis.routeLine.geometry as THREE.BufferGeometry).attributes.position;
+                    posAttr.setXYZ(0, startX, startY, 4);
+                    posAttr.setXYZ(1, targetX, targetY, 4);
+                    posAttr.needsUpdate = true;
+                    vis.routeLine.visible = true;
+                  }
+                }
+
+                const pulseScale = 1.0 + Math.sin(currentTimeMs * 0.015) * 0.25;
+                vis.thrusterMesh.scale.set(pulseScale, pulseScale, pulseScale);
+                vis.glowSprite.scale.set(7 * pulseScale, 7 * pulseScale, 1);
+              });
+
+              // Cleanup removed in-system fleet visuals
+              currentOrrery.systemFleetVisuals.forEach((vis, fid) => {
+                if (!activeInSystemFleetIds.has(fid)) {
+                  currentOrrery!.systemFleetsGroup.remove(vis.group);
+                  if (vis.routeLine) currentOrrery!.systemFleetsGroup.remove(vis.routeLine);
+                  currentOrrery!.systemFleetVisuals.delete(fid);
+                }
+              });
+            }
           }
         }
       }
@@ -1602,6 +1833,39 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               visible: true,
             });
           });
+
+          // 4. In-System Active Fleets Labels
+          if (currentOrrery.systemFleetVisuals) {
+            currentOrrery.systemFleetVisuals.forEach((vis, fId) => {
+              const fl = stateRef.current.fleets[fId];
+              if (!fl) return;
+              tempProjVec.copy(vis.group.position);
+              tempProjVec.y -= 14;
+              tempProjVec.project(camera);
+              const isVisible = tempProjVec.z < 1 && tempProjVec.z > -1;
+              if (isVisible) {
+                const isOwn = fl.ownerId === activePlayerIdRef.current;
+                const owner = stateRef.current.players[fl.ownerId];
+                const totalShips = Object.values(fl.ships).reduce((a, b) => a + b, 0);
+                const remainingMs = Math.max(0, fl.arrivalTime - currentTimeMs);
+                labels.push({
+                  id: `fleet_${fl.id}`,
+                  type: 'fleet',
+                  title: isOwn ? (fl.name || 'Filo') : 'Düşman Filo',
+                  subtitle:
+                    fl.status === 'orbiting'
+                      ? `${totalShips}G • Yörüngede`
+                      : `${totalShips}G • ${formatDuration(remainingMs)}`,
+                  color: owner?.color || (isOwn ? '#00f3ff' : '#f43f5e'),
+                  systemId: activeSys?.id || '',
+                  fleetId: fl.id,
+                  x: ((tempProjVec.x + 1) * width) / 2,
+                  y: ((-tempProjVec.y + 1) * height) / 2,
+                  visible: true,
+                });
+              }
+            });
+          }
         }
 
         setHudLabels(labels);
@@ -1678,6 +1942,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 onSelectSystem(lbl.systemId);
               } else if (lbl.type === 'planet' && onSelectPlanet && lbl.planetId) {
                 onSelectPlanet(lbl.systemId, lbl.planetId);
+              } else if (lbl.type === 'fleet' && lbl.fleetId) {
+                onSelectFleet(lbl.fleetId);
               }
             }}
             onDoubleClick={(e) => {
@@ -1766,6 +2032,25 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 </div>
                 {lbl.subtitle && (
                   <span className="text-[8.5px] font-mono text-amber-400/80 mt-0.5 tracking-wider">
+                    {lbl.subtitle}
+                  </span>
+                )}
+              </div>
+            ) : lbl.type === 'fleet' ? (
+              <div
+                className="px-2 py-0.5 rounded bg-space-950/90 border shadow-md backdrop-blur-md flex items-center gap-1.5 transition-all hover:scale-105"
+                style={{
+                  borderColor: `${lbl.color}80`,
+                  boxShadow: `0 0 8px ${lbl.color}30`,
+                }}
+              >
+                <span className="text-[10px]">🛸</span>
+                <span className="text-[9.5px] font-mono font-bold text-white">{lbl.title}</span>
+                {lbl.subtitle && (
+                  <span
+                    className="text-[8.5px] font-mono font-bold px-1 rounded"
+                    style={{ backgroundColor: `${lbl.color}25`, color: lbl.color }}
+                  >
                     {lbl.subtitle}
                   </span>
                 )}

@@ -1,11 +1,17 @@
-import React from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  ChevronDown,
+  ChevronUp,
   Crosshair,
   Flame,
+  GripHorizontal,
   Lock,
+  Maximize2,
+  Minimize2,
   Navigation,
+  Package,
   RotateCcw,
   Send,
   Shield,
@@ -41,6 +47,115 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
   onFocusFleetPosition,
 }) => {
   const fleet = state.fleets[fleetId];
+
+  // Floating Position & Drag State
+  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [sizeMode, setSizeMode] = useState<'compact' | 'wide'>('compact');
+
+  const cardRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ mouseX: number; mouseY: number; posX: number; posY: number } | null>(null);
+
+  // Initialize position on mount (centered near bottom-middle without overlapping bottom deck)
+  useEffect(() => {
+    if (position === null && typeof window !== 'undefined') {
+      const initialWidth = sizeMode === 'wide' ? 560 : 420;
+      const initialX = Math.max(70, Math.round((window.innerWidth - initialWidth) / 2));
+      const initialY = Math.max(60, window.innerHeight - 340);
+      setPosition({ x: initialX, y: initialY });
+    }
+  }, [position, sizeMode]);
+
+  // Window drag listeners
+  const handleMouseDown = (e: React.MouseEvent) => {
+    // Only drag from header/grip or empty header space (not buttons)
+    if ((e.target as HTMLElement).closest('button')) return;
+    e.preventDefault();
+    setIsDragging(true);
+
+    const currentX = position?.x ?? 200;
+    const currentY = position?.y ?? 200;
+
+    dragStartRef.current = {
+      mouseX: e.clientX,
+      mouseY: e.clientY,
+      posX: currentX,
+      posY: currentY,
+    };
+  };
+
+  const handleMouseMove = useCallback(
+    (e: MouseEvent) => {
+      if (!dragStartRef.current) return;
+      const dx = e.clientX - dragStartRef.current.mouseX;
+      const dy = e.clientY - dragStartRef.current.mouseY;
+
+      const cardWidth = cardRef.current?.offsetWidth || (sizeMode === 'wide' ? 560 : 420);
+      const cardHeight = cardRef.current?.offsetHeight || 60;
+
+      const newX = Math.max(10, Math.min(window.innerWidth - cardWidth - 10, dragStartRef.current.posX + dx));
+      const newY = Math.max(10, Math.min(window.innerHeight - cardHeight - 10, dragStartRef.current.posY + dy));
+
+      setPosition({ x: newX, y: newY });
+    },
+    [sizeMode]
+  );
+
+  const handleMouseUp = useCallback(() => {
+    setIsDragging(false);
+    dragStartRef.current = null;
+  }, []);
+
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+      return () => {
+        window.removeEventListener('mousemove', handleMouseMove);
+        window.removeEventListener('mouseup', handleMouseUp);
+      };
+    }
+  }, [isDragging, handleMouseMove, handleMouseUp]);
+
+  // Touch Drag Handlers
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    if (e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    setIsDragging(true);
+
+    const currentX = position?.x ?? 200;
+    const currentY = position?.y ?? 200;
+
+    dragStartRef.current = {
+      mouseX: touch.clientX,
+      mouseY: touch.clientY,
+      posX: currentX,
+      posY: currentY,
+    };
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!dragStartRef.current || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    const dx = touch.clientX - dragStartRef.current.mouseX;
+    const dy = touch.clientY - dragStartRef.current.mouseY;
+
+    const cardWidth = cardRef.current?.offsetWidth || (sizeMode === 'wide' ? 560 : 420);
+    const cardHeight = cardRef.current?.offsetHeight || 60;
+
+    const newX = Math.max(10, Math.min(window.innerWidth - cardWidth - 10, dragStartRef.current.posX + dx));
+    const newY = Math.max(10, Math.min(window.innerHeight - cardHeight - 10, dragStartRef.current.posY + dy));
+
+    setPosition({ x: newX, y: newY });
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+    dragStartRef.current = null;
+  };
+
   if (!fleet) return null;
 
   const isOwnFleet = fleet.ownerId === activePlayerId;
@@ -73,6 +188,9 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
 
   const canRecall = isOwnFleet && (fleet.status === 'in_transit' || fleet.status === 'intercepting') && !isRecallLocked;
 
+  // Cargo contents
+  const hasCargo = fleet.cargo && ((fleet.cargo.ore || 0) > 0 || (fleet.cargo.crystal || 0) > 0 || (fleet.cargo.fuel || 0) > 0);
+
   const missionLabels: Record<string, string> = {
     transport: '📦 Kaynak İkmal Seferi',
     colonize: '🏛️ Gezegen Koloni Seferi',
@@ -86,212 +204,322 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
     in_transit: { label: 'Rotada İlerliyor', color: 'text-cyan-400 bg-cyan-950/60 border-cyan-500/40' },
     returning: { label: 'Geri Dönüş Rotasında', color: 'text-amber-400 bg-amber-950/60 border-amber-500/40' },
     intercepting: { label: 'Hedef Önleniyor', color: 'text-rose-400 bg-rose-950/60 border-rose-500/40' },
-    orbiting: { label: 'Yörünge Garnizonunda', color: 'text-emerald-400 bg-emerald-950/60 border-emerald-500/40' },
+    orbiting: { label: 'Yörüngede Konuşlu', color: 'text-emerald-400 bg-emerald-950/60 border-emerald-500/40' },
     destroyed: { label: 'İmha Edildi', color: 'text-slate-500 bg-slate-900 border-slate-700' },
   };
 
+  const cardWidthClass = isCollapsed
+    ? 'w-[360px]'
+    : sizeMode === 'wide'
+    ? 'w-[560px]'
+    : 'w-[430px]';
+
   return (
-    <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-35 w-full max-w-2xl px-4 pointer-events-none select-none animate-fade-in">
-      <div className="pointer-events-auto bg-[#080d19]/95 backdrop-blur-md border border-[#1a2942] rounded-xl shadow-2xl p-3.5 text-slate-100 flex flex-col gap-2.5 relative overflow-hidden">
-        {/* Top Accent Line in Owner Color */}
+    <div
+      ref={cardRef}
+      style={{
+        left: position ? `${position.x}px` : '50%',
+        top: position ? `${position.y}px` : 'auto',
+        bottom: position ? 'auto' : '80px',
+        transform: position ? 'none' : 'translateX(-50%)',
+      }}
+      className={`fixed z-40 ${cardWidthClass} select-none transition-shadow ${
+        isDragging ? 'shadow-cyan-950/80 shadow-2xl cursor-grabbing' : 'shadow-2xl'
+      }`}
+    >
+      <div className="bg-[#080d19]/98 backdrop-blur-xl border border-[#1b3454] rounded-2xl shadow-2xl overflow-hidden relative text-slate-100 flex flex-col animate-fade-in">
+        {/* Top Accent Line in Owner Color with Neon Glow */}
         <div
-          className="absolute top-0 left-0 right-0 h-1"
-          style={{ backgroundColor: owner?.color || '#00f3ff' }}
+          className="h-1 w-full"
+          style={{
+            backgroundColor: owner?.color || '#00f3ff',
+            boxShadow: `0 0 10px ${owner?.color || '#00f3ff'}`,
+          }}
         />
 
-        {/* Header Row */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            {/* Fleet Faction Avatar */}
+        {/* DRAGGABLE HEADER BAR */}
+        <div
+          onMouseDown={handleMouseDown}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className={`px-3 py-2 bg-[#09152a] border-b border-[#1b3454] flex items-center justify-between cursor-grab active:cursor-grabbing transition-colors ${
+            isDragging ? 'bg-[#0f2142]' : 'hover:bg-[#0c1c38]'
+          }`}
+        >
+          <div className="flex items-center gap-2 min-w-0">
+            {/* Drag Handle Grip Icon */}
+            <GripHorizontal className="w-4 h-4 text-slate-500 shrink-0" />
+
+            {/* Faction Emblem Badge */}
             <div
-              className="w-8 h-8 rounded-lg flex items-center justify-center border shadow-sm"
+              className="w-6 h-6 rounded-md flex items-center justify-center border shrink-0"
               style={{
                 backgroundColor: `${owner?.color || '#00f3ff'}20`,
                 borderColor: `${owner?.color || '#00f3ff'}60`,
               }}
             >
-              <Navigation className="w-4 h-4" style={{ color: owner?.color || '#00f3ff' }} />
+              <Navigation className="w-3.5 h-3.5" style={{ color: owner?.color || '#00f3ff' }} />
             </div>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-bold font-display text-slate-100">
-                  {fleet.name || 'Filo'}
-                </span>
-                <span
-                  className="text-[10px] font-mono font-bold px-1.5 py-0.2 rounded border"
-                  style={{
-                    backgroundColor: `${owner?.color || '#00f3ff'}15`,
-                    borderColor: `${owner?.color || '#00f3ff'}40`,
-                    color: owner?.color || '#00f3ff',
-                  }}
-                >
-                  {owner?.name || 'Komutan'}
-                </span>
-              </div>
-              <div className="text-[11px] font-mono text-slate-400">
-                {missionLabels[fleet.mission] || 'Standart Sefer'}
-              </div>
+            <div className="min-w-0 flex items-center gap-2">
+              <span className="text-xs font-bold font-display text-white truncate">
+                {fleet.name || 'Filo'}
+              </span>
+              <span
+                className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded border shrink-0"
+                style={{
+                  backgroundColor: `${owner?.color || '#00f3ff'}15`,
+                  borderColor: `${owner?.color || '#00f3ff'}40`,
+                  color: owner?.color || '#00f3ff',
+                }}
+              >
+                {owner?.name || 'Komutan'}
+              </span>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          {/* Right Action Icons: Status, Size Mode, Collapse, Close */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Status Pill */}
             <span
-              className={`text-[10px] font-mono font-bold px-2 py-0.5 rounded border ${
+              className={`text-[9.5px] font-mono font-bold px-2 py-0.5 rounded border ${
                 statusLabels[fleet.status]?.color || 'text-slate-300'
               }`}
             >
-              {statusLabels[fleet.status]?.label || fleet.status}
+              {isCollapsed ? (
+                remainingMs > 0 ? formatDuration(remainingMs) : statusLabels[fleet.status]?.label
+              ) : (
+                statusLabels[fleet.status]?.label || fleet.status
+              )}
             </span>
 
+            {/* Quick Recall Icon if Collapsed & eligible */}
+            {isCollapsed && canRecall && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sound.playClick();
+                  onRecallFleet(fleet.id);
+                }}
+                className="p-1 rounded bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-500/50"
+                title="Geri Çağır"
+              >
+                <RotateCcw className="w-3 h-3" />
+              </button>
+            )}
+
+            {/* Size Mode Toggle (Compact vs Wide) */}
+            {!isCollapsed && (
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  sound.playClick();
+                  setSizeMode((prev) => (prev === 'compact' ? 'wide' : 'compact'));
+                }}
+                className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+                title={sizeMode === 'compact' ? 'Genişletilmiş Detay Görünümü' : 'Kompakt Görünüm'}
+              >
+                {sizeMode === 'compact' ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+              </button>
+            )}
+
+            {/* Collapse / Expand Toggle */}
             <button
-              onClick={() => {
+              onClick={(e) => {
+                e.stopPropagation();
+                sound.playClick();
+                setIsCollapsed((prev) => !prev);
+              }}
+              className="p-1 rounded text-slate-400 hover:text-slate-200 hover:bg-slate-800 transition-colors"
+              title={isCollapsed ? 'Paneli Genişlet' : 'Paneli Küçült (Kollaps)'}
+            >
+              {isCollapsed ? <ChevronDown className="w-3.5 h-3.5 text-cyan-400" /> : <ChevronUp className="w-3.5 h-3.5" />}
+            </button>
+
+            {/* Close Button */}
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
                 sound.playClick();
                 onClose();
               }}
-              className="p-1 rounded text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+              className="p-1 rounded text-slate-400 hover:text-rose-300 hover:bg-rose-950/40 transition-colors"
               title="Kapat"
             >
-              <X className="w-4 h-4" />
+              <X className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
 
-        {/* Flight Progress Bar (if in flight) */}
-        {fleet.status !== 'orbiting' && (
-          <div className="bg-[#0b1325]/80 p-2.5 rounded-lg border border-slate-800 space-y-1.5 font-mono text-xs">
-            <div className="flex items-center justify-between text-[11px]">
-              <div className="flex items-center gap-1.5 text-slate-300">
-                <span>{originSys?.name || 'Başlangıç'}</span>
-                <ArrowRight className="w-3 h-3 text-cyan-400" />
-                <span className="font-bold text-cyan-300">{targetSys?.name || 'Hedef'}</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-slate-400 text-[10px]">
-                  Varış: <strong className="text-slate-200">{formatClockTime(fleet.arrivalTime)}</strong>
-                </span>
-                <span className="text-cyan-400 font-bold">
-                  {formatDuration(remainingMs)} kaldı
-                </span>
-              </div>
+        {/* EXPANDED CONTENT BODY */}
+        {!isCollapsed && (
+          <div className="p-3.5 flex flex-col gap-3 font-mono text-xs">
+            {/* Sub-header: Mission Name & Target */}
+            <div className="flex items-center justify-between text-[11px] pb-1 border-b border-slate-800/80">
+              <span className="text-slate-300 font-bold">
+                {missionLabels[fleet.mission] || 'Standart Sefer'}
+              </span>
+              <span className="text-slate-400 text-[10px]">
+                Hedef Sistem: <strong className="text-cyan-300">{targetSys?.name || fleet.targetSystemId}</strong>
+              </span>
             </div>
 
-            {/* Visual Progress Bar with 50% Recall Lock Indicator */}
-            <div className="relative w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-slate-700/80">
-              <div
-                className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-300 rounded-full"
-                style={{ width: `${progressPercent}%` }}
-              />
-              {/* 50% Threshold Marker */}
-              <div
-                className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10"
-                style={{ left: '50%' }}
-                title="%50 Geri Çağırma Kilidi (Point of No Return)"
-              />
-            </div>
-
-            <div className="flex items-center justify-between text-[9px] text-slate-400">
-              <span>İlerleme: %{progressPercent}</span>
-              {fleet.status === 'in_transit' && (
-                <span>
-                  {isRecallLocked ? (
-                    <span className="text-rose-400 flex items-center gap-1">
-                      <Lock className="w-2.5 h-2.5" /> Geri Dönüş Kilitlendi (%50 aşıldı)
+            {/* Flight Progress Bar (if in flight) */}
+            {fleet.status !== 'orbiting' && (
+              <div className="bg-[#0b1325]/90 p-2.5 rounded-xl border border-[#1b3454] space-y-1.5 text-xs">
+                <div className="flex items-center justify-between text-[11px]">
+                  <div className="flex items-center gap-1.5 text-slate-300">
+                    <span className="text-slate-400">{originSys?.name || 'Başlangıç'}</span>
+                    <ArrowRight className="w-3 h-3 text-cyan-400" />
+                    <span className="font-bold text-cyan-300">{targetSys?.name || 'Hedef'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-slate-400 text-[10px]">
+                      Varış: <strong className="text-slate-200">{formatClockTime(fleet.arrivalTime)}</strong>
                     </span>
-                  ) : (
-                    <span className="text-emerald-400">
-                      Geri Çağırma Açık (%{progressPercent} / %50)
+                    <span className="text-cyan-400 font-bold">
+                      {formatDuration(remainingMs)} kaldı
+                    </span>
+                  </div>
+                </div>
+
+                {/* Visual Progress Bar with 50% Recall Lock Indicator */}
+                <div className="relative w-full h-2.5 bg-slate-900 rounded-full overflow-hidden border border-slate-700/80">
+                  <div
+                    className="h-full bg-gradient-to-r from-cyan-600 via-cyan-400 to-white transition-all duration-300 rounded-full shadow-[0_0_8px_#00f3ff]"
+                    style={{ width: `${progressPercent}%` }}
+                  />
+                  {/* 50% Threshold Marker */}
+                  <div
+                    className="absolute top-0 bottom-0 w-0.5 bg-amber-400 z-10 shadow-[0_0_4px_#f59e0b]"
+                    style={{ left: '50%' }}
+                    title="%50 Geri Çağırma Kilidi (Point of No Return)"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[9px] text-slate-400">
+                  <span>İlerleme: %{progressPercent}</span>
+                  {fleet.status === 'in_transit' && (
+                    <span>
+                      {isRecallLocked ? (
+                        <span className="text-rose-400 flex items-center gap-1 font-semibold">
+                          <Lock className="w-2.5 h-2.5" /> Geri Dönüş Kilitlendi (%50 aşıldı)
+                        </span>
+                      ) : (
+                        <span className="text-emerald-400 font-semibold">
+                          ✓ Geri Çağırma Açık (%{progressPercent} / %50)
+                        </span>
+                      )}
                     </span>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Cargo Payload Row (if any) */}
+            {hasCargo && (
+              <div className="p-2 rounded-lg bg-[#0b1426] border border-amber-500/30 flex items-center justify-between text-[11px]">
+                <div className="flex items-center gap-1.5 text-amber-300 font-bold">
+                  <Package className="w-3.5 h-3.5 text-amber-400" />
+                  <span>Taşınan Kargo:</span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-200">
+                  {(fleet.cargo.ore || 0) > 0 && <span>{Math.round(fleet.cargo.ore!)} Cevher</span>}
+                  {(fleet.cargo.crystal || 0) > 0 && <span>• {Math.round(fleet.cargo.crystal!)} Kristal</span>}
+                  {(fleet.cargo.fuel || 0) > 0 && <span>• {Math.round(fleet.cargo.fuel!)} Yakıt</span>}
+                </div>
+              </div>
+            )}
+
+            {/* Ship Roster & Tactical Specs */}
+            <div>
+              <div className="text-[10px] text-slate-400 uppercase tracking-wider mb-1 flex items-center justify-between">
+                <span>Filo Bileşimi</span>
+                <span className="text-cyan-400">{totalShipCount} Gemi</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {(['scout', 'transport', 'fighter', 'battleship'] as ShipType[]).map((st) => {
+                  const count = fleet.ships[st] || 0;
+                  const names: Record<ShipType, string> = {
+                    scout: 'Keşif',
+                    transport: 'Nakliye',
+                    fighter: 'Avcı',
+                    battleship: 'Savaş G.',
+                  };
+
+                  return (
+                    <div
+                      key={st}
+                      className={`p-1.5 rounded-lg border text-center transition-all ${
+                        count > 0
+                          ? 'bg-[#0c162c] border-cyan-500/40 text-slate-200 shadow-sm'
+                          : 'bg-[#070e1c]/50 border-slate-800 text-slate-600'
+                      }`}
+                    >
+                      <div className="text-[10px] text-slate-400">{names[st]}</div>
+                      <div className="text-xs font-bold text-cyan-300 mt-0.5">{count}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Bottom Metrics & Tactical Actions */}
+            <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
+              <div className="flex items-center gap-3 text-slate-400 text-[10.5px]">
+                <span>
+                  💥 Güç: <strong className="text-rose-400">{totalAttack}</strong>
                 </span>
-              )}
+                <span>
+                  🛡️ Gövde: <strong className="text-emerald-400">{totalDurability}</strong>
+                </span>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex items-center gap-2">
+                {canRecall && (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onRecallFleet(fleet.id);
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-amber-950/30"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5" />
+                    <span>Geri Çağır</span>
+                  </button>
+                )}
+
+                {!isOwnFleet && (
+                  <button
+                    onClick={() => {
+                      sound.playAlert();
+                      onOpenCommandPanel();
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-rose-950/30"
+                  >
+                    <Crosshair className="w-3.5 h-3.5" />
+                    <span>Önleme Hazırla</span>
+                  </button>
+                )}
+
+                {isOwnFleet && fleet.status === 'orbiting' && (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onOpenCommandPanel();
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-cyan-950/30"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Sefer Sevk Et</span>
+                  </button>
+                )}
+              </div>
             </div>
           </div>
         )}
-
-        {/* Ship Roster & Tactical Specs */}
-        <div className="grid grid-cols-4 gap-2 font-mono">
-          {(['scout', 'transport', 'fighter', 'battleship'] as ShipType[]).map((st) => {
-            const count = fleet.ships[st] || 0;
-            const names: Record<ShipType, string> = {
-              scout: 'Keşif',
-              transport: 'Nakliye',
-              fighter: 'Avcı',
-              battleship: 'Savaş G.',
-            };
-
-            return (
-              <div
-                key={st}
-                className={`p-1.5 rounded border text-center ${
-                  count > 0
-                    ? 'bg-[#0c162c] border-cyan-500/40 text-slate-200'
-                    : 'bg-[#070e1c]/50 border-slate-800 text-slate-600'
-                }`}
-              >
-                <div className="text-[10px] text-slate-400">{names[st]}</div>
-                <div className="text-xs font-bold text-cyan-300 mt-0.5">{count}</div>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Bottom Metrics & Tactical Actions */}
-        <div className="flex items-center justify-between pt-1 border-t border-slate-800/80 font-mono text-xs">
-          <div className="flex items-center gap-4 text-slate-400 text-[11px]">
-            <span>
-              Toplam Filo: <strong className="text-slate-100">{totalShipCount} Gemi</strong>
-            </span>
-            <span>
-              Ateş Gücü: <strong className="text-rose-400">💥 {totalAttack}</strong>
-            </span>
-            <span>
-              Dayanıklılık: <strong className="text-emerald-400">🛡️ {totalDurability}</strong>
-            </span>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2">
-            {canRecall && (
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  onRecallFleet(fleet.id);
-                }}
-                className="px-3 py-1 rounded bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-amber-950/30"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                <span>Geri Çağır</span>
-              </button>
-            )}
-
-            {!isOwnFleet && (
-              <button
-                onClick={() => {
-                  sound.playAlert();
-                  onOpenCommandPanel();
-                }}
-                className="px-3 py-1 rounded bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/50 text-rose-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-rose-950/30"
-              >
-                <Crosshair className="w-3.5 h-3.5" />
-                <span>Önleme Hazırla</span>
-              </button>
-            )}
-
-            {isOwnFleet && fleet.status === 'orbiting' && (
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  onOpenCommandPanel();
-                }}
-                className="px-3 py-1 rounded bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-500/50 text-cyan-300 font-bold text-xs flex items-center gap-1.5 transition-all shadow-sm shadow-cyan-950/30"
-              >
-                <Send className="w-3.5 h-3.5" />
-                <span>Sefer Sevk Et</span>
-              </button>
-            )}
-          </div>
-        </div>
       </div>
     </div>
   );

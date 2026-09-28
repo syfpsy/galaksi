@@ -186,6 +186,151 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
     });
   }, [activeSystem, state.timeMs, state.planets, state.players]);
 
+  // Active fleets present in or transitioning through focused system
+  const systemActiveFleets = useMemo(() => {
+    return Object.values(state.fleets)
+      .filter(
+        (f) =>
+          f.originSystemId === activeSystem.id ||
+          f.targetSystemId === activeSystem.id
+      )
+      .map((f) => {
+        const isOwn = f.ownerId === activePlayerId;
+        const owner = state.players[f.ownerId];
+        const isVisible =
+          godMode ||
+          isOwn ||
+          sensorCoverage.has(activeSystem.id) ||
+          sensorCoverage.has(f.originSystemId) ||
+          sensorCoverage.has(f.targetSystemId);
+
+        let dominantClass: 'battleship' | 'fighter' | 'transport' | 'scout' = 'scout';
+        if (f.ships.battleship > 0) dominantClass = 'battleship';
+        else if (f.ships.fighter > 0) dominantClass = 'fighter';
+        else if (f.ships.transport > 0) dominantClass = 'transport';
+
+        const totalTravelMs = Math.max(1, f.arrivalTime - f.departureTime);
+        const elapsedMs = Math.max(0, state.timeMs - f.departureTime);
+        const rawProgress = Math.min(1, elapsedMs / totalTravelMs);
+
+        // Planet position lookup helper in system coordinates (Center = 500, 400)
+        const findPlanetPos = (planetId?: string) => {
+          if (!planetId) return null;
+          const found = systemPlanetOrbits.find((p) => p.slot.planetId === planetId);
+          if (found) {
+            return {
+              x: 500 + found.orbit.x,
+              y: 400 + found.orbit.y,
+              radius: 12 + (found.slot.size % 4) * 2,
+            };
+          }
+          return null;
+        };
+
+        // Warp buoy position lookup helper
+        const findBuoyPos = (otherSysId: string) => {
+          const otherSys = state.map.systems[otherSysId];
+          if (!otherSys) return { x: 500, y: 80 };
+          const angle = Math.atan2(otherSys.y - activeSystem.y, otherSys.x - activeSystem.x);
+          return {
+            x: 500 + Math.cos(angle) * 410,
+            y: 400 + Math.sin(angle) * 410 * 0.85,
+          };
+        };
+
+        if (f.status === 'orbiting') {
+          // Orbiting around target planet or central star
+          const pPos = findPlanetPos(f.targetPlanetId);
+          const orbitRadius = pPos ? pPos.radius + 16 : 48;
+          const orbitCenter = pPos ? { x: pPos.x, y: pPos.y } : { x: 500, y: 400 };
+          const orbitAngle = state.timeMs * 0.0012 + (f.id.charCodeAt(0) % 10);
+          const currX = orbitCenter.x + Math.cos(orbitAngle) * orbitRadius;
+          const currY = orbitCenter.y + Math.sin(orbitAngle) * orbitRadius * 0.85;
+
+          return {
+            fleet: f,
+            isOwn,
+            owner,
+            isVisible,
+            dominantClass,
+            isOrbiting: true,
+            currX,
+            currY,
+            angle: (orbitAngle * 180) / Math.PI + 90,
+            orbitCenter,
+            orbitRadius,
+            startX: currX,
+            startY: currY,
+            targetX: currX,
+            targetY: currY,
+            progress: 1,
+            remainingMs: 0,
+          };
+        }
+
+        // Moving Fleet Paths
+        let startX = 500;
+        let startY = 400;
+        let targetX = 500;
+        let targetY = 400;
+
+        if (f.originSystemId === activeSystem.id && f.targetSystemId === activeSystem.id) {
+          // Intra-system flight (e.g. planet to planet)
+          const pEnd = findPlanetPos(f.targetPlanetId);
+          targetX = pEnd ? pEnd.x : 500;
+          targetY = pEnd ? pEnd.y : 400;
+        } else if (f.targetSystemId === activeSystem.id) {
+          // Inbound flight: enters from warp buoy of origin system, flies towards target planet or star
+          const buoy = findBuoyPos(f.originSystemId);
+          startX = buoy.x;
+          startY = buoy.y;
+          const targetPlanet = findPlanetPos(f.targetPlanetId);
+          targetX = targetPlanet ? targetPlanet.x : 500;
+          targetY = targetPlanet ? targetPlanet.y : 400;
+        } else {
+          // Outbound flight: departs towards exit warp buoy of target system
+          const buoy = findBuoyPos(f.targetSystemId);
+          targetX = buoy.x;
+          targetY = buoy.y;
+          const originPlanet = findPlanetPos(f.targetPlanetId);
+          startX = originPlanet ? originPlanet.x : 500;
+          startY = originPlanet ? originPlanet.y : 400;
+        }
+
+        const currX = startX + (targetX - startX) * rawProgress;
+        const currY = startY + (targetY - startY) * rawProgress;
+        const flightAngle = (Math.atan2(targetY - startY, targetX - startX) * 180) / Math.PI;
+
+        return {
+          fleet: f,
+          isOwn,
+          owner,
+          isVisible,
+          dominantClass,
+          isOrbiting: false,
+          currX,
+          currY,
+          angle: flightAngle,
+          startX,
+          startY,
+          targetX,
+          targetY,
+          progress: rawProgress,
+          remainingMs: Math.max(0, f.arrivalTime - state.timeMs),
+        };
+      });
+  }, [
+    state.fleets,
+    activeSystem,
+    activePlayerId,
+    godMode,
+    sensorCoverage,
+    systemPlanetOrbits,
+    state.timeMs,
+    state.players,
+    state.map.systems,
+  ]);
+
   // Handle switching into system view
   const enterSystemView = (systemId: string) => {
     sound.playWarp();
@@ -670,6 +815,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                 if (!isVisible) return null;
 
                 const isSelected = selectedTarget?.fleetId === fleet.id;
+                const originSys = state.map.systems[fleet.originSystemId];
                 const targetSys = state.map.systems[fleet.targetSystemId];
                 const color = owner?.color || '#00f3ff';
 
@@ -692,17 +838,57 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                     }}
                     className="cursor-pointer group"
                   >
+                    {/* Traveled Route Trail (Origin to Current Position) */}
+                    {originSys && (
+                      <g className="pointer-events-none">
+                        <line
+                          x1={originSys.x - pos.x}
+                          y1={originSys.y - pos.y}
+                          x2="0"
+                          y2="0"
+                          stroke={color}
+                          strokeWidth="1.2"
+                          strokeDasharray="2,4"
+                          opacity="0.35"
+                        />
+                        <circle
+                          cx={originSys.x - pos.x}
+                          cy={originSys.y - pos.y}
+                          r="3.5"
+                          fill="none"
+                          stroke={color}
+                          strokeWidth="1"
+                          opacity="0.5"
+                        />
+                      </g>
+                    )}
+
+                    {/* Forward Flight Vector (Current Position to Target System) */}
                     {targetSys && (
-                      <line
-                        x1="0"
-                        y1="0"
-                        x2={targetSys.x - pos.x}
-                        y2={targetSys.y - pos.y}
-                        stroke={isRecallLocked ? '#f43f5e' : color}
-                        strokeWidth="1.2"
-                        strokeDasharray={isRecallLocked ? '4,3' : '3,4'}
-                        opacity="0.6"
-                      />
+                      <g className="pointer-events-none">
+                        <line
+                          x1="0"
+                          y1="0"
+                          x2={targetSys.x - pos.x}
+                          y2={targetSys.y - pos.y}
+                          stroke={isRecallLocked ? '#f43f5e' : color}
+                          strokeWidth={isSelected ? '2' : '1.4'}
+                          strokeDasharray={isRecallLocked ? '4,3' : '4,4'}
+                          opacity={isSelected ? 0.95 : 0.65}
+                          className="animate-hyperlane-flow"
+                        />
+                        {/* Target System Waypoint Arrival Ring */}
+                        <circle
+                          cx={targetSys.x - pos.x}
+                          cy={targetSys.y - pos.y}
+                          r={isSelected ? '9' : '6'}
+                          fill="none"
+                          stroke={isRecallLocked ? '#f43f5e' : color}
+                          strokeWidth="1.4"
+                          strokeDasharray="2,3"
+                          opacity="0.8"
+                        />
+                      </g>
                     )}
 
                     {isSelected && (
@@ -1489,6 +1675,206 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                           fontWeight="bold"
                         >
                           {slot.name}
+                        </text>
+                      </g>
+                    </g>
+                  </g>
+                );
+              })}
+            </g>
+
+            {/* Layer: In-System Active & Moving Fleets */}
+            <g className="system-fleets">
+              {systemActiveFleets.map((sf) => {
+                if (!sf.isVisible) return null;
+                const {
+                  fleet,
+                  isOwn,
+                  owner,
+                  dominantClass,
+                  isOrbiting,
+                  currX,
+                  currY,
+                  angle,
+                  startX,
+                  startY,
+                  targetX,
+                  targetY,
+                  remainingMs,
+                  orbitCenter,
+                  orbitRadius,
+                } = sf;
+
+                const color = owner?.color || '#00f3ff';
+                const isSelected = selectedTarget?.fleetId === fleet.id;
+                const isRecallLocked = state.timeMs >= fleet.recallLockedAfterTime;
+                const totalShips = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
+
+                return (
+                  <g key={`sys_fleet_${fleet.id}`}>
+                    {/* 1. Orbit Circle if Stationed */}
+                    {isOrbiting && orbitCenter && orbitRadius && (
+                      <circle
+                        cx={orbitCenter.x}
+                        cy={orbitCenter.y}
+                        r={orbitRadius}
+                        fill="none"
+                        stroke={color}
+                        strokeWidth="1"
+                        strokeDasharray="3,4"
+                        opacity="0.35"
+                      />
+                    )}
+
+                    {/* 2. Trajectory Route Vectors if in Transit */}
+                    {!isOrbiting && (
+                      <g className="pointer-events-none">
+                        {/* Traveled Trail (startX, startY to currX, currY) */}
+                        <line
+                          x1={startX}
+                          y1={startY}
+                          x2={currX}
+                          y2={currY}
+                          stroke={color}
+                          strokeWidth="1.2"
+                          strokeDasharray="2,4"
+                          opacity="0.35"
+                        />
+                        {/* Start Launch/Jump Point Marker */}
+                        <circle
+                          cx={startX}
+                          cy={startY}
+                          r="3.5"
+                          fill="none"
+                          stroke={color}
+                          strokeWidth="1"
+                          opacity="0.5"
+                        />
+
+                        {/* Forward Vector (currX, currY to targetX, targetY) */}
+                        <line
+                          x1={currX}
+                          y1={currY}
+                          x2={targetX}
+                          y2={targetY}
+                          stroke={isRecallLocked ? '#f43f5e' : color}
+                          strokeWidth={isSelected ? '2' : '1.4'}
+                          strokeDasharray={isRecallLocked ? '4,3' : '4,4'}
+                          opacity={isSelected ? 0.95 : 0.65}
+                          className="animate-hyperlane-flow"
+                        />
+                        {/* Target Waypoint Arrival Ring */}
+                        <circle
+                          cx={targetX}
+                          cy={targetY}
+                          r={isSelected ? '9' : '6'}
+                          fill="none"
+                          stroke={isRecallLocked ? '#f43f5e' : color}
+                          strokeWidth="1.4"
+                          strokeDasharray="2,3"
+                          opacity="0.8"
+                        />
+                      </g>
+                    )}
+
+                    {/* 3. Physical Fleet Mesh & Interactive Group */}
+                    <g
+                      transform={`translate(${currX}, ${currY})`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        sound.playClick();
+                        onSelectFleet(fleet.id);
+                      }}
+                      className="cursor-pointer group"
+                    >
+                      {/* Selection Ping Ring */}
+                      {isSelected && (
+                        <circle
+                          r="20"
+                          fill="none"
+                          stroke="#00f3ff"
+                          strokeWidth="1.6"
+                          className="animate-ping"
+                          opacity="0.8"
+                        />
+                      )}
+
+                      {/* Ship Hull with Exhaust Trail */}
+                      <g transform={`rotate(${angle})`}>
+                        {/* Thruster exhaust flame */}
+                        <polygon
+                          points="-10,0 -34,-4 -30,0 -34,4"
+                          fill={isOwn ? 'url(#thruster-trail-cyan)' : 'url(#thruster-trail-rose)'}
+                          className="animate-exhaust"
+                        />
+
+                        {dominantClass === 'battleship' ? (
+                          <g filter="url(#glow-fleet)">
+                            <polygon
+                              points="16,0 4,-6 -2,-10 -10,-8 -12,-4 -8,0 -12,4 -10,8 -2,10 4,6"
+                              fill={color}
+                              stroke="#ffffff"
+                              strokeWidth="1.2"
+                            />
+                            <line x1="0" y1="0" x2="14" y2="0" stroke="#ffffff" strokeWidth="1.5" />
+                          </g>
+                        ) : dominantClass === 'fighter' ? (
+                          <g filter="url(#glow-fleet)">
+                            <polygon
+                              points="14,0 -6,-8 -4,-3 -10,-1 -10,1 -4,3 -6,8"
+                              fill={color}
+                              stroke="#ffffff"
+                              strokeWidth="1"
+                            />
+                          </g>
+                        ) : dominantClass === 'transport' ? (
+                          <g filter="url(#glow-fleet)">
+                            <polygon
+                              points="11,-4 11,4 4,8 -6,8 -10,4 -10,-4 -6,-8 4,-8"
+                              fill={color}
+                              stroke="#ffffff"
+                              strokeWidth="1"
+                            />
+                            <rect x="-4" y="-5" width="8" height="10" fill="#070d1d" opacity="0.6" />
+                          </g>
+                        ) : (
+                          <g filter="url(#glow-fleet)">
+                            <polygon
+                              points="14,0 -6,-5 -3,0 -6,5"
+                              fill={color}
+                              stroke="#ffffff"
+                              strokeWidth="1"
+                            />
+                          </g>
+                        )}
+                      </g>
+
+                      {/* Tactical HUD Label */}
+                      <g transform="translate(0, 18)" className="pointer-events-none">
+                        <rect
+                          x="-55"
+                          y="-9"
+                          width="110"
+                          height="18"
+                          rx="3"
+                          fill="#070d1d"
+                          fillOpacity="0.9"
+                          stroke={isOwn ? (isRecallLocked ? '#f43f5e' : '#00f3ff') : '#f43f5e'}
+                          strokeWidth="0.8"
+                        />
+                        <text
+                          x="0"
+                          y="3.5"
+                          textAnchor="middle"
+                          fill="#f8fafc"
+                          fontSize="9"
+                          fontFamily="monospace"
+                          fontWeight="bold"
+                        >
+                          {isOwn
+                            ? `${fleet.name || 'Filo'} • ${totalShips}G`
+                            : `DÜŞMAN • ${totalShips}G`}
+                          {!isOrbiting && remainingMs > 0 && ` • ${formatDuration(remainingMs)}`}
                         </text>
                       </g>
                     </g>
