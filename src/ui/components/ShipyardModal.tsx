@@ -110,6 +110,24 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
             const isLocked = st === 'battleship' && shipyardLevel < 3;
             const unitTimeMs = getShipBuildDurationMs(st, shipyardLevel);
 
+            const maxAffordable = Math.max(
+              0,
+              Math.min(
+                Math.floor(planet.resources.ore / stats.cost.ore),
+                Math.floor(planet.resources.crystal / stats.cost.crystal),
+                stats.cost.fuel > 0 ? Math.floor(planet.resources.fuel / stats.cost.fuel) : 999
+              )
+            );
+
+            // Active build in queue for this ship type
+            const activeQueueItem = planet.shipyardQueue.find((q) => q.shipType === st);
+            const remainingUnitMs = activeQueueItem
+              ? Math.max(0, activeQueueItem.nextUnitFinishTime - currentTimeMs)
+              : 0;
+            const unitProgress = activeQueueItem
+              ? Math.min(1, Math.max(0, 1 - remainingUnitMs / activeQueueItem.unitBuildTimeMs))
+              : 0;
+
             return (
               <div
                 key={st}
@@ -151,42 +169,96 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Quantity & Build Button */}
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="number"
-                      min="1"
-                      max="50"
-                      disabled={isLocked}
-                      value={buildCount}
-                      onChange={(e) =>
-                        setCounts((prev) => ({
-                          ...prev,
-                          [st]: Math.max(1, parseInt(e.target.value) || 1),
-                        }))
-                      }
-                      className="w-14 bg-space-900 border border-slate-700 rounded px-2 py-1 text-center font-mono text-xs text-slate-100 focus:outline-none focus:border-cyber-cyan"
-                    />
+                  {/* Quantity & Build Controls */}
+                  <div className="flex flex-col items-end gap-1.5">
+                    <div className="flex items-center gap-2">
+                      {/* Multiplier Presets */}
+                      <div className="flex items-center gap-1">
+                        {[1, 5, 10].map((preset) => (
+                          <button
+                            key={preset}
+                            type="button"
+                            disabled={isLocked}
+                            onClick={() => {
+                              sound.playClick();
+                              setCounts((prev) => ({ ...prev, [st]: preset }));
+                            }}
+                            className={`px-1.5 py-0.5 rounded text-[10px] font-mono border transition-all ${
+                              buildCount === preset
+                                ? 'bg-cyber-cyan/20 border-cyber-cyan text-cyber-cyan font-bold'
+                                : 'bg-space-900 border-slate-700 text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            {preset}x
+                          </button>
+                        ))}
+                        {maxAffordable > 0 && (
+                          <button
+                            type="button"
+                            disabled={isLocked}
+                            onClick={() => {
+                              sound.playClick();
+                              setCounts((prev) => ({ ...prev, [st]: Math.min(50, maxAffordable) }));
+                            }}
+                            className="px-1.5 py-0.5 rounded text-[10px] font-mono border border-emerald-500/50 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 transition-all font-bold"
+                            title="Mevcut kaynaklarla üretilebilecek maksimum adet"
+                          >
+                            Maks ({Math.min(50, maxAffordable)})
+                          </button>
+                        )}
+                      </div>
 
-                    <button
-                      disabled={isLocked || !canAfford}
-                      onClick={() => {
-                        sound.playClick();
-                        onBuildShip(planet.id, st, buildCount);
-                      }}
-                      className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-all ${
-                        isLocked
-                          ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                          : canAfford
-                          ? 'bg-cyber-cyan text-space-950 hover:bg-cyan-300 font-bold'
-                          : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-                      }`}
-                    >
-                      <Hammer className="w-3.5 h-3.5" />
-                      <span>{isLocked ? 'Sv. 3 Gerekli' : 'Üret'}</span>
-                    </button>
+                      <input
+                        type="number"
+                        min="1"
+                        max="50"
+                        disabled={isLocked}
+                        value={buildCount}
+                        onChange={(e) =>
+                          setCounts((prev) => ({
+                            ...prev,
+                            [st]: Math.max(1, parseInt(e.target.value) || 1),
+                          }))
+                        }
+                        className="w-14 bg-space-900 border border-slate-700 rounded px-2 py-1 text-center font-mono text-xs text-slate-100 focus:outline-none focus:border-cyber-cyan"
+                      />
+
+                      <button
+                        disabled={isLocked || !canAfford}
+                        onClick={() => {
+                          sound.playClick();
+                          onBuildShip(planet.id, st, buildCount);
+                        }}
+                        className={`px-3 py-1.5 rounded text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                          isLocked
+                            ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                            : canAfford
+                            ? 'bg-cyber-cyan text-space-950 hover:bg-cyan-300 font-bold'
+                            : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                        }`}
+                      >
+                        <Hammer className="w-3.5 h-3.5" />
+                        <span>{isLocked ? 'Sv. 3 Gerekli' : 'Üret'}</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
+
+                {/* Live Fabrication Progress Bar if in Queue */}
+                {activeQueueItem && (
+                  <div className="mt-2 pt-2 border-t border-slate-800/80">
+                    <div className="flex items-center justify-between text-[10px] font-mono text-cyan-400 mb-1">
+                      <span>Üretiliyor ({activeQueueItem.completed + 1} / {activeQueueItem.count})</span>
+                      <span>Kalan: {formatDuration(remainingUnitMs)}</span>
+                    </div>
+                    <div className="h-1.5 w-full bg-slate-900 rounded-full overflow-hidden border border-slate-800">
+                      <div
+                        className="h-full bg-cyan-400 rounded-full transition-all duration-300 shadow-[0_0_8px_#00f3ff]"
+                        style={{ width: `${Math.round(unitProgress * 100)}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
 
                 {/* Total Cost Badges */}
                 <div className="flex items-center gap-3 mt-2 text-[11px] font-mono">

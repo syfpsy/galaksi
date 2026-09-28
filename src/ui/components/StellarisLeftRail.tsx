@@ -28,6 +28,7 @@ interface StellarisLeftRailProps {
   onToggleCommandPanel: () => void;
   onOpenShipyard: () => void;
   onOpenResearch: () => void;
+  onOpenSituationLog?: () => void;
   onOpenBattles: () => void;
   onOpenRelay: () => void;
   onOpenAlliance: () => void;
@@ -50,6 +51,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
   onToggleCommandPanel,
   onOpenShipyard,
   onOpenResearch,
+  onOpenSituationLog,
   onOpenBattles,
   onOpenRelay,
   onOpenAlliance,
@@ -151,6 +153,18 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           {isCommandPanelOpen && (
             <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-amber-400 rounded-r-full" />
           )}
+        </button>
+
+        {/* Galactic Situation Log & Quests */}
+        <button
+          onClick={() => {
+            sound.playClick();
+            if (onOpenSituationLog) onOpenSituationLog();
+          }}
+          className="w-10 h-10 rounded-lg flex items-center justify-center text-slate-400 hover:text-cyan-400 hover:bg-slate-800/60 transition-all relative group"
+          title="Galaktik Durum & Keşif Kütüğü (F5)"
+        >
+          <Compass className="w-5 h-5 transition-transform group-hover:scale-110 text-cyan-400" />
         </button>
 
         {/* Battle Logs & Replay */}

@@ -460,5 +460,44 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
 - **Stellaris Durum Günlüğü / Olay Penceresi:** Sektörde karşılaşılan gizemli nesneler (`Terk Edilmiş Antik Kargo Gemisi`, `Yabancı Subspace Radyo Sinyali`, `Nadir Cevher Asteroit Kuşağı`) için lore metinleri, tarama analizleri ve ödül projeksiyonları içeren tam ekran olay diyaloğu geliştirildi.
 - **Sistem Yörünge İncelemesi Entegrasyonu:** `SystemInspectionModal` içine anomali ve enkaz sahası tespit kartları eklendi. Oyuncu tek tıkla anomali raporunu açıp hızlı keşif seferi başlatabiliyor.
 
+---
+
+## [2026-09-28] — Faz P: Stellaris İmparatorluk Bildirim Rozetleri, Durum Günlüğü (Situation Log), Masaüstü Kısayolları ve Tersane Seri Üretim Sistemi
+
+### 1. Stellaris İmparatorluk Bildirim Rozetleri Şeridi (`StellarisNotificationStrip.tsx`, `App.tsx`)
+- **Dinamik Bildirim Çemberleri:** Üst kaynak çubuğunun altında beliren dairesel parlayan alarm rozetleri:
+  - 🛡️/⚔️ Kırmızı Nabız: Düşman Baskını Uyarısı ve Muharebe Raporları
+  - ⚡ Turkuaz: Tamamlanan Ar-Ge Teknolojileri
+  - 🏛️ Zümrüt Yeşili: Yeni Kurulan Koloniler
+  - 🚀 Mavi: Tersanede Üretimi Tamamlanan Gemi Partileri
+  - ★ Kehribar: Keşfedilen Sektörler ve İncelenmemiş Anomaliler
+  - ⚙️ Gri/Gül: Kurtarılabilir Savaş Enkazı Sahaları
+  - 👑 Mor: Nexus Rölesi Hakimiyet Değişimleri
+- **Taktik İpuçları & Etkileşim:** Rozet üzerine gelindiğinde zengin Stellaris stilinde tooltip kartı; Sol tık ile doğrudan ilgili sisteme/modala odaklanma; Sağ tık veya `[x]` butonu ile bildirimi arşivleme/kapatma.
+
+### 2. Galaktik Durum & Keşif Kütüğü (`SituationLogModal.tsx`, `StellarisLeftRail.tsx`, `App.tsx`)
+- **Stellaris F5 Durum Günlüğü:**
+  - **Sekme 1 — Anomaliler & Enkazlar:** Sektördeki tüm POI'leri, araştırılma durumlarını ve toplanabilir ödülleri listeleyen; tek tıkla "Haritada Bul" veya "Raporu Aç" butonları sunan keşif konsolu.
+  - **Sekme 2 — Nexus Rölesi Megastrüktürü:** Merkezi röleyi elinde tutan güç, haftalık yarışma puanı sıralaması ve doğrudan sefer başlatma emri.
+  - **Sekme 3 — Aktif Seferler & İntikaller:** Oyuncunun seyir halindeki tüm filoları, hedefleri, görevleri ve canlı ETA geri sayımları.
+- **Sol Şerit Entegrasyonu:** Sol dikey navigasyon rayına `Compass` simgesiyle F5 Durum Günlüğü butonu eklendi.
+
+### 3. Otantik Stellaris Masaüstü Kısayolları (`App.tsx`)
+- **Space (Boşluk Tuşu):** Simülasyonu anında duraklatma / devam ettirme (`Pause / Unpause`).
+- **1, 2, 3, 4 Tuşları:** Simülasyon hız kademeleri (`1x`, `5x`, `20x`, `60x`).
+- **F1 - F6 Fonksiyon Tuşları:**
+  - `F1`: Koloniler & Gezegen Altyapısı
+  - `F2`: Tersane & Gemi İnşası
+  - `F3`: Ar-Ge & Teknoloji Ağacı
+  - `F4`: Taktik Filo Sevk & Komuta
+  - `F5`: Durum Günlüğü (Situation Log)
+  - `F6`: Muharebe Raporları & Çatışma Tekrarı
+- **Esc:** Açık olan tüm kayar çekmeceleri ve pencereleri tek tuşla kapatma.
+
+### 4. Tersane Seri Üretim & Canlı İmalat İlerlemesi (`ShipyardModal.tsx`)
+- **Hızlı Çarpan Preseleri:** Tek tek girmek yerine `+1x`, `+5x`, `+10x` ve mevcut kaynaklara göre anında hesaplanan `Maks (N)` butonları.
+- **Canlı İmalat İlerleme Çubuğu:** Kuyruktaki gemiler için anlık tamamlanma yüzdesini gösteren parlayan turkuaz ilerleme çubuğu ve kalan süre sayacı.
+
+
 
 

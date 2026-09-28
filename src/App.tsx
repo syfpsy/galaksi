@@ -31,7 +31,9 @@ import { ShipyardModal } from './ui/components/ShipyardModal';
 import { SystemInspectionModal } from './ui/components/SystemInspectionModal';
 import { TopBar } from './ui/components/TopBar';
 import { StellarisLeftRail } from './ui/components/StellarisLeftRail';
+import { StellarisNotificationStrip } from './ui/components/StellarisNotificationStrip';
 import { StellarisOutliner } from './ui/components/StellarisOutliner';
+import { SituationLogModal } from './ui/components/SituationLogModal';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
 
@@ -68,12 +70,29 @@ export function App() {
   const [isGalleryOpen, setIsGalleryOpen] = useState<boolean>(false);
   const [inspectedSystemId, setInspectedSystemId] = useState<string | null>(null);
   const [anomalyModalSystemId, setAnomalyModalSystemId] = useState<string | null>(null);
+  const [isSituationLogOpen, setIsSituationLogOpen] = useState<boolean>(false);
 
   // Hotkeys for Stellaris navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
-      if (e.key === 'F1') {
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        sound.playClick();
+        setIsPlaying((prev) => !prev);
+      } else if (e.key === '1') {
+        sound.playClick();
+        setTimeScale(1);
+      } else if (e.key === '2') {
+        sound.playClick();
+        setTimeScale(5);
+      } else if (e.key === '3') {
+        sound.playClick();
+        setTimeScale(20);
+      } else if (e.key === '4') {
+        sound.playClick();
+        setTimeScale(60);
+      } else if (e.key === 'F1') {
         e.preventDefault();
         sound.playClick();
         setIsPlanetPanelOpen((prev) => !prev);
@@ -89,11 +108,28 @@ export function App() {
         e.preventDefault();
         sound.playClick();
         setIsCommandPanelOpen((prev) => !prev);
+      } else if (e.key === 'F5') {
+        e.preventDefault();
+        sound.playClick();
+        setIsSituationLogOpen((prev) => !prev);
+      } else if (e.key === 'F6') {
+        e.preventDefault();
+        sound.playClick();
+        setIsBattlesOpen((prev) => !prev);
       } else if (e.key === 'Escape') {
         if (isPlanetPanelOpen || isCommandPanelOpen) {
           setIsPlanetPanelOpen(false);
           setIsCommandPanelOpen(false);
         }
+        setIsSituationLogOpen(false);
+        setIsShipyardOpen(false);
+        setIsResearchOpen(false);
+        setIsBattlesOpen(false);
+        setIsRelayOpen(false);
+        setIsAllianceOpen(false);
+        setIsGalleryOpen(false);
+        setInspectedSystemId(null);
+        setAnomalyModalSystemId(null);
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -389,6 +425,7 @@ export function App() {
           onToggleCommandPanel={() => setIsCommandPanelOpen(!isCommandPanelOpen)}
           onOpenShipyard={() => setIsShipyardOpen(true)}
           onOpenResearch={() => setIsResearchOpen(true)}
+          onOpenSituationLog={() => setIsSituationLogOpen(true)}
           onOpenBattles={() => setIsBattlesOpen(true)}
           onOpenRelay={() => setIsRelayOpen(true)}
           onOpenAlliance={() => setIsAllianceOpen(true)}
@@ -437,6 +474,19 @@ export function App() {
               handleEvacuatePlanet(pId);
               setIsCommandPanelOpen(true);
             }}
+          />
+
+          {/* Stellaris Empire Notification Alert Strip */}
+          <StellarisNotificationStrip
+            state={engineState}
+            activePlayerId={activePlayerId}
+            onFocusSystem={(sysId) => {
+              setSelectedTarget({ type: 'system', systemId: sysId });
+            }}
+            onOpenBattles={() => setIsBattlesOpen(true)}
+            onOpenResearch={() => setIsResearchOpen(true)}
+            onOpenShipyard={() => setIsShipyardOpen(true)}
+            onOpenSituationLog={() => setIsSituationLogOpen(true)}
           />
 
           <GalaxyMap
@@ -595,6 +645,21 @@ export function App() {
           setSelectedTarget({ type: 'system', systemId });
           setIsCommandPanelOpen(true);
         }}
+      />
+
+      {/* Stellaris Galactic Situation Log Modal (F5) */}
+      <SituationLogModal
+        isOpen={isSituationLogOpen}
+        onClose={() => setIsSituationLogOpen(false)}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        onSelectSystem={(sysId) => {
+          setSelectedTarget({ type: 'system', systemId: sysId });
+        }}
+        onOpenAnomaly={(sys) => {
+          setAnomalyModalSystemId(sys.id);
+        }}
+        onAssaultRelay={handleAssaultRelay}
       />
 
       {/* Magnific Concept Art Gallery Modal */}
