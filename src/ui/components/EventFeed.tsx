@@ -14,7 +14,7 @@ export const EventFeed: React.FC<EventFeedProps> = ({ events }) => {
   if (events.length === 0) return null;
 
   return (
-    <div className="absolute bottom-16 left-1/2 -translate-x-1/2 z-20 select-none max-w-lg w-full px-4">
+    <div className="absolute bottom-16 left-6 z-20 select-none max-w-sm w-full">
       <div className="bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-lg shadow-xl overflow-hidden">
         {/* Toggle Bar */}
         <div

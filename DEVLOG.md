@@ -431,4 +431,34 @@ Kullanıcının *"tek sistemi görmeliyiz, diğer sistemlere geçmek için bir �
 - `PlanetPanel` ve `CommandPanel` ihtiyaç duyulduğunda açılan ve kapatılabilen (`[X]` butonlu) şık kayar çekmeceler (Drawers) haline getirildi.
 - `GalaxyScene25D` bileşenine `ResizeObserver` eklenerek paneller açılıp kapandığında 3D WebGL kamerasının ve render alanının sıfır gecikmeyle pürüzsüzce ölçeklenmesi sağlandı.
 
+---
+
+## [2026-09-28] — Faz O: Stellaris Filo Denetim Kartı (Fleet Card HUD), Fraksiyon Hakimiyet Auraları, Sistem Durum Plakaları ve Anomali Olay Modülü
+
+### 1. Stellaris Alt Filo Denetim Kartı (`FleetCardHUD.tsx`, `App.tsx`)
+- **İkonik Alt Filo Paneli:** Haritadan veya sağ İmparatorluk Outliner'ından bir filo seçildiğinde ekranın alt ortasında beliren şık, saydam arka planlı Stellaris tarzı filo denetim kartı.
+- **Komutan & Sancak Bilgisi:** Filo sahibi fraksiyonun renginde üst vurgu çizgisi, fraksiyon arması, filo adı ve sefer türü rozeti (`İkmal`, `Koloni`, `Keşif`, `Taarruz`, `Önleme`, `Destek`).
+- **Muharebe Gücü & Gemi Dökümü:** Toplam saldırı ve dayanıklılık (gövde + kalkan) puanları; `Keşif`, `Nakliye`, `Avcı` ve `Savaş Gemisi` adetleri minyatür rozetlerle sergilendi.
+- **Uçuş İlerlemesi & %50 Geri Çağırma Kilidi:** Çıkış-varış arasındaki uçuş yüzdesi, kalan varış süresi ve GDD kuralı olan %50 uçuş süresi aşıldığında devreye giren kilit göstergesi (`🔒 Geri Çağırma Kilitli`).
+- **Taktik Hızlı Emirler:** Şartlar uygunsa tek tıkla `[Geri Çağır]`, `[Komut Güvertesini Aç]` (ayrıntılı filo sevk paneline geçiş) ve kapatma butonları.
+
+### 2. Fraksiyon Hakimiyet Auraları & Sektör Sınırları (`GalaxyScene25D.tsx`, `GalaxyMap.tsx`, `proceduralTextures.ts`)
+- **Prosedürel Hakimiyet Dokusu:** `getTerritoryInfluenceTexture(colorHex)` fonksiyonuyla yumuşak radyal ışık düşüşüne sahip yarı saydam fraksiyon etki alanı dokusu üretildi.
+- **2.5D WebGL Katmanı:** Sistemlerin altına ($z = -2$) yerleştirilen additive blending özellikli territory mesh'leri sayesinde yıldız sistemleri etrafında Stellaris'teki gibi fraksiyon auraları oluşturuldu.
+- **2D Vektör Katmanı:** SVG galaksi haritasında Layer 3.5'e fraksiyon renkli yumuşak sınır balonları eklenerek sistemlerin kime ait olduğu haritaya bakar bakmaz net biçimde anlaşıldı.
+
+### 3. Zenginleştirilmiş Galaksi Sistem Durum Plakaları (`GalaxyScene25D.tsx`, `GalaxyMap.tsx`)
+- **Stellaris Sistem Kartviziti:** Sistem etiketleri sadece sistem adından ibaret olmaktan çıkarılıp stratejik bilgi merkezine dönüştürüldü:
+  - Hakim fraksiyonun renginde üst kenarlık çizgisi ve fraksiyon adı etiketi.
+  - Kolonileştirilmiş gezegen sayısı (`🏛️ N`).
+  - Koloniye uygun boş yuva sayısı (`🪐 N`).
+  - İncelenmemiş anomali uyarısı (`★ KEŞİF`).
+  - Çatışmalardan kalan hurda sahası (`⚙️ ENKAZ`).
+  - Nexus merkezi için mor parıldayan (`⚡ RÖLE`) rozeti.
+
+### 4. Anomali ve Durum Günlüğü Modülü (`AnomalyEventModal.tsx`, `SystemInspectionModal.tsx`)
+- **Stellaris Durum Günlüğü / Olay Penceresi:** Sektörde karşılaşılan gizemli nesneler (`Terk Edilmiş Antik Kargo Gemisi`, `Yabancı Subspace Radyo Sinyali`, `Nadir Cevher Asteroit Kuşağı`) için lore metinleri, tarama analizleri ve ödül projeksiyonları içeren tam ekran olay diyaloğu geliştirildi.
+- **Sistem Yörünge İncelemesi Entegrasyonu:** `SystemInspectionModal` içine anomali ve enkaz sahası tespit kartları eklendi. Oyuncu tek tıkla anomali raporunu açıp hızlı keşif seferi başlatabiliyor.
+
+
 

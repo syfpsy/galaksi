@@ -18,6 +18,7 @@ import {
   getVolcanicTexture,
   getWarpGateTexture,
   getCityLightsTexture,
+  getTerritoryInfluenceTexture,
 } from './proceduralTextures';
 import { sound } from '../sound';
 
@@ -52,6 +53,13 @@ interface ScreenLabel {
   x: number;
   y: number;
   visible: boolean;
+  ownerName?: string;
+  ownerColor?: string;
+  colonizedCount?: number;
+  openSlotsCount?: number;
+  hasPoi?: boolean;
+  hasDebris?: boolean;
+  isRelay?: boolean;
 }
 
 export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
@@ -327,10 +335,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       coronaSprite.raycast = () => {};
       group.add(coronaSprite);
 
-      // Tactical System Boundary Ring
+      // Tactical System Boundary Ring & Stellaris Faction Territory Influence
       const ringPts: THREE.Vector3[] = [];
       const ringSegments = 64;
-      const territoryRadius = starRadius * 3.2;
+      const territoryRadius = starRadius * 3.4;
       for (let r = 0; r <= ringSegments; r++) {
         const theta = (r / ringSegments) * Math.PI * 2;
         ringPts.push(
@@ -345,12 +353,42 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const territoryMat = new THREE.LineBasicMaterial({
         color: starColor,
         transparent: true,
-        opacity: 0.22,
+        opacity: 0.25,
         depthWrite: false,
       });
       const territoryLine = new THREE.Line(territoryGeo, territoryMat);
       territoryLine.raycast = () => {};
       group.add(territoryLine);
+
+      // Determine controlling faction for Stellaris territory influence
+      let controllingOwnerId: string | null = null;
+      if (sys.hasRelay && stateRef.current.relay.controllingPlayerId) {
+        controllingOwnerId = stateRef.current.relay.controllingPlayerId;
+      } else {
+        const slotOwners = sys.slots
+          .map((s) => stateRef.current.planets[s.planetId]?.ownerId)
+          .filter(Boolean) as string[];
+        if (slotOwners.length > 0) {
+          controllingOwnerId = slotOwners[0];
+        }
+      }
+
+      const controllingPlayer = controllingOwnerId ? stateRef.current.players[controllingOwnerId] : null;
+      if (controllingPlayer) {
+        // Ethereal Faction Territory Influence Disc (Stellaris Sector Aura)
+        const territorySpriteMat = new THREE.SpriteMaterial({
+          map: getTerritoryInfluenceTexture(controllingPlayer.color),
+          transparent: true,
+          opacity: 0.72,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        const territorySprite = new THREE.Sprite(territorySpriteMat);
+        territorySprite.position.set(0, 0, -2);
+        territorySprite.scale.set(territoryRadius * 2.8, territoryRadius * 2.8 * 0.85, 1);
+        territorySprite.raycast = () => {};
+        group.add(territorySprite);
+      }
 
       galaxyMacroGroup.add(group);
       starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight, corona: coronaSprite });
@@ -1458,6 +1496,26 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               const isRelay = sys.hasRelay;
               const starColor = isRelay ? '#c084fc' : '#38bdf8';
 
+              let controllingOwnerId: string | null = null;
+              if (isRelay && stateRef.current.relay.controllingPlayerId) {
+                controllingOwnerId = stateRef.current.relay.controllingPlayerId;
+              } else {
+                const slotOwners = sys.slots
+                  .map((s) => stateRef.current.planets[s.planetId]?.ownerId)
+                  .filter(Boolean) as string[];
+                if (slotOwners.length > 0) {
+                  controllingOwnerId = slotOwners[0];
+                }
+              }
+
+              const controllingPlayer = controllingOwnerId
+                ? stateRef.current.players[controllingOwnerId]
+                : null;
+              const colonizedCount = sys.slots.filter(
+                (s) => stateRef.current.planets[s.planetId]?.ownerId
+              ).length;
+              const openSlotsCount = sys.slots.length - colonizedCount;
+
               let subtitle = `${sys.slots.length} Gezegen`;
               if (isHomeworld) subtitle = 'ANA DÜNYA';
               else if (isRelay) subtitle = 'NEXUS RÖLESİ';
@@ -1472,6 +1530,13 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 x: screenX,
                 y: screenY,
                 visible: true,
+                ownerName: controllingPlayer?.name,
+                ownerColor: controllingPlayer?.color,
+                colonizedCount,
+                openSlotsCount,
+                hasPoi: !!sys.poi && !sys.poi.explored,
+                hasDebris: !!sys.hasDebris && ((sys.hasDebris.ore || 0) > 0 || (sys.hasDebris.crystal || 0) > 0),
+                isRelay,
               });
             }
           });
@@ -1632,27 +1697,63 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             }}
           >
             {lbl.type === 'system' ? (
-              <div className="flex flex-col items-center">
-                <div className="px-2 py-0.5 rounded-md bg-space-950/85 border border-slate-700/80 shadow-lg text-[11px] font-mono font-bold text-white flex items-center gap-1.5 backdrop-blur-md hover:border-cyber-cyan transition-colors">
+              <div className="flex flex-col items-center group">
+                <div
+                  className="px-2.5 py-0.5 rounded-md bg-[#070d1d]/90 border border-slate-700/80 shadow-xl text-[11px] font-mono font-bold text-white flex items-center gap-1.5 backdrop-blur-md hover:border-cyber-cyan transition-all"
+                  style={{
+                    borderTop: lbl.ownerColor ? `2px solid ${lbl.ownerColor}` : undefined,
+                  }}
+                >
                   <span
                     className="w-2 h-2 rounded-full inline-block shadow-sm"
                     style={{ backgroundColor: lbl.color }}
                   />
                   <span>{lbl.title}</span>
+                  {lbl.ownerName && (
+                    <span
+                      className="text-[9px] font-mono px-1 py-0.2 rounded border"
+                      style={{
+                        backgroundColor: `${lbl.ownerColor}20`,
+                        borderColor: `${lbl.ownerColor}60`,
+                        color: lbl.ownerColor,
+                      }}
+                    >
+                      {lbl.ownerName.slice(0, 8)}
+                    </span>
+                  )}
                 </div>
-                {lbl.subtitle && (
-                  <span
-                    className={`text-[9px] font-mono font-semibold tracking-wider mt-0.5 px-1 rounded shadow-sm ${
-                      lbl.subtitle === 'ANA DÜNYA'
-                        ? 'text-emerald-400 bg-emerald-950/70 border border-emerald-800/60'
-                        : lbl.subtitle === 'NEXUS RÖLESİ'
-                        ? 'text-purple-300 bg-purple-950/70 border border-purple-800/60'
-                        : 'text-slate-400 bg-space-900/60'
-                    }`}
-                  >
-                    {lbl.subtitle}
-                  </span>
-                )}
+
+                {/* Subtitle & Stellaris Badges Row */}
+                <div className="flex items-center gap-1 mt-0.5">
+                  {lbl.isRelay ? (
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
+                      ⚡ RÖLE
+                    </span>
+                  ) : (
+                    <>
+                      {lbl.colonizedCount ? (
+                        <span className="text-[9px] font-mono font-bold px-1 rounded bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 shadow-sm">
+                          🏛️ {lbl.colonizedCount}
+                        </span>
+                      ) : null}
+                      {lbl.openSlotsCount ? (
+                        <span className="text-[9px] font-mono px-1 rounded bg-slate-900/80 border border-slate-700/60 text-slate-300 shadow-sm">
+                          🪐 {lbl.openSlotsCount}
+                        </span>
+                      ) : null}
+                    </>
+                  )}
+                  {lbl.hasPoi && (
+                    <span className="text-[9px] font-mono font-bold px-1 rounded bg-amber-950/80 border border-amber-600/70 text-amber-300 animate-pulse shadow-sm">
+                      ★ KEŞİF
+                    </span>
+                  )}
+                  {lbl.hasDebris && (
+                    <span className="text-[9px] font-mono font-bold px-1 rounded bg-rose-950/80 border border-rose-600/70 text-rose-300 shadow-sm">
+                      ⚙️ ENKAZ
+                    </span>
+                  )}
+                </div>
               </div>
             ) : lbl.type === 'jump_gate' ? (
               <div className="px-2 py-0.5 rounded-full bg-space-950/90 border border-cyber-cyan/60 text-[10px] font-mono font-bold text-cyber-cyan shadow-lg shadow-cyan-950/50 backdrop-blur-md hover:bg-cyber-cyan hover:text-space-950 transition-all flex items-center gap-1">

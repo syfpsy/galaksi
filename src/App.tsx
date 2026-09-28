@@ -16,10 +16,12 @@ import {
   ShipType,
 } from './engine/types';
 import { AllianceModal } from './ui/components/AllianceModal';
+import { AnomalyEventModal } from './ui/components/AnomalyEventModal';
 import { ArtGalleryModal } from './ui/components/ArtGalleryModal';
 import { CombatReplayModal } from './ui/components/CombatReplayModal';
 import { CommandPanel } from './ui/components/CommandPanel';
 import { EventFeed } from './ui/components/EventFeed';
+import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
 import { IncomingThreatBanner } from './ui/components/IncomingThreatBanner';
 import { PlanetPanel } from './ui/components/PlanetPanel';
@@ -65,6 +67,7 @@ export function App() {
   const [isAllianceOpen, setIsAllianceOpen] = useState<boolean>(false);
   const [isGalleryOpen, setIsGalleryOpen] = useState<boolean>(false);
   const [inspectedSystemId, setInspectedSystemId] = useState<string | null>(null);
+  const [anomalyModalSystemId, setAnomalyModalSystemId] = useState<string | null>(null);
 
   // Hotkeys for Stellaris navigation
   useEffect(() => {
@@ -452,7 +455,6 @@ export function App() {
                   systemId: fl.targetSystemId,
                   fleetId,
                 });
-                setIsCommandPanelOpen(true);
               }
             }}
             onSelectPlanet={(systemId, planetId) => {
@@ -466,6 +468,19 @@ export function App() {
             }}
             onInspectSystem={(systemId) => setInspectedSystemId(systemId)}
           />
+
+          {/* Stellaris Fleet Inspector Bottom Card HUD */}
+          {selectedTarget?.type === 'fleet' && selectedTarget.fleetId && (
+            <FleetCardHUD
+              state={engineState}
+              fleetId={selectedTarget.fleetId}
+              activePlayerId={activePlayerId}
+              currentTimeMs={engineState.timeMs}
+              onClose={() => setSelectedTarget(null)}
+              onRecallFleet={handleRecallFleet}
+              onOpenCommandPanel={() => setIsCommandPanelOpen(true)}
+            />
+          )}
 
           {/* Sector Real-Time Communications & Alerts Ticker */}
           <EventFeed events={engineState.eventLog} />
@@ -505,7 +520,6 @@ export function App() {
             const fl = engineState.fleets[fleetId];
             if (fl) {
               setSelectedTarget({ type: 'fleet', systemId: fl.targetSystemId, fleetId: fl.id });
-              setIsCommandPanelOpen(true);
             }
           }}
           onSelectSystem={(systemId) => {
@@ -569,6 +583,18 @@ export function App() {
         isOpen={!!inspectedSystemId}
         onClose={() => setInspectedSystemId(null)}
         onSelectSlot={handleSelectSlot}
+        onOpenAnomaly={(sys) => setAnomalyModalSystemId(sys.id)}
+      />
+
+      {/* Stellaris Situation Log / Anomaly Discovery Modal */}
+      <AnomalyEventModal
+        isOpen={!!anomalyModalSystemId}
+        onClose={() => setAnomalyModalSystemId(null)}
+        system={anomalyModalSystemId ? engineState.map.systems[anomalyModalSystemId] : null}
+        onDispatchScout={(systemId) => {
+          setSelectedTarget({ type: 'system', systemId });
+          setIsCommandPanelOpen(true);
+        }}
       />
 
       {/* Magnific Concept Art Gallery Modal */}

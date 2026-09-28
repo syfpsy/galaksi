@@ -476,3 +476,34 @@ export function getCityLightsTexture(colorHex: string = '#fde047'): THREE.Canvas
   textureCache.set(cacheKey, texture);
   return texture;
 }
+
+/**
+ * Creates an ethereal faction territory influence glow texture.
+ * Radial gradient from faction color with soft falloff and crisp outer border.
+ */
+export function getTerritoryInfluenceTexture(colorHex: string): THREE.CanvasTexture {
+  const cacheKey = `territory_${colorHex}`;
+  if (textureCache.has(cacheKey)) return textureCache.get(cacheKey)!;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 256;
+  const ctx = canvas.getContext('2d')!;
+
+  const grad = ctx.createRadialGradient(128, 128, 10, 128, 128, 126);
+  grad.addColorStop(0, hexToRgba(colorHex, 0.38));
+  grad.addColorStop(0.35, hexToRgba(colorHex, 0.22));
+  grad.addColorStop(0.7, hexToRgba(colorHex, 0.08));
+  grad.addColorStop(0.92, hexToRgba(colorHex, 0.28)); // Subtle perimeter accent ring
+  grad.addColorStop(1, hexToRgba(colorHex, 0.0));
+
+  ctx.fillStyle = grad;
+  ctx.beginPath();
+  ctx.arc(128, 128, 126, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tex = new THREE.CanvasTexture(canvas);
+  textureCache.set(cacheKey, tex);
+  return tex;
+}
+

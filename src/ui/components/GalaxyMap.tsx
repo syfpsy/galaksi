@@ -575,6 +575,48 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
               })}
             </g>
 
+            {/* Layer 3.5: Stellaris Faction Territory Influence Auras */}
+            <g className="territory-auras pointer-events-none">
+              {systems.map((sys) => {
+                let controllingOwnerId: string | null = null;
+                if (sys.hasRelay && state.relay.controllingPlayerId) {
+                  controllingOwnerId = state.relay.controllingPlayerId;
+                } else {
+                  const slotOwners = sys.slots
+                    .map((s) => state.planets[s.planetId]?.ownerId)
+                    .filter(Boolean) as string[];
+                  if (slotOwners.length > 0) {
+                    controllingOwnerId = slotOwners[0];
+                  }
+                }
+                if (!controllingOwnerId) return null;
+                const controller = state.players[controllingOwnerId];
+                if (!controller) return null;
+
+                return (
+                  <g key={`territory_${sys.id}`}>
+                    <circle
+                      cx={sys.x}
+                      cy={sys.y}
+                      r="68"
+                      fill={controller.color}
+                      opacity="0.09"
+                    />
+                    <circle
+                      cx={sys.x}
+                      cy={sys.y}
+                      r="68"
+                      fill="none"
+                      stroke={controller.color}
+                      strokeWidth="1.2"
+                      strokeDasharray="6,6"
+                      opacity="0.32"
+                    />
+                  </g>
+                );
+              })}
+            </g>
+
             {/* Layer 4: Sensor Coverage Bubbles Overlay */}
             <g className="sensor-bubbles pointer-events-none">
               {systems.map((sys) => {
@@ -941,27 +983,85 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                     {/* System Tactical Name Badge */}
                     <g transform="translate(0, 26)" className="pointer-events-none">
                       <rect
-                        x="-50"
+                        x="-54"
                         y="-10"
-                        width="100"
-                        height="20"
+                        width="108"
+                        height="22"
                         rx="4"
                         fill="#070d1d"
-                        fillOpacity="0.88"
-                        stroke={isSelected ? '#00f3ff' : '#1e293b'}
-                        strokeWidth="0.9"
+                        fillOpacity="0.92"
+                        stroke={isSelected ? '#00f3ff' : dominantColonyOwner ? dominantColonyOwner.color : '#1e293b'}
+                        strokeWidth={isSelected ? '1.5' : '1'}
                       />
+                      {/* Top Faction Banner Accent */}
+                      {dominantColonyOwner && (
+                        <line
+                          x1="-54"
+                          y1="-10"
+                          x2="54"
+                          y2="-10"
+                          stroke={dominantColonyOwner.color}
+                          strokeWidth="2.5"
+                        />
+                      )}
                       <text
                         x="0"
-                        y="4"
+                        y="5"
                         textAnchor="middle"
                         fill={isKnown ? '#f8fafc' : '#94a3b8'}
                         fontSize="10"
                         fontWeight={isRelay ? 'bold' : '600'}
-                        fontFamily="sans-serif"
+                        fontFamily="monospace"
                       >
                         {isKnown ? sys.name : '??? Bilinmeyen'}
                       </text>
+
+                      {/* Micro Status Badges Underneath */}
+                      {isKnown && (
+                        <g transform="translate(0, 20)">
+                          {isRelay ? (
+                            <text
+                              x="0"
+                              y="0"
+                              textAnchor="middle"
+                              fill="#c084fc"
+                              fontSize="8"
+                              fontWeight="bold"
+                              fontFamily="monospace"
+                            >
+                              ⚡ RÖLE
+                            </text>
+                          ) : (
+                            <g>
+                              {ownedPlanets.length > 0 && (
+                                <text
+                                  x={sys.slots.length > ownedPlanets.length ? -18 : 0}
+                                  y="0"
+                                  textAnchor="middle"
+                                  fill={hasOwnColony ? '#10b981' : '#f43f5e'}
+                                  fontSize="8"
+                                  fontWeight="bold"
+                                  fontFamily="monospace"
+                                >
+                                  🏛️ {ownedPlanets.length}
+                                </text>
+                              )}
+                              {sys.slots.length > ownedPlanets.length && (
+                                <text
+                                  x={ownedPlanets.length > 0 ? 18 : 0}
+                                  y="0"
+                                  textAnchor="middle"
+                                  fill="#94a3b8"
+                                  fontSize="8"
+                                  fontFamily="monospace"
+                                >
+                                  🪐 {sys.slots.length - ownedPlanets.length}
+                                </text>
+                              )}
+                            </g>
+                          )}
+                        </g>
+                      )}
                     </g>
                   </g>
                 );

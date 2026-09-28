@@ -21,6 +21,7 @@ interface SystemInspectionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSelectSlot: (systemId: string, planetId: string) => void;
+  onOpenAnomaly?: (system: StarSystem) => void;
 }
 
 export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
@@ -30,6 +31,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
   isOpen,
   onClose,
   onSelectSlot,
+  onOpenAnomaly,
 }) => {
   const [hoveredPlanetId, setHoveredPlanetId] = useState<string | null>(null);
 
@@ -402,6 +404,65 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
               })}
             </svg>
           </div>
+
+          {/* Anomaly & Debris Special Sighting Cards */}
+          {(system.poi || (system.hasDebris && ((system.hasDebris.ore || 0) > 0 || (system.hasDebris.crystal || 0) > 0))) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {system.poi && (
+                <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/40 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-sm">
+                      ★
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-amber-300 font-mono">
+                        {system.poi.type === 'derelict_cache'
+                          ? 'Terk Edilmiş Antik Kargo Gemisi'
+                          : system.poi.type === 'alien_beacon'
+                          ? 'Yabancı Subspace Radyo Sinyali'
+                          : 'Nadir Cevher Asteroit Kuşağı'}
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono">
+                        {system.poi.explored ? '✓ Keşfedildi (Kaynaklar Toplandı)' : '● Keşfedilmedi — Analiz Bekleniyor'}
+                      </div>
+                    </div>
+                  </div>
+                  {onOpenAnomaly && (
+                    <button
+                      onClick={() => {
+                        sound.playClick();
+                        onOpenAnomaly(system);
+                      }}
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 rounded-lg text-xs font-mono font-bold transition-all shrink-0"
+                    >
+                      İncele
+                    </button>
+                  )}
+                </div>
+              )}
+
+              {system.hasDebris && ((system.hasDebris.ore || 0) > 0 || (system.hasDebris.crystal || 0) > 0) && (
+                <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-500/40 flex items-center justify-between shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-sm">
+                      ⚙️
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-rose-300 font-mono">
+                        Savaş Enkazı Sahası
+                      </div>
+                      <div className="text-[10px] text-slate-400 font-mono">
+                        +{Math.round(system.hasDebris.ore || 0)} Cevher • +{Math.round(system.hasDebris.crystal || 0)} Kristal
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950/60 border border-rose-500/40 text-rose-300 shrink-0">
+                    Nakliye ile Toplanabilir
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Planet Slots Detailed Breakdown Cards */}
           <div className="space-y-3">
