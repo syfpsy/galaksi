@@ -36,12 +36,10 @@ interface StellarisBottomDeckProps {
   currentTimeMs: number;
   viewMode: 'galaxy' | 'system';
   activeSystemName: string;
-  renderEngine: 'webgl_25d' | 'vector_2d';
   showProjections: boolean;
   zoom: number;
   onToggleViewMode: () => void;
   onCycleSystem: (dir: 'next' | 'prev') => void;
-  onToggleRenderEngine: () => void;
   onToggleProjections: () => void;
   onZoomIn: () => void;
   onZoomOut: () => void;
@@ -59,12 +57,10 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
   currentTimeMs,
   viewMode,
   activeSystemName,
-  renderEngine,
   showProjections,
   zoom,
   onToggleViewMode,
   onCycleSystem,
-  onToggleRenderEngine,
   onToggleProjections,
   onZoomIn,
   onZoomOut,
@@ -617,19 +613,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
           </button>
         )}
 
-        <div className="h-6 w-px bg-slate-800" />
 
-        {/* 2D / 3D Engine Toggle */}
-        <button
-          onClick={() => {
-            sound.playClick();
-            onToggleRenderEngine();
-          }}
-          className="px-2.5 py-1.5 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition-all flex items-center gap-1 text-[11px]"
-          title="Grafik Motoru Değiştir (2.5D WebGL / 2D Vektör)"
-        >
-          <span>{renderEngine === 'webgl_25d' ? '3D' : '2D'}</span>
-        </button>
 
         {/* Projections Toggle (if system view) */}
         {viewMode === 'system' && (

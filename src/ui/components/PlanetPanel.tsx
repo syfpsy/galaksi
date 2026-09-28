@@ -21,13 +21,15 @@ import {
   calculateHourlyProduction,
   getBuildingUpgradeCost,
 } from '../../engine/constants';
-import { BuildingType, Planet, PlanetStance, ShipType } from '../../engine/types';
+import { BuildingType, GameState, Planet, PlanetStance, ShipType } from '../../engine/types';
 import { formatDuration } from '../timeUtils';
 import { sound } from '../sound';
+import { getPlanetAsset } from '../planetAssets';
 
 interface PlanetPanelProps {
   planets: Planet[];
   activePlanetId: string;
+  state?: GameState;
   onSelectPlanet: (id: string) => void;
   onUpgradeBuilding: (planetId: string, type: BuildingType) => void;
   onSetStance: (planetId: string, stance: PlanetStance) => void;
@@ -40,6 +42,7 @@ interface PlanetPanelProps {
 export const PlanetPanel: React.FC<PlanetPanelProps> = ({
   planets,
   activePlanetId,
+  state,
   onSelectPlanet,
   onUpgradeBuilding,
   onSetStance,
@@ -56,6 +59,13 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
       </aside>
     );
   }
+
+  // Find system slot to determine planet biome type
+  const system = state?.map.systems[currentPlanet.systemId];
+  const slot = system?.slots.find(
+    (s) => s.planetId === currentPlanet.id || s.slotIndex === currentPlanet.slotIndex
+  );
+  const planetAsset = getPlanetAsset(slot?.type);
 
   const buildingsList: BuildingType[] = [
     'ore_mine',
@@ -95,27 +105,75 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
 
         {/* Planet Selector Pills */}
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
-          {planets.map((p) => (
-            <button
-              key={p.id}
-              onClick={() => {
-                sound.playClick();
-                onSelectPlanet(p.id);
-              }}
-              className={`px-3 py-1.5 rounded text-xs font-medium whitespace-nowrap transition-all flex items-center gap-1.5 ${
-                p.id === currentPlanet.id
-                  ? 'bg-cyber-cyan/20 border border-cyber-cyan/50 text-cyber-cyan'
-                  : 'bg-space-800/80 border border-slate-700/60 text-slate-300 hover:border-slate-500'
-              }`}
-            >
-              <div
-                className={`w-2 h-2 rounded-full ${
-                  p.isHomeworld ? 'bg-amber-400' : 'bg-emerald-400'
+          {planets.map((p) => {
+            const pSys = state?.map.systems[p.systemId];
+            const pSlot = pSys?.slots.find((s) => s.planetId === p.id || s.slotIndex === p.slotIndex);
+            const pAsset = getPlanetAsset(pSlot?.type);
+            const isCur = p.id === currentPlanet.id;
+
+            return (
+              <button
+                key={p.id}
+                onClick={() => {
+                  sound.playClick();
+                  onSelectPlanet(p.id);
+                }}
+                className={`px-2.5 py-1.5 rounded-lg text-xs font-medium whitespace-nowrap transition-all flex items-center gap-2 ${
+                  isCur
+                    ? 'bg-cyber-cyan/20 border border-cyber-cyan/50 text-cyber-cyan shadow-sm shadow-cyan-950/40'
+                    : 'bg-space-800/80 border border-slate-700/60 text-slate-300 hover:border-slate-500'
                 }`}
-              />
-              <span>{p.name}</span>
-            </button>
-          ))}
+              >
+                <img
+                  src={pAsset.spaceImage}
+                  alt={p.name}
+                  className="w-4 h-4 rounded-full object-cover border border-slate-600 shrink-0"
+                />
+                <div
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    p.isHomeworld ? 'bg-amber-400' : 'bg-emerald-400'
+                  }`}
+                />
+                <span>{p.name}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Cinematic Surface Landscape Hero Banner */}
+      <div className="relative w-full h-32 overflow-hidden border-b border-slate-800 shrink-0 group">
+        <img
+          src={planetAsset.surfaceImage}
+          alt={planetAsset.nameTr}
+          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+        />
+        {/* Cinematic Vignette & Bottom/Edge Fade */}
+        <div className="absolute inset-0 bg-gradient-to-t from-[#080d19] via-[#080d19]/40 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-r from-[#080d19]/80 via-transparent to-transparent pointer-events-none" />
+
+        {/* Biome Type & Habitability Badges Over Surface */}
+        <div className="absolute bottom-2 left-3 right-3 flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
+            <span
+              className="text-[10px] font-mono px-2 py-0.5 rounded font-bold backdrop-blur-md shadow-md border"
+              style={{
+                backgroundColor: `${planetAsset.themeColor}30`,
+                color: planetAsset.glowColor,
+                borderColor: `${planetAsset.glowColor}60`,
+              }}
+            >
+              {planetAsset.nameTr}
+            </span>
+            <span className="text-[10px] font-mono bg-slate-900/85 backdrop-blur-md text-emerald-400 px-2 py-0.5 rounded border border-emerald-500/30">
+              {planetAsset.habitability}
+            </span>
+          </div>
+          {slot && (
+            <span className="text-[10px] font-mono text-slate-400 bg-black/70 backdrop-blur-sm px-1.5 py-0.5 rounded border border-slate-800">
+              Boyut {slot.size}
+            </span>
+          )}
         </div>
       </div>
 
@@ -126,7 +184,10 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
             {/* Dynamic Living Planetary Orb with Orbiting Defense Satellite */}
             <div className="relative w-12 h-12 flex items-center justify-center shrink-0 group">
               {/* Atmospheric Glow Aura */}
-              <div className="absolute inset-0 rounded-full bg-cyber-cyan/15 blur-sm animate-pulse-slow" />
+              <div
+                className="absolute inset-0 rounded-full blur-sm animate-pulse-slow opacity-60"
+                style={{ backgroundColor: planetAsset.glowColor }}
+              />
 
               {/* Orbiting Satellite Track */}
               <div className="absolute inset-[-4px] rounded-full border border-slate-700/60 pointer-events-none" />
@@ -134,13 +195,19 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
                 className="absolute inset-[-4px] rounded-full animate-spin-slow pointer-events-none"
                 style={{ transformOrigin: 'center' }}
               >
-                <div className="w-1.5 h-1.5 rounded-full bg-cyber-cyan shadow-sm shadow-cyan-400 absolute -top-0.5 left-1/2 -translate-x-1/2" />
+                <div
+                  className="w-1.5 h-1.5 rounded-full absolute -top-0.5 left-1/2 -translate-x-1/2 shadow-sm"
+                  style={{ backgroundColor: planetAsset.glowColor }}
+                />
               </div>
 
               {/* Planet Orb Body */}
-              <div className="w-11 h-11 rounded-full overflow-hidden border border-cyber-cyan/40 bg-space-950 relative shadow-md shadow-cyan-950/50">
+              <div
+                className="w-11 h-11 rounded-full overflow-hidden border bg-space-950 relative shadow-md"
+                style={{ borderColor: `${planetAsset.glowColor}60` }}
+              >
                 <img
-                  src="/assets/art/terran_planet.png"
+                  src={planetAsset.spaceImage}
                   alt={currentPlanet.name}
                   className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-125"
                 />

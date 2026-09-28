@@ -481,6 +481,7 @@ export function App() {
               <PlanetPanel
                 planets={myPlanets}
                 activePlanetId={activePlanet?.id || ''}
+                state={engineState}
                 onSelectPlanet={setActivePlanetId}
                 onUpgradeBuilding={handleUpgradeBuilding}
                 onSetStance={handleSetStance}

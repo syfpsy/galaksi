@@ -23,6 +23,7 @@ import { BUILDING_STATS, SHIP_STATS } from '../../engine/constants';
 import { SelectedTarget } from '../types';
 import { formatDuration } from '../timeUtils';
 import { sound } from '../sound';
+import { getPlanetAsset } from '../planetAssets';
 
 interface StellarisOutlinerProps {
   state: GameState;
@@ -218,6 +219,10 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                 const totalGarrison = Object.values(planet.garrison).reduce((a, b) => a + (b || 0), 0);
                 const isBuilding = !!planet.buildingQueue;
 
+                const pSys = state.map.systems[planet.systemId];
+                const pSlot = pSys?.slots.find((s) => s.planetId === planet.id || s.slotIndex === planet.slotIndex);
+                const pAsset = getPlanetAsset(pSlot?.type);
+
                 return (
                   <div
                     key={planet.id}
@@ -232,12 +237,19 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                     }`}
                   >
                     <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <div
-                          className={`w-2 h-2 rounded-full ${
-                            planet.isHomeworld ? 'bg-amber-400' : 'bg-emerald-400'
-                          }`}
-                        />
+                      <div className="flex items-center gap-2">
+                        <div className="relative shrink-0 w-4 h-4">
+                          <img
+                            src={pAsset.spaceImage}
+                            alt={planet.name}
+                            className="w-4 h-4 rounded-full object-cover border border-slate-600"
+                          />
+                          <div
+                            className={`absolute -bottom-0.5 -right-0.5 w-1.5 h-1.5 rounded-full border border-black ${
+                              planet.isHomeworld ? 'bg-amber-400' : 'bg-emerald-400'
+                            }`}
+                          />
+                        </div>
                         <span className="font-semibold text-slate-100 text-[11px]">
                           {planet.name}
                         </span>

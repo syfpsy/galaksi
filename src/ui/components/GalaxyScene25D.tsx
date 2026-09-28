@@ -22,6 +22,25 @@ import {
 } from './proceduralTextures';
 import { sound } from '../sound';
 import { formatDuration } from '../timeUtils';
+import { getPlanetAsset } from '../planetAssets';
+
+const planetTextureCache = new Map<string, THREE.Texture>();
+const planetTextureLoader = new THREE.TextureLoader();
+
+function getLoadedPlanetTexture(imagePath: string): THREE.Texture {
+  if (planetTextureCache.has(imagePath)) {
+    return planetTextureCache.get(imagePath)!;
+  }
+  const tex = planetTextureLoader.load(imagePath, (t) => {
+    t.colorSpace = THREE.SRGBColorSpace;
+    t.wrapS = THREE.RepeatWrapping;
+    t.wrapT = THREE.ClampToEdgeWrapping;
+    t.needsUpdate = true;
+  });
+  tex.colorSpace = THREE.SRGBColorSpace;
+  planetTextureCache.set(imagePath, tex);
+  return tex;
+}
 
 interface GalaxyScene25DProps {
   state: GameState;
@@ -720,27 +739,15 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         const planetRadius = 8 + (slot.size % 4);
         const planetGeo = new THREE.SphereGeometry(planetRadius, 28, 28);
 
-        let planetTexture = getTerranTexture();
-        let atmoColor = '#38bdf8';
-        if (slot.type === 'ocean') {
-          planetTexture = getOceanTexture();
-          atmoColor = '#0284c7';
-        } else if (slot.type === 'desert') {
-          planetTexture = getDesertTexture();
-          atmoColor = '#d97706';
-        } else if (slot.type === 'ice') {
-          planetTexture = getIceTexture();
-          atmoColor = '#bae6fd';
-        } else if (slot.type === 'volcanic') {
-          planetTexture = getVolcanicTexture();
-          atmoColor = '#ef4444';
-        }
+        const asset = getPlanetAsset(slot.type);
+        const photorealisticTexture = getLoadedPlanetTexture(asset.spaceImage);
+        const atmoColor = asset.glowColor;
 
         const planetObj = stateRef.current.planets[slot.planetId];
         const planetMat = new THREE.MeshStandardMaterial({
-          map: planetTexture,
-          roughness: 0.55,
-          metalness: 0.15,
+          map: photorealisticTexture,
+          roughness: 0.65,
+          metalness: 0.1,
         });
 
         // Colonized worlds glow with nocturnal metropolitan city lights

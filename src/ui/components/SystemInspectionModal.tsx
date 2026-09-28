@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { GameState, PlanetSlot, StarSystem } from '../../engine/types';
 import { sound } from '../sound';
+import { getPlanetAsset } from '../planetAssets';
 
 interface SystemInspectionModalProps {
   system: StarSystem | null;
@@ -476,7 +477,8 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                 const planetObj = state.planets[slot.planetId];
                 const owner = planetObj ? state.players[planetObj.ownerId] : null;
                 const isMine = owner && owner.id === activePlayerId;
-                const config = biomeConfig[slot.type];
+                const config = biomeConfig[slot.type] || biomeConfig.terran;
+                const asset = getPlanetAsset(slot.type);
                 const isHovered = hoveredPlanetId === slot.planetId;
 
                 return (
@@ -489,28 +491,39 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                       onSelectSlot(system.id, slot.planetId);
                       onClose();
                     }}
-                    className={`p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between group ${
+                    className={`relative p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between group overflow-hidden ${
                       isHovered
-                        ? 'bg-space-800/90 border-cyber-cyan shadow-md shadow-cyan-950/40'
+                        ? 'bg-space-800/95 border-cyber-cyan shadow-lg shadow-cyan-950/40'
                         : 'bg-space-850/70 border-slate-800 hover:border-slate-700'
                     }`}
                   >
-                    <div className="flex items-center gap-3.5">
-                      {/* Biome Planet Preview Thumbnail */}
+                    {/* Atmospheric Surface Landscape Ambient Background on Hover */}
+                    <div className="absolute inset-0 pointer-events-none overflow-hidden">
+                      <img
+                        src={asset.surfaceImage}
+                        alt=""
+                        className="w-full h-full object-cover opacity-15 group-hover:opacity-30 group-hover:scale-105 transition-all duration-700"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-r from-space-950 via-space-950/90 to-space-950/60" />
+                    </div>
+
+                    <div className="flex items-center gap-3.5 relative z-10">
+                      {/* Biome Planet Space View Thumbnail Orb */}
                       <div
-                        className="w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border relative overflow-hidden"
+                        className="w-13 h-13 w-[52px] h-[52px] rounded-xl flex items-center justify-center shrink-0 border relative overflow-hidden shadow-md group-hover:scale-105 transition-transform"
                         style={{
-                          backgroundColor: `${config.fill}15`,
-                          borderColor: `${config.stroke}40`,
+                          backgroundColor: `${asset.themeColor}20`,
+                          borderColor: isHovered ? asset.glowColor : `${asset.glowColor}50`,
+                          boxShadow: isHovered ? `0 0 14px ${asset.glowColor}40` : undefined,
                         }}
                       >
-                        <div
-                          className="w-7 h-7 rounded-full shadow-md"
-                          style={{
-                            backgroundColor: config.fill,
-                            boxShadow: `0 0 10px ${config.glow}`,
-                          }}
+                        <img
+                          src={asset.spaceImage}
+                          alt={slot.name}
+                          className="w-full h-full object-cover"
                         />
+                        {/* Day/Night terminator shadow */}
+                        <div className="absolute inset-0 bg-gradient-to-tr from-black/40 via-transparent to-transparent pointer-events-none" />
                       </div>
 
                       <div>
@@ -519,13 +532,17 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                             {slot.name}
                           </span>
                           <span
-                            className="text-[9px] font-mono px-1.5 py-0.2 rounded"
+                            className="text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold border"
                             style={{
-                              backgroundColor: `${config.fill}20`,
-                              color: config.stroke,
+                              backgroundColor: `${asset.themeColor}25`,
+                              color: asset.glowColor,
+                              borderColor: `${asset.glowColor}40`,
                             }}
                           >
-                            {config.label}
+                            {asset.nameTr}
+                          </span>
+                          <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                            {asset.habitability}
                           </span>
                         </div>
 
@@ -550,7 +567,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                     </div>
 
                     <button
-                      className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all shrink-0 ${
+                      className={`relative z-10 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all shrink-0 ${
                         owner
                           ? 'bg-space-800 border border-slate-700 text-slate-300 group-hover:text-white group-hover:border-slate-500'
                           : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-950'
