@@ -171,131 +171,24 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
       {/* FLOATING HUD CONTROLS & STELLARIS-STYLE VIEW SWITCHER                    */}
       {/* ========================================================================= */}
 
-      {/* Top Left: Navigation & Mode Switch */}
-      <div className="absolute top-4 left-4 flex flex-col gap-2 z-20">
-        {/* Stellaris Navigation Bar: Breadcrumb to Galaxy or Enter System */}
-        {viewMode === 'system' ? (
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={() => {
-                sound.playClick();
-                setViewMode('galaxy');
-              }}
-              className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-space-900/95 border border-cyber-cyan/60 text-cyber-cyan hover:bg-cyber-cyan hover:text-space-950 transition-all font-mono font-bold text-xs shadow-lg shadow-cyan-950/40 group"
-              title="Galaksi Haritasına Dön (Esc veya M tuşu / Boşluğa Çift Tıkla)"
-            >
-              <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-              <span>Galaksi Haritası</span>
-            </button>
-
-            {/* System View Carousel Selector */}
-            <div className="flex items-center bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 shadow-xl">
-              <button
-                onClick={() => cycleSystem('prev')}
-                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800"
-                title="Önceki Sistem"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-
-              <span className="text-xs font-bold font-display text-cyber-cyan px-2">
-                {activeSystem.name}
-              </span>
-
-              <button
-                onClick={() => cycleSystem('next')}
-                className="p-1 rounded text-slate-400 hover:text-white hover:bg-slate-800"
-                title="Sonraki Sistem"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+      {/* Top Left: Sleek Stellaris System Breadcrumb Badge (Only in system view) */}
+      {viewMode === 'system' && (
+        <div className="absolute top-3 left-4 z-20 flex items-center gap-2">
+          <div className="stellaris-resource-pod px-3 py-1.5 rounded-sm flex items-center gap-2 shadow-lg backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f0ff]" />
+            <span className="stellaris-gold font-display font-bold text-xs uppercase tracking-widest">
+              {activeSystem.name} SİSTEMİ
+            </span>
+            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.2 rounded-sm border border-cyan-500/30">
+              {activeSystem.slots.length} Yörünge Cismi
+            </span>
           </div>
-        ) : (
-          <div className="flex items-center gap-1.5 bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1.5 shadow-xl shadow-black/60">
-            <button
-              onClick={() => {
-                sound.playClick();
-                setViewMode('galaxy');
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all bg-cyber-cyan text-space-950 shadow-sm shadow-cyan-400"
-            >
-              <Compass className="w-3.5 h-3.5" />
-              <span>Galaksi Kümesi</span>
-            </button>
-
-            <button
-              onClick={() => {
-                sound.playWarp();
-                enterSystemView(focusedSystemId);
-              }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all text-slate-400 hover:text-slate-200 hover:bg-slate-800 hover:text-cyber-cyan"
-              title={`${activeSystem.name} Sisteminin Yörünge Düzlemine Gir (Çift Tıklayarak da girebilirsiniz)`}
-            >
-              <Orbit className="w-3.5 h-3.5 text-cyber-cyan/70" />
-              <span>{activeSystem.name} Sistemine Gir</span>
-            </button>
-          </div>
-        )}
-
-        {/* Zoom & Projection Toggles */}
-        <div className="flex items-center gap-1 bg-space-900/90 backdrop-blur-md border border-slate-800 rounded-xl p-1 shadow-lg">
-          <button
-            onClick={() => {
-              sound.playClick();
-              setZoom((z) => Math.min(2.5, +(z + 0.25).toFixed(2)));
-            }}
-            className="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyber-cyan transition-colors"
-            title="Yakınlaştır (+)"
-          >
-            <Plus className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => {
-              sound.playClick();
-              setZoom((z) => Math.max(0.6, +(z - 0.25).toFixed(2)));
-            }}
-            className="p-1.5 rounded hover:bg-slate-800 text-slate-300 hover:text-cyber-cyan transition-colors"
-            title="Uzaklaştır (-)"
-          >
-            <Minus className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => {
-              sound.playClick();
-              setZoom(1);
-            }}
-            className={`px-2 py-1 rounded text-[11px] font-mono transition-colors ${
-              zoom === 1 ? 'text-slate-400' : 'text-cyber-cyan font-bold bg-cyber-cyan/10'
-            }`}
-            title="Ölçeği Sıfırla (1x)"
-          >
-            {Math.round(zoom * 100)}%
-          </button>
-
-          {/* Projection Toggle (In System View) */}
-          {viewMode === 'system' && (
-            <button
-              onClick={() => {
-                sound.playClick();
-                setShowProjections(!showProjections);
-              }}
-              className={`px-2 py-1 rounded text-[10px] font-mono border transition-all ${
-                showProjections
-                  ? 'border-cyber-cyan/50 text-cyber-cyan bg-cyber-cyan/15'
-                  : 'border-slate-800 text-slate-500 hover:text-slate-300'
-              }`}
-              title="Yörünge Gelecek Projeksiyonunu Aç/Kapat"
-            >
-              Projeksiyon
-            </button>
-          )}
         </div>
-      </div>
+      )}
 
       {/* Top Right: In-System Planetary Telemetry HUD Card (When Hovering or Selected) */}
       {viewMode === 'system' && (hoveredPlanetSlotId || (selectedTarget?.type === 'planet' && selectedTarget.systemId === activeSystem.id)) && (
-        <div className="absolute top-4 right-4 w-80 bg-space-900/95 backdrop-blur-md border border-cyber-cyan/40 rounded-xl p-3 shadow-2xl z-20 font-mono text-xs animate-in fade-in duration-150">
+        <div className="absolute top-4 right-4 w-80 stellaris-item-card rounded-sm p-3 shadow-2xl z-20 font-mono text-xs animate-in fade-in duration-150">
           {(() => {
             const targetId = hoveredPlanetSlotId || (selectedTarget?.type === 'planet' ? selectedTarget.planetId : null);
             const item = systemPlanetOrbits.find((p) => p.slot.planetId === targetId);
@@ -303,14 +196,14 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
             const { slot, orbit, planetObj, owner } = item;
             return (
               <div className="space-y-2.5">
-                <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
+                <div className="flex items-center justify-between border-b border-[#18374b] pb-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className="w-2.5 h-2.5 rounded-full inline-block" style={{ backgroundColor: owner?.color || '#38bdf8' }} />
-                    <span className="font-bold text-slate-100 font-display text-sm">
+                    <span className="font-bold text-slate-100 font-display text-sm tracking-wide">
                       {slot.name}
                     </span>
                   </div>
-                  <span className="text-[10px] text-cyber-cyan uppercase px-1.5 py-0.2 bg-cyber-cyan/10 rounded border border-cyber-cyan/30">
+                  <span className="text-[10px] text-cyan-400 uppercase px-1.5 py-0.2 bg-cyan-950/60 rounded-sm border border-cyan-500/30">
                     {slot.type}
                   </span>
                 </div>
@@ -328,7 +221,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[9.5px]">Açısal Hız</span>
-                    <span className="text-cyber-cyan">{orbit.speedDegPerHour}° / saat</span>
+                    <span className="text-cyan-400">{orbit.speedDegPerHour}° / saat</span>
                   </div>
                   <div>
                     <span className="text-slate-500 block text-[9.5px]">Yıldız Mesafesi</span>
@@ -337,19 +230,19 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                 </div>
 
                 {/* 2h, 6h, 12h Orbital Forecast Table */}
-                <div className="pt-1.5 border-t border-slate-800/80">
-                  <span className="text-[9.5px] text-slate-400 block mb-1">🔭 Gelecek Yörünge Projeksiyonları</span>
+                <div className="pt-1.5 border-t border-[#18374b]">
+                  <span className="text-[9.5px] text-[#e5c578] block mb-1">🔭 Gelecek Yörünge Projeksiyonları</span>
                   <div className="grid grid-cols-3 gap-1 text-[10px] text-center font-mono">
                     {orbit.projections.map((p) => (
-                      <div key={`proj_${p.hoursAhead}`} className="bg-space-950/70 border border-slate-800/80 rounded py-1 px-0.5">
+                      <div key={`proj_${p.hoursAhead}`} className="bg-[#060c14] border border-[#18374b] rounded-sm py-1 px-0.5">
                         <span className="text-slate-500 block text-[9px]">+{p.hoursAhead}s</span>
-                        <span className="text-cyber-cyan font-bold">{p.angleDeg}°</span>
+                        <span className="text-cyan-400 font-bold">{p.angleDeg}°</span>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="pt-1 border-t border-slate-800/80 flex items-center justify-between text-[10px]">
+                <div className="pt-1 border-t border-[#18374b] flex items-center justify-between text-[10px]">
                   <span className="text-slate-400">Hakimiyet:</span>
                   <span style={{ color: owner?.color || '#10b981' }} className="font-bold">
                     {owner ? owner.name : 'Boş / Koloniye Uygun'}
@@ -365,7 +258,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                         onSelectPlanet(activeSystem.id, slot.planetId);
                       }
                     }}
-                    className="w-full mt-2 py-1.5 px-2 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/60 hover:border-emerald-400 text-emerald-300 font-mono font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/50"
+                    className="w-full mt-2 py-1.5 px-2 bg-emerald-950/70 hover:bg-emerald-900 border border-emerald-500/60 hover:border-emerald-400 text-emerald-300 font-mono font-bold text-xs rounded-sm transition-all flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/50 cursor-pointer"
                   >
                     <Rocket className="w-3.5 h-3.5 text-emerald-400" />
                     <span>🏛️ Koloni Seferi Düzenle</span>
@@ -378,7 +271,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                         onSelectPlanet(activeSystem.id, slot.planetId);
                       }
                     }}
-                    className="w-full mt-2 py-1.5 px-2 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/60 hover:border-rose-400 text-rose-300 font-mono font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/50"
+                    className="w-full mt-2 py-1.5 px-2 bg-rose-950/70 hover:bg-rose-900 border border-rose-500/60 hover:border-rose-400 text-rose-300 font-mono font-bold text-xs rounded-sm transition-all flex items-center justify-center gap-1.5 shadow-md shadow-rose-950/50 cursor-pointer"
                   >
                     <Swords className="w-3.5 h-3.5 text-rose-400" />
                     <span>⚔️ Taarruz / Baskın Düzenle</span>
@@ -391,7 +284,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                         onSelectPlanet(activeSystem.id, slot.planetId);
                       }
                     }}
-                    className="w-full mt-2 py-1.5 px-2 bg-cyber-cyan/15 hover:bg-cyber-cyan/30 border border-cyber-cyan/50 text-cyber-cyan font-mono font-bold text-xs rounded-lg transition-all flex items-center justify-center gap-1.5"
+                    className="w-full mt-2 py-1.5 px-2 stellaris-btn-metallic text-cyan-300 font-mono font-bold text-xs rounded-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer"
                   >
                     <Rocket className="w-3.5 h-3.5" />
                     <span>📦 İkmal / Transfer Seferi</span>

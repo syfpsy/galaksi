@@ -225,28 +225,28 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
     <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-25 flex flex-col items-center select-none pointer-events-auto transition-all duration-300">
       {/* EXPANDED FULL OPERATIONS DASHBOARD */}
       {isExpanded && (
-        <div className="w-[94vw] max-w-5xl h-64 bg-[#070e1c]/98 border border-[#1b3454] rounded-t-2xl shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden mb-1 animate-fade-in">
+        <div className="w-[94vw] max-w-5xl h-64 bg-[#070e1c]/98 border border-[#1b3454] rounded-t-sm stellaris-outliner shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden mb-1 animate-fade-in">
           {/* Dashboard Header Bar */}
-          <div className="px-4 py-2 bg-[#09152a] border-b border-[#1b3454] flex items-center justify-between">
+          <div className="px-4 py-2 stellaris-outliner-header flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="flex items-center gap-2">
                 <Activity className="w-4 h-4 text-cyan-400 animate-pulse" />
-                <span className="text-xs font-bold text-white font-display uppercase tracking-wider">
+                <span className="text-xs font-bold stellaris-gold font-display uppercase tracking-widest">
                   Galaktik Üretim & Operasyon Konsolu
                 </span>
-                <span className="px-1.5 py-0.2 rounded-full bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold">
+                <span className="px-1.5 py-0.2 rounded-sm bg-cyan-950/60 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold">
                   {totalActiveOperations} Aktif
                 </span>
               </div>
 
               {/* Activity Category Tabs */}
-              <div className="flex items-center gap-1 ml-4 bg-[#050b14] p-0.5 rounded-lg border border-slate-800 text-[11px] font-mono">
+              <div className="flex items-center gap-1 ml-4 stellaris-resource-pod p-0.5 rounded-sm text-[11px] font-mono">
                 <button
                   onClick={() => {
                     sound.playClick();
                     setActiveTab('all');
                   }}
-                  className={`px-2.5 py-1 rounded transition-all ${
+                  className={`px-2.5 py-0.5 rounded-sm transition-all ${
                     activeTab === 'all'
                       ? 'bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/50'
                       : 'text-slate-400 hover:text-slate-200'
@@ -538,14 +538,14 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
       )}
 
       {/* COMPACT BOTTOM TRAY (Always Visible Deck) */}
-      <div className="bg-[#060d19]/95 backdrop-blur-md border border-[#163552] rounded-xl p-1.5 shadow-2xl flex items-center gap-2 text-xs font-mono">
+      <div className="stellaris-deck-container rounded-sm p-1.5 flex items-center gap-2 text-xs font-mono">
         {/* Left Side: Live Empire Activity Chips (Clickable to Expand!) */}
         <div
           onClick={() => {
             sound.playClick();
             setIsExpanded(!isExpanded);
           }}
-          className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-[#081220] hover:bg-[#0c1b30] border border-[#1a2d48] cursor-pointer transition-all group"
+          className="stellaris-resource-pod flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm cursor-pointer transition-all group"
           title="Tüm Aktif İnşaat, Tersane ve Filo Seferlerini Gör (Genişlet)"
         >
           {totalActiveOperations > 0 ? (
@@ -576,7 +576,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
               )}
             </div>
           ) : (
-            <span className="text-slate-500 text-[10.5px]">Üretim Hatları Boşta</span>
+            <span className="text-slate-400 text-[10.5px]">Üretim Hatları Boşta</span>
           )}
 
           <div className="flex items-center gap-0.5 text-cyan-400 ml-1">
@@ -584,14 +584,14 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
           </div>
         </div>
 
-        <div className="h-6 w-px bg-slate-800" />
+        <div className="h-6 w-px bg-[#18374b]" />
 
         {/* Center: Stellaris View Controls */}
         {viewMode === 'system' ? (
           <div className="flex items-center gap-1">
             <button
               onClick={() => onCycleSystem('prev')}
-              className="p-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition-all flex items-center justify-center"
+              className="stellaris-btn-metallic p-2 rounded-sm text-slate-300 hover:text-white transition-all flex items-center justify-center cursor-pointer"
               title="Önceki Yıldız Sistemi"
             >
               <ChevronLeft className="w-3.5 h-3.5" />
@@ -602,16 +602,16 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                 sound.playClick();
                 onToggleViewMode();
               }}
-              className="px-3.5 py-2 rounded-lg bg-cyan-500/20 hover:bg-cyan-500/30 border border-cyan-400 text-cyan-300 font-bold flex items-center gap-2 shadow-lg shadow-cyan-950/60 transition-all group"
+              className="stellaris-switcher-btn px-4 py-2 rounded-sm text-cyan-300 font-bold flex items-center gap-2 transition-all cursor-pointer group"
               title="Galaksi Haritasına Geç (M)"
             >
               <Compass className="w-4 h-4 text-cyan-400 group-hover:rotate-45 transition-transform" />
-              <span>🌌 GALAKSİ HARİTASI (M)</span>
+              <span className="tracking-wider">🌌 GALAKSİ HARİTASI [M]</span>
             </button>
 
             <button
               onClick={() => onCycleSystem('next')}
-              className="p-2 rounded-lg bg-slate-900 border border-slate-700 text-slate-300 hover:text-white hover:border-slate-500 transition-all flex items-center justify-center"
+              className="stellaris-btn-metallic p-2 rounded-sm text-slate-300 hover:text-white transition-all flex items-center justify-center cursor-pointer"
               title="Sonraki Yıldız Sistemi"
             >
               <ChevronRight className="w-3.5 h-3.5" />
@@ -623,15 +623,13 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
               sound.playClick();
               onToggleViewMode();
             }}
-            className="px-3.5 py-2 rounded-lg bg-amber-500/20 hover:bg-amber-500/30 border border-amber-400 text-amber-300 font-bold flex items-center gap-2 shadow-lg shadow-amber-950/60 transition-all group"
+            className="stellaris-switcher-btn px-4 py-2 rounded-sm text-[#e5c578] font-bold flex items-center gap-2 transition-all cursor-pointer group"
             title="Sistem Yörünge Haritasına Gir (M / Çift Tık)"
           >
             <Globe className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-            <span>🪐 {activeSystemName.toUpperCase()} SİSTEMİ (M)</span>
+            <span className="tracking-wider">🪐 {activeSystemName.toUpperCase()} SİSTEMİ [M]</span>
           </button>
         )}
-
-
 
         {/* Projections Toggle (if system view) */}
         {viewMode === 'system' && (
@@ -640,10 +638,10 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
               sound.playClick();
               onToggleProjections();
             }}
-            className={`px-2.5 py-1.5 rounded-lg border transition-all text-[11px] ${
+            className={`stellaris-btn-metallic px-2.5 py-1.5 rounded-sm transition-all text-[11px] cursor-pointer ${
               showProjections
-                ? 'bg-cyan-500/20 border-cyan-400 text-cyan-300 font-bold'
-                : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-slate-200'
+                ? '!border-cyan-400 text-cyan-300 font-bold'
+                : 'text-slate-400 hover:text-slate-200'
             }`}
             title="Gelecek Yörünge Projeksiyonlarını Göster/Gizle"
           >
@@ -652,18 +650,18 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
         )}
 
         {/* Zoom Controls */}
-        <div className="flex items-center gap-0.5 bg-slate-900 border border-slate-800 rounded p-0.5 text-[11px]">
+        <div className="stellaris-resource-pod flex items-center gap-0.5 rounded-sm p-0.5 text-[11px]">
           <button
             onClick={() => {
               sound.playClick();
               onZoomOut();
             }}
-            className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800"
+            className="w-6 h-6 rounded-sm flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#1a384f] cursor-pointer"
             title="Uzaklaş"
           >
             -
           </button>
-          <span className="px-1.5 text-[10px] text-slate-300 font-bold">
+          <span className="px-1.5 text-[10px] text-[#e5c578] font-bold">
             {Math.round(zoom * 100)}%
           </span>
           <button
@@ -671,7 +669,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
               sound.playClick();
               onZoomIn();
             }}
-            className="w-6 h-6 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800"
+            className="w-6 h-6 rounded-sm flex items-center justify-center text-slate-400 hover:text-white hover:bg-[#1a384f] cursor-pointer"
             title="Yakınlaş"
           >
             +

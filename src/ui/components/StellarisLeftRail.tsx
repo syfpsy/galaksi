@@ -6,9 +6,7 @@ import {
   Crown,
   Eye,
   EyeOff,
-  Flame,
   Globe,
-  Hammer,
   Palette,
   Radio,
   Send,
@@ -81,28 +79,24 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
   const isRadarActive = activeLeftPanel === 'transit_radar';
 
   return (
-    <aside className="w-14 h-full bg-[#070c17]/95 border-r border-[#1a2942] flex flex-col items-center py-3 z-30 select-none shadow-2xl relative">
+    <aside className="w-14 h-full stellaris-rail flex flex-col items-center py-2.5 z-30 select-none relative">
       {/* Empire Crest Header */}
-      <div className="relative mb-4 group cursor-pointer" title="Galaktik İmparatorluk">
+      <div className="relative mb-3 group cursor-pointer" title="Galaktik İmparatorluk">
         <div
-          className="w-9 h-9 rounded-lg flex items-center justify-center border transition-all duration-300 shadow-md group-hover:scale-105"
-          style={{
-            backgroundColor: `${activePlayerColor}20`,
-            borderColor: activePlayerColor,
-            boxShadow: `0 0 12px ${activePlayerColor}40`,
-          }}
+          className="stellaris-crest w-10 h-10 rounded-sm flex items-center justify-center transition-all duration-300 shadow-md group-hover:scale-105"
+          style={{ borderColor: activePlayerColor || '#c5a059' }}
         >
-          <Sparkles className="w-5 h-5" style={{ color: activePlayerColor }} />
+          <Sparkles className="w-5 h-5" style={{ color: activePlayerColor || '#e5c578' }} />
         </div>
-        {/* Subtle decorative pip */}
+        {/* Decorative center pip */}
         <div
-          className="w-1 h-1 rounded-full absolute -bottom-1.5 left-1/2 -translate-x-1/2"
-          style={{ backgroundColor: activePlayerColor }}
+          className="w-1.5 h-1.5 rounded-full absolute -bottom-1 left-1/2 -translate-x-1/2"
+          style={{ backgroundColor: activePlayerColor || '#c5a059' }}
         />
       </div>
 
       {/* Main Navigation Rail Buttons */}
-      <div className="flex-1 flex flex-col items-center gap-2 w-full px-1.5 overflow-y-auto overflow-x-hidden scrollbar-none">
+      <div className="flex-1 flex flex-col items-center gap-1.5 w-full px-1.5 overflow-y-auto overflow-x-hidden scrollbar-none">
         {/* Planets & Colonies Drawer (F1) */}
         <div className="relative group w-10 h-10">
           <button
@@ -110,36 +104,34 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onTogglePlanetPanel();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
-              isPlanetActive
-                ? 'bg-cyan-500/20 text-cyan-400 border border-cyan-500/50 shadow-sm shadow-cyan-500/30'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent'
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              isPlanetActive ? 'active' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Globe className="w-5 h-5 transition-transform group-hover:scale-110" />
+            <Globe className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
             {planetsCount > 0 && (
-              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-slate-800 border border-slate-700 text-cyan-300 text-[9px] font-mono rounded-full flex items-center justify-center font-bold">
+              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-[#0e2130] border border-cyan-500/50 text-cyan-300 text-[8.5px] font-mono rounded-sm flex items-center justify-center font-bold">
                 {planetsCount}
               </span>
             )}
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-cyan-400 font-bold">
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F1
             </span>
             {isPlanetActive && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-cyan-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
           {/* Tactical Stellaris Hover Tooltip */}
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>GEZEGENLER VE SEKTÖRLER</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F1</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">GEZEGENLER VE SEKTÖRLER</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F1</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Madenler, enerji santralleri, laboratuvarlar ve garnizon yönetimi.
             </p>
-            <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 text-[9px] text-emerald-400 font-mono">
+            <div className="mt-1.5 pt-1.5 border-t border-[#18374b] text-[9.5px] text-emerald-400 font-mono">
               {planetsCount} Aktif Koloni
             </div>
           </div>
@@ -152,25 +144,23 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onOpenShipyard();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
-              activeLeftPanel === 'shipyard'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/30'
-                : 'text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent'
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'shipyard' ? 'active' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Wrench className="w-5 h-5 transition-transform group-hover:scale-110" />
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-cyan-400 font-bold">
+            <Wrench className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F2
             </span>
             {activeLeftPanel === 'shipyard' && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-cyan-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>TERSANE & GEMİ İNŞASI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F2</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">TERSANE & GEMİ İNŞASI</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F2</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Avcı, kruvazör, keşif ve taşıma gemisi imalatı.
@@ -185,25 +175,23 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onOpenResearch();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
-              activeLeftPanel === 'research'
-                ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50 shadow-sm shadow-amber-500/30'
-                : 'text-slate-400 hover:text-amber-400 hover:bg-slate-800/60 border border-transparent'
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'research' ? 'active' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Activity className="w-5 h-5 transition-transform group-hover:scale-110" />
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-amber-400 font-bold">
+            <Activity className="w-5 h-5 text-cyan-300 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F3
             </span>
             {activeLeftPanel === 'research' && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-amber-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>TEKNOLOJİ & AR-GE AĞACI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F3</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">TEKNOLOJİ & AR-GE AĞACI</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F3</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               İtki motorları, lazer & kalkan silahları ve sensör dizinleri.
@@ -218,36 +206,36 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               if (onOpenTransitRadar) onOpenTransitRadar();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
               isRadarActive
-                ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/30'
+                ? 'active'
                 : threatsCount > 0
-                ? 'bg-rose-950/80 text-rose-300 border border-rose-500 animate-pulse'
-                : 'text-slate-400 hover:text-cyan-300 hover:bg-slate-800/60 border border-transparent'
+                ? '!border-rose-500 !bg-rose-950/80 animate-pulse'
+                : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Radio className="w-5 h-5 transition-transform group-hover:scale-110" />
+            <Radio className={`w-5 h-5 ${threatsCount > 0 ? 'text-rose-400' : 'text-cyan-400'} group-hover:scale-110 transition-transform`} />
             {threatsCount > 0 ? (
-              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-rose-600 text-white text-[9px] font-mono rounded-full flex items-center justify-center font-bold animate-ping">
+              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-rose-600 text-white text-[8.5px] font-mono rounded-sm flex items-center justify-center font-bold animate-ping">
                 !
               </span>
             ) : movingFleetsCount > 0 ? (
-              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-cyan-900 border border-cyan-500 text-cyan-300 text-[9px] font-mono rounded-full flex items-center justify-center font-bold">
+              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-[#0e2130] border border-cyan-500/50 text-cyan-300 text-[8.5px] font-mono rounded-sm flex items-center justify-center font-bold">
                 {movingFleetsCount}
               </span>
             ) : null}
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-cyan-400 font-bold">
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F4
             </span>
             {isRadarActive && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-cyan-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>TAKTİK İNTİKAL RADARI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F4</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">TAKTİK İNTİKAL RADARI</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F4</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Hareket halindeki dost filolar, düşman intikalleri ve tehdit takibi.
@@ -267,25 +255,23 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onToggleCommandPanel();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
-              isCommandPanelOpen
-                ? 'bg-amber-500/20 text-amber-400 border border-amber-500/50 shadow-sm shadow-amber-500/30'
-                : 'text-slate-400 hover:text-slate-100 hover:bg-slate-800/60 border border-transparent'
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              isCommandPanelOpen ? 'active' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Send className="w-5 h-5 transition-transform group-hover:scale-110" />
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-amber-400 font-bold">
+            <Send className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F5
             </span>
             {isCommandPanelOpen && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-amber-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>FİLO SEVK & SEFER EMRİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F5</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">FİLO SEVK & SEFER EMRİ</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F5</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Taarruz, önleme, ikmal ve keşif seferlerinin sevk idaresi.
@@ -300,25 +286,23 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               if (onOpenSituationLog) onOpenSituationLog();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
-              activeLeftPanel === 'situation'
-                ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/50 shadow-sm shadow-cyan-500/30'
-                : 'text-slate-400 hover:text-cyan-400 hover:bg-slate-800/60 border border-transparent'
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'situation' ? 'active' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Compass className="w-5 h-5 transition-transform group-hover:scale-110 text-cyan-400" />
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-cyan-400 font-bold">
+            <Compass className="w-5 h-5 text-teal-400 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F6
             </span>
             {activeLeftPanel === 'situation' && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-cyan-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>DURUM KÜTÜĞÜ & ANOMALİLER</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F6</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">DURUM KÜTÜĞÜ & ANOMALİLER</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F6</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Keşfedilmemiş uzay anomalileri, enkaz kurtarma ve galaksi puan durumu.
@@ -333,36 +317,34 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onOpenBattles();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
-              activeLeftPanel === 'battles'
-                ? 'bg-rose-500/20 text-rose-300 border border-rose-500/50 shadow-sm shadow-rose-500/30'
-                : 'text-slate-400 hover:text-rose-400 hover:bg-slate-800/60 border border-transparent'
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'battles' ? 'active' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Swords className="w-5 h-5 transition-transform group-hover:scale-110" />
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-rose-400 font-bold">
+            <Swords className="w-5 h-5 text-rose-400 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F7
             </span>
             {unreadBattlesCount > 0 && (
-              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-rose-600 text-white text-[9px] font-mono rounded-full flex items-center justify-center font-bold animate-pulse">
+              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-rose-600 text-white text-[8.5px] font-mono rounded-sm flex items-center justify-center font-bold animate-pulse">
                 {unreadBattlesCount}
               </span>
             )}
             {activeLeftPanel === 'battles' && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-rose-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>MUHAREBE KAYITLARI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F7</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">MUHAREBE KAYITLARI</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F7</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Geçmiş çatışmalar, hasar dağılımı ve tur bazlı savaş tekrarı.
             </p>
             {unreadBattlesCount > 0 && (
-              <div className="mt-1.5 pt-1.5 border-t border-slate-800/80 text-[9px] text-rose-400 font-mono">
+              <div className="mt-1.5 pt-1.5 border-t border-[#18374b] text-[9.5px] text-rose-400 font-mono">
                 {unreadBattlesCount} Çatışma Raporu
               </div>
             )}
@@ -370,7 +352,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
         </div>
 
         {/* Separator Line */}
-        <div className="w-6 h-px bg-slate-800 my-1" />
+        <div className="w-6 h-px bg-[#18374b] my-0.5" />
 
         {/* Central Nexus Relay (F8) */}
         <div className="relative group w-10 h-10">
@@ -379,25 +361,23 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onOpenRelay();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
-              activeLeftPanel === 'relay' || isRelayControlled
-                ? 'bg-purple-900/40 text-purple-300 border border-purple-500/50 shadow-sm shadow-purple-500/20'
-                : 'text-slate-400 hover:text-purple-400 hover:bg-slate-800/60 border border-transparent'
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'relay' || isRelayControlled ? 'active' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Crown className="w-5 h-5 transition-transform group-hover:scale-110" />
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-purple-400 font-bold">
+            <Crown className="w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F8
             </span>
             {activeLeftPanel === 'relay' && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-purple-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>NEXUS RÖLESİ HAKİMİYETİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F8</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">NEXUS RÖLESİ HAKİMİYETİ</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F8</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Merkezi rölenin kontrolü, sensör güçlendirmesi ve haftalık zafer puanı.
@@ -412,25 +392,23 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onOpenAlliance();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
-              activeLeftPanel === 'alliance'
-                ? 'bg-blue-500/20 text-blue-300 border border-blue-500/50 shadow-sm shadow-blue-500/30'
-                : 'text-slate-400 hover:text-blue-400 hover:bg-slate-800/60 border border-transparent'
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'alliance' ? 'active' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Users className="w-5 h-5 transition-transform group-hover:scale-110" />
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-blue-400 font-bold">
+            <Users className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F9
             </span>
             {activeLeftPanel === 'alliance' && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-blue-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>GALAKTİK İTTİFAKLAR</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F9</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">GALAKTİK İTTİFAKLAR</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F9</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Diplomatik paktlar, ortak sensör görüşü ve askeri müttefik savunması.
@@ -445,25 +423,23 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onOpenGallery();
             }}
-            className={`w-full h-full rounded-lg flex items-center justify-center transition-all relative ${
-              activeLeftPanel === 'gallery'
-                ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/50 shadow-sm shadow-emerald-500/30'
-                : 'text-slate-400 hover:text-emerald-400 hover:bg-slate-800/60 border border-transparent'
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'gallery' ? 'active' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <Palette className="w-5 h-5 transition-transform group-hover:scale-110" />
-            <span className="absolute bottom-0.5 right-1 text-[7.5px] font-mono text-slate-500 group-hover:text-emerald-400 font-bold">
+            <Palette className="w-5 h-5 text-emerald-400 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[7px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
               F10
             </span>
             {activeLeftPanel === 'gallery' && (
-              <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-4 bg-emerald-400 rounded-r-full" />
+              <div className="absolute left-0 top-1 bottom-1 w-0.5 bg-[#4df3c5] rounded-r shadow-[0_0_6px_#4df3c5]" />
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold text-slate-100">
-              <span>KONSEPT SANAT GALERİSİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded">F10</span>
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">KONSEPT SANAT GALERİSİ</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F10</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Magnific AI ile üretilen görsel atmosfer, gemiler ve koloniler.
@@ -473,21 +449,19 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
       </div>
 
       {/* Bottom Utility Controls */}
-      <div className="flex flex-col items-center gap-2 pt-2 border-t border-[#1a2942] w-full px-1.5">
+      <div className="flex flex-col items-center gap-1.5 pt-2 border-t border-[#18374b] w-full px-1.5">
         {/* God Mode Sensor Switcher */}
         <button
           onClick={() => {
             sound.playClick();
             onToggleGodMode();
           }}
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            godMode
-              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/50'
-              : 'text-slate-500 hover:text-slate-300 hover:bg-slate-800/60'
+          className={`w-10 h-10 rounded-sm stellaris-rail-btn flex items-center justify-center transition-all ${
+            godMode ? 'active !border-purple-400 text-purple-300' : 'text-slate-400 hover:text-slate-200'
           }`}
           title={godMode ? 'Tanrı Modu: Açık (Sis Kapalı)' : 'Tanrı Modu: Kapalı'}
         >
-          {godMode ? <Eye className="w-4 h-4 text-amber-400" /> : <EyeOff className="w-4 h-4" />}
+          {godMode ? <Eye className="w-4 h-4 text-purple-400" /> : <EyeOff className="w-4 h-4" />}
         </button>
 
         {/* Audio Mute Switcher */}
@@ -495,10 +469,8 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           onClick={() => {
             onToggleMute();
           }}
-          className={`w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-            isMuted
-              ? 'text-slate-500 hover:text-slate-300'
-              : 'text-cyan-400 hover:text-cyan-300 hover:bg-slate-800/60'
+          className={`w-10 h-10 rounded-sm stellaris-rail-btn flex items-center justify-center transition-all ${
+            isMuted ? 'text-slate-500 hover:text-slate-300' : 'text-cyan-400 hover:text-cyan-300'
           }`}
           title={isMuted ? 'Ses & Ambiyans: Kapalı' : 'Ses & Ambiyans: Açık'}
         >
@@ -512,7 +484,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onToggleVacationMode();
             }}
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-slate-500 hover:text-blue-400 hover:bg-slate-800/60 transition-all"
+            className="w-10 h-10 rounded-sm stellaris-rail-btn flex items-center justify-center text-slate-400 hover:text-blue-300 transition-all"
             title="Tatil Modu (Üretim ve Saldırı Dondurma)"
           >
             <Bed className="w-4 h-4" />
@@ -526,7 +498,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
               sound.playClick();
               onOpenOrientation();
             }}
-            className="w-10 h-10 rounded-lg flex items-center justify-center text-amber-400 hover:text-amber-200 hover:bg-amber-950/40 border border-transparent hover:border-amber-500/30 transition-all"
+            className="w-10 h-10 rounded-sm stellaris-rail-btn flex items-center justify-center text-[#e5c578] hover:text-amber-200 transition-all"
             title="Oyun Rehberi & Filo Hareket Mekanikleri (Oryantasyon)"
           >
             <HelpCircle className="w-4 h-4" />
