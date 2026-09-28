@@ -267,19 +267,27 @@ export const OrientationGuideModal: React.FC<OrientationGuideModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-60 bg-black/85 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in select-none">
-      <div className="bg-[#080d19] border border-[#1b314d] rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col text-slate-100 overflow-hidden relative">
+    <div
+      onClick={(e) => {
+        if (e.target === e.currentTarget) {
+          sound.playClick();
+          handleFinish();
+        }
+      }}
+      className="fixed inset-0 z-60 bg-black/40 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in select-none"
+    >
+      <div className="stellaris-outliner border border-[#1c3647] rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] flex flex-col text-slate-100 overflow-hidden relative">
         {/* Top Accent Line */}
         <div
-          className="h-1.5 w-full shadow-[0_0_12px]"
+          className="h-1 w-full"
           style={{
             backgroundColor: current.accentColor,
-            boxShadow: `0 0 12px ${current.accentColor}`,
+            boxShadow: `0 0 10px ${current.accentColor}`,
           }}
         />
 
         {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/70">
+        <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div
               className="w-11 h-11 rounded-xl flex items-center justify-center border shadow-md"
@@ -344,15 +352,14 @@ export const OrientationGuideModal: React.FC<OrientationGuideModalProps> = ({
         </div>
 
         {/* Footer Navigation */}
-        <div className="p-4 border-t border-slate-800/80 bg-slate-950/80 flex items-center justify-between">
+        <div className="p-3 border-t border-[#1c3d52] bg-[#07131e] flex items-center justify-between">
           <button
-            onClick={handlePrev}
+            onClick={() => {
+              sound.playClick();
+              handlePrev();
+            }}
             disabled={currentStep === 0}
-            className={`px-3 py-1.5 rounded-lg border text-xs font-mono font-bold flex items-center gap-1.5 transition-all ${
-              currentStep === 0
-                ? 'border-slate-800 text-slate-600 cursor-not-allowed'
-                : 'border-slate-700 text-slate-300 hover:text-white hover:border-slate-500'
-            }`}
+            className="px-3 py-1.5 rounded stellaris-btn-metallic text-xs font-mono font-bold flex items-center gap-1.5 transition-all disabled:opacity-30 disabled:cursor-not-allowed"
           >
             <ChevronLeft className="w-4 h-4" />
             <span>Önceki Adım</span>
@@ -360,18 +367,24 @@ export const OrientationGuideModal: React.FC<OrientationGuideModalProps> = ({
 
           <div className="flex items-center gap-2">
             <button
-              onClick={handleFinish}
-              className="px-3 py-1.5 rounded-lg text-xs font-mono text-slate-400 hover:text-slate-200 transition-colors"
+              onClick={() => {
+                sound.playClick();
+                handleFinish();
+              }}
+              className="px-3 py-1.5 rounded text-xs font-mono text-slate-400 hover:text-slate-200 transition-colors"
             >
               Rehberi Geç
             </button>
 
             <button
-              onClick={handleNext}
-              className="px-4 py-2 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black font-bold text-xs font-mono flex items-center gap-1.5 shadow-lg shadow-cyan-950/50 transition-all hover:scale-102"
+              onClick={() => {
+                sound.playClick();
+                handleNext();
+              }}
+              className="px-4 py-1.5 rounded stellaris-btn-metallic text-cyan-200 font-bold text-xs font-mono flex items-center gap-1.5 shadow-md active:scale-95 transition-all"
             >
               <span>{currentStep === steps.length - 1 ? 'Anladım, Galaksiyi Yönetmeye Başla!' : 'Sonraki Adım'}</span>
-              <ChevronRight className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4 text-[#3ca8d1]" />
             </button>
           </div>
         </div>

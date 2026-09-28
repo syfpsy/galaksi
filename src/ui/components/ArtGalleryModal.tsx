@@ -153,23 +153,23 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
       : GALLERY_ASSETS.filter((a) => a.category === selectedCategory);
 
   const content = (
-    <div className={isDocked ? "w-[860px] min-w-[860px] max-w-[860px] shrink-0 h-full bg-[#080d19]/98 border-r border-[#1b314d] flex flex-col shadow-2xl overflow-hidden select-none" : "bg-space-900 border border-cyber-cyan/40 rounded-2xl w-full max-w-5xl h-[88vh] flex flex-col shadow-2xl shadow-cyan-950/50 overflow-hidden"}>
+    <div className={isDocked ? "w-[860px] min-w-[860px] max-w-[860px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none" : "stellaris-outliner border border-[#1c3647] rounded-xl w-full max-w-5xl h-[88vh] flex flex-col shadow-2xl overflow-hidden"}>
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-space-850">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-cyber-cyan/15 border border-cyber-cyan/40 flex items-center justify-center text-cyber-cyan shadow-sm shadow-cyan-500/20">
-              <Sparkles className="w-5 h-5 animate-pulse" />
+        <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <div className="w-8 h-8 rounded bg-[#092233] border border-[#204963] flex items-center justify-center text-[#3ca8d1] shadow-inner">
+              <Sparkles className="w-4 h-4 animate-pulse" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold text-slate-100 font-display tracking-wider">
-                  CANLI GALAKSİ SANAT & KONSEPT GALERİSİ
+                <h2 className="text-xs font-bold text-slate-100 font-mono tracking-wider uppercase">
+                  Galaksi Sanat & Konsept Galerisi
                 </h2>
-                <span className="text-[10px] bg-cyber-cyan/20 text-cyber-cyan px-2 py-0.5 rounded-full font-mono border border-cyber-cyan/30">
+                <span className="text-[10px] bg-[#0b2438] text-cyan-300 px-2 py-0.5 rounded border border-[#1c445c] font-mono font-bold">
                   Magnific AI Powered
                 </span>
               </div>
-              <span className="text-xs text-slate-400 font-mono">
+              <span className="text-[10px] text-slate-400 font-mono">
                 Hard Sci-Fi Gemi, İstasyon ve Gezegen Konsept Raporu
               </span>
             </div>
@@ -181,15 +181,16 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
               sound.playClick();
               onClose();
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-100 hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
+            title="Kapat"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
         {/* Category Filter Pills */}
-        <div className="px-5 py-2.5 bg-space-850/60 border-b border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        <div className="px-4 py-2 bg-[#07131e] border-b border-[#18374b] flex items-center justify-between">
+          <div className="flex items-center gap-1.5">
             {[
               { id: 'all', label: 'Tüm Varlıklar', count: GALLERY_ASSETS.length },
               { id: 'ships', label: 'Gemiler & Filolar', count: 4 },
@@ -202,10 +203,10 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                   sound.playClick();
                   setSelectedCategory(id as typeof selectedCategory);
                 }}
-                className={`px-3 py-1 rounded-lg text-xs font-mono transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1 rounded text-xs font-mono transition-all flex items-center gap-1.5 ${
                   selectedCategory === id
-                    ? 'bg-cyber-cyan/20 border border-cyber-cyan text-cyber-cyan font-bold shadow-sm shadow-cyan-950'
-                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/60'
+                    ? 'stellaris-switcher-btn active font-bold text-cyan-300'
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c2233]'
                 }`}
               >
                 <span>{label}</span>
@@ -222,7 +223,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
         {/* Main Content Area (Split-View: Left Showcase + Right Detail) */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Column: Asset Thumbnails Grid */}
-          <div className="w-72 border-r border-slate-800 overflow-y-auto p-3 pb-32 space-y-2 bg-[#060b14]">
+          <div className="w-72 border-r border-[#18374b] overflow-y-auto p-3 pb-32 space-y-2 bg-[#06121c]">
             {filteredAssets.map((asset) => {
               const isSelected = activeAsset.id === asset.id;
               return (
@@ -232,13 +233,13 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                     sound.playClick();
                     setActiveAsset(asset);
                   }}
-                  className={`p-2.5 rounded-xl border cursor-pointer transition-all flex items-center gap-3 group ${
+                  className={`p-2.5 rounded border cursor-pointer transition-all flex items-center gap-3 group ${
                     isSelected
-                      ? 'bg-space-800/90 border-cyber-cyan shadow-md shadow-cyan-950/40'
-                      : 'bg-space-850/60 border-slate-800 hover:border-slate-700 hover:bg-space-800/50'
+                      ? 'bg-[#0f283d] border-[#3ca8d1] shadow-md shadow-cyan-950/40'
+                      : 'stellaris-item-card border-[#1c3647] hover:border-[#3885a8]'
                   }`}
                 >
-                  <div className="w-14 h-14 rounded-lg overflow-hidden shrink-0 border border-slate-800 bg-space-900 relative">
+                  <div className="w-14 h-14 rounded overflow-hidden shrink-0 border border-[#18374b] bg-[#07131e] relative">
                     <img
                       src={asset.imageSrc}
                       alt={asset.title}
@@ -251,7 +252,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h4 className="text-xs font-bold text-slate-200 truncate font-display">
+                    <h4 className="text-xs font-bold text-slate-100 truncate font-mono">
                       {asset.title}
                     </h4>
                     <span className="text-[10px] text-slate-400 block truncate font-mono mt-0.5">
@@ -337,16 +338,16 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                 <span className="text-xs font-mono uppercase text-slate-400 tracking-wider block mb-2">
                   Teknik Veriler ve Oyun İçi İşlevi
                 </span>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                   {activeAsset.specifications.map((spec, i) => (
                     <div
                       key={i}
-                      className="bg-space-850/80 border border-slate-800 rounded-xl p-3 flex flex-col justify-between"
+                      className="stellaris-item-card border-[#1c3647] p-2.5 flex flex-col justify-between"
                     >
-                      <span className="text-[11px] text-slate-400 font-mono">
+                      <span className="text-[10px] text-slate-400 font-mono">
                         {spec.label}
                       </span>
-                      <span className="text-sm font-bold text-slate-100 font-mono mt-1">
+                      <span className="text-xs font-bold text-slate-100 font-mono mt-1">
                         {spec.value}
                       </span>
                     </div>
@@ -356,14 +357,14 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
             </div>
 
             {/* Bottom Status & Feedback Action */}
-            <div className="pt-4 border-t border-slate-800 flex items-center justify-between text-xs text-slate-400 font-mono mt-4">
+            <div className="pt-3 border-t border-[#18374b] flex items-center justify-between text-xs text-slate-400 font-mono mt-4">
               <span>Bu görsel varlıklar doğrudan oyun arayüzü ve tersane modellerine entegre edilmiştir.</span>
               <button
                 onClick={() => {
                   sound.playClick();
                   onClose();
                 }}
-                className="px-4 py-2 bg-cyber-cyan/15 hover:bg-cyber-cyan/25 border border-cyber-cyan/40 text-cyber-cyan rounded-lg font-bold transition-all"
+                className="px-4 py-1.5 stellaris-btn-metallic text-cyan-200 rounded font-mono font-bold text-xs uppercase tracking-wider transition-all"
               >
                 Oyuna Dön
               </button>
@@ -378,7 +379,15 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
       {isDocked ? (
         content
       ) : (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/85 backdrop-blur-md p-4 select-none animate-in fade-in duration-200">
+        <div
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              sound.playClick();
+              onClose();
+            }
+          }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 select-none animate-in fade-in duration-200"
+        >
           {content}
         </div>
       )}

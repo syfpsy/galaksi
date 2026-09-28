@@ -80,132 +80,133 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
   };
 
   const content = (
-    <div className={`bg-[#080d19] border border-[#1a2942] ${isDocked ? 'w-[440px] md:w-[480px] h-full flex flex-col shadow-2xl' : 'rounded-2xl shadow-2xl max-w-xl w-full'} text-slate-100 overflow-hidden relative`}>
+    <div className={`stellaris-outliner border border-[#1c3647] ${isDocked ? 'w-[440px] md:w-[480px] h-full flex flex-col shadow-2xl' : 'rounded-lg shadow-2xl max-w-xl w-full'} text-slate-100 overflow-hidden relative`}>
       {/* Stellaris Holographic Top Line */}
       <div
-        className="h-1.5 w-full shrink-0"
+        className="h-1 w-full shrink-0"
         style={{
           backgroundColor: currentDetail.color,
-          boxShadow: `0 0 16px ${currentDetail.color}`,
+          boxShadow: `0 0 12px ${currentDetail.color}`,
         }}
       />
 
-        {/* Header */}
-        <div className="p-5 border-b border-slate-800 flex items-center justify-between bg-slate-950/40">
-          <div className="flex items-center gap-3.5">
-            <div
-              className="w-11 h-11 rounded-xl flex items-center justify-center border shadow-inner"
-              style={{
-                backgroundColor: `${currentDetail.color}18`,
-                borderColor: `${currentDetail.color}60`,
-              }}
-            >
-              {currentDetail.icon}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-mono font-bold uppercase tracking-wider text-amber-400">
-                  {currentDetail.category}
-                </span>
-                <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">
-                  {system.name} Sistemi
-                </span>
-              </div>
-              <h2 className="text-base font-bold font-display text-white mt-0.5">
-                {currentDetail.title}
-              </h2>
-            </div>
-          </div>
-
-          <button
-            onClick={() => {
-              sound.playClick();
-              onClose();
+      {/* Header */}
+      <div className="p-3.5 border-b border-[#1c3647] flex items-center justify-between stellaris-outliner-header">
+        <div className="flex items-center gap-3">
+          <div
+            className="w-9 h-9 rounded flex items-center justify-center border shadow-inner"
+            style={{
+              backgroundColor: `${currentDetail.color}18`,
+              borderColor: `${currentDetail.color}60`,
             }}
-            className="w-8 h-8 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-all"
           >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-
-        {/* Content Body */}
-        <div className="p-6 space-y-4 text-sm leading-relaxed text-slate-300 font-sans">
-          {/* Narrative Lore */}
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-xl p-4 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-2 text-slate-700">
-              <Compass className="w-16 h-16 opacity-10" />
-            </div>
-            <p className="text-slate-200 text-xs md:text-sm font-sans relative z-10">
-              {currentDetail.lore}
-            </p>
-            <p className="text-slate-400 text-xs font-sans mt-2.5 relative z-10 italic">
-              {currentDetail.analysis}
-            </p>
+            {currentDetail.icon}
           </div>
-
-          {/* Reward Projection */}
-          {poi.reward && (
-            <div className="space-y-1.5">
-              <div className="text-[11px] font-mono uppercase text-slate-400 font-bold tracking-wider flex items-center justify-between">
-                <span>Tahmini Keşif Geri Kazanımı</span>
-                <span className={poi.explored ? 'text-emerald-400' : 'text-amber-400'}>
-                  {poi.explored ? '✓ Toplandı' : '● Toplanmaya Hazır'}
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-                <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Cevher</span>
-                    <span className="font-bold text-slate-200">+{poi.reward.ore}</span>
-                  </div>
-                </div>
-                <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-cyan-400" />
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Kristal</span>
-                    <span className="font-bold text-slate-200">+{poi.reward.crystal}</span>
-                  </div>
-                </div>
-                <div className="bg-slate-900/90 border border-slate-800 rounded-lg p-2.5 flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400" />
-                  <div>
-                    <span className="text-[10px] text-slate-500 block">Yakıt</span>
-                    <span className="font-bold text-slate-200">+{poi.reward.fuel}</span>
-                  </div>
-                </div>
-              </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
+                {currentDetail.category}
+              </span>
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-[#1c3647] text-cyan-300">
+                {system.name} Sistemi
+              </span>
             </div>
-          )}
+            <h2 className="text-sm font-bold font-display text-slate-100 tracking-wide mt-0.5">
+              {currentDetail.title}
+            </h2>
+          </div>
         </div>
 
-        {/* Footer Actions */}
-        <div className="p-4 bg-slate-950/70 border-t border-slate-800 flex items-center justify-between">
-          <button
-            onClick={() => {
-              sound.playClick();
-              onClose();
-            }}
-            className="px-4 py-2 rounded-lg text-xs font-mono text-slate-400 hover:text-slate-200 hover:bg-slate-850 transition-all"
-          >
-            Gözlem Kaydını Kapat
-          </button>
-
-          {!poi.explored && onDispatchScout && (
-            <button
-              onClick={() => {
-                sound.playClick();
-                onDispatchScout(system.id);
-                onClose();
-              }}
-              className="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-mono font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/50 transition-all"
-            >
-              <Rocket className="w-4 h-4" />
-              <span>Keşif Seferi Düzenle</span>
-            </button>
-          )}
-        </div>
+        <button
+          onClick={() => {
+            sound.playClick();
+            onClose();
+          }}
+          className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          title="Kapat"
+        >
+          <X className="w-4 h-4" />
+        </button>
       </div>
+
+      {/* Content Body */}
+      <div className="p-4 space-y-4 text-xs leading-relaxed text-slate-300 font-sans">
+        {/* Narrative Lore */}
+        <div className="stellaris-item-card p-3 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-2 text-slate-700 pointer-events-none">
+            <Compass className="w-16 h-16 opacity-10" />
+          </div>
+          <p className="text-slate-200 text-xs font-sans relative z-10">
+            {currentDetail.lore}
+          </p>
+          <p className="text-cyan-300/80 text-[11px] font-sans mt-2 relative z-10 italic">
+            {currentDetail.analysis}
+          </p>
+        </div>
+
+        {/* Reward Projection */}
+        {poi.reward && (
+          <div className="space-y-1.5">
+            <div className="text-[10px] font-mono uppercase text-slate-400 font-bold tracking-wider flex items-center justify-between">
+              <span>Tahmini Keşif Geri Kazanımı</span>
+              <span className={poi.explored ? 'text-emerald-400' : 'text-amber-400'}>
+                {poi.explored ? '✓ Toplandı' : '● Toplanmaya Hazır'}
+              </span>
+            </div>
+            <div className="grid grid-cols-3 gap-2 text-xs font-mono">
+              <div className="stellaris-item-card p-2 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]" />
+                <div>
+                  <span className="text-[9px] text-slate-400 uppercase block">Cevher</span>
+                  <span className="font-bold text-slate-100">+{poi.reward.ore}</span>
+                </div>
+              </div>
+              <div className="stellaris-item-card p-2 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#06b6d4]" />
+                <div>
+                  <span className="text-[9px] text-slate-400 uppercase block">Kristal</span>
+                  <span className="font-bold text-slate-100">+{poi.reward.crystal}</span>
+                </div>
+              </div>
+              <div className="stellaris-item-card p-2 flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
+                <div>
+                  <span className="text-[9px] text-slate-400 uppercase block">Yakıt</span>
+                  <span className="font-bold text-slate-100">+{poi.reward.fuel}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Footer Actions */}
+      <div className="p-3 bg-[#0a121c]/90 border-t border-[#1c3647] flex items-center justify-between">
+        <button
+          onClick={() => {
+            sound.playClick();
+            onClose();
+          }}
+          className="stellaris-btn-metallic px-3 py-1.5 text-xs text-slate-300"
+        >
+          Gözlem Kaydını Kapat
+        </button>
+
+        {!poi.explored && onDispatchScout && (
+          <button
+            onClick={() => {
+              sound.playClick();
+              onDispatchScout(system.id);
+              onClose();
+            }}
+            className="px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-mono font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/50 transition-all cursor-pointer"
+          >
+            <Rocket className="w-3.5 h-3.5" />
+            <span>Keşif Seferi Düzenle</span>
+          </button>
+        )}
+      </div>
+    </div>
   );
 
   if (isDocked) {

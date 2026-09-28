@@ -78,6 +78,16 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
            (f.ships.fighter || 0) === 0 && (f.ships.battleship || 0) === 0
   );
 
+  const totalFleetShips = myFleets.reduce(
+    (acc, f) => acc + Object.values(f.ships).reduce((a, b) => a + (b || 0), 0),
+    0
+  );
+  const totalGarrisonShips = myPlanets.reduce(
+    (acc, p) => acc + Object.values(p.garrison).reduce((a, b) => a + (b || 0), 0),
+    0
+  );
+  const totalEmpireShips = totalFleetShips + totalGarrisonShips;
+
   // Filter incoming hostile threats targeting player's systems
   const mySystemIds = new Set(myPlanets.map((p) => p.systemId));
   const hostileThreats = Object.values(state.fleets).filter(
@@ -124,8 +134,8 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
           <span className="text-[11px] font-display font-bold uppercase tracking-widest text-[#e6f4f8]">
             OUTLINER
           </span>
-          <span className="text-[9px] font-mono text-[#c5a059] bg-[#0c1a24] px-1.5 py-0.2 rounded border border-[#1b3b50]">
-            {myPlanets.length}D • {myFleets.length}F
+          <span className="text-[9px] font-mono text-[#e5c578] bg-[#0c1a24] px-1.5 py-0.5 rounded border border-[#1b3b50]">
+            {myPlanets.length} Gezegen • {totalEmpireShips} Gemi
           </span>
         </div>
         <button

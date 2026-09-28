@@ -316,7 +316,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                     sound.playClick();
                     onOpenTransitRadar();
                   }}
-                  className="px-2.5 py-1 rounded bg-cyan-950/80 hover:bg-cyan-900 border border-cyan-500/50 text-cyan-300 text-xs font-mono flex items-center gap-1.5 transition-all shadow-sm"
+                  className="stellaris-btn-metallic !border-cyan-500/50 text-cyan-300 text-xs px-2.5 py-1 flex items-center gap-1.5 cursor-pointer"
                   title="Detaylı Taktik İntikal Radarını Aç"
                 >
                   <Radio className="w-3.5 h-3.5 text-cyan-400" />
@@ -328,7 +328,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                   sound.playClick();
                   setIsExpanded(false);
                 }}
-                className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-mono flex items-center gap-1 transition-all"
+                className="stellaris-btn-metallic px-2.5 py-1 text-xs text-slate-300 flex items-center gap-1 cursor-pointer"
                 title="Alt Paneli Daralt"
               >
                 <span>Daralt</span>
@@ -360,7 +360,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                       <div
                         key={fleet.id}
                         onClick={() => onSelectFleet && onSelectFleet(fleet.id)}
-                        className="p-2.5 rounded-xl bg-[#091322] border border-[#1a2d48] hover:border-cyan-500/60 cursor-pointer transition-all flex flex-col justify-between group"
+                        className="stellaris-item-card p-2.5 rounded-sm hover:border-cyan-500/60 cursor-pointer transition-all flex flex-col justify-between group"
                       >
                         <div>
                           <div className="flex items-center justify-between mb-1">
@@ -378,7 +378,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                           </div>
 
                           {/* Progress Bar with 50% Recall Lock indicator */}
-                          <div className="relative w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                          <div className="relative w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-[#1b3454]">
                             <div
                               className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-300"
                               style={{ width: `${Math.round(progress * 100)}%` }}
@@ -388,7 +388,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                           </div>
                         </div>
 
-                        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/80 text-[10.5px]">
+                        <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#1c3647] text-[10.5px]">
                           <span className="text-slate-400 flex items-center gap-1">
                             <Clock className="w-3 h-3 text-cyan-400" />
                             {formatDuration(remainingMs)}
@@ -401,7 +401,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                                 sound.playClick();
                                 onRecallFleet(fleet.id);
                               }}
-                              className="px-2 py-0.5 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-300 font-bold text-[10px] transition-all"
+                              className="px-2 py-0.5 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-300 font-bold text-[10px] transition-all cursor-pointer"
                               title="İlk %50 rota dolmadan filoyu üsse geri çağır"
                             >
                               Geri Çağır
@@ -420,7 +420,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                     <div
                       key={`sy_${idx}`}
                       onClick={() => onSelectPlanet && onSelectPlanet(item.systemId, item.planetId)}
-                      className="p-2.5 rounded-xl bg-[#091322] border border-[#1a2d48] hover:border-amber-500/60 cursor-pointer transition-all flex flex-col justify-between group"
+                      className="stellaris-item-card p-2.5 rounded-sm hover:border-amber-500/60 cursor-pointer transition-all flex flex-col justify-between group"
                     >
                       <div>
                         <div className="flex items-center justify-between mb-1">
@@ -437,7 +437,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                         </div>
 
                         {/* Unit Progress Bar */}
-                        <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-[#1b3454]">
                           <div
                             className="h-full bg-gradient-to-r from-amber-500 to-orange-500 transition-all duration-300"
                             style={{ width: `${Math.round(item.unitProgress * 100)}%` }}
@@ -445,7 +445,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/80 text-[10.5px]">
+                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#1c3647] text-[10.5px]">
                         <span className="text-slate-400 flex items-center gap-1">
                           <Clock className="w-3 h-3 text-amber-400" />
                           Toplam Kalan: {formatDuration(item.remainingMs)}
@@ -461,7 +461,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                     <div
                       key={`bld_${idx}`}
                       onClick={() => onSelectPlanet && onSelectPlanet(item.systemId, item.planetId)}
-                      className="p-2.5 rounded-xl bg-[#091322] border border-[#1a2d48] hover:border-emerald-500/60 cursor-pointer transition-all flex flex-col justify-between group"
+                      className="stellaris-item-card p-2.5 rounded-sm hover:border-emerald-500/60 cursor-pointer transition-all flex flex-col justify-between group"
                     >
                       <div>
                         <div className="flex items-center justify-between mb-1">
@@ -478,7 +478,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                         </div>
 
                         {/* Progress Bar */}
-                        <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-[#1b3454]">
                           <div
                             className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300"
                             style={{ width: `${Math.round(item.progress * 100)}%` }}
@@ -486,7 +486,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/80 text-[10.5px]">
+                      <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#1c3647] text-[10.5px]">
                         <span className="text-slate-400 flex items-center gap-1">
                           <Clock className="w-3 h-3 text-emerald-400" />
                           {formatDuration(item.remainingMs)}
@@ -498,7 +498,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
 
                 {/* 4. Research */}
                 {(activeTab === 'all' || activeTab === 'research') && activeResearch && (
-                  <div className="p-2.5 rounded-xl bg-[#091322] border border-[#1a2d48] hover:border-cyan-500/60 transition-all flex flex-col justify-between group">
+                  <div className="stellaris-item-card p-2.5 rounded-sm hover:border-cyan-500/60 transition-all flex flex-col justify-between group">
                     <div>
                       <div className="flex items-center justify-between mb-1">
                         <span className="font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">
@@ -514,7 +514,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                       </div>
 
                       {/* Progress Bar */}
-                      <div className="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                      <div className="w-full h-2 bg-slate-900 rounded-full overflow-hidden border border-[#1b3454]">
                         <div
                           className="h-full bg-gradient-to-r from-blue-500 to-cyan-400 transition-all duration-300"
                           style={{ width: `${Math.round(activeResearch.progress * 100)}%` }}
@@ -522,7 +522,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-slate-800/80 text-[10.5px]">
+                    <div className="flex items-center justify-between mt-2 pt-1.5 border-t border-[#1c3647] text-[10.5px]">
                       <span className="text-slate-400 flex items-center gap-1">
                         <Clock className="w-3 h-3 text-cyan-400" />
                         {formatDuration(activeResearch.remainingMs)}

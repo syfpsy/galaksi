@@ -1288,6 +1288,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       frameCounter++;
 
       const isSystemMode = viewModeRef.current === 'system';
+      const curSelected = selectedTargetRef.current;
 
       // 6.1 Two-Tier Visibility Switch (Stellaris Style)
       galaxyMacroGroup.visible = !isSystemMode;
@@ -1343,6 +1344,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
           const visual = getOrCreateFleetVisual(fleet, isOwn);
           const pos = getFleetCurrentPosition(fleet, currentTimeMs, stateRef.current.map.systems);
+          const isSelectedFleet = curSelected?.type === 'fleet' && curSelected.fleetId === fleet.id;
 
           visual.group.position.set(pos.x, pos.y, 8);
 
@@ -1361,15 +1363,18 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 posAttr.setXYZ(2, targetSys.x, targetSys.y, 4);
                 posAttr.needsUpdate = true;
                 visual.routeLine.visible = true;
+                (visual.routeLine.material as THREE.LineBasicMaterial).opacity = isSelectedFleet ? 0.95 : 0.65;
               }
               if (visual.targetMarker) {
                 visual.targetMarker.position.set(targetSys.x, targetSys.y, 6);
                 visual.targetMarker.visible = true;
+                const markerScale = isSelectedFleet ? 16 : 10;
+                visual.targetMarker.scale.set(markerScale, markerScale, 1);
               }
             }
-            const pulseScale = 1.0 + Math.sin(currentTimeMs * 0.015) * 0.25;
+            const pulseScale = (1.0 + Math.sin(currentTimeMs * 0.015) * 0.25) * (isSelectedFleet ? 1.35 : 1.0);
             visual.thrusterMesh.scale.set(pulseScale, pulseScale, pulseScale);
-            visual.glowSprite.scale.set(8 * pulseScale, 8 * pulseScale, 1);
+            visual.glowSprite.scale.set((isSelectedFleet ? 13 : 8) * pulseScale, (isSelectedFleet ? 13 : 8) * pulseScale, 1);
           } else {
             visual.group.rotation.z += delta * 0.5;
             visual.thrusterMesh.scale.set(0.6, 0.6, 0.6);
@@ -1626,12 +1631,15 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                     posAttr.setXYZ(1, targetX, targetY, 4);
                     posAttr.needsUpdate = true;
                     vis.routeLine.visible = true;
+                    const isSelectedFleet = curSelected?.type === 'fleet' && curSelected.fleetId === fleet.id;
+                    (vis.routeLine.material as THREE.LineBasicMaterial).opacity = isSelectedFleet ? 0.95 : 0.6;
                   }
                 }
 
-                const pulseScale = 1.0 + Math.sin(currentTimeMs * 0.015) * 0.25;
+                const isSelectedFleet = curSelected?.type === 'fleet' && curSelected.fleetId === fleet.id;
+                const pulseScale = (1.0 + Math.sin(currentTimeMs * 0.015) * 0.25) * (isSelectedFleet ? 1.35 : 1.0);
                 vis.thrusterMesh.scale.set(pulseScale, pulseScale, pulseScale);
-                vis.glowSprite.scale.set(7 * pulseScale, 7 * pulseScale, 1);
+                vis.glowSprite.scale.set((isSelectedFleet ? 12 : 7) * pulseScale, (isSelectedFleet ? 12 : 7) * pulseScale, 1);
               });
 
               // Cleanup removed in-system fleet visuals
@@ -1648,7 +1656,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }
 
       // 6.6 Selection Reticle Update
-      const curSelected = selectedTargetRef.current;
       if (curSelected) {
         if (!isSystemMode && curSelected.type === 'system') {
           const sys = stateRef.current.map.systems[curSelected.systemId];
@@ -1671,6 +1678,27 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             reticleMesh.position.z = 10;
             reticleMesh.scale.set(0.9, 0.9, 1);
             reticleMesh.rotation.z += delta * 2.2;
+          }
+        } else if (curSelected.type === 'fleet' && curSelected.fleetId) {
+          const fleet = stateRef.current.fleets[curSelected.fleetId];
+          if (fleet) {
+            if (!isSystemMode) {
+              const fv = fleetVisuals.get(fleet.id);
+              if (fv) {
+                reticleMesh.visible = true;
+                reticleMesh.position.set(fv.group.position.x, fv.group.position.y, 10);
+                reticleMesh.scale.set(1.4, 1.4, 1);
+                reticleMesh.rotation.z += delta * 2.0;
+              }
+            } else if (isSystemMode && currentOrrery) {
+              const fv = currentOrrery.systemFleetVisuals.get(fleet.id);
+              if (fv) {
+                reticleMesh.visible = true;
+                reticleMesh.position.set(fv.group.position.x, fv.group.position.y, 10);
+                reticleMesh.scale.set(1.2, 1.2, 1);
+                reticleMesh.rotation.z += delta * 2.0;
+              }
+            }
           }
         } else {
           reticleMesh.visible = false;
