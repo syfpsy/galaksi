@@ -90,7 +90,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
       )}
 
       {/* Tech Tree List */}
-      <div className="flex-1 overflow-y-auto p-3.5 pb-32 space-y-2.5 scrollbar-none text-xs font-mono">
+      <div className="flex-1 overflow-y-auto p-3.5 pb-6 space-y-2.5 scrollbar-none text-xs font-mono">
         {techList.map((type) => {
           const stats = RESEARCH_STATS[type];
           const currentLevel = player.research[type] || 0;
@@ -125,7 +125,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                       <span className="text-xs font-bold text-slate-100 font-display">
                         {stats.nameTr}
                       </span>
-                      <span className="text-[10px] font-mono font-bold bg-[#0c1a24] px-1.5 py-0.2 rounded-sm text-amber-300 border border-[#1b3b50]">
+                      <span className="text-[10px] font-mono font-bold bg-[#0c1a24] px-1.5 py-0.5 rounded-sm text-amber-300 border border-[#1b3b50]">
                         Seviye {currentLevel}
                       </span>
                     </div>

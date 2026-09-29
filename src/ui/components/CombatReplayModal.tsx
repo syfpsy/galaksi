@@ -102,7 +102,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
         ) : (
           <div className="flex-1 flex overflow-hidden">
             {/* Left: Reports List */}
-            <div className="w-72 border-r border-[#18374b] overflow-y-auto p-2.5 pb-32 space-y-1.5 bg-[#06121c]">
+            <div className="w-72 border-r border-[#18374b] overflow-y-auto p-2.5 pb-6 space-y-1.5 bg-[#06121c]">
               {reports.map((report) => {
                 const isSelected = (currentReport && currentReport.id === report.id);
                 return (
@@ -138,7 +138,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
 
             {/* Right: Replay Viewer */}
             {currentReport && (
-              <div className="flex-1 flex flex-col overflow-y-auto p-4 pb-32 space-y-4">
+              <div className="flex-1 flex flex-col overflow-y-auto p-4 pb-6 space-y-4">
                 {/* Battle Metadata Banner */}
                 <div className="stellaris-item-card border-[#1c3647] p-3 flex items-center justify-between">
                   <div>

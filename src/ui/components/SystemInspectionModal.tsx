@@ -541,7 +541,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                             {slot.name}
                           </span>
                           <span
-                            className="text-[9px] font-mono px-1.5 py-0.2 rounded font-semibold border"
+                            className="text-[9px] font-mono px-1.5 py-0.5 rounded font-semibold border"
                             style={{
                               backgroundColor: `${asset.themeColor}25`,
                               color: asset.glowColor,
@@ -550,7 +550,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                           >
                             {asset.nameTr}
                           </span>
-                          <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.2 rounded border border-emerald-500/30">
+                          <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30">
                             {asset.habitability}
                           </span>
                         </div>

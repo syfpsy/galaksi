@@ -211,7 +211,7 @@ export const StellarisNotificationStrip: React.FC<StellarisNotificationStripProp
   };
 
   return (
-    <div className="absolute top-16 left-20 z-25 flex items-center gap-2 select-none pointer-events-none">
+    <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[25] flex items-center gap-2 select-none pointer-events-none">
       {notifications.map((n) => {
         const style = getIconAndStyle(n.type);
         const isHovered = hoveredId === n.id;
@@ -242,7 +242,7 @@ export const StellarisNotificationStrip: React.FC<StellarisNotificationStripProp
               {/* Close Pip on Hover */}
               <button
                 onClick={(e) => handleDismiss(e, n.id)}
-                className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-slate-900 border border-slate-700 text-slate-400 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
+                className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#0a1622] border border-[#1c3647] text-slate-400 hover:text-white flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
               >
                 <X className="w-2.5 h-2.5" />
               </button>
@@ -250,12 +250,12 @@ export const StellarisNotificationStrip: React.FC<StellarisNotificationStripProp
 
             {/* Tactical Stellaris Tooltip */}
             {isHovered && (
-              <div className="absolute top-11 left-0 z-40 w-64 bg-[#080d19]/95 border border-[#1a2942] rounded-xl p-3 shadow-2xl backdrop-blur-md text-xs font-mono animate-fade-in pointer-events-none">
+              <div className="absolute bottom-11 left-1/2 -translate-x-1/2 z-40 w-64 stellaris-tooltip rounded-sm p-3 shadow-2xl text-xs font-mono animate-fade-in pointer-events-none">
                 <div className="flex items-center justify-between text-[10px] text-amber-400 font-bold mb-1 uppercase tracking-wider">
                   <span>{n.title}</span>
                 </div>
                 <p className="text-slate-200 text-[11px] leading-snug">{n.description}</p>
-                <div className="mt-2 pt-1.5 border-t border-slate-800 text-[9.5px] text-slate-500 flex items-center justify-between">
+                <div className="mt-2 pt-1.5 border-t border-[#1c3647] text-[9.5px] text-slate-500 flex items-center justify-between">
                   <span className="text-cyan-400">Sol Tık: İncele / Git</span>
                   <span>Sağ Tık: Kapat</span>
                 </div>

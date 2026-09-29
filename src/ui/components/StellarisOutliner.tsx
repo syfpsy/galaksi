@@ -151,7 +151,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
       </div>
 
       {/* Outliner Scrollable Body */}
-      <div className="flex-1 overflow-y-auto p-1.5 pb-32 space-y-1.5 text-xs font-mono scrollbar-none">
+      <div className="flex-1 overflow-y-auto p-1.5 pb-6 space-y-1.5 text-xs font-mono scrollbar-none">
         {/* 1. Hostile Threats Alert (if any) */}
         {hostileThreats.length > 0 && (
           <div className="border border-rose-500/60 bg-rose-950/30 rounded-sm overflow-hidden shadow-lg shadow-rose-950/40">
@@ -267,7 +267,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                           {planet.name}
                         </span>
                         {planet.isHomeworld && (
-                          <span className="text-[8px] px-1 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
+                          <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
                             ANA
                           </span>
                         )}

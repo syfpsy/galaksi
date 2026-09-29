@@ -103,7 +103,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
       )}
 
       {/* Ship List */}
-      <div className="flex-1 overflow-y-auto p-3.5 pb-32 space-y-2.5 scrollbar-none text-xs font-mono">
+      <div className="flex-1 overflow-y-auto p-3.5 pb-6 space-y-2.5 scrollbar-none text-xs font-mono">
         {shipTypes.map((st) => {
           const stats = SHIP_STATS[st];
           const buildCount = counts[st];
@@ -162,7 +162,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
                       <span className="text-xs font-bold text-slate-100 font-display">
                         {stats.nameTr}
                       </span>
-                      <span className="text-[10px] font-mono bg-[#0c1a24] px-1.5 py-0.2 rounded-sm text-cyan-300 border border-[#1b3b50]">
+                      <span className="text-[10px] font-mono bg-[#0c1a24] px-1.5 py-0.5 rounded-sm text-cyan-300 border border-[#1b3b50]">
                         {stats.roleTr}
                       </span>
                     </div>

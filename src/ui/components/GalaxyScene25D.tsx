@@ -2012,7 +2012,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   <span>{lbl.title}</span>
                   {lbl.ownerName && (
                     <span
-                      className="text-[9px] font-mono px-1 py-0.2 rounded border"
+                      className="text-[9px] font-mono px-1 py-0.5 rounded border"
                       style={{
                         backgroundColor: `${lbl.ownerColor}20`,
                         borderColor: `${lbl.ownerColor}60`,
@@ -2027,7 +2027,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 {/* Subtitle & Stellaris Badges Row */}
                 <div className="flex items-center gap-1 mt-0.5">
                   {lbl.isRelay ? (
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
                       ⚡ RÖLE
                     </span>
                   ) : (

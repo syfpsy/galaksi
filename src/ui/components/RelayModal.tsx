@@ -70,7 +70,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-6 space-y-4">
         {/* Hero Visual Banner of Nexus Relay */}
         <div className="relative w-full h-44 rounded overflow-hidden border border-purple-500/40 bg-[#06101a] shadow-lg shadow-purple-950/40 flex items-center justify-center group">
           <img

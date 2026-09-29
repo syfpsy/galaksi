@@ -66,7 +66,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
       </div>
 
       {/* Content */}
-      <div className="flex-1 overflow-y-auto p-4 pb-32 space-y-4">
+      <div className="flex-1 overflow-y-auto p-4 pb-6 space-y-4">
         {myAlliance ? (
           /* Active Alliance View */
           <div className="space-y-4">
@@ -129,12 +129,12 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                           <div className="text-xs font-bold text-slate-100 flex items-center gap-2 font-mono">
                             {member.name}
                             {isMe && (
-                              <span className="text-[9.5px] bg-[#0c2438] text-cyan-300 px-1.5 py-0.2 rounded border border-[#1b3e54] font-mono">
+                              <span className="text-[9.5px] bg-[#0c2438] text-cyan-300 px-1.5 py-0.5 rounded border border-[#1b3e54] font-mono">
                                 Siz
                               </span>
                             )}
                             {memberId === myAlliance.founderId && (
-                              <span className="text-[9.5px] bg-amber-950/60 text-amber-300 border border-amber-500/40 px-1.5 py-0.2 rounded font-mono">
+                              <span className="text-[9.5px] bg-amber-950/60 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded font-mono">
                                 Kurucu
                               </span>
                             )}

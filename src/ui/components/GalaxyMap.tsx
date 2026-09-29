@@ -179,7 +179,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
             <span className="stellaris-gold font-display font-bold text-xs uppercase tracking-widest">
               {activeSystem.name} SİSTEMİ
             </span>
-            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.2 rounded-sm border border-cyan-500/30">
+            <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded-sm border border-cyan-500/30">
               {activeSystem.slots.length} Yörünge Cismi
             </span>
           </div>
@@ -203,7 +203,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
                       {slot.name}
                     </span>
                   </div>
-                  <span className="text-[10px] text-cyan-400 uppercase px-1.5 py-0.2 bg-cyan-950/60 rounded-sm border border-cyan-500/30">
+                  <span className="text-[10px] text-cyan-400 uppercase px-1.5 py-0.5 bg-cyan-950/60 rounded-sm border border-cyan-500/30">
                     {slot.type}
                   </span>
                 </div>

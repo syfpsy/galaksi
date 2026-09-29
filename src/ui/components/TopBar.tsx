@@ -191,7 +191,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 sound.playClick();
                 onSelectPlayer(e.target.value);
               }}
-              className="bg-[#060c14] border border-[#1a384d] hover:border-cyan-400 text-[9px] font-mono rounded px-1.5 py-0.2 text-cyan-300 focus:outline-none cursor-pointer"
+              className="bg-[#060c14] border border-[#1a384d] hover:border-cyan-400 text-[9px] font-mono rounded px-1.5 py-0.5 text-cyan-300 focus:outline-none cursor-pointer"
               title="Diplomatik Perspektif Değiştir"
             >
               {Object.values(state.players).map((p) => (
@@ -227,12 +227,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
 
           {/* Rich Tooltip Card */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] bg-[#070e1c]/98 border border-[#1b314d] rounded-xl p-3 shadow-2xl backdrop-blur-xl text-left">
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="text-xs font-bold text-slate-100 font-display">
                 🪐 İmparatorluk Kolonileri
               </span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.2 rounded border border-emerald-500/40">
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40">
                 {myPlanets.length} / 3 Yuva
               </span>
             </div>
@@ -243,7 +243,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 return (
                   <div
                     key={p.id}
-                    className="p-1.5 rounded bg-space-900/60 border border-slate-800/80 flex items-center justify-between"
+                    className="p-1.5 rounded-sm stellaris-item-card flex items-center justify-between"
                   >
                     <div className="flex items-center gap-1.5">
                       <div
@@ -288,30 +288,30 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
 
           {/* Rich Tooltip Card */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] bg-[#070e1c]/98 border border-[#1b314d] rounded-xl p-3 shadow-2xl backdrop-blur-xl text-left">
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="text-xs font-bold text-slate-100 font-display">
                 ⚔️ İmparatorluk Donanma Gücü
               </span>
-              <span className="text-[10px] font-mono text-blue-400 bg-blue-950/80 px-1.5 py-0.2 rounded border border-blue-500/40">
+              <span className="text-[10px] font-mono text-blue-400 bg-blue-950/80 px-1.5 py-0.5 rounded border border-blue-500/40">
                 {totalEmpireShips} / 30 Kapasite
               </span>
             </div>
 
             <div className="mt-2 grid grid-cols-2 gap-1.5 text-[11px] font-mono">
-              <div className="p-1.5 rounded bg-space-900/60 border border-slate-800/80 flex items-center justify-between">
+              <div className="p-1.5 rounded-sm stellaris-item-card flex items-center justify-between">
                 <span className="text-slate-400">🛡️ Kruvazör</span>
                 <span className="font-bold text-purple-300">{shipCounts.battleship}</span>
               </div>
-              <div className="p-1.5 rounded bg-space-900/60 border border-slate-800/80 flex items-center justify-between">
+              <div className="p-1.5 rounded-sm stellaris-item-card flex items-center justify-between">
                 <span className="text-slate-400">⚔️ Avcı Filosu</span>
                 <span className="font-bold text-rose-300">{shipCounts.fighter}</span>
               </div>
-              <div className="p-1.5 rounded bg-space-900/60 border border-slate-800/80 flex items-center justify-between">
+              <div className="p-1.5 rounded-sm stellaris-item-card flex items-center justify-between">
                 <span className="text-slate-400">📦 Ağır Nakliye</span>
                 <span className="font-bold text-amber-300">{shipCounts.transport}</span>
               </div>
-              <div className="p-1.5 rounded bg-space-900/60 border border-slate-800/80 flex items-center justify-between">
+              <div className="p-1.5 rounded-sm stellaris-item-card flex items-center justify-between">
                 <span className="text-slate-400">🔭 Keşif Gemisi</span>
                 <span className="font-bold text-cyan-300">{shipCounts.scout}</span>
               </div>
@@ -364,12 +364,12 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
 
           {/* Rich Tooltip Card */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[300px] bg-[#070e1c]/98 border border-[#1b314d] rounded-xl p-3 shadow-2xl backdrop-blur-xl text-left">
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[300px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="text-xs font-bold text-slate-100 font-display">
                 🛸 Taktik İntikal & Filo Radarı
               </span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-1.5 py-0.2 rounded border border-cyan-500/40">
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-500/40">
                 {movingFleets.length} Aktif İntikal
               </span>
             </div>
@@ -421,7 +421,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="text-[10px] text-emerald-400">+{fuelRate}</span>
 
               {/* Resource Tooltip */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl ">
                 <span className="font-bold text-amber-300 text-xs block mb-1">⚡ Enerji / Yakıt</span>
                 <p className="text-[10px] text-slate-400 leading-snug">
                   Filo seferleri ve sistem operasyonları için tüketilir.
@@ -448,7 +448,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="text-[10px] text-emerald-400">+{oreRate}</span>
 
               {/* Resource Tooltip */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl ">
                 <span className="font-bold text-orange-300 text-xs block mb-1">⛏️ Ham Maden / Cevher</span>
                 <p className="text-[10px] text-slate-400 leading-snug">
                   Bina yükseltmeleri ve gövde inşasında kullanılır.
@@ -475,7 +475,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="text-[10px] text-emerald-400">+{crystalRate}</span>
 
               {/* Resource Tooltip */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl ">
                 <span className="font-bold text-cyan-300 text-xs block mb-1">💎 Nadir Kristaller</span>
                 <p className="text-[10px] text-slate-400 leading-snug">
                   Gelişmiş kalkan, teknoloji ve avcı üretimi gerektirir.
@@ -512,7 +512,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           </button>
 
           {/* Research Tooltip */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] bg-[#070e1c]/98 border border-[#1b314d] rounded-lg p-2.5 shadow-2xl backdrop-blur-md text-left">
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl  text-left">
             <span className="font-bold text-cyan-300 text-xs block mb-1">🔬 Teknoloji & Ar-Ge</span>
             <p className="text-[10px] text-slate-400 leading-snug">
               {activePlayer?.researchQueue

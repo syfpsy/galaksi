@@ -234,7 +234,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                 <span className="text-xs font-bold stellaris-gold font-display uppercase tracking-widest">
                   Galaktik Üretim & Operasyon Konsolu
                 </span>
-                <span className="px-1.5 py-0.2 rounded-sm bg-cyan-950/60 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold">
+                <span className="px-1.5 py-0.5 rounded-sm bg-cyan-950/60 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold">
                   {totalActiveOperations} Aktif
                 </span>
               </div>
@@ -367,7 +367,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                             <span className="font-bold text-slate-100 group-hover:text-cyan-300 transition-colors truncate">
                               🛸 {fleet.name}
                             </span>
-                            <span className={`text-[10px] px-1.5 py-0.2 rounded border font-mono font-bold ${badge.color}`}>
+                            <span className={`text-[10px] px-1.5 py-0.5 rounded border font-mono font-bold ${badge.color}`}>
                               {badge.label}
                             </span>
                           </div>
@@ -427,7 +427,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                           <span className="font-bold text-slate-100 group-hover:text-amber-300 transition-colors">
                             🚀 {item.nameTr}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
                             {item.completed + 1} / {item.count} İmalat
                           </span>
                         </div>
@@ -468,7 +468,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                           <span className="font-bold text-slate-100 group-hover:text-emerald-300 transition-colors">
                             🏗️ {item.nameTr}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
                             Seviye {item.targetLevel}
                           </span>
                         </div>
@@ -504,7 +504,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                         <span className="font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">
                           🔬 {activeResearch.nameTr}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
                           Seviye {activeResearch.targetLevel}
                         </span>
                       </div>

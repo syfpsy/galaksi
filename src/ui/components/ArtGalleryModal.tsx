@@ -223,7 +223,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
         {/* Main Content Area (Split-View: Left Showcase + Right Detail) */}
         <div className="flex-1 flex overflow-hidden">
           {/* Left Column: Asset Thumbnails Grid */}
-          <div className="w-72 border-r border-[#18374b] overflow-y-auto p-3 pb-32 space-y-2 bg-[#06121c]">
+          <div className="w-72 border-r border-[#18374b] overflow-y-auto p-3 pb-6 space-y-2 bg-[#06121c]">
             {filteredAssets.map((asset) => {
               const isSelected = activeAsset.id === asset.id;
               return (
@@ -259,7 +259,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                       {asset.role}
                     </span>
                     <span
-                      className="text-[9px] font-mono uppercase px-1.5 py-0.2 rounded inline-block mt-1"
+                      className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded inline-block mt-1"
                       style={{
                         backgroundColor: `${asset.accentColor}20`,
                         color: asset.accentColor,
@@ -275,7 +275,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
           </div>
 
           {/* Right Column: Hero Asset Inspection & Specifications */}
-          <div className="flex-1 overflow-y-auto p-6 pb-32 flex flex-col justify-between bg-space-900/60">
+          <div className="flex-1 overflow-y-auto p-6 pb-6 flex flex-col justify-between bg-space-900/60">
             <div className="space-y-5">
               {/* Asset Hero Image Frame */}
               <div className="relative w-full h-72 rounded-2xl overflow-hidden border border-slate-700 bg-space-950 group shadow-2xl flex items-center justify-center">

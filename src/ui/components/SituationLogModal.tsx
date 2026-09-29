@@ -116,7 +116,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span>Sektör Anomalileri & Enkazlar</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#0d2638] border border-[#1b3d54] text-slate-300">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#0d2638] border border-[#1b3d54] text-slate-300">
               {systemsWithPoi.length + systemsWithDebris.length}
             </span>
           </button>
@@ -135,7 +135,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
             <Crown className="w-3.5 h-3.5 text-purple-400" />
             <span>Nexus Rölesi Megastrüktürü</span>
             {isRelayMine && (
-              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-purple-900/60 text-purple-300 font-bold border border-purple-500/40">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/60 text-purple-300 font-bold border border-purple-500/40">
                 Kontrol Sizde
               </span>
             )}
@@ -154,14 +154,14 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
           >
             <Rocket className="w-4 h-4 text-emerald-400" />
             <span>Aktif Seferler & İntikaller</span>
-            <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-slate-800 text-slate-300">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300">
               {myFleets.length}
             </span>
           </button>
         </div>
 
         {/* Tab Content Area */}
-        <div className="flex-1 overflow-y-auto p-5 pb-32 space-y-4">
+        <div className="flex-1 overflow-y-auto p-5 pb-6 space-y-4">
           {/* TAB 1: ANOMALIES & DEBRIS */}
           {activeTab === 'anomalies' && (
             <div className="space-y-4">
@@ -206,7 +206,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
                             <span className="text-xs font-bold font-mono text-slate-100">
                               {poiNames[poi.type] || 'Bilinmeyen Anomali'}
                             </span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#0a1826] border border-[#1b3449] text-[#3ca8d1]">
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#0a1826] border border-[#1b3449] text-[#3ca8d1]">
                               {sys.name}
                             </span>
                           </div>
@@ -268,7 +268,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
                             <span className="text-xs font-bold font-mono text-slate-100">
                               Savaş Enkazı Sahası (Kurtarılabilir Hurda)
                             </span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-[#0a1826] border border-[#1b3449] text-[#3ca8d1]">
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-[#0a1826] border border-[#1b3449] text-[#3ca8d1]">
                               {sys.name}
                             </span>
                           </div>

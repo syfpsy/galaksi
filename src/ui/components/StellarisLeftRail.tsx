@@ -96,7 +96,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
       </div>
 
       {/* Main Navigation Rail Buttons */}
-      <div className="flex-1 flex flex-col items-center gap-1.5 w-full px-1.5 overflow-y-auto overflow-x-hidden scrollbar-none">
+      <div className="flex-1 flex flex-col items-center gap-1.5 w-full px-1.5 overflow-y-auto overflow-x-visible scrollbar-none">
         {/* Planets & Colonies Drawer (F1) */}
         <div className="relative group w-10 h-10">
           <button
@@ -126,7 +126,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">GEZEGENLER VE SEKTÖRLER</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F1</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F1</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Madenler, enerji santralleri, laboratuvarlar ve garnizon yönetimi.
@@ -160,7 +160,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">TERSANE & GEMİ İNŞASI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F2</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F2</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Avcı, kruvazör, keşif ve taşıma gemisi imalatı.
@@ -191,7 +191,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">TEKNOLOJİ & AR-GE AĞACI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F3</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F3</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               İtki motorları, lazer & kalkan silahları ve sensör dizinleri.
@@ -235,7 +235,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">TAKTİK İNTİKAL RADARI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F4</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F4</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Hareket halindeki dost filolar, düşman intikalleri ve tehdit takibi.
@@ -271,7 +271,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">FİLO SEVK & SEFER EMRİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F5</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F5</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Taarruz, önleme, ikmal ve keşif seferlerinin sevk idaresi.
@@ -302,7 +302,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">DURUM KÜTÜĞÜ & ANOMALİLER</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F6</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F6</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Keşfedilmemiş uzay anomalileri, enkaz kurtarma ve galaksi puan durumu.
@@ -338,7 +338,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">MUHAREBE KAYITLARI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F7</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F7</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Geçmiş çatışmalar, hasar dağılımı ve tur bazlı savaş tekrarı.
@@ -377,7 +377,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">NEXUS RÖLESİ HAKİMİYETİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F8</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F8</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Merkezi rölenin kontrolü, sensör güçlendirmesi ve haftalık zafer puanı.
@@ -408,7 +408,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">GALAKTİK İTTİFAKLAR</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F9</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F9</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Diplomatik paktlar, ortak sensör görüşü ve askeri müttefik savunması.
@@ -439,7 +439,7 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
             <div className="flex items-center justify-between text-[11px] font-bold">
               <span className="stellaris-gold tracking-wide">KONSEPT SANAT GALERİSİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.2 rounded-sm">F10</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F10</span>
             </div>
             <p className="text-[10px] text-slate-400 mt-1 leading-snug">
               Magnific AI ile üretilen görsel atmosfer, gemiler ve koloniler.

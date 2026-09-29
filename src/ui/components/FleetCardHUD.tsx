@@ -48,8 +48,14 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
 }) => {
   const fleet = state.fleets[fleetId];
 
-  // Floating Position & Drag State
-  const [position, setPosition] = useState<{ x: number; y: number } | null>(null);
+  // Floating Position & Drag State — lazy-initialized to avoid mount snap
+  const [position, setPosition] = useState<{ x: number; y: number }>(() => {
+    if (typeof window === 'undefined') return { x: 200, y: 300 };
+    const initialWidth = 420; // default compact width
+    const initialX = Math.max(70, Math.round((window.innerWidth - initialWidth) / 2));
+    const initialY = Math.max(60, window.innerHeight - 340);
+    return { x: initialX, y: initialY };
+  });
   const [isDragging, setIsDragging] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sizeMode, setSizeMode] = useState<'compact' | 'wide'>('compact');
@@ -57,15 +63,6 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const dragStartRef = useRef<{ mouseX: number; mouseY: number; posX: number; posY: number } | null>(null);
 
-  // Initialize position on mount (centered near bottom-middle without overlapping bottom deck)
-  useEffect(() => {
-    if (position === null && typeof window !== 'undefined') {
-      const initialWidth = sizeMode === 'wide' ? 560 : 420;
-      const initialX = Math.max(70, Math.round((window.innerWidth - initialWidth) / 2));
-      const initialY = Math.max(60, window.innerHeight - 340);
-      setPosition({ x: initialX, y: initialY });
-    }
-  }, [position, sizeMode]);
 
   // Window drag listeners
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -225,10 +222,8 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
     <div
       ref={cardRef}
       style={{
-        left: position ? `${position.x}px` : '50%',
-        top: position ? `${position.y}px` : 'auto',
-        bottom: position ? 'auto' : '80px',
-        transform: position ? 'none' : 'translateX(-50%)',
+        left: `${position.x}px`,
+        top: `${position.y}px`,
       }}
       className={`fixed z-40 ${cardWidthClass} select-none transition-shadow ${
         isDragging ? 'shadow-cyan-950/80 shadow-2xl cursor-grabbing' : 'shadow-2xl'
@@ -277,7 +272,7 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
                 ⚡ {formattedPower}
               </span>
               <span
-                className="text-[9px] font-mono font-bold px-1.5 py-0.2 rounded-sm border shrink-0"
+                className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm border shrink-0"
                 style={{
                   backgroundColor: `${owner?.color || '#00f3ff'}15`,
                   borderColor: `${owner?.color || '#00f3ff'}40`,

@@ -33,6 +33,7 @@
   background: rgba(0, 243, 255, 0.4);
 }
 
+/* Legacy aliases kept for backward compat — prefer stellaris-* classes */
 .glass-panel {
   background: rgba(11, 19, 43, 0.75);
   backdrop-filter: blur(12px);
@@ -40,20 +41,13 @@
   border: 1px solid rgba(0, 243, 255, 0.15);
   box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
 }
-
 .glass-panel-subtle {
   background: rgba(7, 13, 29, 0.85);
   backdrop-filter: blur(8px);
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
-
-.cyber-glow {
-  box-shadow: 0 0 15px rgba(0, 243, 255, 0.3);
-}
-
-.cyber-glow-amber {
-  box-shadow: 0 0 15px rgba(255, 170, 0, 0.3);
-}
+.cyber-glow { box-shadow: 0 0 15px rgba(0, 243, 255, 0.3); }
+.cyber-glow-amber { box-shadow: 0 0 15px rgba(255, 170, 0, 0.3); }
 
 /* ========================================================
    Dynamic 2D Space & Sci-Fi Vector Animations
@@ -372,4 +366,57 @@
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.8), inset 0 1px 0 rgba(255, 255, 255, 0.1);
 }
 
+/* Centered modal dialog variant (no left/right bias) */
+.stellaris-modal {
+  background: linear-gradient(180deg, rgba(10, 18, 28, 0.97) 0%, rgba(6, 11, 18, 0.99) 100%);
+  border: 1px solid #1c3647;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+/* Compact badge utility — replaces ad-hoc px-1.5 py-0.5 text-[10px] font-mono border rounded-sm */
+.stellaris-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 1px 6px;
+  font-size: 10px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 2px;
+  border: 1px solid #1c3647;
+  background: rgba(8, 18, 26, 0.9);
+  color: #94a3b8;
+}
+
+/* Disabled state for metallic buttons */
+.stellaris-btn-metallic:disabled,
+.stellaris-btn-metallic[disabled] {
+  background: linear-gradient(180deg, #0a141e 0%, #060c12 100%);
+  border-color: #112030;
+  color: #3d5570;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+/* Active accent bar for rail buttons (replaces duplicated <div> elements) */
+.stellaris-rail-btn.active::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 20%;
+  bottom: 20%;
+  width: 2px;
+  background: #4df3c5;
+  border-radius: 0 2px 2px 0;
+  box-shadow: 0 0 6px #4df3c5;
+}
+
+/* Fade-in animation used across modals and cards */
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out both;
+}
 

@@ -219,7 +219,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
               <div className="text-sm font-bold text-slate-100 font-display flex items-center gap-2">
                 {currentPlanet.name}
                 {currentPlanet.isHomeworld && (
-                  <span className="text-[9px] bg-amber-400/20 text-[#e5c578] border border-amber-500/40 px-1.5 py-0.2 rounded-sm font-mono font-semibold">
+                  <span className="text-[9px] bg-amber-400/20 text-[#e5c578] border border-amber-500/40 px-1.5 py-0.5 rounded-sm font-mono font-semibold">
                     BAŞKENT
                   </span>
                 )}
@@ -265,7 +265,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
       </div>
 
       {/* Buildings List (Scrollable) */}
-      <div className="flex-1 overflow-y-auto p-3.5 pb-32 space-y-2 text-xs font-mono scrollbar-none">
+      <div className="flex-1 overflow-y-auto p-3.5 pb-6 space-y-2 text-xs font-mono scrollbar-none">
         <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1">
           GEZEGEN ALTYAPISI & ÜRETİM
         </div>
@@ -305,7 +305,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
                   <span className="text-xs font-semibold text-slate-200 font-display">
                     {stats.nameTr}
                   </span>
-                  <span className="text-[10.5px] font-mono text-cyan-300 font-bold bg-[#07101a] px-1.5 py-0.2 rounded-sm border border-[#19384c]">
+                  <span className="text-[10.5px] font-mono text-cyan-300 font-bold bg-[#07101a] px-1.5 py-0.5 rounded-sm border border-[#19384c]">
                     Sv. {currentLevel}
                   </span>
                 </div>
