@@ -216,7 +216,11 @@ export function App() {
       if (!engine) return;
 
       const simDeltaMs = realIntervalMs * timeScale;
+      const prevBattleCount = engine.state.battleReports.length;
       engine.tick(simDeltaMs);
+      if (engine.state.battleReports.length > prevBattleCount) {
+        sound.playExplosion();
+      }
 
       // In slow strategy, bots evaluate every 60 seconds of game time
       if (engine.state.timeMs - lastBotUpdateMsRef.current >= 60 * 1000) {
@@ -670,6 +674,15 @@ export function App() {
             godMode={godMode}
             onSelectSystem={(systemId) => {
               setSelectedTarget({ type: 'system', systemId });
+            }}
+            onContextMenuTarget={(target) => {
+              sound.playClick();
+              setSelectedTarget({
+                type: target.type,
+                systemId: target.systemId,
+                planetId: target.planetId,
+              });
+              setIsCommandPanelOpen(true);
             }}
             onSelectFleet={(fleetId) => {
               const fl = engineState.fleets[fleetId];

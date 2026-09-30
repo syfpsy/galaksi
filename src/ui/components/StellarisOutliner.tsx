@@ -243,10 +243,10 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                       sound.playClick();
                       onSelectPlanet(planet.id);
                     }}
-                    className={`p-2 rounded-md border transition-all cursor-pointer ${
+                    className={`p-2 rounded-sm cursor-pointer stellaris-item-card transition-all ${
                       isActive || isSelected
-                        ? 'bg-cyan-950/40 border-cyan-500/60 shadow-sm'
-                        : 'bg-[#080e1c]/80 border-slate-800/80 hover:border-slate-700 text-slate-300'
+                        ? '!border-cyan-500/80 !bg-cyan-950/40 shadow-sm shadow-cyan-950/50'
+                        : ''
                     }`}
                   >
                     <div className="flex items-center justify-between">

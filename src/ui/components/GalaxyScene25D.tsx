@@ -68,6 +68,7 @@ interface GalaxyScene25DProps {
   onSelectPlanet?: (systemId: string, planetId: string) => void;
   onSelectFleet: (fleetId: string) => void;
   onHoverPlanet?: (planetId: string | null) => void;
+  onContextMenuTarget?: (target: { type: 'system' | 'planet'; systemId: string; planetId?: string }) => void;
 }
 
 interface ScreenLabel {
@@ -111,11 +112,14 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onSelectPlanet,
   onSelectFleet,
   onHoverPlanet,
+  onContextMenuTarget,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hudLabels, setHudLabels] = useState<ScreenLabel[]>([]);
   const onHoverPlanetRef = useRef(onHoverPlanet);
   onHoverPlanetRef.current = onHoverPlanet;
+  const onContextMenuTargetRef = useRef(onContextMenuTarget);
+  onContextMenuTargetRef.current = onContextMenuTarget;
 
   // Live references for animation loop
   const stateRef = useRef(state);
@@ -497,6 +501,17 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     // 2.45 Battle FX Shockwaves
     const battleFxGroup = new THREE.Group();
     galaxyMacroGroup.add(battleFxGroup);
+
+    interface BattleVisual {
+      systemId: string;
+      ringMesh: THREE.Mesh;
+      ringMat: THREE.MeshBasicMaterial;
+      laserLine: THREE.Line;
+      laserMat: THREE.LineBasicMaterial;
+      burstSprite: THREE.Sprite;
+      burstMat: THREE.SpriteMaterial;
+    }
+    const battleVisuals = new Map<string, BattleVisual>();
 
     // 2.5 Macro Fleets in Transit
     const macroFleetsGroup = new THREE.Group();
@@ -1266,6 +1281,40 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }
     };
 
+    const onContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      if (!container) return;
+
+      const rect = container.getBoundingClientRect();
+      mouse.x = ((e.clientX - rect.left) / width) * 2 - 1;
+      mouse.y = -((e.clientY - rect.top) / height) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+      const isSystemMode = viewModeRef.current === 'system';
+      const targetGroup = isSystemMode ? systemOrreryGroup : galaxyMacroGroup;
+      const intersects = raycaster.intersectObjects(targetGroup.children, true);
+
+      for (const hit of intersects) {
+        const udata = (hit.object as any).userData;
+        if (udata) {
+          if (udata.type === 'system' || udata.type === 'star') {
+            sound.playClick();
+            if (onContextMenuTargetRef.current) {
+              onContextMenuTargetRef.current({ type: 'system', systemId: udata.systemId });
+            }
+            return;
+          }
+          if (udata.type === 'planet') {
+            sound.playClick();
+            if (onContextMenuTargetRef.current) {
+              onContextMenuTargetRef.current({ type: 'planet', systemId: udata.systemId, planetId: udata.planetId });
+            }
+            return;
+          }
+        }
+      }
+    };
+
     const onKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
       if (e.key === 'Escape' || e.key.toLowerCase() === 'm') {
@@ -1285,6 +1334,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     container.addEventListener('wheel', onWheel, { passive: false });
     container.addEventListener('click', onClick);
     container.addEventListener('dblclick', onDoubleClick);
+    container.addEventListener('contextmenu', onContextMenu);
     window.addEventListener('keydown', onKeyDown);
 
     const onResize = () => {
@@ -1394,6 +1444,114 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             lv.mat.color.setHex(0x0284c7);
             lv.mat.opacity = 0.45;
           }
+        });
+
+        // Active 3D Battle Shockwaves & Skirmish Crossfire FX on Galaxy Map
+        const recentBattleCutoff = currentTimeMs - 45000;
+        const activeBattleReports = (stateRef.current.battleReports || []).filter(
+          (b) => b.timestamp >= recentBattleCutoff
+        );
+        const activeBattleSysIds = new Set(activeBattleReports.map((b) => b.systemId));
+
+        // Cleanup visuals for resolved battles
+        battleVisuals.forEach((vis, sysId) => {
+          if (!activeBattleSysIds.has(sysId)) {
+            battleFxGroup.remove(vis.ringMesh);
+            battleFxGroup.remove(vis.laserLine);
+            battleFxGroup.remove(vis.burstSprite);
+            vis.ringMesh.geometry.dispose();
+            vis.ringMat.dispose();
+            vis.laserLine.geometry.dispose();
+            vis.laserMat.dispose();
+            vis.burstMat.dispose();
+            battleVisuals.delete(sysId);
+          }
+        });
+
+        // Update or instantiate battle visuals
+        activeBattleReports.forEach((bat) => {
+          const sys = stateRef.current.map.systems[bat.systemId];
+          if (!sys) return;
+
+          let vis = battleVisuals.get(bat.systemId);
+          if (!vis) {
+            const ringGeo = new THREE.RingGeometry(1, 2.2, 32);
+            const ringMat = new THREE.MeshBasicMaterial({
+              color: 0xf43f5e,
+              transparent: true,
+              opacity: 0.8,
+              side: THREE.DoubleSide,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+            });
+            const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+            ringMesh.position.set(sys.x, sys.y, 5);
+            battleFxGroup.add(ringMesh);
+
+            const laserGeo = new THREE.BufferGeometry().setFromPoints([
+              new THREE.Vector3(sys.x - 10, sys.y - 5, 6),
+              new THREE.Vector3(sys.x + 8, sys.y + 6, 6),
+            ]);
+            const laserMat = new THREE.LineBasicMaterial({
+              color: 0x00f3ff,
+              transparent: true,
+              opacity: 0.9,
+              blending: THREE.AdditiveBlending,
+            });
+            const laserLine = new THREE.Line(laserGeo, laserMat);
+            battleFxGroup.add(laserLine);
+
+            const burstMat = new THREE.SpriteMaterial({
+              map: getShipEngineGlowTexture('#ffaa00'),
+              transparent: true,
+              opacity: 0.9,
+              blending: THREE.AdditiveBlending,
+              depthWrite: false,
+            });
+            const burstSprite = new THREE.Sprite(burstMat);
+            burstSprite.position.set(sys.x, sys.y, 7);
+            battleFxGroup.add(burstSprite);
+
+            vis = {
+              systemId: bat.systemId,
+              ringMesh,
+              ringMat,
+              laserLine,
+              laserMat,
+              burstSprite,
+              burstMat,
+            };
+            battleVisuals.set(bat.systemId, vis);
+          }
+
+          // Animate expanding shockwave ring
+          const cycleProgress = (currentTimeMs * 0.0012) % 1.0;
+          const ringScale = 4 + cycleProgress * 28;
+          vis.ringMesh.scale.set(ringScale, ringScale, 1);
+          vis.ringMat.opacity = Math.max(0, (1 - cycleProgress) * 0.75);
+
+          // Animate laser tracer crossfire
+          if (Math.sin(currentTimeMs * 0.02) > 0.3) {
+            vis.laserLine.visible = true;
+            const pAttr = (vis.laserLine.geometry as THREE.BufferGeometry).attributes.position;
+            const angle1 = (currentTimeMs * 0.005) % (Math.PI * 2);
+            const angle2 = angle1 + Math.PI * 0.75;
+            const r1 = 12 + Math.sin(currentTimeMs * 0.01) * 4;
+            const r2 = 14 + Math.cos(currentTimeMs * 0.012) * 5;
+            pAttr.setXYZ(0, sys.x + Math.cos(angle1) * r1, sys.y + Math.sin(angle1) * r1, 6);
+            pAttr.setXYZ(1, sys.x + Math.cos(angle2) * r2, sys.y + Math.sin(angle2) * r2, 6);
+            pAttr.needsUpdate = true;
+            vis.laserMat.color.setHex(Math.sin(currentTimeMs * 0.03) > 0 ? 0xf43f5e : 0x00f3ff);
+            vis.laserMat.opacity = 0.5 + Math.random() * 0.5;
+          } else {
+            vis.laserLine.visible = false;
+          }
+
+          // Animate plasma explosion burst
+          const burstPulse = (Math.sin(currentTimeMs * 0.015) + 1) * 0.5;
+          const burstScale = 10 + burstPulse * 8;
+          vis.burstSprite.scale.set(burstScale, burstScale, 1);
+          vis.burstMat.opacity = 0.4 + burstPulse * 0.5;
         });
 
         const activeFleetIds = new Set<string>();
@@ -2043,7 +2201,17 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       container.removeEventListener('wheel', onWheel);
       container.removeEventListener('click', onClick);
       container.removeEventListener('dblclick', onDoubleClick);
+      container.removeEventListener('contextmenu', onContextMenu);
       window.removeEventListener('keydown', onKeyDown);
+
+      battleVisuals.forEach((vis) => {
+        vis.ringMesh.geometry.dispose();
+        vis.ringMat.dispose();
+        vis.laserLine.geometry.dispose();
+        vis.laserMat.dispose();
+        vis.burstMat.dispose();
+      });
+      battleVisuals.clear();
 
       if (container && renderer.domElement) {
         container.removeChild(renderer.domElement);
@@ -2113,6 +2281,20 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 sound.playWarp();
                 if (onEnterSystemView) onEnterSystemView(lbl.systemId);
                 else onSelectSystem(lbl.systemId);
+              }
+            }}
+            onContextMenu={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              sound.playClick();
+              if (lbl.type === 'system' || lbl.type === 'star') {
+                if (onContextMenuTargetRef.current) {
+                  onContextMenuTargetRef.current({ type: 'system', systemId: lbl.systemId });
+                }
+              } else if (lbl.type === 'planet' && lbl.planetId) {
+                if (onContextMenuTargetRef.current) {
+                  onContextMenuTargetRef.current({ type: 'planet', systemId: lbl.systemId, planetId: lbl.planetId });
+                }
               }
             }}
           >
