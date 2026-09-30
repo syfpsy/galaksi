@@ -845,6 +845,7 @@ export function App() {
             onFocusHomeworld={handleFocusHomeworld}
             onFocusRelay={handleFocusRelay}
             onCycleColonies={handleCycleColonies}
+            onOpenBattles={() => setActiveLeftPanel('battles')}
           />
 
           {/* Stellaris Fleet Inspector Bottom Card HUD */}

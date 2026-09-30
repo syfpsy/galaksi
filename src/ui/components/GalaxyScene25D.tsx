@@ -72,6 +72,7 @@ export interface GalaxyScene25DProps {
   onHoverPlanet?: (planetId: string | null) => void;
   onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
   mapMode?: MapMode;
+  onOpenBattles?: () => void;
 }
 
 interface ScreenLabel {
@@ -122,6 +123,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onHoverPlanet,
   onContextMenuTarget,
   mapMode = 'default',
+  onOpenBattles,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hudLabels, setHudLabels] = useState<ScreenLabel[]>([]);
@@ -129,6 +131,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onHoverPlanetRef.current = onHoverPlanet;
   const onContextMenuTargetRef = useRef(onContextMenuTarget);
   onContextMenuTargetRef.current = onContextMenuTarget;
+  const onOpenBattlesRef = useRef(onOpenBattles);
+  onOpenBattlesRef.current = onOpenBattles;
 
   const mapModeRef = useRef<MapMode>(mapMode);
   mapModeRef.current = mapMode;
@@ -2462,9 +2466,22 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   ) : (
                     <>
                       {lbl.isRecentBattle && (
-                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-rose-950/90 border border-rose-500 text-rose-300 animate-pulse shadow-md shadow-rose-950/80">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sound.playClick();
+                            if (onOpenBattlesRef.current) {
+                              onOpenBattlesRef.current();
+                            } else {
+                              onSelectSystem(lbl.id);
+                            }
+                          }}
+                          className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-rose-950/90 border border-rose-500 text-rose-300 animate-pulse shadow-md shadow-rose-950/80 hover:bg-rose-800 hover:text-white transition-all cursor-pointer pointer-events-auto"
+                          title="Muharebe Raporunu ve Çatışma Tekrarını Aç"
+                        >
                           ⚔️ MUHAREBE
-                        </span>
+                        </button>
                       )}
                       {lbl.isRelay ? (
                         <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
