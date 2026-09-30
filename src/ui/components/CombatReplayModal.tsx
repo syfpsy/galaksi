@@ -264,10 +264,11 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
 
   if (!isOpen) return null;
 
-  const contextTitles = {
+  const contextTitles: Record<'planet_raid' | 'fleet_interception' | 'relay_contest' | 'pirate_lair', string> = {
     planet_raid: 'GEZEGEN BASKINI',
     fleet_interception: 'FİLO ÖNLEME ÇATIŞMASI',
     relay_contest: 'NEXUS RÖLESİ HAKİMİYET SAVAŞI',
+    pirate_lair: 'KORSAN SIĞINAĞI TAARRUZU',
   };
 
   // Fleet power ratings for simulation preview

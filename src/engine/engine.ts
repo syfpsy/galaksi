@@ -1,9 +1,11 @@
 import {
   BUILDING_STATS,
   calculateHourlyProduction,
+  DEFENSE_STATS,
   GAME_CONSTANTS,
   getBuildingUpgradeCost,
   getBuildingUpgradeDurationMs,
+  getDefenseBuildDurationMs,
   getResearchCost,
   getResearchDurationMs,
   getShipBuildDurationMs,
@@ -17,6 +19,7 @@ import { PRNG } from './prng';
 import {
   BuildingType,
   CommandReceipt,
+  DefenseStructureType,
   Fleet,
   GameCommand,
   GameEventRecord,
@@ -188,6 +191,9 @@ export class GameEngine {
 
       // Process Shipyard Queue
       this.processPlanetShipyardQueue(planet, nowMs);
+
+      // Process Defense Installation Queue
+      this.processPlanetDefenseQueue(planet, nowMs);
     }
   }
 
@@ -211,6 +217,36 @@ export class GameEngine {
         planet.shipyardQueue.shift();
         if (planet.shipyardQueue.length > 0) {
           planet.shipyardQueue[0].nextUnitFinishTime = nowMs + planet.shipyardQueue[0].unitBuildTimeMs;
+        }
+        break;
+      }
+    }
+  }
+
+  private processPlanetDefenseQueue(planet: Planet, nowMs: number) {
+    if (!planet.defenseQueue || planet.defenseQueue.length === 0) return;
+    if (!planet.defenses) {
+      planet.defenses = { missile_battery: 0, plasma_turret: 0, ion_cannon: 0 };
+    }
+
+    const currentOrder = planet.defenseQueue[0];
+    while (currentOrder && nowMs >= currentOrder.nextUnitFinishTime && currentOrder.completed < currentOrder.count) {
+      currentOrder.completed++;
+      planet.defenses[currentOrder.defenseType] = (planet.defenses[currentOrder.defenseType] || 0) + 1;
+
+      const defenseName = DEFENSE_STATS[currentOrder.defenseType]?.nameTr || currentOrder.defenseType;
+      this.logEvent(
+        'defense_built',
+        `${planet.name} yörüngesinde 1x ${defenseName} konuşlandırıldı.`,
+        planet.ownerId
+      );
+
+      if (currentOrder.completed < currentOrder.count) {
+        currentOrder.nextUnitFinishTime += currentOrder.unitBuildTimeMs;
+      } else {
+        planet.defenseQueue.shift();
+        if (planet.defenseQueue.length > 0) {
+          planet.defenseQueue[0].nextUnitFinishTime = nowMs + planet.defenseQueue[0].unitBuildTimeMs;
         }
         break;
       }
@@ -333,16 +369,25 @@ export class GameEngine {
         let gatheredFuel = 0;
 
         // Check if there is an uncollected POI
-        if (targetSystem.poi && !targetSystem.poi.explored && targetSystem.poi.reward) {
-          targetSystem.poi.explored = true;
-          gatheredOre = targetSystem.poi.reward.ore;
-          gatheredCrystal = targetSystem.poi.reward.crystal;
-          gatheredFuel = targetSystem.poi.reward.fuel;
-          this.logEvent(
-            'poi_discovered',
-            `${fleet.name} ${targetSystem.name} sisteminde ${targetSystem.poi.type} keşfetti ve kaynak topladı!`,
-            fleet.ownerId
-          );
+        if (targetSystem.poi && !targetSystem.poi.explored) {
+          if (targetSystem.poi.type === 'pirate_lair') {
+            targetSystem.poi.explored = true;
+            this.logEvent(
+              'poi_discovered',
+              `İSTİHBARAT: ${fleet.name} ${targetSystem.name} sisteminde ${targetSystem.poi.bounty?.titleTr || 'Korsan Sığınağı'} tespit etti! Tehdit Seviyesi: ${targetSystem.poi.bounty?.threatLevel.toUpperCase()}. Ödülü almak için taarruz filosu sevk edin.`,
+              fleet.ownerId
+            );
+          } else if (targetSystem.poi.reward) {
+            targetSystem.poi.explored = true;
+            gatheredOre = targetSystem.poi.reward.ore;
+            gatheredCrystal = targetSystem.poi.reward.crystal;
+            gatheredFuel = targetSystem.poi.reward.fuel;
+            this.logEvent(
+              'poi_discovered',
+              `${fleet.name} ${targetSystem.name} sisteminde ${targetSystem.poi.type} keşfetti ve kaynak topladı!`,
+              fleet.ownerId
+            );
+          }
         } else {
           this.logEvent(
             'system_explored',
@@ -391,6 +436,12 @@ export class GameEngine {
             },
             buildingQueue: null,
             shipyardQueue: [],
+            defenses: {
+              missile_battery: 0,
+              plasma_turret: 0,
+              ion_cannon: 0,
+            },
+            defenseQueue: [],
             garrison: { scout: 0, transport: 0, fighter: 1, battleship: 0 },
             stance: 'hold_position',
           };
@@ -446,6 +497,28 @@ export class GameEngine {
           }
         }
 
+        // Deep space pirate ambush check on unescorted transport convoys
+        const hasWarships = (fleet.ships.fighter || 0) > 0 || (fleet.ships.battleship || 0) > 0;
+        const hasTransports = (fleet.ships.transport || 0) > 0;
+        const hasCargo = fleet.cargo.ore + fleet.cargo.crystal + fleet.cargo.fuel > 0;
+        const isPirateThreat = targetSystem.poi?.type === 'pirate_lair' && !targetSystem.poi.bounty?.claimed;
+
+        if (hasTransports && !hasWarships && hasCargo && isPirateThreat) {
+          const stolenOre = Math.floor(fleet.cargo.ore * 0.20);
+          const stolenCrystal = Math.floor(fleet.cargo.crystal * 0.20);
+          const stolenFuel = Math.floor(fleet.cargo.fuel * 0.20);
+
+          fleet.cargo.ore -= stolenOre;
+          fleet.cargo.crystal -= stolenCrystal;
+          fleet.cargo.fuel -= stolenFuel;
+
+          this.logEvent(
+            'pirate_ambush',
+            `PUSU: ${fleet.name} ${targetSystem.name} sisteminde korsan pususuna uğradı! Eskortsuz kargo gemilerinden ${stolenOre}C, ${stolenCrystal}K, ${stolenFuel}Y çalındı.`,
+            fleet.ownerId
+          );
+        }
+
         // Deliver cargo if targeted at own planet OR allied planet
         if (fleet.targetPlanetId && this.state.planets[fleet.targetPlanetId]) {
           const targetPlanet = this.state.planets[fleet.targetPlanetId];
@@ -481,72 +554,171 @@ export class GameEngine {
       }
 
       case 'attack': {
-        // Planet raid combat
         const targetPlanet = fleet.targetPlanetId ? this.state.planets[fleet.targetPlanetId] : null;
-        if (!targetPlanet || targetPlanet.ownerId === fleet.ownerId) {
-          this.orderFleetReturn(fleet);
-          return;
+
+        // 1. Planetary Raid Combat
+        if (targetPlanet && targetPlanet.ownerId !== fleet.ownerId) {
+          const defenderPlayer = this.state.players[targetPlanet.ownerId];
+          const attackerWeapons = player?.research.weapons || 0;
+          const defenderWeapons = defenderPlayer?.research.weapons || 0;
+
+          const combatResult = resolveCombat(
+            {
+              ownerId: fleet.ownerId,
+              ownerName: player?.name || 'Saldırgan',
+              ships: fleet.ships,
+              weaponsResearchLevel: attackerWeapons,
+            },
+            {
+              ownerId: targetPlanet.ownerId,
+              ownerName: defenderPlayer?.name || 'Savunucu',
+              ships: targetPlanet.garrison,
+              weaponsResearchLevel: defenderWeapons,
+              stance: targetPlanet.stance,
+              defenses: targetPlanet.defenses,
+            },
+            targetSystem.id,
+            targetSystem.name,
+            'planet_raid',
+            targetPlanet.resources,
+            targetPlanet.protectedCapacity,
+            this.state.timeMs,
+            this.prng.nextInt(100, 999999)
+          );
+
+          this.state.battleReports.push(combatResult.report);
+
+          // Update defender garrison, defenses, and deducted looted resources
+          targetPlanet.garrison = combatResult.remainingDefender;
+          if (combatResult.remainingDefenses) {
+            targetPlanet.defenses = combatResult.remainingDefenses;
+          }
+          targetPlanet.resources.ore = Math.max(0, targetPlanet.resources.ore - combatResult.lootedResources.ore);
+          targetPlanet.resources.crystal = Math.max(0, targetPlanet.resources.crystal - combatResult.lootedResources.crystal);
+          targetPlanet.resources.fuel = Math.max(0, targetPlanet.resources.fuel - combatResult.lootedResources.fuel);
+
+          // Add debris to system
+          if (!targetSystem.hasDebris) targetSystem.hasDebris = { ore: 0, crystal: 0, fuel: 0 };
+          targetSystem.hasDebris.ore += combatResult.debrisFieldCreated.ore;
+          targetSystem.hasDebris.crystal += combatResult.debrisFieldCreated.crystal;
+
+          // Update attacker fleet
+          fleet.ships = combatResult.remainingAttacker;
+          fleet.cargo.ore += combatResult.lootedResources.ore;
+          fleet.cargo.crystal += combatResult.lootedResources.crystal;
+          fleet.cargo.fuel += combatResult.lootedResources.fuel;
+
+          this.logEvent(
+            'battle_finished',
+            `Savaş Sonucu: ${combatResult.report.winner.toUpperCase()} kazandı (${targetSystem.name}). Yağma: ${Math.round(combatResult.lootedResources.ore)}C, ${Math.round(combatResult.lootedResources.crystal)}K.`,
+            fleet.ownerId
+          );
+
+          const survivingCount = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
+          if (survivingCount > 0) {
+            this.orderFleetReturn(fleet);
+          } else {
+            fleet.status = 'destroyed';
+            delete this.state.fleets[fleet.id];
+          }
+          break;
         }
 
-        const defenderPlayer = this.state.players[targetPlanet.ownerId];
-        const attackerWeapons = player?.research.weapons || 0;
-        const defenderWeapons = defenderPlayer?.research.weapons || 0;
+        // 2. Pirate Lair Assault
+        if (!targetPlanet && targetSystem.poi?.type === 'pirate_lair' && !targetSystem.poi.bounty?.claimed) {
+          const pirateBounty = targetSystem.poi.bounty;
+          const pirateGarrison = pirateBounty?.pirateGarrison || { scout: 2, transport: 1, fighter: 5, battleship: 1 };
+          const pirateThreat = pirateBounty?.threatLevel || 'medium';
+          const pirateWeapons = pirateThreat === 'deadly' ? 3 : pirateThreat === 'high' ? 2 : 1;
+          const pirateDefenses: Record<DefenseStructureType, number> =
+            pirateThreat === 'deadly'
+              ? { missile_battery: 6, plasma_turret: 4, ion_cannon: 2 }
+              : pirateThreat === 'high'
+              ? { missile_battery: 4, plasma_turret: 2, ion_cannon: 1 }
+              : pirateThreat === 'medium'
+              ? { missile_battery: 2, plasma_turret: 1, ion_cannon: 0 }
+              : { missile_battery: 1, plasma_turret: 0, ion_cannon: 0 };
 
-        const combatResult = resolveCombat(
-          {
-            ownerId: fleet.ownerId,
-            ownerName: player?.name || 'Saldırgan',
-            ships: fleet.ships,
-            weaponsResearchLevel: attackerWeapons,
-          },
-          {
-            ownerId: targetPlanet.ownerId,
-            ownerName: defenderPlayer?.name || 'Savunucu',
-            ships: targetPlanet.garrison,
-            weaponsResearchLevel: defenderWeapons,
-            stance: targetPlanet.stance,
-          },
-          targetSystem.id,
-          targetSystem.name,
-          'planet_raid',
-          targetPlanet.resources,
-          targetPlanet.protectedCapacity,
-          this.state.timeMs,
-          this.prng.nextInt(100, 999999)
-        );
+          const combatResult = resolveCombat(
+            {
+              ownerId: fleet.ownerId,
+              ownerName: player?.name || 'Saldırgan Komutan',
+              ships: fleet.ships,
+              weaponsResearchLevel: player?.research.weapons || 0,
+            },
+            {
+              ownerId: 'pirates',
+              ownerName: pirateBounty?.titleTr || 'Uzay Korsanları',
+              ships: pirateGarrison,
+              weaponsResearchLevel: pirateWeapons,
+              defenses: pirateDefenses,
+            },
+            targetSystem.id,
+            targetSystem.name,
+            'pirate_lair',
+            undefined,
+            0,
+            this.state.timeMs,
+            this.prng.nextInt(100, 999999)
+          );
 
-        this.state.battleReports.push(combatResult.report);
+          this.state.battleReports.push(combatResult.report);
 
-        // Update defender garrison and deducted looted resources
-        targetPlanet.garrison = combatResult.remainingDefender;
-        targetPlanet.resources.ore = Math.max(0, targetPlanet.resources.ore - combatResult.lootedResources.ore);
-        targetPlanet.resources.crystal = Math.max(0, targetPlanet.resources.crystal - combatResult.lootedResources.crystal);
-        targetPlanet.resources.fuel = Math.max(0, targetPlanet.resources.fuel - combatResult.lootedResources.fuel);
+          if (combatResult.report.winner === 'attacker') {
+            if (pirateBounty) {
+              pirateBounty.claimed = true;
+            }
+            if (targetSystem.poi) {
+              targetSystem.poi.explored = true;
+            }
 
-        // Add debris to system
-        if (!targetSystem.hasDebris) targetSystem.hasDebris = { ore: 0, crystal: 0, fuel: 0 };
-        targetSystem.hasDebris.ore += combatResult.debrisFieldCreated.ore;
-        targetSystem.hasDebris.crystal += combatResult.debrisFieldCreated.crystal;
+            const reward = targetSystem.poi.reward || { ore: 1500, crystal: 1000, fuel: 500 };
+            const xp = pirateBounty?.rewardXP || 200;
 
-        // Update attacker fleet
-        fleet.ships = combatResult.remainingAttacker;
-        fleet.cargo.ore += combatResult.lootedResources.ore;
-        fleet.cargo.crystal += combatResult.lootedResources.crystal;
-        fleet.cargo.fuel += combatResult.lootedResources.fuel;
+            fleet.cargo.ore += reward.ore;
+            fleet.cargo.crystal += reward.crystal;
+            fleet.cargo.fuel += reward.fuel;
 
-        this.logEvent(
-          'battle_finished',
-          `Savaş Sonucu: ${combatResult.report.winner.toUpperCase()} kazandı (${targetSystem.name}). Yağma: ${Math.round(combatResult.lootedResources.ore)}C, ${Math.round(combatResult.lootedResources.crystal)}K.`,
-          fleet.ownerId
-        );
+            combatResult.report.bountyEarned = {
+              resources: { ...reward },
+              xp,
+            };
 
-        const survivingCount = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
-        if (survivingCount > 0) {
-          this.orderFleetReturn(fleet);
-        } else {
-          fleet.status = 'destroyed';
-          delete this.state.fleets[fleet.id];
+            this.logEvent(
+              'pirate_lair_destroyed',
+              `${fleet.name} ${targetSystem.name} sistemindeki korsan üssünü imha etti! Ödül: ${reward.ore}C, ${reward.crystal}K, ${reward.fuel}Y ve +${xp} DP.`,
+              fleet.ownerId
+            );
+          } else {
+            if (pirateBounty) {
+              pirateBounty.pirateGarrison = combatResult.remainingDefender;
+            }
+            this.logEvent(
+              'battle_finished',
+              `${targetSystem.name} korsan üssü taarruzu püskürttü. Kalan korsan filosu mevzilendi.`,
+              fleet.ownerId
+            );
+          }
+
+          // Add debris to system
+          if (!targetSystem.hasDebris) targetSystem.hasDebris = { ore: 0, crystal: 0, fuel: 0 };
+          targetSystem.hasDebris.ore += combatResult.debrisFieldCreated.ore;
+          targetSystem.hasDebris.crystal += combatResult.debrisFieldCreated.crystal;
+
+          // Update attacker fleet
+          fleet.ships = combatResult.remainingAttacker;
+          const survivingCount = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
+          if (survivingCount > 0) {
+            this.orderFleetReturn(fleet);
+          } else {
+            fleet.status = 'destroyed';
+            delete this.state.fleets[fleet.id];
+          }
+          break;
         }
+
+        // Neither target planet nor pirate base
+        this.orderFleetReturn(fleet);
         break;
       }
 
@@ -867,6 +1039,79 @@ export class GameEngine {
           commandType: cmd.type,
           timeMs: this.state.timeMs,
           data: { count: cmd.count, shipType: cmd.shipType },
+        };
+      }
+
+      case 'BUILD_DEFENSES': {
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Gezegen size ait değil.', timeMs: this.state.timeMs };
+        }
+        if (planet.buildings.shipyard < 1) {
+          return { success: false, commandType: cmd.type, error: 'Savunma bataryaları için Tersane (Seviye 1+) gereklidir.', timeMs: this.state.timeMs };
+        }
+        if (cmd.defenseType === 'plasma_turret' && planet.buildings.shipyard < 2) {
+          return { success: false, commandType: cmd.type, error: 'Ağır Plazma Tareti için Tersane Seviye 2+ gereklidir.', timeMs: this.state.timeMs };
+        }
+        if (cmd.defenseType === 'ion_cannon' && planet.buildings.shipyard < 3) {
+          return { success: false, commandType: cmd.type, error: 'İyon Topu Bataryası için Tersane Seviye 3+ gereklidir.', timeMs: this.state.timeMs };
+        }
+        if (cmd.count <= 0) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz batarya adedi.', timeMs: this.state.timeMs };
+        }
+
+        const stats = DEFENSE_STATS[cmd.defenseType];
+        if (!stats) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz savunma tipi.', timeMs: this.state.timeMs };
+        }
+
+        const totalOre = stats.cost.ore * cmd.count;
+        const totalCrystal = stats.cost.crystal * cmd.count;
+        const totalFuel = stats.cost.fuel * cmd.count;
+
+        if (
+          planet.resources.ore < totalOre ||
+          planet.resources.crystal < totalCrystal ||
+          planet.resources.fuel < totalFuel
+        ) {
+          return { success: false, commandType: cmd.type, error: 'Yetersiz kaynak.', timeMs: this.state.timeMs };
+        }
+
+        planet.resources.ore -= totalOre;
+        planet.resources.crystal -= totalCrystal;
+        planet.resources.fuel -= totalFuel;
+
+        if (!planet.defenses) {
+          planet.defenses = { missile_battery: 0, plasma_turret: 0, ion_cannon: 0 };
+        }
+        if (!planet.defenseQueue) {
+          planet.defenseQueue = [];
+        }
+
+        const unitBuildTimeMs = getDefenseBuildDurationMs(cmd.defenseType, planet.buildings.shipyard);
+        const nextFinish = (planet.defenseQueue.length === 0)
+          ? this.state.timeMs + unitBuildTimeMs
+          : planet.defenseQueue[planet.defenseQueue.length - 1].nextUnitFinishTime + unitBuildTimeMs;
+
+        planet.defenseQueue.push({
+          defenseType: cmd.defenseType,
+          count: cmd.count,
+          completed: 0,
+          unitBuildTimeMs,
+          nextUnitFinishTime: nextFinish,
+        });
+
+        this.logEvent(
+          'defense_ordered',
+          `${planet.name} için ${cmd.count}x ${stats.nameTr} inşa emri verildi.`,
+          playerId
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { count: cmd.count, defenseType: cmd.defenseType },
         };
       }
 

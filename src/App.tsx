@@ -8,6 +8,7 @@ import { IBotAgent } from './bots/types';
 import { GameEngine } from './engine/engine';
 import {
   BuildingType,
+  DefenseStructureType,
   Fleet,
   MissionType,
   PlanetStance,
@@ -419,6 +420,17 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleBuildDefense = (planetId: string, defenseType: DefenseStructureType, count: number) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'BUILD_DEFENSES',
+      planetId,
+      defenseType,
+      count,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleDispatchFleet = (
     targetSystemId: string,
     targetPlanetId: string | undefined,
@@ -716,6 +728,7 @@ export function App() {
                 isDocked={true}
                 onClose={() => setActiveLeftPanel(null)}
                 onBuildShip={handleBuildShip}
+                onBuildDefense={handleBuildDefense}
                 currentTimeMs={engineState.timeMs}
               />
             )}

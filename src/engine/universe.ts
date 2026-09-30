@@ -1,3 +1,4 @@
+import { generatePirateOutposts } from './pirates';
 import { PRNG } from './prng';
 import { FlightLane, Planet, PlanetSlot, SectorMap, StarSystem } from './types';
 
@@ -167,6 +168,9 @@ export function generateSectorMap(config: SectorConfig = {}): SectorMap {
     }
   }
 
+  // Generate procedural pirate outposts across candidate systems
+  generatePirateOutposts(systems, seed + 101);
+
   return {
     id: `sector_${seed}`,
     name: 'Triton Sektörü',
@@ -212,6 +216,12 @@ export function createHomeworldPlanet(
     },
     buildingQueue: null,
     shipyardQueue: [],
+    defenses: {
+      missile_battery: 0,
+      plasma_turret: 0,
+      ion_cannon: 0,
+    },
+    defenseQueue: [],
     garrison: {
       scout: 1,
       transport: 1,

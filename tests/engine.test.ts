@@ -409,4 +409,141 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(defenseAlert).toBeDefined();
     expect(defenseAlert?.description).toContain('ORTAK SAVUNMA ALARMI');
   });
+
+  it('constructs planetary defense batteries and participates in orbital defense combat', () => {
+    const engine = new GameEngine(7890);
+    const { homeworld: hw } = engine.addPlayer('p1', 'Defender 1', '#00f3ff');
+
+    hw.resources.ore = 2000;
+    hw.resources.crystal = 1500;
+    hw.resources.fuel = 800;
+    hw.buildings.shipyard = 2; // Level 2 allows missile batteries and plasma turrets
+
+    // Build 2 missile batteries
+    const buildRes = engine.dispatchCommand('p1', {
+      type: 'BUILD_DEFENSES',
+      planetId: hw.id,
+      defenseType: 'missile_battery',
+      count: 2,
+    });
+    expect(buildRes.success).toBe(true);
+    expect(hw.defenseQueue?.length).toBe(1);
+    expect(hw.defenseQueue![0].count).toBe(2);
+
+    // Advance simulation time to complete construction
+    const totalBuildTime = hw.defenseQueue![0].unitBuildTimeMs * 2;
+    engine.tick(totalBuildTime + 1000);
+
+    expect(hw.defenses?.missile_battery).toBe(2);
+    expect(hw.defenseQueue?.length).toBe(0);
+
+    // Test combat defense participation:
+    // Defender has 0 ships, but 2 missile batteries
+    const combat = resolveCombat(
+      {
+        ownerId: 'enemy',
+        ownerName: 'Raider',
+        ships: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+        weaponsResearchLevel: 0,
+      },
+      {
+        ownerId: 'p1',
+        ownerName: 'Defender 1',
+        ships: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+        weaponsResearchLevel: 1,
+        defenses: hw.defenses,
+      },
+      hw.systemId,
+      'Homeworld',
+      'planet_raid',
+      hw.resources,
+      hw.protectedCapacity,
+      engine.state.timeMs,
+      4321
+    );
+
+    expect(combat.report.initialDefenses?.missile_battery).toBe(2);
+    expect(combat.report.rounds.length).toBeGreaterThan(0);
+    expect(combat.report.rounds[0].defenderDamageDealt).toBeGreaterThan(0);
+  });
+
+  it('procedurally spawns pirate outposts with bounties and rewards victory with resources and XP', () => {
+    const engine = new GameEngine(9999);
+    const { homeworld: hw } = engine.addPlayer('p1', 'Bounty Hunter', '#00f3ff', undefined, false);
+
+    // Find system with pirate lair POI
+    const pirateSys = Object.values(engine.state.map.systems).find(
+      (s) => s.poi?.type === 'pirate_lair'
+    );
+    expect(pirateSys).toBeDefined();
+    expect(pirateSys?.poi?.bounty).toBeDefined();
+    expect(pirateSys?.poi?.bounty?.claimed).toBe(false);
+
+    // Give player a formidable strike fleet
+    hw.garrison.battleship = 5;
+    hw.garrison.fighter = 15;
+    hw.resources.fuel = 10000;
+    engine.state.players['p1'].protectionUntilTime = 0;
+
+    // Dispatch attack on pirate lair
+    const dispatchRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw.id,
+      targetSystemId: pirateSys!.id,
+      ships: { scout: 0, transport: 0, fighter: 10, battleship: 4 },
+      mission: 'attack',
+    });
+    expect(dispatchRes.success).toBe(true);
+
+    // Advance time until fleet arrives at pirate lair and resolves battle
+    engine.tick(3600 * 1000);
+
+    // Bounty should be claimed
+    expect(pirateSys?.poi?.bounty?.claimed).toBe(true);
+
+    // Check battle reports
+    const pirateBattle = engine.state.battleReports.find(
+      (b) => b.context === 'pirate_lair' && b.systemId === pirateSys!.id
+    );
+    expect(pirateBattle).toBeDefined();
+    expect(pirateBattle?.winner).toBe('attacker');
+    expect(pirateBattle?.bountyEarned).toBeDefined();
+    expect(pirateBattle?.bountyEarned?.xp).toBeGreaterThan(0);
+  });
+
+  it('triggers pirate ambushes on unescorted cargo transports traveling through pirate systems', () => {
+    const engine = new GameEngine(1111);
+    const { homeworld: hw } = engine.addPlayer('p1', 'Merchant Guild', '#00f3ff');
+
+    const pirateSys = Object.values(engine.state.map.systems).find(
+      (s) => s.poi?.type === 'pirate_lair' && !s.poi.bounty?.claimed
+    );
+    expect(pirateSys).toBeDefined();
+
+    // Prepare unescorted cargo fleet
+    hw.garrison.transport = 3;
+    hw.garrison.fighter = 0;
+    hw.garrison.battleship = 0;
+    hw.resources.fuel = 2000;
+
+    const dispatchRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw.id,
+      targetSystemId: pirateSys!.id,
+      ships: { scout: 0, transport: 3, fighter: 0, battleship: 0 },
+      mission: 'transport',
+      cargo: { ore: 500, crystal: 300, fuel: 100 },
+    });
+    expect(dispatchRes.success).toBe(true);
+
+    // Advance time to arrive
+    engine.tick(3600 * 1000);
+
+    // Verify pirate ambush event was logged
+    const ambushEvent = engine.state.eventLog.find(
+      (e) => e.type === 'pirate_ambush' && e.playerId === 'p1'
+    );
+    expect(ambushEvent).toBeDefined();
+    expect(ambushEvent?.description).toContain('korsan pususuna uğradı');
+  });
 });

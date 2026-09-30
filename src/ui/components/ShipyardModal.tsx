@@ -18,8 +18,8 @@ import {
   Sliders,
   CheckCircle2,
 } from 'lucide-react';
-import { getShipBuildDurationMs, SHIP_STATS } from '../../engine/constants';
-import { Planet, ShipType } from '../../engine/types';
+import { DEFENSE_STATS, getDefenseBuildDurationMs, getShipBuildDurationMs, SHIP_STATS } from '../../engine/constants';
+import { DefenseStructureType, Planet, ShipType } from '../../engine/types';
 import { formatDuration } from '../timeUtils';
 import { sound } from '../sound';
 import {
@@ -42,6 +42,7 @@ interface ShipyardModalProps {
   isDocked?: boolean;
   onClose: () => void;
   onBuildShip: (planetId: string, shipType: ShipType, count: number) => void;
+  onBuildDefense?: (planetId: string, defenseType: DefenseStructureType, count: number) => void;
   currentTimeMs: number;
 }
 
@@ -72,9 +73,10 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
   isDocked = false,
   onClose,
   onBuildShip,
+  onBuildDefense,
   currentTimeMs,
 }) => {
-  const [activeTab, setActiveTab] = useState<'build' | 'designer'>('build');
+  const [activeTab, setActiveTab] = useState<'build' | 'defenses' | 'designer'>('build');
   const [selectedDesignerShip, setSelectedDesignerShip] = useState<ShipType>('scout');
   const [loadouts, setLoadouts] = useState<ShipLoadoutMap>(() => loadSavedLoadouts());
   const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
@@ -84,6 +86,12 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
     transport: 1,
     fighter: 1,
     battleship: 1,
+  });
+
+  const [defenseCounts, setDefenseCounts] = useState<Record<DefenseStructureType, number>>({
+    missile_battery: 1,
+    plasma_turret: 1,
+    ion_cannon: 1,
   });
 
   if (!isOpen || !planet) return null;
@@ -176,6 +184,24 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
         >
           <Hammer className="w-3.5 h-3.5" />
           <span>Gemi İnşası</span>
+        </button>
+
+        <button
+          onClick={() => {
+            sound.playClick();
+            setActiveTab('defenses');
+          }}
+          className={`flex-1 flex items-center justify-center gap-2 py-2 px-3 text-xs font-mono font-bold uppercase tracking-wider rounded-t-sm border-t border-x transition-all cursor-pointer ${
+            activeTab === 'defenses'
+              ? 'bg-[#0f2130] text-emerald-300 border-[#2d6b91] shadow-[0_-2px_8px_rgba(16,185,129,0.15)]'
+              : 'bg-[#08121c] text-slate-400 border-transparent hover:text-slate-200 hover:bg-[#0c1a27]'
+          }`}
+        >
+          <Shield className="w-3.5 h-3.5 text-emerald-400" />
+          <span>Savunma Bataryaları</span>
+          <span className="stellaris-badge text-[9px] text-emerald-300 border-emerald-500/40 ml-0.5">
+            YÖRÜNGE
+          </span>
         </button>
 
         <button
@@ -512,7 +538,278 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
         </div>
       )}
 
-      {/* Tab 2: Modular Ship Designer */}
+      {/* Tab 2: Planetary Defense Installations */}
+      {activeTab === 'defenses' && (
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Active Defense Queue if any */}
+          {planet.defenseQueue && planet.defenseQueue.length > 0 && (
+            <div className="stellaris-section-header p-3 shrink-0">
+              <div className="text-[10px] font-mono text-emerald-400 uppercase font-bold tracking-wider mb-1.5 flex items-center justify-between">
+                <span>DEVAM EDEN SAVUNMA İNŞA KUYRUĞU</span>
+                <span className="text-emerald-300 font-mono">
+                  {planet.defenseQueue.reduce((acc, q) => acc + (q.count - q.completed), 0)} Batarya Sırada
+                </span>
+              </div>
+              <div className="space-y-1.5">
+                {planet.defenseQueue.map((item, idx) => {
+                  const remainingMs = Math.max(0, item.nextUnitFinishTime - currentTimeMs);
+                  const unitDuration = Math.max(1, item.unitBuildTimeMs);
+                  const unitElapsed = Math.max(0, unitDuration - remainingMs);
+                  const unitProgress = Math.min(100, Math.max(0, Math.round((unitElapsed / unitDuration) * 100)));
+                  const defStats = DEFENSE_STATS[item.defenseType];
+
+                  return (
+                    <div
+                      key={idx}
+                      className="flex flex-col gap-1.5 stellaris-item-card px-3 py-2 rounded-sm text-xs font-mono"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-slate-200 font-bold flex items-center gap-1.5">
+                          <span>{defStats.icon}</span>
+                          <span>
+                            {item.count - item.completed}x {defStats.nameTr}
+                            {item.completed > 0 && ` (${item.completed} Tamamlandı)`}
+                          </span>
+                        </span>
+                        <span className="text-emerald-300 flex items-center gap-1.5 font-bold">
+                          <Clock className="w-3.5 h-3.5 animate-spin text-emerald-400" />
+                          {formatDuration(remainingMs)}
+                        </span>
+                      </div>
+                      <div className="w-full h-1.5 bg-[#08121a] rounded-none overflow-hidden border border-[#1b3b50]">
+                        <div
+                          className="h-full bg-gradient-to-r from-emerald-600 to-emerald-400 transition-all duration-300"
+                          style={{ width: `${unitProgress}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Current Orbital Grid Overview */}
+          <div className="px-3 pt-3 pb-1 shrink-0">
+            <div className="p-2.5 rounded-sm bg-[#08131e] border border-[#1b3d52] flex items-center justify-between">
+              <div>
+                <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                  <Shield className="w-4 h-4 text-emerald-400" />
+                  <span>Aktif Yörünge Savunma Şebekesi</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-mono mt-0.5 block">
+                  Baskın sırasında düşman filosuna doğrudan ateş açar ve hasarın %40'ını absorbe eder.
+                </span>
+              </div>
+              <div className="flex items-center gap-2 font-mono text-[11px]">
+                <span className="px-2 py-0.5 rounded-sm bg-[#0d2232] border border-[#1f4a66] text-cyan-300" title="Füze Bataryaları">
+                  🚀 {planet.defenses?.missile_battery || 0}
+                </span>
+                <span className="px-2 py-0.5 rounded-sm bg-[#0d2232] border border-[#1f4a66] text-amber-300" title="Plazma Taretleri">
+                  🔥 {planet.defenses?.plasma_turret || 0}
+                </span>
+                <span className="px-2 py-0.5 rounded-sm bg-[#0d2232] border border-[#1f4a66] text-purple-300" title="İyon Topları">
+                  ⚡ {planet.defenses?.ion_cannon || 0}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Defense Structures Catalog */}
+          <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-none">
+            {(['missile_battery', 'plasma_turret', 'ion_cannon'] as DefenseStructureType[]).map((dt) => {
+              const stats = DEFENSE_STATS[dt];
+              const buildCount = defenseCounts[dt] || 1;
+
+              const reqShipyardLevel = dt === 'ion_cannon' ? 3 : dt === 'plasma_turret' ? 2 : 1;
+              const isLocked = shipyardLevel < reqShipyardLevel;
+
+              const totalCost = {
+                ore: stats.cost.ore * buildCount,
+                crystal: stats.cost.crystal * buildCount,
+                fuel: stats.cost.fuel * buildCount,
+              };
+
+              const canAfford =
+                !isLocked &&
+                planet.resources.ore >= totalCost.ore &&
+                planet.resources.crystal >= totalCost.crystal &&
+                planet.resources.fuel >= totalCost.fuel;
+
+              const maxAffordable = Math.max(
+                0,
+                Math.min(
+                  Math.floor(planet.resources.ore / stats.cost.ore),
+                  Math.floor(planet.resources.crystal / stats.cost.crystal),
+                  stats.cost.fuel > 0 ? Math.floor(planet.resources.fuel / stats.cost.fuel) : 999
+                )
+              );
+
+              const unitDurationMs = getDefenseBuildDurationMs(dt, shipyardLevel);
+
+              return (
+                <div
+                  key={dt}
+                  className={`stellaris-item-card p-3 rounded-sm transition-all flex flex-col justify-between ${
+                    isLocked ? 'opacity-55 border-slate-700/60' : 'hover:border-emerald-500/50'
+                  }`}
+                >
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-sm bg-[#0a1824] border border-[#1b3d52] flex items-center justify-center text-xl shrink-0 shadow-inner">
+                        {stats.icon}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-bold text-slate-100 text-xs font-display tracking-wide">
+                            {stats.nameTr}
+                          </h3>
+                          {isLocked && (
+                            <span className="stellaris-badge text-[9px] text-rose-400 border-rose-500/40">
+                              Tersane Seviye {reqShipyardLevel}+ Gerekli
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10.5px] text-slate-400 mt-0.5 leading-relaxed">
+                          {stats.roleTr}
+                        </p>
+
+                        <div className="flex items-center gap-2 mt-1.5 text-[10px] font-mono text-slate-300">
+                          <span className="text-cyan-400 font-bold flex items-center gap-0.5">
+                            <Shield className="w-3 h-3 text-cyan-400" /> {stats.hull + stats.shield} HP
+                          </span>
+                          <span>•</span>
+                          <span className="text-rose-400 font-bold flex items-center gap-0.5">
+                            <Swords className="w-3 h-3 text-rose-400" /> {stats.attack} Güç
+                          </span>
+                          <span>•</span>
+                          <span className="text-slate-400 flex items-center gap-0.5">
+                            <Clock className="w-3 h-3 text-slate-400" /> {formatDuration(unitDurationMs)}/adet
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="text-right shrink-0">
+                      <span className="text-[10px] font-mono text-slate-400 block mb-0.5">Mevcut</span>
+                      <span className="text-sm font-mono font-bold text-emerald-400">
+                        {planet.defenses?.[dt] || 0}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quantity and Build Button */}
+                  <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-[#18374b]">
+                    <div className="flex items-center gap-1">
+                      {[1, 5, 10].map((preset) => (
+                        <button
+                          key={preset}
+                          type="button"
+                          disabled={isLocked}
+                          onClick={() => {
+                            sound.playClick();
+                            setDefenseCounts((prev) => ({ ...prev, [dt]: preset }));
+                          }}
+                          className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+                            buildCount === preset
+                              ? 'stellaris-rail-btn active text-emerald-300 font-bold'
+                              : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          {preset}x
+                        </button>
+                      ))}
+                      {maxAffordable > 0 && (
+                        <button
+                          type="button"
+                          disabled={isLocked}
+                          onClick={() => {
+                            sound.playClick();
+                            setDefenseCounts((prev) => ({ ...prev, [dt]: Math.min(20, maxAffordable) }));
+                          }}
+                          className="px-2 py-0.5 rounded-sm text-[10px] font-mono stellaris-btn-metallic text-emerald-400 font-bold cursor-pointer hover:border-emerald-400"
+                        >
+                          Maks ({Math.min(20, maxAffordable)})
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <div className="flex items-center border border-[#1b3d52] bg-[#070e17] rounded-sm">
+                        <button
+                          type="button"
+                          disabled={isLocked || buildCount <= 1}
+                          onClick={() => {
+                            sound.playClick();
+                            setDefenseCounts((prev) => ({ ...prev, [dt]: Math.max(1, prev[dt] - 1) }));
+                          }}
+                          className="px-1.5 py-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <span className="px-2 text-xs font-mono font-bold text-slate-200 min-w-[24px] text-center">
+                          {buildCount}
+                        </span>
+                        <button
+                          type="button"
+                          disabled={isLocked}
+                          onClick={() => {
+                            sound.playClick();
+                            setDefenseCounts((prev) => ({ ...prev, [dt]: prev[dt] + 1 }));
+                          }}
+                          className="px-1.5 py-0.5 text-slate-400 hover:text-white disabled:opacity-30 cursor-pointer"
+                        >
+                          +
+                        </button>
+                      </div>
+
+                      <button
+                        type="button"
+                        disabled={!canAfford || isLocked}
+                        onClick={() => {
+                          sound.playConstruction();
+                          if (onBuildDefense) {
+                            onBuildDefense(planet.id, dt, buildCount);
+                          }
+                        }}
+                        className={`px-3 py-1 rounded-sm text-xs font-mono font-bold uppercase tracking-wider flex items-center gap-1 transition-all cursor-pointer ${
+                          canAfford && !isLocked
+                            ? 'stellaris-btn-primary bg-emerald-600/30 border-emerald-500/60 hover:bg-emerald-600/50 text-emerald-200'
+                            : 'stellaris-btn-metallic text-slate-500 cursor-not-allowed border-slate-700'
+                        }`}
+                      >
+                        <Hammer className="w-3 h-3" />
+                        <span>İnşa Et</span>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Cost Badges */}
+                  <div className="flex items-center gap-3 mt-2 text-[10.5px] font-mono">
+                    <span className={planet.resources.ore >= totalCost.ore ? 'text-slate-300' : 'text-rose-400 font-bold'}>
+                      {totalCost.ore} Cevher
+                    </span>
+                    <span>•</span>
+                    <span className={planet.resources.crystal >= totalCost.crystal ? 'text-cyan-300' : 'text-rose-400 font-bold'}>
+                      {totalCost.crystal} Kristal
+                    </span>
+                    {totalCost.fuel > 0 && (
+                      <>
+                        <span>•</span>
+                        <span className={planet.resources.fuel >= totalCost.fuel ? 'text-amber-400' : 'text-rose-400 font-bold'}>
+                          {totalCost.fuel} Yakıt
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Tab 3: Modular Ship Designer */}
       {activeTab === 'designer' && (
         <div className="flex-1 flex flex-col overflow-y-auto p-3.5 space-y-3.5 scrollbar-none text-xs font-mono">
           {/* Subheader doctrine info */}

@@ -1,6 +1,6 @@
-import { GAME_CONSTANTS, SHIP_STATS } from './constants';
+import { DEFENSE_STATS, GAME_CONSTANTS, SHIP_STATS } from './constants';
 import { PRNG } from './prng';
-import { BattleReport, CombatRound, PlanetStance, Resources, ShipType } from './types';
+import { BattleReport, CombatRound, DefenseStructureType, PlanetStance, Resources, ShipType } from './types';
 import { Admiral, ADMIRAL_TRAITS } from './admirals';
 
 export interface CombatFleetInput {
@@ -10,12 +10,14 @@ export interface CombatFleetInput {
   weaponsResearchLevel: number;
   stance?: PlanetStance;
   admiral?: Admiral;
+  defenses?: Record<DefenseStructureType, number>;
 }
 
 export interface CombatResult {
   report: BattleReport;
   remainingAttacker: Record<ShipType, number>;
   remainingDefender: Record<ShipType, number>;
+  remainingDefenses?: Record<DefenseStructureType, number>;
   lootedResources: Resources;
   debrisFieldCreated: Resources;
   attackerAdmiralXP?: { admiralId: string; xpGained: number };
@@ -46,6 +48,32 @@ export function getFleetCombatRating(
 }
 
 /**
+ * Calculates raw combat firepower and effective HP for planetary defense platforms
+ */
+export function getDefenseCombatRating(
+  defenses?: Record<DefenseStructureType, number>,
+  weaponsLevel: number = 0
+): { totalAttack: number; totalHealth: number } {
+  if (!defenses) return { totalAttack: 0, totalHealth: 0 };
+  let totalAttack = 0;
+  let totalHealth = 0;
+
+  const weaponMult = 1 + (weaponsLevel * 0.10);
+
+  for (const [defType, count] of Object.entries(defenses) as [DefenseStructureType, number][]) {
+    if (count > 0) {
+      const stats = DEFENSE_STATS[defType];
+      if (stats) {
+        totalAttack += stats.attack * count * weaponMult;
+        totalHealth += (stats.hull + stats.shield) * count;
+      }
+    }
+  }
+
+  return { totalAttack, totalHealth };
+}
+
+/**
  * Deterministically simulates round-by-round space combat
  */
 export function resolveCombat(
@@ -53,7 +81,7 @@ export function resolveCombat(
   defender: CombatFleetInput,
   systemId: string,
   systemName: string,
-  context: 'planet_raid' | 'fleet_interception' | 'relay_contest',
+  context: 'planet_raid' | 'fleet_interception' | 'relay_contest' | 'pirate_lair',
   availablePlanetResources?: Resources,
   protectedCapacity: number = 1000,
   timestamp: number = Date.now(),
@@ -67,39 +95,58 @@ export function resolveCombat(
   const currentAttacker: Record<ShipType, number> = { ...attacker.ships };
   const currentDefender: Record<ShipType, number> = { ...defender.ships };
 
+  const initialDefenses: Record<DefenseStructureType, number> = {
+    missile_battery: defender.defenses?.missile_battery || 0,
+    plasma_turret: defender.defenses?.plasma_turret || 0,
+    ion_cannon: defender.defenses?.ion_cannon || 0,
+  };
+  const currentDefenses: Record<DefenseStructureType, number> = { ...initialDefenses };
+  const hasInitialDefenses =
+    initialDefenses.missile_battery + initialDefenses.plasma_turret + initialDefenses.ion_cannon > 0;
+
   // Evade check: if defender has 'evade_safeguard' on planet raid and is vastly outmatched
   const attackerRating = getFleetCombatRating(attacker.ships, attacker.weaponsResearchLevel);
-  const defenderRating = getFleetCombatRating(defender.ships, defender.weaponsResearchLevel);
+  const defenderFleetRating = getFleetCombatRating(defender.ships, defender.weaponsResearchLevel);
+  const defenderDefRating = getDefenseCombatRating(defender.defenses, defender.weaponsResearchLevel);
+  const defenderTotalRating = {
+    totalAttack: defenderFleetRating.totalAttack + defenderDefRating.totalAttack,
+    totalHealth: defenderFleetRating.totalHealth + defenderDefRating.totalHealth,
+  };
 
   let defenderEvaded = false;
   if (
     context === 'planet_raid' &&
     defender.stance === 'evade_safeguard' &&
-    attackerRating.totalAttack > defenderRating.totalHealth * 3 &&
-    defenderRating.totalHealth > 0
+    attackerRating.totalAttack > defenderTotalRating.totalHealth * 3 &&
+    defenderFleetRating.totalHealth > 0
   ) {
-    // Defending fleet evades combat to preserve ships, but leaves planet open for raid
+    // Defending fleet evades combat to preserve ships, but orbital defense platforms remain active
     defenderEvaded = true;
+    for (const st of Object.keys(currentDefender) as ShipType[]) {
+      currentDefender[st] = 0;
+    }
   }
 
   const rounds: CombatRound[] = [];
-  const maxRounds = defenderEvaded ? 0 : 6;
+  const maxRounds = defenderEvaded && !hasInitialDefenses ? 0 : 6;
 
   for (let r = 1; r <= maxRounds; r++) {
-    // Check if either side has zero ships
+    // Check if either side has zero ships / defenses
     const attCount = Object.values(currentAttacker).reduce((a, b) => a + b, 0);
     const defCount = Object.values(currentDefender).reduce((a, b) => a + b, 0);
+    const defDefCount = Object.values(currentDefenses).reduce((a, b) => a + b, 0);
 
-    if (attCount === 0 || defCount === 0) break;
+    if (attCount === 0 || (defCount === 0 && defDefCount === 0)) break;
 
     // Calculate attack output with +/- 10% deterministic variance
     const attRating = getFleetCombatRating(currentAttacker, attacker.weaponsResearchLevel);
     const defRating = getFleetCombatRating(currentDefender, defender.weaponsResearchLevel);
+    const currentDefenseRating = getDefenseCombatRating(currentDefenses, defender.weaponsResearchLevel);
 
     // Admiral bonuses
     const attAdmiralMult = attacker.admiral ? 1 + (attacker.admiral.level - 1) * 0.05 : 1.0;
     const attTraitMult = attacker.admiral
-      ? attacker.admiral.traitId === 'siege_breaker' && (context === 'planet_raid' || context === 'relay_contest')
+      ? attacker.admiral.traitId === 'siege_breaker' && (context === 'planet_raid' || context === 'relay_contest' || context === 'pirate_lair')
         ? 1.30
         : ADMIRAL_TRAITS[attacker.admiral.traitId].attackMultiplier
       : 1.0;
@@ -111,7 +158,9 @@ export function resolveCombat(
     const defVariance = 0.9 + prng.next() * 0.2;
 
     let attDmg = Math.round(attRating.totalAttack * attVariance * attAdmiralMult * attTraitMult);
-    let defDmg = Math.round(defRating.totalAttack * defVariance * defAdmiralMult * defTraitMult);
+    let defDmg = Math.round(
+      (defRating.totalAttack + currentDefenseRating.totalAttack) * defVariance * defAdmiralMult * defTraitMult
+    );
 
     // Attacker Critical Strike check
     if (attacker.admiral && attacker.admiral.traitId === 'tactical_genius') {
@@ -135,8 +184,18 @@ export function resolveCombat(
       defDmg = Math.round(defDmg * 0.85);
     }
 
-    // Apply losses to defender
-    const defLosses = applyDamageToFleet(currentDefender, attDmg, prng);
+    // Apply losses to defender (ships and orbital defenses)
+    let defLosses: { losses: Record<ShipType, number> };
+    let defDefenseLosses: Record<DefenseStructureType, number> | undefined;
+
+    if (hasInitialDefenses) {
+      const defRes = applyDamageToDefender(currentDefender, currentDefenses, attDmg, prng);
+      defLosses = { losses: defRes.shipLosses };
+      defDefenseLosses = defRes.defenseLosses;
+    } else {
+      defLosses = applyDamageToFleet(currentDefender, attDmg, prng);
+    }
+
     // Apply losses to attacker
     const attLosses = applyDamageToFleet(currentAttacker, defDmg, prng);
 
@@ -146,23 +205,26 @@ export function resolveCombat(
       defenderDamageDealt: defDmg,
       attackerLosses: defLosses.losses, // ships lost by defender from attacker dmg
       defenderLosses: attLosses.losses, // ships lost by attacker from defender dmg
+      defenderDefenseLosses: hasInitialDefenses ? defDefenseLosses : undefined,
       attackerRemaining: { ...currentAttacker },
       defenderRemaining: { ...currentDefender },
+      defenderDefenseRemaining: hasInitialDefenses ? { ...currentDefenses } : undefined,
     });
   }
 
   // Determine winner
   const survivingAttackerCount = Object.values(currentAttacker).reduce((a, b) => a + b, 0);
   const survivingDefenderCount = Object.values(currentDefender).reduce((a, b) => a + b, 0);
+  const survivingDefensesCount = Object.values(currentDefenses).reduce((a, b) => a + b, 0);
 
   let winner: 'attacker' | 'defender' | 'draw' = 'draw';
-  if (survivingAttackerCount > 0 && survivingDefenderCount === 0) {
+  if (survivingAttackerCount > 0 && survivingDefenderCount === 0 && survivingDefensesCount === 0) {
     winner = 'attacker';
-  } else if (survivingDefenderCount > 0 && survivingAttackerCount === 0) {
+  } else if ((survivingDefenderCount > 0 || survivingDefensesCount > 0) && survivingAttackerCount === 0) {
     winner = 'defender';
-  } else if (survivingAttackerCount > survivingDefenderCount) {
+  } else if (survivingAttackerCount > (survivingDefenderCount + survivingDefensesCount)) {
     winner = 'attacker';
-  } else if (survivingDefenderCount > survivingAttackerCount) {
+  } else if ((survivingDefenderCount + survivingDefensesCount) > survivingAttackerCount) {
     winner = 'defender';
   }
 
@@ -179,6 +241,19 @@ export function resolveCombat(
       const stats = SHIP_STATS[st];
       debrisFieldCreated.ore += Math.round(totalLost * stats.cost.ore * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
       debrisFieldCreated.crystal += Math.round(totalLost * stats.cost.crystal * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
+    }
+  }
+
+  // Calculate destroyed planetary defense structures for debris field
+  if (hasInitialDefenses) {
+    const defenseTypes: DefenseStructureType[] = ['missile_battery', 'plasma_turret', 'ion_cannon'];
+    for (const dt of defenseTypes) {
+      const lostDef = (initialDefenses[dt] || 0) - (currentDefenses[dt] || 0);
+      if (lostDef > 0) {
+        const stats = DEFENSE_STATS[dt];
+        debrisFieldCreated.ore += Math.round(lostDef * stats.cost.ore * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
+        debrisFieldCreated.crystal += Math.round(lostDef * stats.cost.crystal * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
+      }
     }
   }
 
@@ -229,6 +304,8 @@ export function resolveCombat(
     initialDefender,
     survivingAttacker: currentAttacker,
     survivingDefender: currentDefender,
+    initialDefenses: hasInitialDefenses ? initialDefenses : undefined,
+    survivingDefenses: hasInitialDefenses ? currentDefenses : undefined,
     winner,
     lootedResources,
     debrisFieldCreated,
@@ -254,11 +331,99 @@ export function resolveCombat(
     report,
     remainingAttacker: currentAttacker,
     remainingDefender: currentDefender,
+    remainingDefenses: hasInitialDefenses ? currentDefenses : undefined,
     lootedResources,
     debrisFieldCreated,
     attackerAdmiralXP,
     defenderAdmiralXP,
   };
+}
+
+/**
+ * Distributes incoming damage across planetary defenses according to durability priority
+ */
+function applyDamageToDefenses(
+  defenses: Record<DefenseStructureType, number>,
+  incomingDamage: number,
+  prng: PRNG
+): { losses: Record<DefenseStructureType, number> } {
+  const losses: Record<DefenseStructureType, number> = { missile_battery: 0, plasma_turret: 0, ion_cannon: 0 };
+  let remainingDmg = incomingDamage;
+  const order: DefenseStructureType[] = ['missile_battery', 'plasma_turret', 'ion_cannon'];
+
+  for (const dt of order) {
+    if (remainingDmg <= 0) break;
+    const count = defenses[dt] || 0;
+    if (count <= 0) continue;
+
+    const stats = DEFENSE_STATS[dt];
+    const unitHp = stats.hull + stats.shield;
+
+    const unitsDestroyed = Math.min(count, Math.floor(remainingDmg / unitHp));
+    if (unitsDestroyed > 0) {
+      defenses[dt] -= unitsDestroyed;
+      losses[dt] += unitsDestroyed;
+      remainingDmg -= unitsDestroyed * unitHp;
+    } else {
+      const killChance = remainingDmg / unitHp;
+      if (prng.next() < killChance && defenses[dt] > 0) {
+        defenses[dt] -= 1;
+        losses[dt] += 1;
+        remainingDmg = 0;
+      }
+      break;
+    }
+  }
+
+  return { losses };
+}
+
+/**
+ * Distributes damage between defender fleet ships and planetary defense installations
+ */
+function applyDamageToDefender(
+  fleet: Record<ShipType, number>,
+  defenses: Record<DefenseStructureType, number>,
+  incomingDamage: number,
+  prng: PRNG
+): {
+  shipLosses: Record<ShipType, number>;
+  defenseLosses: Record<DefenseStructureType, number>;
+} {
+  const shipCount = Object.values(fleet).reduce((a, b) => a + b, 0);
+  const defCount = Object.values(defenses).reduce((a, b) => a + b, 0);
+
+  if (shipCount === 0 && defCount === 0) {
+    return {
+      shipLosses: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+      defenseLosses: { missile_battery: 0, plasma_turret: 0, ion_cannon: 0 },
+    };
+  }
+
+  if (defCount === 0) {
+    const shipLosses = applyDamageToFleet(fleet, incomingDamage, prng).losses;
+    return {
+      shipLosses,
+      defenseLosses: { missile_battery: 0, plasma_turret: 0, ion_cannon: 0 },
+    };
+  }
+
+  if (shipCount === 0) {
+    const defenseLosses = applyDamageToDefenses(defenses, incomingDamage, prng).losses;
+    return {
+      shipLosses: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+      defenseLosses,
+    };
+  }
+
+  // Defenses absorb 40% of incoming damage, protecting the fleet; fleet takes 60%
+  const defDmg = Math.round(incomingDamage * 0.40);
+  const shipDmg = incomingDamage - defDmg;
+
+  const defenseLosses = applyDamageToDefenses(defenses, defDmg, prng).losses;
+  const shipLosses = applyDamageToFleet(fleet, shipDmg, prng).losses;
+
+  return { shipLosses, defenseLosses };
 }
 
 /**

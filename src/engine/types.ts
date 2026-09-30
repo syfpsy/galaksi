@@ -23,6 +23,22 @@ export type ResearchType = 'engines' | 'weapons' | 'sensors';
 
 export type ShipType = 'scout' | 'transport' | 'fighter' | 'battleship';
 
+export type DefenseStructureType = 'missile_battery' | 'plasma_turret' | 'ion_cannon';
+
+export interface DefenseStats {
+  type: DefenseStructureType;
+  name: string;
+  nameTr: string;
+  roleTr: string;
+  hull: number;
+  shield: number;
+  attack: number;
+  cost: Resources;
+  buildTimeSec: number;
+  icon: string;
+  accentColor: string;
+}
+
 export type PlanetStance = 'hold_position' | 'evade_safeguard';
 
 export type MissionType =
@@ -114,6 +130,14 @@ export interface Planet {
   garrison: Record<ShipType, number>;
   stance: PlanetStance;
   assignedAdmiralId?: string;
+  defenses?: Record<DefenseStructureType, number>;
+  defenseQueue?: {
+    defenseType: DefenseStructureType;
+    count: number;
+    completed: number;
+    unitBuildTimeMs: number;
+    nextUnitFinishTime: number;
+  }[];
 }
 
 export interface StarSystem {
@@ -126,9 +150,16 @@ export interface StarSystem {
   hasDebris?: Resources;
   poi?: {
     id: string;
-    type: 'derelict_cache' | 'alien_beacon' | 'asteroid_rich';
+    type: 'derelict_cache' | 'alien_beacon' | 'asteroid_rich' | 'pirate_lair' | 'pirate_ambush';
     explored: boolean;
     reward?: Resources;
+    bounty?: {
+      titleTr: string;
+      threatLevel: 'low' | 'medium' | 'high' | 'deadly';
+      pirateGarrison: Record<ShipType, number>;
+      rewardXP: number;
+      claimed: boolean;
+    };
   };
 }
 
@@ -180,6 +211,8 @@ export interface CombatRound {
   defenderLosses: Record<ShipType, number>;
   attackerRemaining: Record<ShipType, number>;
   defenderRemaining: Record<ShipType, number>;
+  defenderDefenseLosses?: Record<DefenseStructureType, number>;
+  defenderDefenseRemaining?: Record<DefenseStructureType, number>;
 }
 
 export interface BattleReport {
@@ -191,17 +224,23 @@ export interface BattleReport {
   attackerName: string;
   defenderId: string;
   defenderName: string;
-  context: 'planet_raid' | 'fleet_interception' | 'relay_contest';
+  context: 'planet_raid' | 'fleet_interception' | 'relay_contest' | 'pirate_lair';
   rounds: CombatRound[];
   initialAttacker: Record<ShipType, number>;
   initialDefender: Record<ShipType, number>;
   survivingAttacker: Record<ShipType, number>;
   survivingDefender: Record<ShipType, number>;
+  initialDefenses?: Record<DefenseStructureType, number>;
+  survivingDefenses?: Record<DefenseStructureType, number>;
   winner: 'attacker' | 'defender' | 'draw';
   lootedResources: Resources;
   debrisFieldCreated: Resources;
   attackerAdmiralName?: string;
   defenderAdmiralName?: string;
+  bountyEarned?: {
+    resources: Resources;
+    xp: number;
+  };
 }
 
 export interface PlayerIntel {
@@ -282,6 +321,7 @@ export type ScheduledEventType =
   | 'building_completed'
   | 'research_completed'
   | 'shipyard_batch_tick'
+  | 'defense_batch_tick'
   | 'fleet_arrival'
   | 'relay_point_tick';
 
@@ -297,6 +337,7 @@ export type GameCommand =
   | { type: 'UPGRADE_BUILDING'; planetId: string; buildingType: BuildingType }
   | { type: 'START_RESEARCH'; researchType: ResearchType }
   | { type: 'BUILD_SHIPS'; planetId: string; shipType: ShipType; count: number }
+  | { type: 'BUILD_DEFENSES'; planetId: string; defenseType: DefenseStructureType; count: number }
   | {
       type: 'DISPATCH_FLEET';
       originPlanetId: string;

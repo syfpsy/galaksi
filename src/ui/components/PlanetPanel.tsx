@@ -422,6 +422,44 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
             })}
           </div>
         </div>
+
+        {/* Orbital Defense Platforms Stationed Roster */}
+        <div className="pt-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[10px] font-mono text-emerald-400 uppercase font-bold tracking-wider flex items-center gap-1.5">
+              <Shield className="w-3 h-3 text-emerald-400" />
+              <span>YÖRÜNGE SAVUNMA BATARYALARI</span>
+            </span>
+            {currentPlanet.defenseQueue && currentPlanet.defenseQueue.length > 0 && (
+              <span className="text-[10px] font-mono text-emerald-300 animate-pulse">
+                {currentPlanet.defenseQueue.reduce((a, b) => a + (b.count - b.completed), 0)} İnşa Ediliyor
+              </span>
+            )}
+          </div>
+          <div className="grid grid-cols-3 gap-1.5">
+            <div className="stellaris-item-card rounded-sm p-2 flex flex-col items-center text-center">
+              <span className="text-base mb-0.5">🚀</span>
+              <span className="text-[10px] text-slate-300">Füze</span>
+              <span className="text-xs font-mono font-bold text-cyan-300 mt-0.5">
+                {currentPlanet.defenses?.missile_battery || 0}
+              </span>
+            </div>
+            <div className="stellaris-item-card rounded-sm p-2 flex flex-col items-center text-center">
+              <span className="text-base mb-0.5">🔥</span>
+              <span className="text-[10px] text-slate-300">Plazma</span>
+              <span className="text-xs font-mono font-bold text-amber-300 mt-0.5">
+                {currentPlanet.defenses?.plasma_turret || 0}
+              </span>
+            </div>
+            <div className="stellaris-item-card rounded-sm p-2 flex flex-col items-center text-center">
+              <span className="text-base mb-0.5">⚡</span>
+              <span className="text-[10px] text-slate-300">İyon</span>
+              <span className="text-xs font-mono font-bold text-purple-300 mt-0.5">
+                {currentPlanet.defenses?.ion_cannon || 0}
+              </span>
+            </div>
+          </div>
+        </div>
       </div>
     </aside>
   );

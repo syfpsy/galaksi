@@ -1,4 +1,14 @@
-import { BuildingStats, BuildingType, ResearchStats, ResearchType, Resources, ShipStats, ShipType } from './types';
+import {
+  BuildingStats,
+  BuildingType,
+  DefenseStats,
+  DefenseStructureType,
+  ResearchStats,
+  ResearchType,
+  Resources,
+  ShipStats,
+  ShipType,
+} from './types';
 
 export const GAME_CONSTANTS = {
   // Newbie protection duration: 48 hours (in milliseconds)
@@ -102,6 +112,48 @@ export const SHIP_STATS: Record<ShipType, ShipStats> = {
     fuelConsumptionPerUnit: 1.8,
     cost: { ore: 1350, crystal: 950, fuel: 420 },
     buildTimeSec: 720, // 12 minutes
+  },
+};
+
+export const DEFENSE_STATS: Record<DefenseStructureType, DefenseStats> = {
+  missile_battery: {
+    type: 'missile_battery',
+    name: 'Missile Battery',
+    nameTr: 'Hafif Füze Bataryası',
+    roleTr: 'Gezegene yaklaşan hafif avcı ve keşif gemilerine karşı hızlı güdümlü füze salvosu',
+    hull: 280,
+    shield: 80,
+    attack: 85,
+    cost: { ore: 240, crystal: 90, fuel: 20 },
+    buildTimeSec: 90, // 1.5 minutes
+    icon: '🚀',
+    accentColor: '#38bdf8',
+  },
+  plasma_turret: {
+    type: 'plasma_turret',
+    name: 'Plasma Turret',
+    nameTr: 'Ağır Plazma Tareti',
+    roleTr: 'Aşırı ısılı plazma topları ile orta ölçekli baskın filolarının zırhını eritir',
+    hull: 680,
+    shield: 220,
+    attack: 230,
+    cost: { ore: 580, crystal: 340, fuel: 110 },
+    buildTimeSec: 180, // 3 minutes
+    icon: '🔥',
+    accentColor: '#f97316',
+  },
+  ion_cannon: {
+    type: 'ion_cannon',
+    name: 'Ion Cannon',
+    nameTr: 'İyon Topu Bataryası',
+    roleTr: 'Kruvazör ve savaş gemilerinin enerji kalkanlarını felç eden derin uzay bataryası',
+    hull: 1200,
+    shield: 650,
+    attack: 420,
+    cost: { ore: 1250, crystal: 900, fuel: 350 },
+    buildTimeSec: 360, // 6 minutes
+    icon: '⚡',
+    accentColor: '#a855f7',
   },
 };
 
@@ -266,6 +318,15 @@ export function getResearchDurationMs(type: ResearchType, currentLevel: number, 
  */
 export function getShipBuildDurationMs(shipType: ShipType, shipyardLevel: number): number {
   const stats = SHIP_STATS[shipType];
+  const speedup = 1 + (Math.max(1, shipyardLevel) * 0.12);
+  return Math.round((stats.buildTimeSec / speedup) * 1000);
+}
+
+/**
+ * Defense installation build duration per unit in milliseconds (decreases with shipyard level)
+ */
+export function getDefenseBuildDurationMs(defenseType: DefenseStructureType, shipyardLevel: number): number {
+  const stats = DEFENSE_STATS[defenseType];
   const speedup = 1 + (Math.max(1, shipyardLevel) * 0.12);
   return Math.round((stats.buildTimeSec / speedup) * 1000);
 }

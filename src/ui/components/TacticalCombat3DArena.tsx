@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
-import { BattleReport, CombatRound, ShipType } from '../../engine/types';
+import { BattleReport, CombatRound, DefenseStructureType, ShipType } from '../../engine/types';
 import { SHIP_STATS } from '../../engine/constants';
 import { WeaponModuleId, loadSavedLoadouts, DEFAULT_LOADOUTS, WEAPON_MODULES } from '../../engine/shipDesign';
 import { sound } from '../sound';
@@ -283,16 +283,121 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
     return group;
   }, []);
 
+  // --- Procedural 3D Planetary Defense Platform Builders ---
+  const createMissileBatteryMesh = useCallback(() => {
+    const group = new THREE.Group();
+    // Armored Bunker Base
+    const baseGeo = new THREE.CylinderGeometry(1.6, 2.0, 1.0, 6);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.8, roughness: 0.3 });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    group.add(base);
+
+    // Launcher Box Turret
+    const boxGeo = new THREE.BoxGeometry(1.2, 0.8, 1.4);
+    const boxMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.9, roughness: 0.2 });
+    const launcherBox = new THREE.Mesh(boxGeo, boxMat);
+    launcherBox.position.set(-0.3, 0.9, 0);
+    launcherBox.rotation.z = -Math.PI / 6;
+    group.add(launcherBox);
+
+    // Glowing Missile Tips
+    [-0.3, 0.3].forEach((z) => {
+      const tipGeo = new THREE.ConeGeometry(0.15, 0.6, 6);
+      const tipMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+      const tip = new THREE.Mesh(tipGeo, tipMat);
+      tip.rotation.z = -Math.PI / 2;
+      tip.position.set(-0.8, 1.1, z);
+      group.add(tip);
+    });
+
+    return group;
+  }, []);
+
+  const createPlasmaTurretMesh = useCallback(() => {
+    const group = new THREE.Group();
+    // Reinforced Pedestal
+    const baseGeo = new THREE.CylinderGeometry(1.8, 2.4, 1.2, 8);
+    const baseMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.85, roughness: 0.25 });
+    const base = new THREE.Mesh(baseGeo, baseMat);
+    group.add(base);
+
+    // Rotating Dome
+    const domeGeo = new THREE.SphereGeometry(1.3, 10, 8, 0, Math.PI * 2, 0, Math.PI / 2);
+    const domeMat = new THREE.MeshStandardMaterial({ color: 0x374151, metalness: 0.9, roughness: 0.2 });
+    const dome = new THREE.Mesh(domeGeo, domeMat);
+    dome.position.y = 0.6;
+    group.add(dome);
+
+    // Dual Heavy Plasma Cannon Barrels
+    [-0.4, 0.4].forEach((z) => {
+      const barrelGeo = new THREE.CylinderGeometry(0.2, 0.25, 2.4, 8);
+      const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.95 });
+      const barrel = new THREE.Mesh(barrelGeo, barrelMat);
+      barrel.rotation.z = -Math.PI / 2;
+      barrel.position.set(-1.2, 1.1, z);
+      group.add(barrel);
+
+      // Glowing Plasma Chamber Ring
+      const ringGeo = new THREE.TorusGeometry(0.28, 0.08, 6, 12);
+      const ringMat = new THREE.MeshBasicMaterial({ color: 0xf97316 });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.y = Math.PI / 2;
+      ring.position.set(-0.6, 1.1, z);
+      group.add(ring);
+    });
+
+    return group;
+  }, []);
+
+  const createIonCannonMesh = useCallback(() => {
+    const group = new THREE.Group();
+    // Massive Hexagonal Fortress Core
+    const coreGeo = new THREE.CylinderGeometry(2.2, 2.8, 1.8, 6);
+    const coreMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.9, roughness: 0.2 });
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    group.add(core);
+
+    // Spinal Heavy Ion Projector Tube
+    const tubeGeo = new THREE.CylinderGeometry(0.45, 0.6, 3.8, 8);
+    const tubeMat = new THREE.MeshStandardMaterial({ color: 0x374151, metalness: 0.95, roughness: 0.15 });
+    const tube = new THREE.Mesh(tubeGeo, tubeMat);
+    tube.rotation.z = -Math.PI / 2;
+    tube.position.set(-1.8, 1.4, 0);
+    group.add(tube);
+
+    // Multi-stage Violet Energy Acceleration Coils
+    [-2.2, -1.5, -0.8].forEach((x) => {
+      const coilGeo = new THREE.TorusGeometry(0.65, 0.12, 8, 16);
+      const coilMat = new THREE.MeshBasicMaterial({ color: 0xa855f7 });
+      const coil = new THREE.Mesh(coilGeo, coilMat);
+      coil.rotation.y = Math.PI / 2;
+      coil.position.set(x, 1.4, 0);
+      group.add(coil);
+    });
+
+    // Muzzle Emitter Glow
+    const emitterGeo = new THREE.SphereGeometry(0.35, 8, 8);
+    const emitterMat = new THREE.MeshBasicMaterial({ color: 0xc084fc, blending: THREE.AdditiveBlending });
+    const emitter = new THREE.Mesh(emitterGeo, emitterMat);
+    emitter.position.set(-3.7, 1.4, 0);
+    group.add(emitter);
+
+    return group;
+  }, []);
+
   // Spawn visual ship models for a fleet according to current counts
   const populateFleetGroup = useCallback(
-    (group: THREE.Group, shipCounts: Record<ShipType, number>, isAttacker: boolean) => {
+    (
+      group: THREE.Group,
+      shipCounts: Record<ShipType, number>,
+      isAttacker: boolean,
+      defenses?: Record<DefenseStructureType, number>
+    ) => {
       // Clear previous models
       while (group.children.length > 0) {
         const obj = group.children[0];
         group.remove(obj);
       }
-
-      const baseX = isAttacker ? -24 : 24;
 
       // Class layout positions
       const layoutSlots: Record<ShipType, { x: number; y: number; z: number }[]> = {
@@ -343,8 +448,67 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
           group.add(mesh);
         }
       });
+
+      // Render defender orbital defense platforms if present
+      if (!isAttacker && defenses) {
+        const defenseSlots: Record<DefenseStructureType, { x: number; y: number; z: number }[]> = {
+          ion_cannon: [
+            { x: 38, y: 0, z: 0 },
+            { x: 40, y: 4, z: -8 },
+            { x: 40, y: -4, z: 8 },
+          ],
+          plasma_turret: [
+            { x: 36, y: 3, z: -14 },
+            { x: 36, y: -3, z: 14 },
+            { x: 35, y: 5, z: 6 },
+            { x: 35, y: -5, z: -6 },
+          ],
+          missile_battery: [
+            { x: 33, y: 4, z: -20 },
+            { x: 33, y: -4, z: 20 },
+            { x: 32, y: 6, z: -10 },
+            { x: 32, y: -6, z: 10 },
+            { x: 34, y: 0, z: -18 },
+            { x: 34, y: 0, z: 18 },
+          ],
+        };
+
+        (['ion_cannon', 'plasma_turret', 'missile_battery'] as DefenseStructureType[]).forEach((dt) => {
+          const count = defenses[dt] || 0;
+          if (count <= 0) return;
+
+          const slots = defenseSlots[dt];
+          const numToRender = Math.min(slots.length, Math.max(1, count));
+
+          for (let i = 0; i < numToRender; i++) {
+            let mesh: THREE.Group;
+            if (dt === 'ion_cannon') mesh = createIonCannonMesh();
+            else if (dt === 'plasma_turret') mesh = createPlasmaTurretMesh();
+            else mesh = createMissileBatteryMesh();
+
+            const slot = slots[i % slots.length];
+            mesh.position.set(slot.x, slot.y, slot.z);
+
+            mesh.userData = {
+              isDefense: true,
+              defenseType: dt,
+              isAttacker: false,
+              initialCount: count,
+            };
+            group.add(mesh);
+          }
+        });
+      }
     },
-    [createBattleshipMesh, createFighterMesh, createScoutMesh, createTransportMesh]
+    [
+      createBattleshipMesh,
+      createFighterMesh,
+      createScoutMesh,
+      createTransportMesh,
+      createMissileBatteryMesh,
+      createPlasmaTurretMesh,
+      createIonCannonMesh,
+    ]
   );
 
   // --- Weapon-Specific Projectile & VFX Spawners ---
@@ -549,13 +713,23 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
       // 2. Defender Return Fire
       if (round.defenderDamageDealt > 0) {
         setTimeout(() => {
-          const numSalvos = Math.min(defShips.length, 4);
+          const numSalvos = Math.min(defShips.length, 5);
 
           for (let i = 0; i < numSalvos; i++) {
             const shooter = defShips[i % defShips.length];
             const target = attShips[Math.floor(Math.random() * attShips.length)];
+            const isDefense = Boolean(shooter.userData?.isDefense);
+            const defenseType = shooter.userData?.defenseType as DefenseStructureType | undefined;
             const shipType = (shooter.userData?.shipType as ShipType) || 'scout';
-            const weaponType: WeaponModuleId = DEFAULT_LOADOUTS[shipType]?.weapon || 'laser';
+
+            let weaponType: WeaponModuleId = 'laser';
+            if (isDefense) {
+              if (defenseType === 'missile_battery') weaponType = 'torpedo';
+              else if (defenseType === 'plasma_turret') weaponType = 'plasma';
+              else if (defenseType === 'ion_cannon') weaponType = 'laser';
+            } else {
+              weaponType = DEFAULT_LOADOUTS[shipType]?.weapon || 'laser';
+            }
 
             const start = shooter.position.clone();
             const end = target.position.clone();
@@ -950,9 +1124,10 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
     const round = currentRound || report.rounds[0];
     const attRemaining = round ? round.attackerRemaining : report.survivingAttacker;
     const defRemaining = round ? round.defenderRemaining : report.survivingDefender;
+    const defDefensesRemaining = round?.defenderDefenseRemaining || report.survivingDefenses || report.initialDefenses;
 
     populateFleetGroup(attackerShipsGroupRef.current, attRemaining, true);
-    populateFleetGroup(defenderShipsGroupRef.current, defRemaining, false);
+    populateFleetGroup(defenderShipsGroupRef.current, defRemaining, false, defDefensesRemaining);
 
     if (round) {
       triggerRoundFireEffects(round);

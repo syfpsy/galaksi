@@ -46,7 +46,7 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
   onOpenAnomaly,
   onAssaultRelay,
 }) => {
-  const [activeTab, setActiveTab] = useState<'anomalies' | 'relay' | 'missions'>('anomalies');
+  const [activeTab, setActiveTab] = useState<'anomalies' | 'relay' | 'missions' | 'bounties'>('anomalies');
 
   if (!isOpen) return null;
 
@@ -58,6 +58,7 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
   const systemsWithDebris = systems.filter(
     (s) => s.hasDebris && ((s.hasDebris.ore || 0) > 0 || (s.hasDebris.crystal || 0) > 0)
   );
+  const systemsWithPirates = systems.filter((s) => s.poi?.type === 'pirate_lair');
 
   // Extract active missions for the player
   const myFleets = Object.values(state.fleets).filter((f) => f.ownerId === activePlayerId);
@@ -156,6 +157,24 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
             <span>Aktif Seferler & İntikaller</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300">
               {myFleets.length}
+            </span>
+          </button>
+
+          <button
+            onClick={() => {
+              sound.playClick();
+              setActiveTab('bounties');
+            }}
+            className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all ${
+              activeTab === 'bounties'
+                ? 'border-rose-400 text-rose-300 bg-rose-950/30'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Swords className="w-3.5 h-3.5 text-rose-400" />
+            <span>Korsan Sözleşmeleri & Ödül Avcılığı</span>
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-300 font-bold">
+              {systemsWithPirates.length}
             </span>
           </button>
         </div>
@@ -416,6 +435,149 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                           >
                             Odaklan
                           </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: PIRATE BOUNTIES & MARAUDERS */}
+          {activeTab === 'bounties' && (
+            <div className="space-y-4">
+              <div className="stellaris-item-card border-[#1c3647] p-3 flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-mono font-bold text-rose-400 uppercase tracking-wider flex items-center gap-1.5">
+                      <Swords className="w-3.5 h-3.5 text-rose-400" />
+                      <span>Galaktik Güvenlik Ağı • Korsan Avcılığı Bürosu</span>
+                    </span>
+                    <span className="stellaris-badge text-[9px] text-amber-300 border-amber-500/40">
+                      ÖDÜLLÜ
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+                    Sektör boyunca konuşlanmış haydut çeteleri ve korsan sığınakları maden konvoylarına pusu kuruyor. Bu sığınakları yok eden komutanlar yüksek miktarda Cevher, Kristal, Yakıt ve donanma tecrübe puanı (DP) kazanır.
+                  </p>
+                </div>
+              </div>
+
+              {systemsWithPirates.length === 0 ? (
+                <div className="text-center py-12 text-slate-400 text-xs font-mono stellaris-item-card border-[#1c3647] rounded-sm">
+                  Sektörde tespit edilmiş aktif korsan sığınağı bulunmuyor.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {systemsWithPirates.map((sys) => {
+                    const bounty = sys.poi?.bounty;
+                    const reward = sys.poi?.reward;
+                    const isClaimed = Boolean(bounty?.claimed);
+                    const threatLevel = bounty?.threatLevel || 'medium';
+
+                    const threatBadges: Record<string, { label: string; color: string; border: string }> = {
+                      low: { label: 'DÜŞÜK TEHDİT', color: 'text-emerald-400', border: 'border-emerald-500/40 bg-emerald-950/40' },
+                      medium: { label: 'ORTA TEHDİT', color: 'text-cyan-400', border: 'border-cyan-500/40 bg-cyan-950/40' },
+                      high: { label: 'YÜKSEK TEHDİT', color: 'text-amber-400', border: 'border-amber-500/40 bg-amber-950/40' },
+                      deadly: { label: 'ÖLÜMCÜL TEHDİT', color: 'text-rose-400', border: 'border-rose-500/50 bg-rose-950/60 animate-pulse' },
+                    };
+
+                    const badge = threatBadges[threatLevel] || threatBadges.medium;
+
+                    return (
+                      <div
+                        key={sys.id}
+                        className={`p-3.5 stellaris-item-card rounded-sm transition-all border ${
+                          isClaimed
+                            ? 'opacity-60 border-slate-700/50 bg-[#06101a]'
+                            : 'border-[#1c3d52] hover:border-rose-500/50 bg-[#091522]'
+                        }`}
+                      >
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-sm bg-[#0c1b29] border border-[#1e445f] flex items-center justify-center text-xl shrink-0">
+                              {isClaimed ? '🛡️' : '🏴‍☠️'}
+                            </div>
+
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-bold text-slate-100 text-sm font-display">
+                                  {bounty?.titleTr || 'Uzay Korsanları'} — {sys.name}
+                                </h3>
+                                <span className={`text-[9px] font-mono px-2 py-0.5 rounded-sm border font-bold ${badge.border} ${badge.color}`}>
+                                  {badge.label}
+                                </span>
+                                {isClaimed && (
+                                  <span className="stellaris-badge text-[9px] text-emerald-400 border-emerald-500/40 bg-emerald-950/40">
+                                    İMHA EDİLDİ
+                                  </span>
+                                )}
+                              </div>
+
+                              <p className="text-xs text-slate-300 mt-1">
+                                {sys.name} sisteminde konuşlu haydut karargahı. Civardaki maden konvoylarını tehdit ediyor.
+                              </p>
+
+                              {/* Garrison & Defenses breakdown */}
+                              {bounty?.pirateGarrison && (
+                                <div className="flex items-center gap-3 mt-2 text-[11px] font-mono text-slate-300">
+                                  <span className="text-slate-400">Korsan Filosu:</span>
+                                  {bounty.pirateGarrison.fighter > 0 && (
+                                    <span className="text-amber-300 font-bold">{bounty.pirateGarrison.fighter}x Avcı</span>
+                                  )}
+                                  {bounty.pirateGarrison.battleship > 0 && (
+                                    <span className="text-rose-400 font-bold">{bounty.pirateGarrison.battleship}x Dretnot</span>
+                                  )}
+                                  {bounty.pirateGarrison.scout > 0 && (
+                                    <span className="text-cyan-300">{bounty.pirateGarrison.scout}x Keşif</span>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Bounty Reward breakdown */}
+                              {reward && (
+                                <div className="flex items-center gap-3 mt-2 text-[11px] font-mono">
+                                  <span className="text-slate-400">Galaktik Ödül:</span>
+                                  <span className="text-slate-200 font-bold">{reward.ore} Cevher</span>
+                                  <span>•</span>
+                                  <span className="text-cyan-300 font-bold">{reward.crystal} Kristal</span>
+                                  <span>•</span>
+                                  <span className="text-amber-400 font-bold">{reward.fuel} Yakıt</span>
+                                  <span>•</span>
+                                  <span className="text-purple-300 font-bold">+{bounty?.rewardXP || 150} DP</span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col items-end gap-2 shrink-0">
+                            <button
+                              onClick={() => {
+                                sound.playClick();
+                                onSelectSystem(sys.id);
+                                onClose();
+                              }}
+                              className="px-3 py-1.5 rounded-sm stellaris-btn-metallic text-slate-200 text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer"
+                            >
+                              <Navigation className="w-3.5 h-3.5 text-cyan-400" />
+                              <span>Sisteme Git</span>
+                            </button>
+
+                            {!isClaimed && (
+                              <button
+                                onClick={() => {
+                                  sound.playClick();
+                                  onSelectSystem(sys.id);
+                                  onClose();
+                                }}
+                                className="px-3 py-1.5 rounded-sm text-xs font-mono font-bold uppercase tracking-wider bg-rose-600/30 border border-rose-500/60 hover:bg-rose-600/50 text-rose-200 flex items-center gap-1.5 transition-all cursor-pointer shadow-[0_0_8px_rgba(244,63,94,0.2)]"
+                              >
+                                <Swords className="w-3.5 h-3.5 text-rose-400" />
+                                <span>Taarruz Et</span>
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
                     );
