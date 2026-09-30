@@ -20,9 +20,17 @@ import {
   Box,
   Layers,
 } from 'lucide-react';
-import { BattleReport, PlanetStance, ShipType } from '../../engine/types';
-import { SHIP_STATS } from '../../engine/constants';
-import { getFleetCombatRating, resolveCombat } from '../../engine/combat';
+import {
+  BattleReport,
+  DefenseStructureType,
+  FleetDoctrine,
+  PlanetSpecialization,
+  PlanetStance,
+  ShipType,
+} from '../../engine/types';
+import { DEFENSE_STATS, SHIP_STATS } from '../../engine/constants';
+import { getDefenseCombatRating, getFleetCombatRating, resolveCombat } from '../../engine/combat';
+import { EMPIRE_ARTIFACTS } from '../../engine/artifacts';
 import { TacticalCombat3DArena } from './TacticalCombat3DArena';
 import {
   loadSavedLoadouts,
@@ -62,6 +70,39 @@ const SHIP_ICONS: Record<ShipType, string> = {
   battleship: '🛸',
 };
 
+const DEFENSE_ICONS: Record<DefenseStructureType, string> = {
+  missile_battery: '🚀',
+  plasma_turret: '⚡',
+  ion_cannon: '🌀',
+};
+
+const DOCTRINE_META: Record<FleetDoctrine, { nameTr: string; icon: string; color: string; descTr: string }> = {
+  spearhead: {
+    nameTr: 'Mızrak Ucu',
+    icon: '🎯',
+    color: '#f43f5e',
+    descTr: '+%15 Taarruz Ateşi • +%10 Alınan Hasar',
+  },
+  fortress: {
+    nameTr: 'Hisar Savunması',
+    icon: '🏰',
+    color: '#06b6d4',
+    descTr: '-%10 Ateş Gücü • %20 Hasar Emilimi',
+  },
+  hit_and_run: {
+    nameTr: 'Vur-Kaç',
+    icon: '⚡',
+    color: '#a855f7',
+    descTr: '%20 Şansla Hasardan %50 Kaçınma',
+  },
+  balanced: {
+    nameTr: 'Dengeli Hat',
+    icon: '⚖️',
+    color: '#38bdf8',
+    descTr: 'Standart Taktik Formasyon',
+  },
+};
+
 const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
   reports,
   isOpen,
@@ -86,6 +127,8 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
     battleship: 2,
   });
   const [attWeapons, setAttWeapons] = useState<number>(2);
+  const [attDoctrine, setAttDoctrine] = useState<FleetDoctrine>('spearhead');
+  const [attHasRelic, setAttHasRelic] = useState<boolean>(false);
 
   const [defShips, setDefShips] = useState<Record<ShipType, number>>({
     scout: 8,
@@ -95,6 +138,14 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
   });
   const [defWeapons, setDefWeapons] = useState<number>(1);
   const [defStance, setDefStance] = useState<PlanetStance>('hold_position');
+  const [defDoctrine, setDefDoctrine] = useState<FleetDoctrine>('fortress');
+  const [defSpecialization, setDefSpecialization] = useState<PlanetSpecialization>('balanced');
+  const [defHasRelic, setDefHasRelic] = useState<boolean>(false);
+  const [defDefenses, setDefDefenses] = useState<Record<DefenseStructureType, number>>({
+    missile_battery: 0,
+    plasma_turret: 0,
+    ion_cannon: 0,
+  });
 
   const [simResult, setSimResult] = useState<SimulationSummary | null>(null);
   const [loadouts] = useState(() => loadSavedLoadouts());
@@ -141,6 +192,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
     const totalAttLosses: Record<ShipType, number> = { scout: 0, transport: 0, fighter: 0, battleship: 0 };
     const totalDefLosses: Record<ShipType, number> = { scout: 0, transport: 0, fighter: 0, battleship: 0 };
     let sampleReport: BattleReport | null = null;
+    const hasDefDefenses = (defDefenses.missile_battery || 0) + (defDefenses.plasma_turret || 0) + (defDefenses.ion_cannon || 0) > 0;
 
     for (let i = 0; i < runs; i++) {
       const res = resolveCombat(
@@ -149,6 +201,8 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
           ownerName: 'Simüle Saldırgan Görev Gücü',
           ships: { ...attShips },
           weaponsResearchLevel: attWeapons,
+          doctrine: attDoctrine,
+          artifacts: attHasRelic ? ['dreadnought_plating'] : undefined,
         },
         {
           ownerId: 'sim_def',
@@ -156,12 +210,16 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
           ships: { ...defShips },
           weaponsResearchLevel: defWeapons,
           stance: defStance,
+          defenses: hasDefDefenses ? { ...defDefenses } : undefined,
+          doctrine: defDoctrine,
+          planetSpecialization: defSpecialization,
+          artifacts: defHasRelic ? ['dreadnought_plating'] : undefined,
         },
         'sim_sector',
         'Taktik Simülasyon Sektörü',
-        'fleet_interception',
-        undefined,
-        1000,
+        hasDefDefenses ? 'planet_raid' : 'fleet_interception',
+        hasDefDefenses ? { ore: 5000, crystal: 3000, fuel: 2000 } : undefined,
+        1200,
         Date.now(),
         42 + i * 37
       );
@@ -227,7 +285,20 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
 
     setSimResult(summary);
     setSimulatedReport(sampleReport);
-  }, [attShips, attWeapons, defShips, defWeapons, defStance]);
+  }, [
+    attShips,
+    attWeapons,
+    attDoctrine,
+    attHasRelic,
+    defShips,
+    defWeapons,
+    defStance,
+    defDoctrine,
+    defSpecialization,
+    defHasRelic,
+    defDefenses,
+    loadouts,
+  ]);
 
   // Load sample report into viewer
   const handleWatchSimulatedBattle = () => {
@@ -244,21 +315,39 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
     if (preset === 'scout_skirmish') {
       setAttShips({ scout: 8, transport: 0, fighter: 0, battleship: 0 });
       setAttWeapons(0);
+      setAttDoctrine('hit_and_run');
+      setAttHasRelic(false);
       setDefShips({ scout: 6, transport: 1, fighter: 0, battleship: 0 });
       setDefWeapons(0);
       setDefStance('hold_position');
+      setDefDoctrine('balanced');
+      setDefSpecialization('balanced');
+      setDefHasRelic(false);
+      setDefDefenses({ missile_battery: 0, plasma_turret: 0, ion_cannon: 0 });
     } else if (preset === 'raider_interception') {
       setAttShips({ scout: 2, transport: 0, fighter: 16, battleship: 1 });
       setAttWeapons(2);
+      setAttDoctrine('spearhead');
+      setAttHasRelic(false);
       setDefShips({ scout: 5, transport: 3, fighter: 4, battleship: 1 });
       setDefWeapons(1);
       setDefStance('evade_safeguard');
+      setDefDoctrine('balanced');
+      setDefSpecialization('balanced');
+      setDefHasRelic(false);
+      setDefDefenses({ missile_battery: 2, plasma_turret: 0, ion_cannon: 0 });
     } else if (preset === 'heavy_siege') {
       setAttShips({ scout: 5, transport: 0, fighter: 25, battleship: 6 });
       setAttWeapons(4);
+      setAttDoctrine('spearhead');
+      setAttHasRelic(true);
       setDefShips({ scout: 15, transport: 10, fighter: 15, battleship: 3 });
       setDefWeapons(3);
       setDefStance('hold_position');
+      setDefDoctrine('fortress');
+      setDefSpecialization('military_bastion');
+      setDefHasRelic(false);
+      setDefDefenses({ missile_battery: 4, plasma_turret: 2, ion_cannon: 1 });
     }
   };
 
@@ -274,6 +363,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
   // Fleet power ratings for simulation preview
   const attRatings = getFleetCombatRating(attShips, attWeapons);
   const defRatings = getFleetCombatRating(defShips, defWeapons);
+  const defDefenseRatings = getDefenseCombatRating(defDefenses, defWeapons);
 
   const content = (
     <div
@@ -408,35 +498,113 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
               {currentReport && (
                 <div className="flex-1 flex flex-col overflow-y-auto p-4 pb-6 space-y-4">
                   {/* Battle Metadata Banner */}
-                  <div className="stellaris-item-card border-[#1c3647] p-3 flex items-center justify-between">
-                    <div>
-                      <div className="flex items-center gap-2 text-xs font-mono text-rose-400 font-bold uppercase tracking-wider">
-                        <span>{contextTitles[currentReport.context] || 'ÖZEL MUHAREBE'}</span>
-                        <span>•</span>
-                        {onSelectSystem ? (
-                          <button
-                            onClick={() => {
-                              sound.playClick();
-                              onSelectSystem(currentReport.systemId);
-                            }}
-                            className="px-2 py-0.5 rounded-sm bg-[#081b28] border border-cyan-500/40 text-cyan-300 hover:text-white hover:border-cyan-300 flex items-center gap-1 transition-all cursor-pointer"
-                            title="Muharebe Sistemine Odaklan"
-                          >
-                            <Navigation className="w-2.5 h-2.5" />
+                  <div className="stellaris-item-card border-[#1c3647] p-3 flex flex-col gap-2">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 text-xs font-mono text-rose-400 font-bold uppercase tracking-wider">
+                          <span>{contextTitles[currentReport.context] || 'ÖZEL MUHAREBE'}</span>
+                          <span>•</span>
+                          {onSelectSystem ? (
+                            <button
+                              onClick={() => {
+                                sound.playClick();
+                                onSelectSystem(currentReport.systemId);
+                              }}
+                              className="px-2 py-0.5 rounded-sm bg-[#081b28] border border-cyan-500/40 text-cyan-300 hover:text-white hover:border-cyan-300 flex items-center gap-1 transition-all cursor-pointer"
+                              title="Muharebe Sistemine Odaklan"
+                            >
+                              <Navigation className="w-2.5 h-2.5" />
+                              <span>{currentReport.systemName}</span>
+                            </button>
+                          ) : (
                             <span>{currentReport.systemName}</span>
-                          </button>
-                        ) : (
-                          <span>{currentReport.systemName}</span>
-                        )}
+                          )}
+                        </div>
+                        <div className="text-base font-bold text-white font-display mt-0.5">
+                          {currentReport.attackerName} &nbsp;⚔️&nbsp; {currentReport.defenderName}
+                        </div>
                       </div>
-                      <div className="text-base font-bold text-white font-display mt-0.5">
-                        {currentReport.attackerName} &nbsp;⚔️&nbsp; {currentReport.defenderName}
+                      <div className="text-right flex flex-col items-end gap-1">
+                        <span className="text-xs font-mono px-2.5 py-1 rounded-sm bg-[#06121c] border border-[#1c3647] text-emerald-400 font-bold">
+                          🏆 KAZANAN: {currentReport.winner.toUpperCase()}
+                        </span>
+                        <span className="text-[10px] text-slate-400 font-mono">
+                          {new Date(currentReport.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })} • {currentReport.rounds.length} Tur
+                        </span>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <span className="text-xs font-mono px-2.5 py-1 rounded-sm bg-[#06121c] border border-[#1c3647] text-emerald-400 font-bold">
-                        🏆 KAZANAN: {currentReport.winner.toUpperCase()}
-                      </span>
+
+                    {/* Tactical Meta Badges (Doctrines, Admirals, Relics) */}
+                    <div className="flex items-center justify-between pt-2 border-t border-[#18374b]/60 text-[11px] font-mono">
+                      {/* Attacker metadata */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-rose-400 font-bold text-[10px] uppercase">Saldırgan:</span>
+                        {currentReport.attackerDoctrine && DOCTRINE_META[currentReport.attackerDoctrine] && (
+                          <span
+                            className="px-1.5 py-0.5 rounded-sm border text-[10px] font-bold flex items-center gap-1"
+                            style={{
+                              borderColor: `${DOCTRINE_META[currentReport.attackerDoctrine].color}66`,
+                              backgroundColor: `${DOCTRINE_META[currentReport.attackerDoctrine].color}1a`,
+                              color: DOCTRINE_META[currentReport.attackerDoctrine].color,
+                            }}
+                            title={DOCTRINE_META[currentReport.attackerDoctrine].descTr}
+                          >
+                            <span>{DOCTRINE_META[currentReport.attackerDoctrine].icon}</span>
+                            <span>{DOCTRINE_META[currentReport.attackerDoctrine].nameTr}</span>
+                          </span>
+                        )}
+                        {currentReport.attackerAdmiralName && (
+                          <span className="px-1.5 py-0.5 rounded-sm bg-purple-950/40 border border-purple-500/40 text-purple-300 text-[10px] font-bold flex items-center gap-1">
+                            <span>🎖️</span>
+                            <span>Amiral: {currentReport.attackerAdmiralName}</span>
+                          </span>
+                        )}
+                        {currentReport.attackerArtifacts?.map((artId) => (
+                          <span
+                            key={artId}
+                            className="px-1.5 py-0.5 rounded-sm bg-amber-950/40 border border-amber-500/40 text-amber-300 text-[10px] font-bold flex items-center gap-1"
+                            title={EMPIRE_ARTIFACTS[artId]?.effectTr}
+                          >
+                            <span>{EMPIRE_ARTIFACTS[artId]?.icon || '🏛️'}</span>
+                            <span>{EMPIRE_ARTIFACTS[artId]?.nameTr || artId}</span>
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Defender metadata */}
+                      <div className="flex items-center gap-1.5 flex-wrap justify-end">
+                        <span className="text-cyan-400 font-bold text-[10px] uppercase">Savunucu:</span>
+                        {currentReport.defenderDoctrine && DOCTRINE_META[currentReport.defenderDoctrine] && (
+                          <span
+                            className="px-1.5 py-0.5 rounded-sm border text-[10px] font-bold flex items-center gap-1"
+                            style={{
+                              borderColor: `${DOCTRINE_META[currentReport.defenderDoctrine].color}66`,
+                              backgroundColor: `${DOCTRINE_META[currentReport.defenderDoctrine].color}1a`,
+                              color: DOCTRINE_META[currentReport.defenderDoctrine].color,
+                            }}
+                            title={DOCTRINE_META[currentReport.defenderDoctrine].descTr}
+                          >
+                            <span>{DOCTRINE_META[currentReport.defenderDoctrine].icon}</span>
+                            <span>{DOCTRINE_META[currentReport.defenderDoctrine].nameTr}</span>
+                          </span>
+                        )}
+                        {currentReport.defenderAdmiralName && (
+                          <span className="px-1.5 py-0.5 rounded-sm bg-purple-950/40 border border-purple-500/40 text-purple-300 text-[10px] font-bold flex items-center gap-1">
+                            <span>🎖️</span>
+                            <span>Amiral: {currentReport.defenderAdmiralName}</span>
+                          </span>
+                        )}
+                        {currentReport.defenderArtifacts?.map((artId) => (
+                          <span
+                            key={artId}
+                            className="px-1.5 py-0.5 rounded-sm bg-amber-950/40 border border-amber-500/40 text-amber-300 text-[10px] font-bold flex items-center gap-1"
+                            title={EMPIRE_ARTIFACTS[artId]?.effectTr}
+                          >
+                            <span>{EMPIRE_ARTIFACTS[artId]?.icon || '🏛️'}</span>
+                            <span>{EMPIRE_ARTIFACTS[artId]?.nameTr || artId}</span>
+                          </span>
+                        ))}
+                      </div>
                     </div>
                   </div>
 
@@ -525,6 +693,46 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                             </div>
                           );
                         })}
+
+                        {/* Planetary Defenses if present in planet raid */}
+                        {currentReport.initialDefenses && (
+                          <div className="pt-2 border-t border-[#18374b] mt-2 space-y-2">
+                            <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider block">
+                              Gezegen Savunma Bataryaları
+                            </span>
+                            {(['missile_battery', 'plasma_turret', 'ion_cannon'] as DefenseStructureType[]).map((dt) => {
+                              const initDef = currentReport.initialDefenses?.[dt] || 0;
+                              if (initDef === 0) return null;
+                              const currentRemainingDef = currentRound
+                                ? currentRound.defenderDefenseRemaining?.[dt] ?? 0
+                                : currentReport.survivingDefenses?.[dt] ?? 0;
+                              const defPercent = Math.min(100, Math.round((currentRemainingDef / initDef) * 100));
+
+                              return (
+                                <div key={dt} className="space-y-0.5">
+                                  <div className="flex justify-between text-slate-200 text-xs font-medium">
+                                    <span className="flex items-center gap-1.5">
+                                      <span>{DEFENSE_ICONS[dt]}</span>
+                                      <span>{DEFENSE_STATS[dt].nameTr}</span>
+                                    </span>
+                                    <span>
+                                      <strong className={currentRemainingDef > 0 ? 'text-amber-300' : 'text-rose-400'}>
+                                        {currentRemainingDef}
+                                      </strong>
+                                      <span className="text-slate-500"> / {initDef}</span>
+                                    </span>
+                                  </div>
+                                  <div className="w-full h-1 bg-[#050b12] rounded-none overflow-hidden border border-[#1b3447]">
+                                    <div
+                                      className="h-full bg-gradient-to-r from-amber-600 to-amber-400 transition-all duration-300"
+                                      style={{ width: `${defPercent}%` }}
+                                    />
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -691,6 +899,62 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                           </div>
                         </div>
                       )}
+
+                      {/* Interactive Round Firepower Comparison Curve */}
+                      {totalRounds > 1 && (
+                        <div className="space-y-1.5 pt-2 border-t border-[#18374b]">
+                          <div className="flex items-center justify-between text-[10px] font-mono text-slate-400">
+                            <span className="flex items-center gap-1.5">
+                              <span className="w-2 h-2 rounded-full bg-rose-500 inline-block" /> Saldırgan vs
+                              <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block ml-1" /> Savunucu Ateş Gücü Eğrisi
+                            </span>
+                            <span className="text-slate-500">Tura tıklayarak atlayın</span>
+                          </div>
+                          <div className="h-16 bg-[#050f18] rounded-sm border border-[#1c3647] p-2 flex items-end gap-1.5 overflow-x-auto scrollbar-none">
+                            {currentReport.rounds.map((rnd, idx) => {
+                              const maxDmg = Math.max(
+                                1,
+                                ...currentReport.rounds.map((r) => Math.max(r.attackerDamageDealt, r.defenderDamageDealt))
+                              );
+                              const attHeight = Math.max(4, Math.round((rnd.attackerDamageDealt / maxDmg) * 32));
+                              const defHeight = Math.max(4, Math.round((rnd.defenderDamageDealt / maxDmg) * 32));
+                              const isCurrent = idx === currentRoundIdx;
+
+                              return (
+                                <button
+                                  key={idx}
+                                  type="button"
+                                  onClick={() => {
+                                    setIsPlaying(false);
+                                    setCurrentRoundIdx(idx);
+                                    sound.playLaser();
+                                  }}
+                                  className={`flex-1 min-w-[32px] max-w-[56px] h-full flex flex-col justify-end items-center p-1 rounded-xs transition-all cursor-pointer group ${
+                                    isCurrent
+                                      ? 'bg-cyan-950/80 border border-cyan-400/80 shadow-[0_0_8px_rgba(6,182,212,0.4)]'
+                                      : 'hover:bg-[#0c1f2e] border border-transparent'
+                                  }`}
+                                  title={`Tur ${idx + 1}: Saldırgan ${rnd.attackerDamageDealt} | Savunucu ${rnd.defenderDamageDealt} Hasar`}
+                                >
+                                  <div className="w-full flex items-end justify-center gap-1 mb-1">
+                                    <div
+                                      className="w-2 bg-rose-500 rounded-xs transition-all group-hover:brightness-125"
+                                      style={{ height: `${attHeight}px` }}
+                                    />
+                                    <div
+                                      className="w-2 bg-cyan-400 rounded-xs transition-all group-hover:brightness-125"
+                                      style={{ height: `${defHeight}px` }}
+                                    />
+                                  </div>
+                                  <span className={`text-[9px] font-mono leading-none ${isCurrent ? 'text-cyan-300 font-bold' : 'text-slate-500 group-hover:text-slate-300'}`}>
+                                    T{idx + 1}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
 
@@ -818,10 +1082,10 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                 ))}
               </div>
 
-              {/* Tech Modifiers */}
-              <div className="pt-2 border-t border-[#18374b] flex items-center justify-between text-[11px]">
-                <span className="text-slate-400">Silah Araştırma Seviyesi:</span>
-                <div className="flex items-center gap-2">
+              {/* Tech & Tactical Modifiers */}
+              <div className="pt-2 border-t border-[#18374b] space-y-2 text-[11px]">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Silah Araştırma:</span>
                   <select
                     value={attWeapons}
                     onChange={(e) => setAttWeapons(Number(e.target.value))}
@@ -833,6 +1097,39 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                       </option>
                     ))}
                   </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Filo Doktrini:</span>
+                  <select
+                    value={attDoctrine}
+                    onChange={(e) => setAttDoctrine(e.target.value as FleetDoctrine)}
+                    className="bg-[#091522] border border-[#1d3d54] rounded-sm px-2 py-0.5 text-rose-300 font-bold focus:outline-none"
+                  >
+                    <option value="spearhead">🎯 Mızrak Ucu (+%15 Ateş / +%10 Hasar)</option>
+                    <option value="fortress">🏰 Hisar Savunması (-%10 Ateş / %20 Emilim)</option>
+                    <option value="hit_and_run">⚡ Vur-Kaç (%20 Kaçınma)</option>
+                    <option value="balanced">⚖️ Dengeli Hat (Standart)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Kadim Yadigar:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setAttHasRelic(!attHasRelic);
+                    }}
+                    className={`px-2 py-0.5 rounded-sm border text-[10.5px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                      attHasRelic
+                        ? 'bg-amber-950/80 border-amber-500/80 text-amber-300 font-bold shadow-sm'
+                        : 'bg-[#091522] border-[#1d3d54] text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>🛡️</span>
+                    <span>{attHasRelic ? 'Kadim Zırh Kaplaması (+%10/-10%)' : 'Kadim Yadigar Yok'}</span>
+                  </button>
                 </div>
               </div>
             </div>
@@ -847,8 +1144,13 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                   </span>
                 </div>
                 <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                  <span>Ateş: <strong className="text-cyan-400">{Math.round(defRatings.totalAttack)}</strong></span>
-                  <span>HP: <strong className="text-slate-200">{defRatings.totalHealth}</strong></span>
+                  <span>
+                    Ateş: <strong className="text-cyan-400">{Math.round(defRatings.totalAttack + defDefenseRatings.totalAttack)}</strong>
+                    {defDefenseRatings.totalAttack > 0 && (
+                      <span className="text-amber-400 text-[9px] ml-1">(+{Math.round(defDefenseRatings.totalAttack)} Taret)</span>
+                    )}
+                  </span>
+                  <span>HP: <strong className="text-slate-200">{defRatings.totalHealth + defDefenseRatings.totalHealth}</strong></span>
                 </div>
               </div>
 
@@ -900,7 +1202,63 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                 ))}
               </div>
 
-              {/* Tech & Stance Modifiers */}
+              {/* Planetary Defense Batteries (Garnizon Taretleri) */}
+              <div className="pt-2 border-t border-[#18374b] space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-amber-400 uppercase tracking-wider">
+                    Gezegen Savunma Bataryaları
+                  </span>
+                  <span className="text-[9px] text-slate-400">
+                    +{Math.round(defDefenseRatings.totalAttack)} Ateş • +{defDefenseRatings.totalHealth} Can
+                  </span>
+                </div>
+                {(['missile_battery', 'plasma_turret', 'ion_cannon'] as DefenseStructureType[]).map((dt) => (
+                  <div key={dt} className="flex items-center justify-between bg-[#061019] p-1.5 rounded-sm border border-[#142838]">
+                    <div className="flex items-center gap-2">
+                      <span className="text-base">{DEFENSE_ICONS[dt]}</span>
+                      <div>
+                        <span className="text-[11px] font-bold text-slate-200 block">{DEFENSE_STATS[dt].nameTr}</span>
+                        <span className="text-[9px] text-slate-500">
+                          {DEFENSE_STATS[dt].attack} Atak • {DEFENSE_STATS[dt].hull + DEFENSE_STATS[dt].shield} Dayanıklılık
+                        </span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setDefDefenses((prev) => ({ ...prev, [dt]: Math.max(0, prev[dt] - 1) }));
+                        }}
+                        className="w-6 h-6 rounded-sm stellaris-btn-metallic text-slate-400 flex items-center justify-center font-bold cursor-pointer"
+                      >
+                        -
+                      </button>
+                      <input
+                        type="number"
+                        min="0"
+                        max="50"
+                        value={defDefenses[dt]}
+                        onChange={(e) => {
+                          const val = Math.max(0, parseInt(e.target.value) || 0);
+                          setDefDefenses((prev) => ({ ...prev, [dt]: val }));
+                        }}
+                        className="w-12 bg-[#091522] border border-[#1d3d54] rounded-sm px-1 py-0.5 text-center font-bold text-amber-300 focus:outline-none"
+                      />
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          setDefDefenses((prev) => ({ ...prev, [dt]: prev[dt] + 1 }));
+                        }}
+                        className="w-6 h-6 rounded-sm stellaris-btn-metallic text-amber-300 flex items-center justify-center font-bold cursor-pointer"
+                      >
+                        +
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Tech, Stance, Doctrine & Specialization Modifiers */}
               <div className="pt-2 border-t border-[#18374b] space-y-2 text-[11px]">
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Silah Seviyesi:</span>
@@ -916,6 +1274,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                     ))}
                   </select>
                 </div>
+
                 <div className="flex items-center justify-between">
                   <span className="text-slate-400">Gezegen Duruşu:</span>
                   <select
@@ -926,6 +1285,54 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                     <option value="hold_position">Mevziiyi Koru (Son Gemiye Kadar Savaş)</option>
                     <option value="evade_safeguard">Ağır Baskında Kaçın (Filoyu Koru)</option>
                   </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Filo Doktrini:</span>
+                  <select
+                    value={defDoctrine}
+                    onChange={(e) => setDefDoctrine(e.target.value as FleetDoctrine)}
+                    className="bg-[#091522] border border-[#1d3d54] rounded-sm px-2 py-0.5 text-cyan-300 font-bold focus:outline-none"
+                  >
+                    <option value="fortress">🏰 Hisar Savunması (-%10 Ateş / %20 Emilim)</option>
+                    <option value="spearhead">🎯 Mızrak Ucu (+%15 Ateş / +%10 Hasar)</option>
+                    <option value="hit_and_run">⚡ Vur-Kaç (%20 Kaçınma)</option>
+                    <option value="balanced">⚖️ Dengeli Hat (Standart)</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Gezegen Uzmanlaşması:</span>
+                  <select
+                    value={defSpecialization}
+                    onChange={(e) => setDefSpecialization(e.target.value as PlanetSpecialization)}
+                    className="bg-[#091522] border border-[#1d3d54] rounded-sm px-2 py-0.5 text-emerald-300 font-bold focus:outline-none"
+                  >
+                    <option value="balanced">Standart Koloni</option>
+                    <option value="military_bastion">⚔️ Askeri Kale (Taretler %60 Hasar Emer & +%25 Can)</option>
+                    <option value="mining_world">Cevher Madencilik Dünyası</option>
+                    <option value="tech_haven">Teknoloji & Araştırma Cenneti</option>
+                    <option value="forge_world">Tersane & Ağır Sanayi</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">Kadim Yadigar:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      sound.playClick();
+                      setDefHasRelic(!defHasRelic);
+                    }}
+                    className={`px-2 py-0.5 rounded-sm border text-[10.5px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                      defHasRelic
+                        ? 'bg-amber-950/80 border-amber-500/80 text-amber-300 font-bold shadow-sm'
+                        : 'bg-[#091522] border-[#1d3d54] text-slate-400 hover:text-slate-200'
+                    }`}
+                  >
+                    <span>🛡️</span>
+                    <span>{defHasRelic ? 'Kadim Zırh Kaplaması (+%10/-10%)' : 'Kadim Yadigar Yok'}</span>
+                  </button>
                 </div>
               </div>
             </div>

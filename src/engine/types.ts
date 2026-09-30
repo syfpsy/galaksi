@@ -300,6 +300,8 @@ export interface BattleReport {
   defenderAdmiralName?: string;
   attackerDoctrine?: FleetDoctrine;
   defenderDoctrine?: FleetDoctrine;
+  attackerArtifacts?: EmpireArtifactId[];
+  defenderArtifacts?: EmpireArtifactId[];
   bountyEarned?: {
     resources: Resources;
     xp: number;

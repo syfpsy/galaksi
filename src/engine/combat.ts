@@ -353,6 +353,8 @@ export function resolveCombat(
     defenderAdmiralName: defender.admiral?.name,
     attackerDoctrine: attacker.doctrine,
     defenderDoctrine: defender.doctrine,
+    attackerArtifacts: attacker.artifacts,
+    defenderArtifacts: defender.artifacts,
   };
 
   const attackerAdmiralXP = attacker.admiral
