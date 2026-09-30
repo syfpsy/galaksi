@@ -12,6 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { GameState, PlanetSlot, StarSystem } from '../../engine/types';
+import { EMPIRE_ARTIFACTS } from '../../engine/artifacts';
 import { sound } from '../sound';
 import { getPlanetAsset } from '../planetAssets';
 
@@ -419,38 +420,53 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
           {/* Anomaly & Debris Special Sighting Cards */}
           {(system.poi || (system.hasDebris && ((system.hasDebris.ore || 0) > 0 || (system.hasDebris.crystal || 0) > 0))) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {system.poi && (
-                <div className="p-3 rounded-sm bg-amber-950/30 border border-amber-500/40 flex items-center justify-between shadow-sm">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-sm bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-sm">
-                      ★
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-amber-300 font-mono">
-                        {system.poi.type === 'derelict_cache'
-                          ? 'Terk Edilmiş Antik Kargo Gemisi'
-                          : system.poi.type === 'alien_beacon'
-                          ? 'Yabancı Subspace Radyo Sinyali'
-                          : 'Nadir Cevher Asteroit Kuşağı'}
+              {system.poi && (() => {
+                const poiNames: Record<string, string> = {
+                  derelict_cache: 'Terk Edilmiş Antik Kargo Gemisi',
+                  alien_beacon: 'Yabancı Subspace Radyo Sinyali',
+                  asteroid_rich: 'Nadir Cevher Asteroit Kuşağı',
+                  ancient_ruins: 'Kadim Öncü Uygarlık Kalıntıları',
+                  derelict_dreadnought: 'Sürüklenen Kadim Savaş Dretnotu',
+                  dark_matter_rift: 'Karanlık Madde Uzay-Zaman Yarığı',
+                };
+                const relic = system.poi.artifactId ? EMPIRE_ARTIFACTS[system.poi.artifactId] : null;
+
+                return (
+                  <div className="p-3 rounded-sm bg-amber-950/30 border border-amber-500/40 flex items-center justify-between shadow-sm">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-8 h-8 rounded-sm bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-sm">
+                        {relic ? relic.icon : '★'}
                       </div>
-                      <div className="text-[10px] text-slate-300 font-mono">
-                        {system.poi.explored ? '✓ Keşfedildi (Kaynaklar Toplandı)' : '● Keşfedilmedi — Analiz Bekleniyor'}
+                      <div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-bold text-amber-300 font-mono">
+                            {poiNames[system.poi.type] || 'Bilinmeyen Sektör Anomalisi'}
+                          </span>
+                          {relic && !system.poi.explored && (
+                            <span className="text-[9px] font-mono px-1 py-0.2 rounded-sm bg-cyan-950 border border-cyan-500/50 text-cyan-300 font-bold">
+                              🏛️ Yadigar
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-300 font-mono">
+                          {system.poi.explored ? '✓ Keşfedildi (Kaynaklar Toplandı)' : '● Keşfedilmedi — Analiz Bekleniyor'}
+                        </div>
                       </div>
                     </div>
+                    {onOpenAnomaly && (
+                      <button
+                        onClick={() => {
+                          sound.playClick();
+                          onOpenAnomaly(system);
+                        }}
+                        className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 rounded-sm text-xs font-mono font-bold transition-all shrink-0"
+                      >
+                        İncele
+                      </button>
+                    )}
                   </div>
-                  {onOpenAnomaly && (
-                    <button
-                      onClick={() => {
-                        sound.playClick();
-                        onOpenAnomaly(system);
-                      }}
-                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 rounded-sm text-xs font-mono font-bold transition-all shrink-0"
-                    >
-                      İncele
-                    </button>
-                  )}
-                </div>
-              )}
+                );
+              })()}
 
               {system.hasDebris && ((system.hasDebris.ore || 0) > 0 || (system.hasDebris.crystal || 0) > 0) && (
                 <div className="p-3 rounded-sm bg-rose-950/30 border border-rose-500/40 flex items-center justify-between shadow-sm">

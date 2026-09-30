@@ -169,6 +169,49 @@ export interface Planet {
   specialization?: PlanetSpecialization;
 }
 
+export type EmpireArtifactId =
+  | 'progenitor_matrix'
+  | 'rift_hyperdrive'
+  | 'dreadnought_plating'
+  | 'subspace_tachyon_array';
+
+export interface EmpireArtifact {
+  id: EmpireArtifactId;
+  nameTr: string;
+  categoryTr: string;
+  icon: string;
+  color: string;
+  descriptionTr: string;
+  effectTr: string;
+  discoveredAtMs?: number;
+  originSystemName?: string;
+}
+
+export type POIType =
+  | 'derelict_cache'
+  | 'alien_beacon'
+  | 'asteroid_rich'
+  | 'pirate_lair'
+  | 'pirate_ambush'
+  | 'ancient_ruins'
+  | 'derelict_dreadnought'
+  | 'dark_matter_rift';
+
+export interface SystemPOI {
+  id: string;
+  type: POIType;
+  explored: boolean;
+  reward?: Resources;
+  artifactId?: EmpireArtifactId;
+  bounty?: {
+    titleTr: string;
+    threatLevel: 'low' | 'medium' | 'high' | 'deadly';
+    pirateGarrison: Record<ShipType, number>;
+    rewardXP: number;
+    claimed: boolean;
+  };
+}
+
 export interface StarSystem {
   id: string;
   name: string;
@@ -177,19 +220,7 @@ export interface StarSystem {
   slots: PlanetSlot[];
   hasRelay: boolean;
   hasDebris?: Resources;
-  poi?: {
-    id: string;
-    type: 'derelict_cache' | 'alien_beacon' | 'asteroid_rich' | 'pirate_lair' | 'pirate_ambush';
-    explored: boolean;
-    reward?: Resources;
-    bounty?: {
-      titleTr: string;
-      threatLevel: 'low' | 'medium' | 'high' | 'deadly';
-      pirateGarrison: Record<ShipType, number>;
-      rewardXP: number;
-      claimed: boolean;
-    };
-  };
+  poi?: SystemPOI;
 }
 
 export interface FlightLane {
@@ -397,6 +428,7 @@ export interface Player {
   intel: PlayerIntel;
   espionageReports?: EspionageReport[];
   claimedDirectives?: string[]; // IDs of claimed empire directives
+  artifacts?: EmpireArtifactId[]; // Discovered ancient relics and artifacts
 }
 
 export type EmpireDirectiveId =

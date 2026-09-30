@@ -1,6 +1,14 @@
 import { generatePirateOutposts } from './pirates';
 import { PRNG } from './prng';
-import { FlightLane, Planet, PlanetSlot, SectorMap, StarSystem } from './types';
+import {
+  EmpireArtifactId,
+  FlightLane,
+  Planet,
+  PlanetSlot,
+  POIType,
+  SectorMap,
+  StarSystem,
+} from './types';
 
 export interface SectorConfig {
   systemCount?: number;
@@ -88,17 +96,45 @@ export function generateSectorMap(config: SectorConfig = {}): SectorMap {
     // 40% chance of an exploration POI
     let poi: StarSystem['poi'] = undefined;
     if (prng.next() < 0.45) {
-      const poiTypes: ('derelict_cache' | 'alien_beacon' | 'asteroid_rich')[] = [
-        'derelict_cache', 'alien_beacon', 'asteroid_rich'
+      const poiTypes: POIType[] = [
+        'derelict_cache',
+        'alien_beacon',
+        'asteroid_rich',
+        'ancient_ruins',
+        'derelict_dreadnought',
+        'dark_matter_rift',
       ];
+      const selectedType = prng.choice(poiTypes);
+      let ore = prng.nextInt(400, 1200);
+      let crystal = prng.nextInt(250, 800);
+      let fuel = prng.nextInt(150, 500);
+
+      let artifactId: EmpireArtifactId | undefined = undefined;
+      if (selectedType === 'ancient_ruins') {
+        artifactId = 'progenitor_matrix';
+        ore = Math.round(ore * 1.8);
+        crystal = Math.round(crystal * 2.2);
+      } else if (selectedType === 'dark_matter_rift') {
+        artifactId = 'rift_hyperdrive';
+        crystal = Math.round(crystal * 1.8);
+        fuel = Math.round(fuel * 2.5);
+      } else if (selectedType === 'derelict_dreadnought') {
+        artifactId = 'dreadnought_plating';
+        ore = Math.round(ore * 2.5);
+        fuel = Math.round(fuel * 1.5);
+      } else if (selectedType === 'alien_beacon') {
+        artifactId = 'subspace_tachyon_array';
+      }
+
       poi = {
         id: `poi_${sysId}`,
-        type: prng.choice(poiTypes),
+        type: selectedType,
         explored: false,
+        artifactId,
         reward: {
-          ore: prng.nextInt(400, 1200),
-          crystal: prng.nextInt(250, 800),
-          fuel: prng.nextInt(150, 500),
+          ore,
+          crystal,
+          fuel,
         },
       };
     }

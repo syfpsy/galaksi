@@ -2,6 +2,7 @@ import { GAME_CONSTANTS } from './constants';
 import { evaluatePlayerDirectives } from './directives';
 import {
   Admiral,
+  EmpireArtifactId,
   EmpireDirective,
   EspionageOp,
   EspionageReport,
@@ -70,6 +71,7 @@ export interface PlayerVisibleState {
   seasonHistory?: VictoryRecord[];
   myClaimedDirectives?: string[];
   myDirectives?: EmpireDirective[];
+  myArtifacts?: EmpireArtifactId[];
 }
 
 /**
@@ -95,10 +97,11 @@ export function getPlayerSensorCoverage(
     if (alliedPlayerIds.has(planet.ownerId)) {
       coveredSystems.add(planet.systemId);
 
-      // Sensor array bonus: +1 lane range per 2 levels + research
+      // Sensor array bonus: +1 lane range per 2 levels + research + relic
       const sensorLevel = planet.buildings.sensor_array || 0;
       const researchLevel = state.players[planet.ownerId]?.research.sensors || 0;
-      const range = GAME_CONSTANTS.BASE_SENSOR_RANGE + Math.floor(sensorLevel / 2) + Math.floor(researchLevel / 2);
+      const relicSensorBonus = state.players[planet.ownerId]?.artifacts?.includes('subspace_tachyon_array') ? 1 : 0;
+      const range = GAME_CONSTANTS.BASE_SENSOR_RANGE + Math.floor(sensorLevel / 2) + Math.floor(researchLevel / 2) + relicSensorBonus;
 
       addNeighborSystemsWithinHops(planet.systemId, range, state.map, coveredSystems);
     }
@@ -350,5 +353,6 @@ export function filterGameStateForPlayer(
     seasonHistory: state.seasonHistory || [],
     myClaimedDirectives: player?.claimedDirectives || [],
     myDirectives: evaluatePlayerDirectives(state, playerId),
+    myArtifacts: player?.artifacts || [],
   };
 }

@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { GameState, StarSystem } from '../../engine/types';
 import { evaluatePlayerDirectives } from '../../engine/directives';
+import { EMPIRE_ARTIFACTS } from '../../engine/artifacts';
 import { formatClockTime, formatDuration } from '../timeUtils';
 import { sound } from '../sound';
 
@@ -392,6 +393,55 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
           {/* TAB 1: ANOMALIES & DEBRIS */}
           {activeTab === 'anomalies' && (
             <div className="space-y-4">
+              {/* Imperial Relics Showcase Banner */}
+              <div className="p-3.5 rounded-sm stellaris-outliner bg-gradient-to-r from-[#0d2538] to-[#07131f] border border-[#1b435f]">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm">🏛️</span>
+                    <h3 className="text-xs font-bold font-display uppercase tracking-wider text-cyan-300">
+                      Kazanılan Kadim Yadigarlar & Antik Teknolojiler
+                    </h3>
+                  </div>
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-cyan-950/80 border border-cyan-500/50 text-cyan-200 font-bold">
+                    {activePlayer?.artifacts?.length || 0} / 4 Aktif
+                  </span>
+                </div>
+
+                {(!activePlayer?.artifacts || activePlayer.artifacts.length === 0) ? (
+                  <p className="text-[11px] text-slate-400 font-sans italic">
+                    Henüz kadim bir yadigar keşfedilmedi. Sektördeki Öncü Kalıntıları, Savaş Dretnotu veya Uzay Yarığı sahalarına keşif filoları sevk ederek yadigarları toplayın.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2 mt-2">
+                    {activePlayer.artifacts.map((artId) => {
+                      const art = EMPIRE_ARTIFACTS[artId];
+                      if (!art) return null;
+                      return (
+                        <div
+                          key={`relic_${art.id}`}
+                          className="stellaris-item-card p-2.5 flex items-center justify-between border-cyan-500/40 bg-[#091a29]"
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="text-lg">{art.icon}</span>
+                            <div>
+                              <div className="text-xs font-bold text-white font-mono flex items-center gap-1.5">
+                                <span>{art.nameTr}</span>
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-sans">
+                                {art.categoryTr}
+                              </div>
+                            </div>
+                          </div>
+                          <span className="stellaris-badge text-emerald-300 border-emerald-500/40 text-[10px] font-mono shrink-0">
+                            {art.effectTr}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
               <div className="text-xs text-slate-400 font-mono flex items-center justify-between">
                 <span>Keşif veya İkmal Bekleyen Sektör Olayları</span>
                 <span className="text-slate-500">Detaylı tarama ve sevk için kartlara tıklayın</span>
@@ -407,7 +457,12 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                     derelict_cache: 'Terk Edilmiş Antik Kargo Gemisi',
                     alien_beacon: 'Yabancı Subspace Radyo Sinyali',
                     asteroid_rich: 'Nadir Cevher Asteroit Kuşağı',
+                    ancient_ruins: 'Kadim Öncü Uygarlık Kalıntıları',
+                    derelict_dreadnought: 'Sürüklenen Kadim Savaş Dretnotu',
+                    dark_matter_rift: 'Karanlık Madde Uzay-Zaman Yarığı',
                   };
+
+                  const relic = poi.artifactId ? EMPIRE_ARTIFACTS[poi.artifactId] : null;
 
                   return (
                     <div
@@ -426,7 +481,7 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                               : 'bg-amber-950/60 border-amber-500/50 text-amber-400 animate-pulse'
                           }`}
                         >
-                          ★
+                          {relic ? relic.icon : '★'}
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
@@ -436,6 +491,11 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                             <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-[#0a1826] border border-[#1b3449] text-cyan-300 font-medium">
                               {sys.name}
                             </span>
+                            {relic && !isExplored && (
+                              <span className="text-[9px] font-mono px-1.5 py-0.2 rounded-sm bg-cyan-950 border border-cyan-500/50 text-cyan-300 font-bold">
+                                🏛️ Yadigar Sahası
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] font-mono text-slate-300 mt-0.5">
                             {isExplored ? (

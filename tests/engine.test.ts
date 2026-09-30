@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../src/engine/engine';
 import { resolveCombat } from '../src/engine/combat';
 import { calculateRouteInfo, checkInterceptionFeasibility } from '../src/engine/flight';
+import { getPlayerSensorCoverage } from '../src/engine/fog';
 import { evaluateBotDiplomacy, resetBotDiplomacyCooldowns } from '../src/bots/diplomacy';
 import { ExplorerBot } from '../src/bots/explorer';
 import { IndustrialistBot } from '../src/bots/industrialist';
@@ -1549,6 +1550,122 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     );
 
     expect(resBastion.report.winner).toBe('defender');
+  });
+
+  it('discovers ancient archeology anomalies, unlocks imperial relics, awards admiral XP, and applies empire-wide relic synergies (Phase 8)', () => {
+    const engine = new GameEngine(12345);
+    const { player, homeworld: hw } = engine.addPlayer('p1', 'Archaeologist Emperor', '#00f3ff', undefined, false);
+
+    // Recruit or pick an admiral for the exploration fleet
+    const admId = Object.keys(engine.state.admirals || {})[0];
+    const initialXP = engine.state.admirals![admId].xp;
+
+    // Pick a target system and plant an ancient ruins POI with progenitor_matrix
+    const targetSys = Object.values(engine.state.map.systems).find((s) => s.id !== hw.systemId && !s.hasRelay)!;
+    targetSys.poi = {
+      id: `poi_${targetSys.id}`,
+      type: 'ancient_ruins',
+      explored: false,
+      artifactId: 'progenitor_matrix',
+      reward: { ore: 1200, crystal: 1800, fuel: 600 },
+    };
+
+    // Dispatch scout fleet on explore mission with assigned admiral
+    hw.garrison.scout = 2;
+    hw.resources.fuel = 5000;
+
+    const dispatchRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw.id,
+      targetSystemId: targetSys.id,
+      ships: { scout: 1, transport: 0, fighter: 0, battleship: 0 },
+      mission: 'explore',
+      admiralId: admId,
+    });
+    expect(dispatchRes.success).toBe(true);
+
+    const fleetId = dispatchRes.data!.fleetId;
+    const duration = dispatchRes.data!.durationMs;
+
+    // Advance time until fleet arrives at target system
+    engine.tick(duration + 100);
+
+    // 1. Verify POI explored and cargo collected
+    expect(targetSys.poi.explored).toBe(true);
+    const returningFleet = engine.state.fleets[fleetId];
+    expect(returningFleet.isReturning).toBe(true);
+    expect(returningFleet.cargo.ore).toBe(1200);
+    expect(returningFleet.cargo.crystal).toBe(1800);
+    expect(returningFleet.cargo.fuel).toBe(600);
+
+    // 2. Verify imperial relic unlocked on player
+    expect(player.artifacts).toContain('progenitor_matrix');
+
+    // 3. Verify admiral XP gained (+200 XP for relic discovery)
+    expect(engine.state.admirals![admId].xp).toBe(initialXP + 200);
+
+    // 4. Verify research duration discount (-10% from progenitor_matrix)
+    hw.buildings.research_lab = 2;
+    hw.resources.ore = 10000;
+    hw.resources.crystal = 10000;
+    hw.resources.fuel = 10000;
+
+    const resCmd = engine.dispatchCommand('p1', {
+      type: 'START_RESEARCH',
+      researchType: 'weapons',
+    });
+    expect(resCmd.success).toBe(true);
+    // Base is 369231 ms, discounted by 10% with progenitor_matrix gives 332308 ms
+    expect(resCmd.data!.durationMs).toBe(332308);
+
+    // 5. Test rift_hyperdrive speed bonus
+    player.artifacts!.push('rift_hyperdrive');
+    const speedDispatch = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw.id,
+      targetSystemId: targetSys.id,
+      ships: { scout: 1, transport: 0, fighter: 0, battleship: 0 },
+      mission: 'explore',
+    });
+    expect(speedDispatch.success).toBe(true);
+    expect(speedDispatch.data!.durationMs).toBeLessThan(duration);
+
+    // 6. Test dreadnought_plating in combat
+    const combatWithRelic = resolveCombat(
+      {
+        ownerId: 'p1',
+        ownerName: 'Attacker Relic',
+        ships: { fighter: 10, scout: 0, transport: 0, battleship: 0 },
+        weaponsResearchLevel: 0,
+        doctrine: 'balanced',
+        artifacts: ['dreadnought_plating'],
+      },
+      {
+        ownerId: 'enemy',
+        ownerName: 'Defender No Relic',
+        ships: { fighter: 10, scout: 0, transport: 0, battleship: 0 },
+        weaponsResearchLevel: 0,
+        doctrine: 'balanced',
+      },
+      'sys_combat',
+      'Combat Zone',
+      'fleet_interception',
+      undefined,
+      0,
+      1000,
+      1234
+    );
+    expect(combatWithRelic.report.winner).toBe('attacker');
+
+    // 7. Verify subspace_tachyon_array sensor coverage bonus
+    player.artifacts!.push('subspace_tachyon_array');
+    const coverage = getPlayerSensorCoverage(engine.state, 'p1');
+    expect(coverage.size).toBeGreaterThan(0);
+
+    // 8. Verify fog filter exposes myArtifacts
+    const visible = engine.getPlayerView('p1');
+    expect(visible.myArtifacts).toContain('progenitor_matrix');
+    expect(visible.myArtifacts).toContain('rift_hyperdrive');
   });
 });
 

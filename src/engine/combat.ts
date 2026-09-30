@@ -1,6 +1,6 @@
 import { DEFENSE_STATS, GAME_CONSTANTS, SHIP_STATS } from './constants';
 import { PRNG } from './prng';
-import { BattleReport, CombatRound, DefenseStructureType, FleetDoctrine, PlanetSpecialization, PlanetStance, Resources, ShipType } from './types';
+import { BattleReport, CombatRound, DefenseStructureType, EmpireArtifactId, FleetDoctrine, PlanetSpecialization, PlanetStance, Resources, ShipType } from './types';
 import { Admiral, ADMIRAL_TRAITS } from './admirals';
 
 export interface CombatFleetInput {
@@ -13,6 +13,7 @@ export interface CombatFleetInput {
   defenses?: Record<DefenseStructureType, number>;
   doctrine?: FleetDoctrine;
   planetSpecialization?: PlanetSpecialization;
+  artifacts?: EmpireArtifactId[];
 }
 
 export interface CombatResult {
@@ -211,6 +212,16 @@ export function resolveCombat(
       attDmg = Math.round(attDmg * 0.80); // 20% shield/hull damage absorption
     } else if (defender.doctrine === 'hit_and_run' && prng.next() < 0.20) {
       attDmg = Math.round(attDmg * 0.50); // 20% evasion chance to dodge half damage
+    }
+
+    // 3. Imperial Relics (dreadnought_plating)
+    if (attacker.artifacts?.includes('dreadnought_plating')) {
+      attDmg = Math.round(attDmg * 1.10); // +10% offensive firepower
+      defDmg = Math.round(defDmg * 0.90); // -10% damage taken
+    }
+    if (defender.artifacts?.includes('dreadnought_plating')) {
+      defDmg = Math.round(defDmg * 1.10); // +10% offensive firepower
+      attDmg = Math.round(attDmg * 0.90); // -10% damage taken
     }
 
     // Apply losses to defender (ships and orbital defenses)

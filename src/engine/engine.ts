@@ -14,6 +14,7 @@ import {
 } from './constants';
 import { resolveCombat, CombatResult } from './combat';
 import { addAdmiralXP, ADMIRAL_TRAITS } from './admirals';
+import { EMPIRE_ARTIFACTS } from './artifacts';
 import { calculateRouteInfo, checkInterceptionFeasibility } from './flight';
 import { filterGameStateForPlayer, PlayerVisibleState } from './fog';
 import { PRNG } from './prng';
@@ -147,6 +148,7 @@ export class GameEngine {
         lastSeenFleets: {},
       },
       espionageReports: [],
+      artifacts: [],
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -578,11 +580,45 @@ export class GameEngine {
             gatheredOre = targetSystem.poi.reward.ore;
             gatheredCrystal = targetSystem.poi.reward.crystal;
             gatheredFuel = targetSystem.poi.reward.fuel;
-            this.logEvent(
-              'poi_discovered',
-              `${fleet.name} ${targetSystem.name} sisteminde ${targetSystem.poi.type} keşfetti ve kaynak topladı!`,
-              fleet.ownerId
-            );
+
+            if (targetSystem.poi.artifactId && player) {
+              player.artifacts = player.artifacts || [];
+              if (!player.artifacts.includes(targetSystem.poi.artifactId)) {
+                player.artifacts.push(targetSystem.poi.artifactId);
+                const artifactDef = EMPIRE_ARTIFACTS[targetSystem.poi.artifactId];
+                this.logEvent(
+                  'poi_discovered',
+                  `🏛️ KADİM YADİGAR BULUNDU: ${fleet.name}, ${targetSystem.name} sisteminde ${artifactDef.icon} ${artifactDef.nameTr} yadigârını ortaya çıkardı! İmparatorluk bonusu aktif: ${artifactDef.effectTr}.`,
+                  fleet.ownerId
+                );
+              } else {
+                this.logEvent(
+                  'poi_discovered',
+                  `${fleet.name} ${targetSystem.name} sisteminde ${targetSystem.poi.type} sahasını inceledi ve antik kaynakları topladı!`,
+                  fleet.ownerId
+                );
+              }
+            } else {
+              this.logEvent(
+                'poi_discovered',
+                `${fleet.name} ${targetSystem.name} sisteminde ${targetSystem.poi.type} keşfetti ve kaynak topladı!`,
+                fleet.ownerId
+              );
+            }
+
+            if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+              const adm = this.state.admirals[fleet.admiralId];
+              const xpGain = targetSystem.poi.artifactId ? 200 : 80;
+              const { admiral: updatedAdm, leveledUp } = addAdmiralXP(adm, xpGain);
+              this.state.admirals[fleet.admiralId] = updatedAdm;
+              if (leveledUp) {
+                this.logEvent(
+                  'admiral_level_up',
+                  `TERFİ: Komutan ${updatedAdm.name} (${updatedAdm.title}) Seviye ${updatedAdm.level} rütbesine terfi etti!`,
+                  fleet.ownerId
+                );
+              }
+            }
           }
         } else {
           this.logEvent(
@@ -792,6 +828,7 @@ export class GameEngine {
               weaponsResearchLevel: attackerWeapons,
               admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
               doctrine: fleet.doctrine || 'balanced',
+              artifacts: player?.artifacts,
             },
             {
               ownerId: targetPlanet.ownerId,
@@ -801,6 +838,7 @@ export class GameEngine {
               stance: targetPlanet.stance,
               defenses: targetPlanet.defenses,
               planetSpecialization: targetPlanet.specialization,
+              artifacts: defenderPlayer?.artifacts,
             },
             targetSystem.id,
             targetSystem.name,
@@ -871,6 +909,7 @@ export class GameEngine {
               weaponsResearchLevel: player?.research.weapons || 0,
               admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
               doctrine: fleet.doctrine || 'balanced',
+              artifacts: player?.artifacts,
             },
             {
               ownerId: 'ancient_titan',
@@ -974,6 +1013,7 @@ export class GameEngine {
               weaponsResearchLevel: player?.research.weapons || 0,
               admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
               doctrine: fleet.doctrine || 'balanced',
+              artifacts: player?.artifacts,
             },
             {
               ownerId: 'pirates',
@@ -1073,6 +1113,7 @@ export class GameEngine {
             weaponsResearchLevel: player?.research.weapons || 0,
             admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
             doctrine: fleet.doctrine || 'balanced',
+            artifacts: player?.artifacts,
           },
           {
             ownerId: targetFleet.ownerId,
@@ -1081,6 +1122,7 @@ export class GameEngine {
             weaponsResearchLevel: defenderPlayer?.research.weapons || 0,
             admiral: targetFleet.admiralId && this.state.admirals ? this.state.admirals[targetFleet.admiralId] : undefined,
             doctrine: targetFleet.doctrine || 'balanced',
+            artifacts: defenderPlayer?.artifacts,
           },
           targetSystem.id,
           targetSystem.name,
@@ -1151,6 +1193,7 @@ export class GameEngine {
                 weaponsResearchLevel: player?.research.weapons || 0,
                 admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
                 doctrine: fleet.doctrine || 'balanced',
+                artifacts: player?.artifacts,
               },
               {
                 ownerId: this.state.relay.controllingPlayerId || 'neutral',
@@ -1158,6 +1201,9 @@ export class GameEngine {
                 ships: this.state.relay.garrison,
                 weaponsResearchLevel: 1,
                 doctrine: 'fortress',
+                artifacts: this.state.relay.controllingPlayerId
+                  ? this.state.players[this.state.relay.controllingPlayerId]?.artifacts
+                  : undefined,
               },
               targetSystem.id,
               targetSystem.name,
@@ -1581,6 +1627,9 @@ export class GameEngine {
         if (hasTechHaven) {
           durationMs = Math.max(1000, Math.round(durationMs * 0.8)); // -20% research duration
         }
+        if (player.artifacts?.includes('progenitor_matrix')) {
+          durationMs = Math.max(1000, Math.round(durationMs * 0.9)); // -10% progenitor matrix relic bonus
+        }
         const finishTime = this.state.timeMs + durationMs;
 
         player.researchQueue = {
@@ -1904,6 +1953,11 @@ export class GameEngine {
         } else if (fleetDoctrine === 'fortress') {
           effectiveSpeed = Math.max(1, Math.round(effectiveSpeed * 0.90));
           effectiveDurationMs = Math.round(effectiveDurationMs / 0.90);
+        }
+
+        if (player.artifacts?.includes('rift_hyperdrive')) {
+          effectiveSpeed = Math.round(effectiveSpeed * 1.10);
+          effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / 1.10));
         }
 
         // Cargo validation

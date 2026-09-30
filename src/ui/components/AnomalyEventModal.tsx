@@ -12,6 +12,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { StarSystem } from '../../engine/types';
+import { EMPIRE_ARTIFACTS } from '../../engine/artifacts';
 import { sound } from '../sound';
 
 interface AnomalyEventModalProps {
@@ -46,7 +47,7 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
   > = {
     derelict_cache: {
       title: 'Terk Edilmiş Antik Kargo Gemisi',
-      category: 'Kalıntı / Enkaz Anomalisı',
+      category: 'Kalıntı / Enkaz Anomalisi',
       icon: <Database className="w-6 h-6 text-amber-400" />,
       color: '#f59e0b',
       lore: 'Sistem yörüngesinde sürüklenen, kimliği ve çağı belirlenemeyen devasa bir öncü kargo kruvazörü tespit edildi. Gövde üzerinde ağır mikrometeorit darbeleri olsa da reaktör ambarları sağlam mühürlenmiş görünüyor.',
@@ -67,6 +68,30 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
       color: '#a855f7',
       lore: 'Sistemin dış çeperinde, olağan dışı yerçekimi anomalisi sergileyen yoğun bir asteroit kümesi keşfedildi. Yüzey kristalizasyonları yüksek oranlı karanlık madde ve enerji izotopları yansıtıyor.',
       analysis: 'Madencilik sensörleri, yüzey çatlaklarından sızan saf hidrokarbon ve egzotik kristal cevherleri teyit etti.',
+    },
+    ancient_ruins: {
+      title: 'Kadim Öncü Uygarlık Kalıntıları',
+      category: 'Arkeolojik Kazı Sahası',
+      icon: <Compass className="w-6 h-6 text-cyan-300" />,
+      color: '#00f3ff',
+      lore: 'Tektonik plakaların derinliklerine gömülmüş, milyonlarca yıldır korunan biyo-mekanik piramit kompleksi. Kuantum şifreli veri bankaları hala aktif sinyal üretiyor.',
+      analysis: 'Arkeolojik araştırma seferi ile laboratuvar arşivleri ve araştırma sürelerini kısaltan Öncü Veri Matrisi yadigârı ele geçirilebilir.',
+    },
+    derelict_dreadnought: {
+      title: 'Sürüklenen Kadim Savaş Dretnotu',
+      category: 'Harp Enkazı / Ağır Zırh Arkeolojisi',
+      icon: <Shield className="w-6 h-6 text-amber-400" />,
+      color: '#f59e0b',
+      lore: 'Boşlukta hareketsiz süzülen devasa bir antik amiral savaş gemisi. Ana bataryaları susmuş olsa da gövdeyi saran nötronik zırh tabakaları bozulmamış durumda.',
+      analysis: 'Enkazdan sökülecek kadim zırh plakaları ve reaktör parçaları, filolarınızın ateş gücünü ve gövde dayanıklılığını kalıcı olarak yükseltir.',
+    },
+    dark_matter_rift: {
+      title: 'Karanlık Madde Uzay-Zaman Yarığı',
+      category: 'Boyutlararası Çekim Anomalisi',
+      icon: <Zap className="w-6 h-6 text-purple-400" />,
+      color: '#a855f7',
+      lore: 'Hiper-hat rotalarının kesişim noktasında meydana gelen kararsız bir boyut yarığı. Kütleçekimsel dalgalanmalar sevk fiziğini temelden büküyor.',
+      analysis: 'Yarıktan elde edilecek egzotik parçacıklar, hiper-hat seyahatlerini hızlandıran Yarık Hiper-Sürücüsü yadigârının prototipini oluşturur.',
     },
   };
 
@@ -143,6 +168,26 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
             {currentDetail.analysis}
           </p>
         </div>
+
+        {/* Imperial Relic Badge */}
+        {poi.artifactId && EMPIRE_ARTIFACTS[poi.artifactId] && (
+          <div className="stellaris-item-card p-2.5 border-cyan-500/50 bg-cyan-950/30 flex items-center justify-between shadow-md">
+            <div className="flex items-center gap-2.5">
+              <span className="text-xl">{EMPIRE_ARTIFACTS[poi.artifactId].icon}</span>
+              <div>
+                <span className="text-[10px] font-mono uppercase text-cyan-300 font-bold block">
+                  🏛️ Kadim İmparatorluk Yadigarı
+                </span>
+                <span className="text-xs font-bold text-white">
+                  {EMPIRE_ARTIFACTS[poi.artifactId].nameTr}
+                </span>
+              </div>
+            </div>
+            <span className="stellaris-badge text-emerald-300 border-emerald-500/40 text-[10px] font-mono">
+              {EMPIRE_ARTIFACTS[poi.artifactId].effectTr}
+            </span>
+          </div>
+        )}
 
         {/* Reward Projection */}
         {poi.reward && (
