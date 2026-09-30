@@ -17,11 +17,12 @@ import {
   Zap,
 } from 'lucide-react';
 import { GameEventRecord, GameState } from '../../engine/types';
+import { evaluatePlayerDirectives } from '../../engine/directives';
 import { sound } from '../sound';
 
 export interface EmpireNotification {
   id: string;
-  type: 'threat' | 'battle' | 'research' | 'colony' | 'shipyard' | 'anomaly' | 'debris' | 'relay' | 'crisis' | 'transmission';
+  type: 'threat' | 'battle' | 'research' | 'colony' | 'shipyard' | 'anomaly' | 'debris' | 'relay' | 'crisis' | 'transmission' | 'directive';
   title: string;
   description: string;
   timestampMs: number;
@@ -164,6 +165,19 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
       }
     });
 
+    // 4. Completed Directives Awaiting Reward Claim
+    const myDirs = evaluatePlayerDirectives(state, activePlayerId);
+    const unclaimedDirs = myDirs.filter((d) => d.isCompleted && !d.isClaimed);
+    if (unclaimedDirs.length > 0 && notifs.length < 8) {
+      notifs.push({
+        id: `unclaimed_dir_${unclaimedDirs[0].id}`,
+        type: 'directive',
+        title: '🎯 DİREKTİF ÖDÜLÜ HAZIR',
+        description: `${unclaimedDirs[0].title} tamamlandı! Ödülü kütükten almak için tıklayın.`,
+        timestampMs: state.timeMs,
+      });
+    }
+
     setNotifications(notifs);
   }, [state.eventLog.length, state.fleets, state.sectorEvents, state.transmissions, state.timeMs, activePlayerId]);
 
@@ -241,6 +255,13 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
           bg: 'bg-purple-950/90',
           pulse: 'animate-pulse',
         };
+      case 'directive':
+        return {
+          icon: <Award className="w-4 h-4 text-amber-300" />,
+          border: 'border-amber-400 shadow-amber-950/80',
+          bg: 'bg-amber-950/90',
+          pulse: 'animate-pulse',
+        };
     }
   };
 
@@ -260,7 +281,7 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
       onOpenResearch();
     } else if (notif.type === 'shipyard') {
       onOpenShipyard();
-    } else if (notif.type === 'anomaly' || notif.type === 'relay') {
+    } else if (notif.type === 'anomaly' || notif.type === 'relay' || notif.type === 'directive') {
       onOpenSituationLog();
     } else if (notif.type === 'transmission') {
       if (onOpenAlliance) onOpenAlliance('comms');

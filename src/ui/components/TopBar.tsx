@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Sparkles,
   Swords,
+  Target,
   Trophy,
   Volume2,
   VolumeX,
@@ -33,6 +34,7 @@ import {
 } from 'lucide-react';
 import { calculateHourlyProduction } from '../../engine/constants';
 import { GameState, Planet } from '../../engine/types';
+import { evaluatePlayerDirectives } from '../../engine/directives';
 import { formatDuration, formatSimClock } from '../timeUtils';
 import { sound } from '../sound';
 
@@ -55,6 +57,7 @@ interface TopBarProps {
   onOpenTransitRadar?: () => void;
   onOpenMarket?: () => void;
   onOpenEspionage?: () => void;
+  onOpenSituationLog?: () => void;
   onOpenBattles?: () => void;
   onOpenRelay?: () => void;
   onOpenAlliance?: () => void;
@@ -86,6 +89,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenTransitRadar,
   onOpenMarket,
   onOpenEspionage,
+  onOpenSituationLog,
   onOpenBattles,
   onOpenRelay,
   onOpenAlliance,
@@ -106,6 +110,11 @@ const TopBarComponent: React.FC<TopBarProps> = ({
 
   // Active player info
   const activePlayer = state.players[activePlayerId];
+
+  // Empire Directives & Milestones
+  const playerDirectives = evaluatePlayerDirectives(state, activePlayerId);
+  const unclaimedDirectivesCount = playerDirectives.filter((d) => d.isCompleted && !d.isClaimed).length;
+  const nextActiveDirective = playerDirectives.find((d) => !d.isCompleted) || playerDirectives.find((d) => !d.isClaimed);
 
   // Empire Colonies Metrics & Breakdown
   const myPlanets = Object.values(state.planets).filter((p) => p.ownerId === activePlayerId);
@@ -682,7 +691,85 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {/* 8. GALACTIC VICTORY & HEGEMONY STATUS CHIP */}
+        {/* 8. EMPIRE DIRECTIVES & MILESTONES CHIP */}
+        <div className="relative group hidden lg:block">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenSituationLog) onOpenSituationLog();
+            }}
+            className={`stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+              unclaimedDirectivesCount > 0
+                ? 'bg-amber-950/80 border-amber-400 text-amber-200 animate-pulse shadow-md shadow-amber-500/30'
+                : 'text-amber-300 hover:border-amber-400'
+            }`}
+            title="İmparatorluk Direktifleri ve Görev Kütüğü (F8)"
+          >
+            <Target className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span className="font-bold text-white text-xs">Direktif:</span>
+            {unclaimedDirectivesCount > 0 ? (
+              <span className="text-[10.5px] bg-amber-500 text-black px-1.5 py-0.5 rounded-sm font-extrabold animate-pulse">
+                +{unclaimedDirectivesCount} ÖDÜL!
+              </span>
+            ) : nextActiveDirective ? (
+              <span className="text-[11px] text-amber-300 font-bold truncate max-w-[100px]">
+                {nextActiveDirective.title}
+              </span>
+            ) : (
+              <span className="text-[11px] text-emerald-400 font-bold">10/10</span>
+            )}
+          </button>
+
+          {/* Directives Tooltip */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+              <span className="text-xs font-bold text-amber-300 font-display flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-amber-400" />
+                <span>🎯 İmparatorluk Direktifleri</span>
+              </span>
+              <span className="text-[10px] text-emerald-400 font-mono">
+                {playerDirectives.filter((d) => d.isClaimed).length} / {playerDirectives.length} Tamam
+              </span>
+            </div>
+
+            {nextActiveDirective ? (
+              <div className="space-y-1.5">
+                <div className="text-xs font-bold text-white">
+                  {nextActiveDirective.title}
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  {nextActiveDirective.description}
+                </p>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="flex-1 h-1.5 bg-[#06101a] border border-[#1b3d54] rounded-none overflow-hidden">
+                    <div
+                      className="h-full bg-amber-400 transition-all"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          Math.round((nextActiveDirective.currentValue / nextActiveDirective.targetValue) * 100)
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-mono text-slate-300 font-bold">
+                    {nextActiveDirective.currentValue} / {nextActiveDirective.targetValue}
+                  </span>
+                </div>
+              </div>
+            ) : (
+              <p className="text-[11px] text-emerald-300">
+                Tüm imparatorluk direktifleri başarıyla tamamlandı!
+              </p>
+            )}
+
+            <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-cyan-400 font-mono text-center">
+              Direktifler ve durum kütüğünü açmak için tıklayın (F8)
+            </div>
+          </div>
+        </div>
+
+        {/* 9. GALACTIC VICTORY & HEGEMONY STATUS CHIP */}
         <div className="relative group">
           <button
             onClick={() => {

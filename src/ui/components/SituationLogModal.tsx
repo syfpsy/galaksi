@@ -22,6 +22,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { GameState, StarSystem } from '../../engine/types';
+import { evaluatePlayerDirectives } from '../../engine/directives';
 import { formatClockTime, formatDuration } from '../timeUtils';
 import { sound } from '../sound';
 
@@ -31,10 +32,11 @@ interface SituationLogModalProps {
   onClose: () => void;
   state: GameState;
   activePlayerId: string;
-  initialTab?: 'anomalies' | 'relay' | 'missions' | 'bounties';
+  initialTab?: 'directives' | 'anomalies' | 'relay' | 'missions' | 'bounties';
   onSelectSystem: (systemId: string) => void;
   onOpenAnomaly: (system: StarSystem) => void;
   onAssaultRelay: () => void;
+  onClaimDirective?: (directiveId: string) => void;
 }
 
 const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
@@ -43,12 +45,13 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
   onClose,
   state,
   activePlayerId,
-  initialTab = 'anomalies',
+  initialTab = 'directives',
   onSelectSystem,
   onOpenAnomaly,
   onAssaultRelay,
+  onClaimDirective,
 }) => {
-  const [activeTab, setActiveTab] = useState<'anomalies' | 'relay' | 'missions' | 'bounties'>(initialTab);
+  const [activeTab, setActiveTab] = useState<'directives' | 'anomalies' | 'relay' | 'missions' | 'bounties'>(initialTab);
 
   React.useEffect(() => {
     if (initialTab) {
@@ -60,6 +63,10 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
 
   const activePlayer = state.players[activePlayerId];
   const systems = Object.values(state.map.systems);
+
+  // Empire Directives & Milestones
+  const directives = evaluatePlayerDirectives(state, activePlayerId);
+  const unclaimedDirectivesCount = directives.filter((d) => d.isCompleted && !d.isClaimed).length;
 
   // Extract all systems with POIs or Debris
   const systemsWithPoi = systems.filter((s) => s.poi);
@@ -111,20 +118,44 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex items-center gap-1 px-4 pt-2 border-b border-[#18374b] bg-[#07131e]">
+        <div className="flex items-center gap-1 px-4 pt-2 border-b border-[#18374b] bg-[#07131e] overflow-x-auto scrollbar-none">
+          <button
+            onClick={() => {
+              sound.playClick();
+              setActiveTab('directives');
+            }}
+            className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
+              activeTab === 'directives'
+                ? 'border-amber-400 text-amber-200 bg-amber-950/40'
+                : 'border-transparent text-slate-300 hover:text-white'
+            }`}
+          >
+            <Target className="w-3.5 h-3.5 text-amber-400" />
+            <span>🎯 Direktifler</span>
+            {unclaimedDirectivesCount > 0 ? (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-amber-500 text-black font-extrabold animate-pulse">
+                +{unclaimedDirectivesCount} Ödül!
+              </span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#0d2638] border border-[#1b3d54] text-slate-200 font-bold">
+                {directives.filter((d) => d.isClaimed).length}/{directives.length}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => {
               sound.playClick();
               setActiveTab('anomalies');
             }}
-            className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all ${
+            className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'anomalies'
                 ? 'border-[#3ca8d1] text-cyan-200 bg-[#0a2336]'
                 : 'border-transparent text-slate-300 hover:text-white'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Sektör Anomalileri & Enkazlar</span>
+            <span>Anomaliler</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#0d2638] border border-[#1b3d54] text-slate-200 font-bold">
               {systemsWithPoi.length + systemsWithDebris.length}
             </span>
@@ -135,14 +166,14 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
               sound.playClick();
               setActiveTab('relay');
             }}
-            className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all ${
+            className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'relay'
                 ? 'border-purple-400 text-purple-200 bg-purple-950/40'
                 : 'border-transparent text-slate-300 hover:text-white'
             }`}
           >
             <Crown className="w-3.5 h-3.5 text-purple-400" />
-            <span>Nexus Rölesi Megastrüktürü</span>
+            <span>Nexus Rölesi</span>
             {isRelayMine && (
               <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/60 text-purple-200 font-bold border border-purple-500/50">
                 Kontrol Sizde
@@ -155,14 +186,14 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
               sound.playClick();
               setActiveTab('missions');
             }}
-            className={`px-4 py-2.5 text-xs font-mono font-bold flex items-center gap-2 border-b-2 transition-all ${
+            className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'missions'
                 ? 'border-emerald-400 text-emerald-200 bg-emerald-950/30'
                 : 'border-transparent text-slate-300 hover:text-white'
             }`}
           >
-            <Rocket className="w-4 h-4 text-emerald-400" />
-            <span>Aktif Seferler & İntikaller</span>
+            <Rocket className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Seferler</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold">
               {myFleets.length}
             </span>
@@ -173,14 +204,14 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
               sound.playClick();
               setActiveTab('bounties');
             }}
-            className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all ${
+            className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all whitespace-nowrap ${
               activeTab === 'bounties'
                 ? 'border-rose-400 text-rose-200 bg-rose-950/40'
                 : 'border-transparent text-slate-300 hover:text-white'
             }`}
           >
             <Swords className="w-3.5 h-3.5 text-rose-400" />
-            <span>Korsan Sözleşmeleri & Ödül Avcılığı</span>
+            <span>Korsanlar</span>
             <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/50 text-rose-200 font-bold">
               {systemsWithPirates.length}
             </span>
@@ -189,6 +220,175 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
 
         {/* Tab Content Area */}
         <div className="flex-1 overflow-y-auto p-5 pb-6 space-y-4">
+          {/* TAB 0: EMPIRE DIRECTIVES */}
+          {activeTab === 'directives' && (
+            <div className="space-y-6">
+              {/* Header Banner */}
+              <div className="p-3.5 rounded-sm bg-gradient-to-r from-[#0d2538] to-[#07131f] border border-[#1b435f] flex items-center justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Target className="w-4 h-4 text-amber-400" />
+                    <h3 className="text-xs font-bold font-display uppercase tracking-wider text-amber-300">
+                      Galaktik İmparatorluk Direktifleri & Hedefler
+                    </h3>
+                  </div>
+                  <p className="text-[11px] text-slate-300 mt-1">
+                    Gelişim hedeflerini tamamlayarak devasa hammadde hibeleri, amiral tecrübesi ve Hegemonya Zafer Puanı kazanın.
+                  </p>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-[10px] font-mono text-slate-400 uppercase">Tamamlanan</div>
+                  <div className="text-sm font-bold font-mono text-emerald-400">
+                    {directives.filter((d) => d.isClaimed).length} / {directives.length}
+                  </div>
+                </div>
+              </div>
+
+              {/* Grouped by Phase */}
+              {[1, 2, 3].map((phaseNum) => {
+                const phaseDirectives = directives.filter((d) => d.phase === phaseNum);
+                const phaseTitles: Record<number, string> = {
+                  1: 'Aşama I: Temel Altyapı, Kolonizasyon ve İlk Filo',
+                  2: 'Aşama II: Savunma, İttifak, Korsanlar ve Genişleme',
+                  3: 'Aşama III: Galaktik Hegemonya ve Zafer İlanı',
+                };
+
+                return (
+                  <div key={`phase_${phaseNum}`} className="space-y-3">
+                    <div className="flex items-center gap-2 border-b border-[#1b3a52] pb-1.5">
+                      <span className="text-[11px] font-bold font-mono uppercase tracking-wider text-cyan-300">
+                        {phaseTitles[phaseNum] || `Aşama ${phaseNum}`}
+                      </span>
+                      <span className="text-[10px] font-mono text-slate-400">
+                        ({phaseDirectives.filter((d) => d.isClaimed).length}/{phaseDirectives.length})
+                      </span>
+                    </div>
+
+                    <div className="space-y-2.5">
+                      {phaseDirectives.map((directive) => {
+                        const progressPct = Math.min(
+                          100,
+                          Math.round((directive.currentValue / directive.targetValue) * 100)
+                        );
+
+                        return (
+                          <div
+                            key={directive.id}
+                            className={`p-3.5 rounded-sm border transition-all ${
+                              directive.isClaimed
+                                ? 'bg-[#091522]/50 border-[#142633] opacity-75'
+                                : directive.isCompleted
+                                ? 'bg-[#102436] border-amber-400/80 shadow-[0_0_10px_rgba(251,191,36,0.15)]'
+                                : 'stellaris-item-card border-[#1c3647]'
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs font-bold font-display text-white">
+                                    {directive.title}
+                                  </span>
+                                  {directive.isClaimed && (
+                                    <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-emerald-950/80 border border-emerald-500/50 text-emerald-300">
+                                      ✓ TAMAMLANDI
+                                    </span>
+                                  )}
+                                  {directive.isCompleted && !directive.isClaimed && (
+                                    <span className="text-[9.5px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-amber-500 text-black animate-pulse">
+                                      ÖDÜLÜ BEKLİYOR
+                                    </span>
+                                  )}
+                                </div>
+                                <p className="text-[11.5px] text-slate-300 mt-1 leading-relaxed">
+                                  {directive.description}
+                                </p>
+
+                                {/* Progress Bar */}
+                                <div className="mt-2.5 flex items-center gap-3">
+                                  <div className="flex-1 h-2 bg-[#06101a] border border-[#1b3d54] rounded-none overflow-hidden">
+                                    <div
+                                      className={`h-full transition-all duration-300 ${
+                                        directive.isClaimed
+                                          ? 'bg-emerald-500'
+                                          : directive.isCompleted
+                                          ? 'bg-amber-400'
+                                          : 'bg-cyan-400'
+                                      }`}
+                                      style={{ width: `${progressPct}%` }}
+                                    />
+                                  </div>
+                                  <span className="text-[10.5px] font-mono font-bold text-slate-300 shrink-0">
+                                    {directive.currentValue} / {directive.targetValue} (%{progressPct})
+                                  </span>
+                                </div>
+
+                                {/* Rewards Badges */}
+                                <div className="flex flex-wrap items-center gap-2 mt-2.5">
+                                  <span className="text-[10px] font-mono text-slate-400 font-bold">ÖDÜL:</span>
+                                  {directive.reward.ore && (
+                                    <span className="text-[10.5px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-[#091826] border border-[#1b3b52] text-amber-300">
+                                      ⛏️ +{directive.reward.ore} Cevher
+                                    </span>
+                                  )}
+                                  {directive.reward.crystal && (
+                                    <span className="text-[10.5px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-[#091826] border border-[#1b3b52] text-cyan-300">
+                                      💎 +{directive.reward.crystal} Kristal
+                                    </span>
+                                  )}
+                                  {directive.reward.fuel && (
+                                    <span className="text-[10.5px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-[#091826] border border-[#1b3b52] text-yellow-300">
+                                      ⚡ +{directive.reward.fuel} Yakıt
+                                    </span>
+                                  )}
+                                  {directive.reward.hegemonyPoints && (
+                                    <span className="text-[10.5px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-purple-950/80 border border-purple-500/50 text-purple-200">
+                                      👑 +{directive.reward.hegemonyPoints} Zafer Puanı
+                                    </span>
+                                  )}
+                                  {directive.reward.admiralXp && (
+                                    <span className="text-[10.5px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-indigo-950/80 border border-indigo-500/50 text-indigo-200">
+                                      🎖️ +{directive.reward.admiralXp} Amiral DP
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+
+                              {/* Action Claim / Status Button */}
+                              <div className="shrink-0 flex items-center self-center">
+                                {directive.isClaimed ? (
+                                  <div className="px-3 py-1.5 rounded-sm bg-[#092233] border border-[#1b435f] text-emerald-400 font-mono text-xs font-bold flex items-center gap-1.5">
+                                    <CheckCircle2 className="w-3.5 h-3.5" />
+                                    <span>Alındı</span>
+                                  </div>
+                                ) : directive.isCompleted ? (
+                                  <button
+                                    onClick={() => {
+                                      sound.playNotification();
+                                      if (onClaimDirective) onClaimDirective(directive.id);
+                                    }}
+                                    className="px-3.5 py-2 rounded-sm bg-gradient-to-r from-amber-500 to-yellow-400 hover:from-amber-400 hover:to-yellow-300 text-black font-mono text-xs font-extrabold flex items-center gap-1.5 shadow-[0_0_12px_rgba(251,191,36,0.6)] animate-pulse cursor-pointer"
+                                  >
+                                    <Award className="w-4 h-4" />
+                                    <span>🎁 Ödülü Al</span>
+                                  </button>
+                                ) : (
+                                  <div className="px-3 py-1.5 rounded-sm bg-[#09141f] border border-[#142633] text-slate-400 font-mono text-[11px] flex items-center gap-1.5">
+                                    <Clock className="w-3.5 h-3.5 text-slate-500" />
+                                    <span>Sürüyor</span>
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
           {/* TAB 1: ANOMALIES & DEBRIS */}
           {activeTab === 'anomalies' && (
             <div className="space-y-4">

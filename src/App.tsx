@@ -13,6 +13,7 @@ import {
   EspionageOpType,
   Fleet,
   MissionType,
+  PlanetSpecialization,
   PlanetStance,
   ResearchType,
   ResourceType,
@@ -20,6 +21,7 @@ import {
   ShipType,
   TransmissionType,
 } from './engine/types';
+import { evaluatePlayerDirectives } from './engine/directives';
 import { AllianceModal, AllianceTab } from './ui/components/AllianceModal';
 import { AnomalyEventModal } from './ui/components/AnomalyEventModal';
 import { ArtGalleryModal } from './ui/components/ArtGalleryModal';
@@ -454,6 +456,9 @@ export function App() {
     (t) => t.recipientId === activePlayerId && t.status === 'pending' && t.expiresAtMs > engineState.timeMs
   ).length;
 
+  const myDirectives = evaluatePlayerDirectives(engineState, activePlayerId);
+  const unclaimedDirectivesCount = myDirectives.filter((d) => d.isCompleted && !d.isClaimed).length;
+
   // Command handlers
   const handleUpgradeBuilding = (planetId: string, buildingType: BuildingType) => {
     if (!engineRef.current) return;
@@ -569,6 +574,35 @@ export function App() {
       planetId,
       stance,
     });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSetSpecialization = (planetId: string, specialization: PlanetSpecialization) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SET_PLANET_SPECIALIZATION',
+      planetId,
+      specialization,
+    });
+    if (res.success) {
+      sound.playConstruction();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleClaimDirective = (directiveId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CLAIM_DIRECTIVE_REWARD',
+      directiveId: directiveId as any,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
     setEngineState({ ...engineRef.current.state });
   };
 
@@ -853,6 +887,7 @@ export function App() {
         onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
         onOpenMarket={() => setActiveLeftPanel((prev) => (prev === 'market' ? null : 'market'))}
         onOpenEspionage={() => setActiveLeftPanel((prev) => (prev === 'espionage' ? null : 'espionage'))}
+        onOpenSituationLog={() => setActiveLeftPanel((prev) => (prev === 'situation' ? null : 'situation'))}
         onOpenBattles={() => setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'))}
         onOpenRelay={() => setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'))}
         onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
@@ -894,6 +929,7 @@ export function App() {
           threatsCount={threatsCount}
           unreadBattlesCount={engineState.battleReports.length}
           pendingTransmissionsCount={pendingTransmissionsCount}
+          unclaimedDirectivesCount={unclaimedDirectivesCount}
           isRelayControlled={engineState.relay.controllingPlayerId === activePlayerId}
           planetsCount={myPlanets.length}
           godMode={godMode}
@@ -917,6 +953,7 @@ export function App() {
                 onSelectPlanet={setActivePlanetId}
                 onUpgradeBuilding={handleUpgradeBuilding}
                 onSetStance={handleSetStance}
+                onSetSpecialization={handleSetSpecialization}
                 currentTimeMs={engineState.timeMs}
                 onOpenShipyard={() => setActiveLeftPanel('shipyard')}
                 onOpenResearch={() => setActiveLeftPanel('research')}
@@ -996,6 +1033,7 @@ export function App() {
                   setAnomalyModalSystemId(sys.id);
                 }}
                 onAssaultRelay={handleAssaultRelay}
+                onClaimDirective={handleClaimDirective}
               />
             )}
 
@@ -1084,6 +1122,7 @@ export function App() {
                   setAnomalyModalSystemId(sys.id);
                 }}
                 onAssaultRelay={handleAssaultRelay}
+                onClaimDirective={handleClaimDirective}
               />
             )}
 

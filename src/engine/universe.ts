@@ -229,5 +229,6 @@ export function createHomeworldPlanet(
       battleship: 0,
     },
     stance: 'hold_position',
+    specialization: 'balanced',
   };
 }

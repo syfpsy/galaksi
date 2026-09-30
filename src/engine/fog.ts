@@ -1,6 +1,8 @@
 import { GAME_CONSTANTS } from './constants';
+import { evaluatePlayerDirectives } from './directives';
 import {
   Admiral,
+  EmpireDirective,
   EspionageOp,
   EspionageReport,
   Fleet,
@@ -64,6 +66,8 @@ export interface PlayerVisibleState {
   myActiveTruces?: { withPlayerId: string; expiresAtMs: number }[];
   victory?: VictoryRecord | null;
   seasonHistory?: VictoryRecord[];
+  myClaimedDirectives?: string[];
+  myDirectives?: EmpireDirective[];
 }
 
 /**
@@ -340,5 +344,7 @@ export function filterGameStateForPlayer(
     })(),
     victory: state.victory || null,
     seasonHistory: state.seasonHistory || [],
+    myClaimedDirectives: player?.claimedDirectives || [],
+    myDirectives: evaluatePlayerDirectives(state, playerId),
   };
 }

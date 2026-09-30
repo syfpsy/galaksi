@@ -127,6 +127,8 @@ export interface PlanetSlot {
   size: number;             // max building levels sum or slots
 }
 
+export type PlanetSpecialization = 'balanced' | 'mining_hub' | 'tech_haven' | 'military_bastion';
+
 export interface Planet {
   id: string;
   name: string;
@@ -163,6 +165,7 @@ export interface Planet {
     unitBuildTimeMs: number;
     nextUnitFinishTime: number;
   }[];
+  specialization?: PlanetSpecialization;
 }
 
 export interface StarSystem {
@@ -389,6 +392,38 @@ export interface Player {
   protectionUntilTime: number; // Newbie protection window (48h or threshold)
   intel: PlayerIntel;
   espionageReports?: EspionageReport[];
+  claimedDirectives?: string[]; // IDs of claimed empire directives
+}
+
+export type EmpireDirectiveId =
+  | 'scout_unknown'
+  | 'upgrade_mine'
+  | 'build_fleet'
+  | 'found_colony'
+  | 'assign_admiral'
+  | 'build_defense'
+  | 'diplomatic_deal'
+  | 'win_combat'
+  | 'relay_control'
+  | 'superpower';
+
+export interface EmpireDirective {
+  id: EmpireDirectiveId;
+  phase: number;
+  title: string;
+  description: string;
+  reward: {
+    ore?: number;
+    crystal?: number;
+    fuel?: number;
+    hegemonyPoints?: number;
+    admiralXp?: number;
+  };
+  isCompleted: boolean;
+  isClaimed: boolean;
+  progress: number; // 0 to 1
+  targetValue: number;
+  currentValue: number;
 }
 
 export interface SectorMap {
@@ -603,6 +638,16 @@ export type GameCommand =
   | {
       type: 'RESET_SEASON';
       seed?: number;
+    }
+  | {
+      type: 'SET_PLANET_SPECIALIZATION';
+      planetId: string;
+      specialization: PlanetSpecialization;
+    }
+  | {
+      type: 'CLAIM_DIRECTIVE_REWARD';
+      directiveId: EmpireDirectiveId;
+      targetPlanetId?: string;
     };
 
 export interface CommandReceipt {

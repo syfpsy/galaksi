@@ -24,7 +24,7 @@ import {
   calculateHourlyProduction,
   getBuildingUpgradeCost,
 } from '../../engine/constants';
-import { BuildingType, GameState, Planet, PlanetStance, ShipType } from '../../engine/types';
+import { BuildingType, GameState, Planet, PlanetSpecialization, PlanetStance, ShipType } from '../../engine/types';
 import { formatDuration } from '../timeUtils';
 import { sound } from '../sound';
 import { getPlanetAsset } from '../planetAssets';
@@ -36,6 +36,7 @@ interface PlanetPanelProps {
   onSelectPlanet: (id: string) => void;
   onUpgradeBuilding: (planetId: string, type: BuildingType) => void;
   onSetStance: (planetId: string, stance: PlanetStance) => void;
+  onSetSpecialization?: (planetId: string, specialization: PlanetSpecialization) => void;
   currentTimeMs: number;
   onOpenShipyard?: () => void;
   onOpenResearch?: () => void;
@@ -51,6 +52,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
   onSelectPlanet,
   onUpgradeBuilding,
   onSetStance,
+  onSetSpecialization,
   currentTimeMs,
   onOpenShipyard,
   onOpenResearch,
@@ -237,16 +239,21 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
               {/* Planetary Hourly Production Strip */}
               <div className="flex items-center gap-1.5 mt-1 text-[10.5px] font-mono font-medium">
                 <span className="text-orange-400 font-bold">
-                  +{calculateHourlyProduction('ore', currentPlanet.buildings.ore_mine || 0)}/s
+                  +{Math.round(calculateHourlyProduction('ore', currentPlanet.buildings.ore_mine || 0) * (currentPlanet.specialization === 'mining_hub' ? 1.2 : 1))}/s
                 </span>
                 <span className="text-slate-600">•</span>
                 <span className="text-cyan-300 font-bold">
-                  +{calculateHourlyProduction('crystal', currentPlanet.buildings.crystal_synth || 0)}/s
+                  +{Math.round(calculateHourlyProduction('crystal', currentPlanet.buildings.crystal_synth || 0) * (currentPlanet.specialization === 'mining_hub' ? 1.2 : 1))}/s
                 </span>
                 <span className="text-slate-600">•</span>
                 <span className="text-amber-300 font-bold">
-                  +{calculateHourlyProduction('fuel', currentPlanet.buildings.fuel_refinery || 0)}/s
+                  +{Math.round(calculateHourlyProduction('fuel', currentPlanet.buildings.fuel_refinery || 0) * (currentPlanet.specialization === 'mining_hub' ? 1.2 : 1))}/s
                 </span>
+                {currentPlanet.specialization === 'mining_hub' && (
+                  <span className="text-[9px] bg-emerald-950 border border-emerald-500/60 text-emerald-300 px-1 rounded-sm font-bold animate-pulse">
+                    +%20
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -305,6 +312,53 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
             >
               <ShieldAlert className="w-4 h-4" />
             </button>
+          </div>
+        </div>
+
+        {/* Planetary Specialization Focus (Vali Politikası) */}
+        <div className="mt-2.5 pt-2.5 border-t border-[#18374b]/80">
+          <div className="flex items-center justify-between mb-1.5">
+            <span className="text-[10px] font-mono font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1">
+              <span>🏛️</span>
+              <span>Vali Politikası</span>
+            </span>
+            <span className="text-[9.5px] font-mono text-cyan-300">
+              {currentPlanet.specialization === 'mining_hub' ? 'Maden Dünyası (+%20 Üretim)' :
+               currentPlanet.specialization === 'tech_haven' ? 'Bilim Cenneti (+%35 Ar-Ge)' :
+               currentPlanet.specialization === 'military_bastion' ? 'Askeri Hisar (+%30 Savunma)' :
+               'Dengeli Gelişim'}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-4 gap-1">
+            {[
+              { id: 'balanced', label: 'Dengeli', icon: '⚖️', desc: 'Standart dengeli altyapı' },
+              { id: 'mining_hub', label: 'Madencilik', icon: '⛏️', desc: '+%20 Cevher, Kristal ve Yakıt üretimi' },
+              { id: 'tech_haven', label: 'Ar-Ge', icon: '🔬', desc: '+%35 Araştırma ve sensör menzili' },
+              { id: 'military_bastion', label: 'Hisar', icon: '🛡️', desc: '+%30 Savunma bataryası gücü' },
+            ].map((spec) => {
+              const isActive = (currentPlanet.specialization || 'balanced') === spec.id;
+              return (
+                <button
+                  key={spec.id}
+                  onClick={() => {
+                    sound.playClick();
+                    if (onSetSpecialization) {
+                      onSetSpecialization(currentPlanet.id, spec.id as PlanetSpecialization);
+                    }
+                  }}
+                  className={`px-1.5 py-1 rounded-sm text-[10px] font-mono flex flex-col items-center gap-0.5 transition-all cursor-pointer border ${
+                    isActive
+                      ? 'bg-cyan-950/80 border-cyan-400 text-cyan-200 font-bold shadow-sm shadow-cyan-950/80'
+                      : 'bg-[#091522]/80 border-[#18374b] text-slate-400 hover:text-slate-200 hover:border-slate-500'
+                  }`}
+                  title={`${spec.label}: ${spec.desc}`}
+                >
+                  <span className="text-xs">{spec.icon}</span>
+                  <span className="truncate w-full text-center">{spec.label}</span>
+                </button>
+              );
+            })}
           </div>
         </div>
       </div>

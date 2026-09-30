@@ -45,6 +45,7 @@ interface StellarisLeftRailProps {
   threatsCount?: number;
   unreadBattlesCount: number;
   pendingTransmissionsCount?: number;
+  unclaimedDirectivesCount?: number;
   isRelayControlled: boolean;
   planetsCount: number;
   godMode: boolean;
@@ -77,6 +78,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   threatsCount = 0,
   unreadBattlesCount,
   pendingTransmissionsCount = 0,
+  unclaimedDirectivesCount = 0,
   isRelayControlled,
   planetsCount,
   godMode,
@@ -342,6 +344,11 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Compass className="w-5 h-5 text-teal-400 group-hover:scale-110 transition-transform" />
+            {unclaimedDirectivesCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-amber-500 text-black text-[9px] font-extrabold flex items-center justify-center animate-pulse shadow-[0_0_8px_rgba(251,191,36,0.9)]">
+                {unclaimedDirectivesCount}
+              </span>
+            )}
             <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F8
             </span>

@@ -1242,4 +1242,82 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(expPlanets.length).toBeGreaterThan(1);
     expect(indPlanets.length).toBeGreaterThan(1);
   });
+
+  it('applies planetary specialization mining_hub production bonus (+20%) deterministically', () => {
+    const engine = new GameEngine(1234);
+    const { player, homeworld } = engine.addPlayer('p_spec', 'Mining Dynasty', '#10b981');
+
+    homeworld.buildings.ore_mine = 5;
+    homeworld.resources.ore = 0;
+
+    // Normal production for 1 hour
+    engine.tick(3600 * 1000);
+    const baseOre = homeworld.resources.ore;
+    expect(baseOre).toBeGreaterThan(0);
+
+    // Set specialization to mining_hub
+    const specRes = engine.dispatchCommand(player.id, {
+      type: 'SET_PLANET_SPECIALIZATION',
+      planetId: homeworld.id,
+      specialization: 'mining_hub',
+    });
+    expect(specRes.success).toBe(true);
+    expect(homeworld.specialization).toBe('mining_hub');
+
+    homeworld.resources.ore = 0;
+    // Production with mining_hub (+20%) for 1 hour
+    engine.tick(3600 * 1000);
+    const boostedOre = homeworld.resources.ore;
+    expect(boostedOre).toBeCloseTo(baseOre * 1.20, 1);
+  });
+
+  it('tracks empire directives dynamically and grants rewards upon claiming', () => {
+    const engine = new GameEngine(5555);
+    const { player, homeworld } = engine.addPlayer('p_dir', 'Empire Dominion', '#38bdf8');
+
+    // Initially upgrade_mine is level 1 (target is level 2)
+    const view1 = engine.getPlayerView(player.id);
+    const dirMine1 = view1.myDirectives?.find((d) => d.id === 'upgrade_mine');
+    expect(dirMine1).toBeDefined();
+    expect(dirMine1?.isCompleted).toBe(false);
+    expect(dirMine1?.currentValue).toBe(1);
+
+    // Cannot claim incomplete directive
+    const failClaim = engine.dispatchCommand(player.id, {
+      type: 'CLAIM_DIRECTIVE_REWARD',
+      directiveId: 'upgrade_mine',
+    });
+    expect(failClaim.success).toBe(false);
+
+    // Upgrade ore_mine to level 2
+    homeworld.buildings.ore_mine = 2;
+    const initialOre = homeworld.resources.ore;
+    const initialFuel = homeworld.resources.fuel;
+
+    const view2 = engine.getPlayerView(player.id);
+    const dirMine2 = view2.myDirectives?.find((d) => d.id === 'upgrade_mine');
+    expect(dirMine2?.isCompleted).toBe(true);
+    expect(dirMine2?.isClaimed).toBe(false);
+
+    // Claim reward (+200 ore, +100 crystal, +200 fuel)
+    const claimRes = engine.dispatchCommand(player.id, {
+      type: 'CLAIM_DIRECTIVE_REWARD',
+      directiveId: 'upgrade_mine',
+    });
+    expect(claimRes.success).toBe(true);
+    expect(homeworld.resources.fuel).toBe(initialFuel + 200);
+
+    // Cannot double-claim
+    const doubleClaim = engine.dispatchCommand(player.id, {
+      type: 'CLAIM_DIRECTIVE_REWARD',
+      directiveId: 'upgrade_mine',
+    });
+    expect(doubleClaim.success).toBe(false);
+    expect(doubleClaim.error).toContain('daha önce talep edilmiş');
+
+    // View should now reflect isClaimed: true
+    const view3 = engine.getPlayerView(player.id);
+    const dirMine3 = view3.myDirectives?.find((d) => d.id === 'upgrade_mine');
+    expect(dirMine3?.isClaimed).toBe(true);
+  });
 });

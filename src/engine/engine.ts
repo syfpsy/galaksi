@@ -46,6 +46,7 @@ import {
   VictoryType,
 } from './types';
 import { createHomeworldPlanet, generateSectorMap } from './universe';
+import { evaluatePlayerDirectives } from './directives';
 import {
   generateSectorCrisis,
   applySectorCrisisStart,
@@ -267,9 +268,15 @@ export class GameEngine {
 
       const elapsedHours = elapsedMs / (3600 * 1000);
 
-      const oreProd = calculateHourlyProduction('ore', planet.buildings.ore_mine);
-      const crystalProd = calculateHourlyProduction('crystal', planet.buildings.crystal_synth);
-      const fuelProd = calculateHourlyProduction('fuel', planet.buildings.fuel_refinery);
+      let oreProd = calculateHourlyProduction('ore', planet.buildings.ore_mine);
+      let crystalProd = calculateHourlyProduction('crystal', planet.buildings.crystal_synth);
+      let fuelProd = calculateHourlyProduction('fuel', planet.buildings.fuel_refinery);
+
+      if (planet.specialization === 'mining_hub') {
+        oreProd *= 1.20;
+        crystalProd *= 1.20;
+        fuelProd *= 1.20;
+      }
 
       planet.resources.ore = Math.min(
         planet.storageCap,
@@ -635,6 +642,7 @@ export class GameEngine {
             defenseQueue: [],
             garrison: { scout: 0, transport: 0, fighter: 1, battleship: 0 },
             stance: 'hold_position',
+            specialization: 'balanced',
           };
 
           emptySlot.ownerId = fleet.ownerId;
@@ -2677,6 +2685,148 @@ export class GameEngine {
           commandType: cmd.type,
           timeMs: this.state.timeMs,
           data: { newSeed },
+        };
+      }
+
+      case 'SET_PLANET_SPECIALIZATION': {
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Gezegen bulunamadı veya imparatorluğunuza ait değil.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        planet.specialization = cmd.specialization;
+        const specLabels: Record<string, string> = {
+          balanced: 'Dengeli Gelişim',
+          mining_hub: 'Maden Dünyası (+%20 Üretim)',
+          tech_haven: 'Bilim Cenneti (+%35 Araştırma/Sensör)',
+          military_bastion: 'Askeri Hisar (+%30 Savunma Gücü)',
+        };
+        this.logEvent(
+          'planet_specialization_set',
+          `${planet.name} vali politikası '${specLabels[cmd.specialization] || cmd.specialization}' olarak güncellendi.`,
+          playerId,
+          { planetId: planet.id, specialization: cmd.specialization }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: planet.id, specialization: cmd.specialization },
+        };
+      }
+
+      case 'CLAIM_DIRECTIVE_REWARD': {
+        const player = this.state.players[playerId];
+        if (!player) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Oyuncu bulunamadı.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        if (!player.claimedDirectives) {
+          player.claimedDirectives = [];
+        }
+
+        if (player.claimedDirectives.includes(cmd.directiveId)) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Bu direktifin ödülü daha önce talep edilmiş.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        const directives = evaluatePlayerDirectives(this.state, playerId);
+        const directive = directives.find((d) => d.id === cmd.directiveId);
+
+        if (!directive) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Direktif bulunamadı.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        if (!directive.isCompleted) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Direktif henüz tamamlanmadı (${Math.round(directive.progress * 100)}%).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // Deliver rewards to target planet (or homeworld)
+        const targetPlanet =
+          (cmd.targetPlanetId && this.state.planets[cmd.targetPlanetId] && this.state.planets[cmd.targetPlanetId].ownerId === playerId)
+            ? this.state.planets[cmd.targetPlanetId]
+            : (Object.values(this.state.planets).find((p) => p.ownerId === playerId && p.isHomeworld) ||
+               Object.values(this.state.planets).find((p) => p.ownerId === playerId));
+
+        if (targetPlanet) {
+          if (directive.reward.ore) {
+            targetPlanet.resources.ore = Math.min(
+              targetPlanet.storageCap,
+              targetPlanet.resources.ore + directive.reward.ore
+            );
+          }
+          if (directive.reward.crystal) {
+            targetPlanet.resources.crystal = Math.min(
+              targetPlanet.storageCap,
+              targetPlanet.resources.crystal + directive.reward.crystal
+            );
+          }
+          if (directive.reward.fuel) {
+            targetPlanet.resources.fuel = Math.min(
+              targetPlanet.storageCap,
+              targetPlanet.resources.fuel + directive.reward.fuel
+            );
+          }
+        }
+
+        if (directive.reward.hegemonyPoints) {
+          this.state.relay.weeklyPoints[playerId] =
+            (this.state.relay.weeklyPoints[playerId] || 0) + directive.reward.hegemonyPoints;
+          this.evaluateVictoryConditions();
+        }
+
+        if (directive.reward.admiralXp && this.state.admirals) {
+          for (const adm of Object.values(this.state.admirals)) {
+            if (adm.ownerId === playerId) {
+              adm.xp += directive.reward.admiralXp;
+              while (adm.xp >= adm.xpToNextLevel) {
+                adm.level += 1;
+                adm.xp -= adm.xpToNextLevel;
+                adm.xpToNextLevel = Math.round(adm.xpToNextLevel * 1.5);
+              }
+              break;
+            }
+          }
+        }
+
+        player.claimedDirectives.push(cmd.directiveId);
+        this.logEvent(
+          'directive_claimed',
+          `🎯 DİREKTİF ÖDÜLÜ ALINDI: "${directive.title}" başarıyla tamamlandı ve ödülleri aktarıldı!`,
+          playerId,
+          { directiveId: cmd.directiveId, reward: directive.reward }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { directiveId: cmd.directiveId, reward: directive.reward },
         };
       }
     }
