@@ -99,6 +99,7 @@ interface ScreenLabel {
   intelLevel?: string;
   hasHostileThreat?: boolean;
   isRelay?: boolean;
+  isHomeworld?: boolean;
 }
 
 export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
@@ -169,16 +170,29 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       targetLookAtRef.current.set(500, 400, 0);
     } else {
       targetCameraPosRef.current.set(500, 120, 750);
-      targetLookAtRef.current.set(500, 400, 0);
+      const targetSysId = selectedTargetRef.current?.systemId || focusedSystemId;
+      const sys = stateRef.current.map.systems[targetSysId];
+      if (sys) {
+        targetLookAtRef.current.set(sys.x, sys.y, 0);
+      } else {
+        targetLookAtRef.current.set(500, 400, 0);
+      }
     }
     triggerWarpRef.current?.();
   }, [viewMode]);
 
-  // Center camera when focusedSystemId changes
+  // Center camera when selectedTarget or focusedSystemId changes
   useEffect(() => {
-    targetLookAtRef.current.set(500, 400, 0);
-    triggerWarpRef.current?.();
-  }, [focusedSystemId]);
+    if (viewMode === 'galaxy') {
+      const targetSysId = selectedTarget?.systemId || focusedSystemId;
+      const sys = stateRef.current.map.systems[targetSysId];
+      if (sys) {
+        targetLookAtRef.current.set(sys.x, sys.y, 0);
+      }
+    } else {
+      targetLookAtRef.current.set(500, 400, 0);
+    }
+  }, [focusedSystemId, selectedTarget, viewMode]);
 
   // Sync camera when zoom prop changes from external HUD buttons (+ / - / 100%)
   useEffect(() => {
@@ -203,9 +217,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     const camera = new THREE.PerspectiveCamera(45, width / height, 1, 5000);
     const targetCameraPos = targetCameraPosRef.current;
     const targetLookAt = targetLookAtRef.current;
+    const currentLookAt = targetLookAt.clone();
 
     camera.position.copy(targetCameraPos);
-    camera.lookAt(targetLookAt);
+    camera.lookAt(currentLookAt);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
@@ -1337,19 +1352,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }
     };
 
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName)) return;
-      if (e.key === 'Escape' || e.key.toLowerCase() === 'm') {
-        if (viewModeRef.current === 'system' && onExitSystemView) {
-          sound.playClick();
-          onExitSystemView();
-        } else if (viewModeRef.current === 'galaxy' && onEnterSystemView) {
-          sound.playWarp();
-          onEnterSystemView(focusedSystemIdRef.current);
-        }
-      }
-    };
-
     container.addEventListener('mousedown', onMouseDown);
     window.addEventListener('mousemove', onMouseMove);
     window.addEventListener('mouseup', onMouseUp);
@@ -1357,7 +1359,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     container.addEventListener('click', onClick);
     container.addEventListener('dblclick', onDoubleClick);
     container.addEventListener('contextmenu', onContextMenu);
-    window.addEventListener('keydown', onKeyDown);
 
     const onResize = () => {
       if (!container) return;
@@ -1403,8 +1404,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         targetCameraPos.y = targetLookAt.y - Math.min(280, targetCameraPos.z * 0.5);
       }
 
+      currentLookAt.lerp(targetLookAt, 0.08);
       camera.position.lerp(targetCameraPos, 0.08);
-      camera.lookAt(targetLookAt);
+      camera.lookAt(currentLookAt);
 
       // 6.3 Cosmic Background Motion
       spiralGroup.rotation.z += 0.00018;
@@ -1982,7 +1984,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           warpTunnel.visible = true;
           warpMat.opacity = Math.sin(warpProgress * Math.PI) * 0.9;
           warpTunnel.rotation.z += delta * 3.8;
-          warpTunnel.position.set(targetLookAt.x, targetLookAt.y, targetCameraPos.z - 200);
+          warpTunnel.position.set(currentLookAt.x, currentLookAt.y, targetCameraPos.z - 200);
         }
       } else {
         warpTunnel.visible = false;
@@ -2068,6 +2070,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 intelLevel: playerIntel || 'unexplored',
                 hasHostileThreat,
                 isRelay,
+                isHomeworld,
                 isRecentBattle: battleSystemIds.has(sys.id),
               });
             }
@@ -2235,7 +2238,6 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       container.removeEventListener('click', onClick);
       container.removeEventListener('dblclick', onDoubleClick);
       container.removeEventListener('contextmenu', onContextMenu);
-      window.removeEventListener('keydown', onKeyDown);
 
       battleVisuals.forEach((vis) => {
         vis.ringMesh.geometry.dispose();
@@ -2428,6 +2430,12 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                         </span>
                       ) : (
                         <>
+                          {lbl.isHomeworld && (
+                            <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-amber-950/90 border border-amber-500/70 text-amber-300 shadow-sm flex items-center gap-1">
+                              <span>👑</span>
+                              <span>BAŞKENT</span>
+                            </span>
+                          )}
                           {lbl.colonizedCount ? (
                             <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 shadow-sm">
                               🏛️ {lbl.colonizedCount}

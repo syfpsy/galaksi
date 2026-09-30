@@ -51,6 +51,9 @@ interface StellarisBottomDeckProps {
   onOpenShipyard?: () => void;
   onOpenResearch?: () => void;
   onOpenTransitRadar?: () => void;
+  onFocusHomeworld?: () => void;
+  onFocusRelay?: () => void;
+  onCycleColonies?: () => void;
 }
 
 export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
@@ -73,6 +76,9 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
   onOpenShipyard,
   onOpenResearch,
   onOpenTransitRadar,
+  onFocusHomeworld,
+  onFocusRelay,
+  onCycleColonies,
 }) => {
   const [isExpanded, setIsExpanded] = useState(false);
   const [activeTab, setActiveTab] = useState<'all' | 'fleets' | 'shipyard' | 'buildings' | 'research'>('all');
@@ -648,6 +654,54 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
             🔭 Projeksiyon
           </button>
         )}
+
+        {/* Tactical Quick-Focus Buttons */}
+        <div className="flex items-center gap-1">
+          {onFocusHomeworld && (
+            <button
+              onClick={() => {
+                sound.playClick();
+                onFocusHomeworld();
+              }}
+              className="stellaris-btn-metallic px-2.5 py-1.5 rounded-sm text-[11px] font-mono text-amber-300 hover:text-amber-200 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Başkent Dünyaya Odaklan [H / Home]"
+            >
+              <Crown className="w-3.5 h-3.5 text-amber-400" />
+              <span className="hidden md:inline font-bold">Başkent</span>
+              <kbd className="text-[9px] px-1 py-0.2 rounded bg-amber-950/70 border border-amber-500/40 text-amber-300">H</kbd>
+            </button>
+          )}
+
+          {onFocusRelay && (
+            <button
+              onClick={() => {
+                sound.playClick();
+                onFocusRelay();
+              }}
+              className="stellaris-btn-metallic px-2.5 py-1.5 rounded-sm text-[11px] font-mono text-purple-300 hover:text-purple-200 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Nexus Rölesi Sistemine Odaklan [R]"
+            >
+              <Zap className="w-3.5 h-3.5 text-purple-400" />
+              <span className="hidden md:inline font-bold">Nexus</span>
+              <kbd className="text-[9px] px-1 py-0.2 rounded bg-purple-950/70 border border-purple-500/40 text-purple-300">R</kbd>
+            </button>
+          )}
+
+          {onCycleColonies && (
+            <button
+              onClick={() => {
+                sound.playClick();
+                onCycleColonies();
+              }}
+              className="stellaris-btn-metallic px-2.5 py-1.5 rounded-sm text-[11px] font-mono text-emerald-300 hover:text-emerald-200 transition-all flex items-center gap-1.5 cursor-pointer"
+              title="Koloniler Arasında Geçiş Yap [Tab]"
+            >
+              <Globe className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="hidden md:inline font-bold">Koloniler</span>
+              <kbd className="text-[9px] px-1 py-0.2 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">Tab</kbd>
+            </button>
+          )}
+        </div>
 
         {/* Zoom Controls */}
         <div className="stellaris-resource-pod flex items-center gap-0.5 rounded-sm p-0.5 text-[11px]">

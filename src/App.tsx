@@ -83,6 +83,51 @@ export function App() {
     return !localStorage.getItem('galaksi_orientation_seen');
   });
 
+  const activePlanetIdRef = useRef(activePlanetId);
+  activePlanetIdRef.current = activePlanetId;
+
+  const activePlayerIdRef = useRef(activePlayerId);
+  activePlayerIdRef.current = activePlayerId;
+
+  // Tactical Quick-Focus Handlers (Homeworld, Nexus Relay, Player Colonies)
+  const handleFocusHomeworld = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const planets = Object.values(engine.state.planets).filter(
+      (p) => p.ownerId === activePlayerIdRef.current
+    );
+    const hw = planets.find((p) => p.isHomeworld) || planets[0];
+    if (hw) {
+      sound.playClick();
+      setActivePlanetId(hw.id);
+      setSelectedTarget({ type: 'planet', systemId: hw.systemId, planetId: hw.id });
+    }
+  }, []);
+
+  const handleFocusRelay = useCallback(() => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    sound.playClick();
+    setSelectedTarget({ type: 'system', systemId: engine.state.relay.systemId });
+  }, []);
+
+  const handleCycleColonies = useCallback((direction: 'next' | 'prev' = 'next') => {
+    const engine = engineRef.current;
+    if (!engine) return;
+    const planets = Object.values(engine.state.planets).filter(
+      (p) => p.ownerId === activePlayerIdRef.current
+    );
+    if (planets.length === 0) return;
+    sound.playClick();
+    const curIdx = planets.findIndex((p) => p.id === activePlanetIdRef.current);
+    const nextIdx = direction === 'next'
+      ? (curIdx + 1) % planets.length
+      : (curIdx - 1 + planets.length) % planets.length;
+    const nextPlanet = planets[nextIdx];
+    setActivePlanetId(nextPlanet.id);
+    setSelectedTarget({ type: 'planet', systemId: nextPlanet.systemId, planetId: nextPlanet.id });
+  }, []);
+
   // Hotkeys for Stellaris navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -103,6 +148,15 @@ export function App() {
       } else if (e.key === '4') {
         sound.playClick();
         setTimeScale(60);
+      } else if (e.key === 'h' || e.key === 'H' || e.key === 'Home') {
+        e.preventDefault();
+        handleFocusHomeworld();
+      } else if (e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        handleFocusRelay();
+      } else if (e.key === 'Tab') {
+        e.preventDefault();
+        handleCycleColonies(e.shiftKey ? 'prev' : 'next');
       } else if (e.key === 'F1') {
         e.preventDefault();
         sound.playClick();
@@ -167,6 +221,9 @@ export function App() {
     isOrientationOpen,
     inspectedSystemId,
     anomalyModalSystemId,
+    handleFocusHomeworld,
+    handleFocusRelay,
+    handleCycleColonies,
   ]);
 
   // Initialize engine & players
@@ -716,6 +773,9 @@ export function App() {
             onOpenShipyard={() => setActiveLeftPanel('shipyard')}
             onOpenResearch={() => setActiveLeftPanel('research')}
             onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
+            onFocusHomeworld={handleFocusHomeworld}
+            onFocusRelay={handleFocusRelay}
+            onCycleColonies={handleCycleColonies}
           />
 
           {/* Stellaris Fleet Inspector Bottom Card HUD */}

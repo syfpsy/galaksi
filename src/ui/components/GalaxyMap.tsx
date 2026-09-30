@@ -35,6 +35,9 @@ interface GalaxyMapProps {
   onOpenResearch?: () => void;
   onOpenTransitRadar?: () => void;
   onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
+  onFocusHomeworld?: () => void;
+  onFocusRelay?: () => void;
+  onCycleColonies?: () => void;
 }
 
 export const GalaxyMap: React.FC<GalaxyMapProps> = ({
@@ -51,10 +54,15 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
   onOpenResearch,
   onOpenTransitRadar,
   onContextMenuTarget,
+  onFocusHomeworld,
+  onFocusRelay,
+  onCycleColonies,
 }) => {
   // View mode: 'galaxy' (Macro Sector / Cluster) or 'system' (Three.js 2.5D In-System Orrery)
   const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
-  const [focusedSystemId, setFocusedSystemId] = useState<string>('sys_relay');
+  const [focusedSystemId, setFocusedSystemId] = useState<string>(
+    selectedTarget?.systemId || 'sys_relay'
+  );
   const [showProjections, setShowProjections] = useState<boolean>(true);
   const [hoveredPlanetSlotId, setHoveredPlanetSlotId] = useState<string | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>('default');
@@ -106,7 +114,15 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
     onSelectSystem(systemId);
   };
 
+  // Sync focusedSystemId when selectedTarget changes externally
+  useEffect(() => {
+    if (selectedTarget?.systemId && selectedTarget.systemId !== focusedSystemId) {
+      setFocusedSystemId(selectedTarget.systemId);
+    }
+  }, [selectedTarget?.systemId, focusedSystemId]);
+
   // Keyboard shortcut M: Toggle Galaxy View <-> System View (Stellaris standard)
+  // Escape: Return to Galaxy View if currently in System View
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
@@ -118,6 +134,10 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         } else {
           enterSystemView(focusedSystemId);
         }
+      } else if (e.key === 'Escape' && viewMode === 'system') {
+        e.preventDefault();
+        sound.playClick();
+        setViewMode('galaxy');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
@@ -341,6 +361,9 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         onOpenShipyard={onOpenShipyard}
         onOpenResearch={onOpenResearch}
         onOpenTransitRadar={onOpenTransitRadar}
+        onFocusHomeworld={onFocusHomeworld}
+        onFocusRelay={onFocusRelay}
+        onCycleColonies={onCycleColonies}
       />
 
       {/* Dynamic Map Legend (Bottom-Left) */}
