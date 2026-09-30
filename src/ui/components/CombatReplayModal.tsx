@@ -21,6 +21,12 @@ import {
 import { BattleReport, PlanetStance, ShipType } from '../../engine/types';
 import { SHIP_STATS } from '../../engine/constants';
 import { getFleetCombatRating, resolveCombat } from '../../engine/combat';
+import {
+  loadSavedLoadouts,
+  getModifiedShipStats,
+  WEAPON_MODULES,
+  DEFENSE_MODULES,
+} from '../../engine/shipDesign';
 import { sound } from '../sound';
 
 interface CombatReplayModalProps {
@@ -87,6 +93,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
   const [defStance, setDefStance] = useState<PlanetStance>('hold_position');
 
   const [simResult, setSimResult] = useState<SimulationSummary | null>(null);
+  const [loadouts] = useState(() => loadSavedLoadouts());
 
   // Combined reports (simulated report pinned at top if exists)
   const combinedReports = useMemo(() => {
@@ -191,11 +198,12 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
     let defCrysLost = 0;
 
     (['scout', 'transport', 'fighter', 'battleship'] as ShipType[]).forEach((st) => {
-      const stats = SHIP_STATS[st];
-      attOreLost += avgAttLosses[st] * stats.cost.ore;
-      attCrysLost += avgAttLosses[st] * stats.cost.crystal;
-      defOreLost += avgDefLosses[st] * stats.cost.ore;
-      defCrysLost += avgDefLosses[st] * stats.cost.crystal;
+      const attStats = getModifiedShipStats(st, loadouts[st]);
+      const defStats = SHIP_STATS[st];
+      attOreLost += avgAttLosses[st] * attStats.cost.ore;
+      attCrysLost += avgAttLosses[st] * attStats.cost.crystal;
+      defOreLost += avgDefLosses[st] * defStats.cost.ore;
+      defCrysLost += avgDefLosses[st] * defStats.cost.crystal;
     });
 
     const summary: SimulationSummary = {
@@ -695,9 +703,14 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                     <div className="flex items-center gap-2">
                       <span>{SHIP_ICONS[st]}</span>
                       <div>
-                        <span className="text-[11px] font-bold text-slate-200 block">{SHIP_STATS[st].nameTr}</span>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[11px] font-bold text-slate-200">{SHIP_STATS[st].nameTr}</span>
+                          <span className="text-[9px] text-amber-300 font-mono">
+                            {WEAPON_MODULES[loadouts[st].weapon].icon} {WEAPON_MODULES[loadouts[st].weapon].nameTr.split(' ')[0]}
+                          </span>
+                        </div>
                         <span className="text-[9px] text-slate-500">
-                          {SHIP_STATS[st].attack} Atak • {SHIP_STATS[st].hull + SHIP_STATS[st].shield} Dayanıklılık
+                          {getModifiedShipStats(st, loadouts[st]).attack} Atak • {getModifiedShipStats(st, loadouts[st]).hull + getModifiedShipStats(st, loadouts[st]).shield} Dayanıklılık
                         </span>
                       </div>
                     </div>
