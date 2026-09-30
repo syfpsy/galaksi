@@ -266,6 +266,86 @@ export interface Alliance {
   treasury: Resources;
 }
 
+export interface MarketTransaction {
+  id: string;
+  timestamp: number;
+  playerId: string;
+  playerName: string;
+  sellResource: ResourceType;
+  sellAmount: number;
+  buyResource: ResourceType;
+  buyAmount: number;
+  effectiveRate: number;
+  feePaid: number;
+}
+
+export interface MarketState {
+  rates: Record<ResourceType, number>;
+  baseRates: Record<ResourceType, number>;
+  volume24h: Record<ResourceType, number>;
+  baseFeeRate: number;
+  transactionHistory: MarketTransaction[];
+}
+
+export type EspionageOpType =
+  | 'infiltrate_intel'
+  | 'sabotage_shipyard'
+  | 'tech_espionage'
+  | 'destabilize_production';
+
+export interface EspionageOp {
+  id: string;
+  originPlanetId: string;
+  targetPlanetId: string;
+  targetSystemId: string;
+  targetPlayerId: string;
+  infiltratorId: string;
+  opType: EspionageOpType;
+  scoutCount: number;
+  departureTime: number;
+  arrivalTime: number;
+  status: 'in_transit' | 'resolved';
+}
+
+export interface EspionageReport {
+  id: string;
+  timestamp: number;
+  infiltratorId: string;
+  infiltratorName: string;
+  targetPlayerId: string;
+  targetPlayerName: string;
+  targetPlanetId: string;
+  targetPlanetName: string;
+  targetSystemId: string;
+  targetSystemName: string;
+  opType: EspionageOpType;
+  success: boolean;
+  detected: boolean;
+  counterIntelRating: number;
+  stealthRating: number;
+  scoutsLost: number;
+  detailsTr: string;
+  intelData?: {
+    buildings: Record<BuildingType, number>;
+    garrison: Record<ShipType, number>;
+    defenses: Record<DefenseStructureType, number>;
+    resources: Resources;
+    research: Record<ResearchType, number>;
+    storageCap: number;
+    buildingQueue?: { type: BuildingType; targetLevel: number } | null;
+    shipyardQueueCount?: number;
+    defenseQueueCount?: number;
+  };
+  sabotageImpact?: {
+    disruptedTarget: string;
+    damageDescriptionTr: string;
+  };
+  techStolen?: {
+    scienceReward: number;
+    resources: Resources;
+  };
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -283,6 +363,7 @@ export interface Player {
   } | null;
   protectionUntilTime: number; // Newbie protection window (48h or threshold)
   intel: PlayerIntel;
+  espionageReports?: EspionageReport[];
 }
 
 export interface SectorMap {
@@ -302,6 +383,8 @@ export interface GameState {
   fleets: Record<string, Fleet>;
   relay: RelayContest;
   alliances: Record<string, Alliance>;
+  market: MarketState;
+  espionageOps?: EspionageOp[];
   battleReports: BattleReport[];
   eventLog: GameEventRecord[];
   nextId: number;
@@ -323,7 +406,8 @@ export type ScheduledEventType =
   | 'shipyard_batch_tick'
   | 'defense_batch_tick'
   | 'fleet_arrival'
-  | 'relay_point_tick';
+  | 'relay_point_tick'
+  | 'espionage_op_arrival';
 
 export interface ScheduledEvent {
   id: string;
@@ -356,7 +440,21 @@ export type GameCommand =
   | { type: 'DONATE_TO_ALLIANCE'; planetId: string; resources: Resources }
   | { type: 'WITHDRAW_FROM_ALLIANCE'; planetId: string; resources: Resources }
   | { type: 'ALLIANCE_TRANSFER_RESOURCES'; sourcePlanetId: string; targetPlanetId: string; resources: Resources }
-  | { type: 'TOGGLE_VACATION_MODE' };
+  | { type: 'TOGGLE_VACATION_MODE' }
+  | {
+      type: 'MARKET_TRADE';
+      planetId: string;
+      sellResource: ResourceType;
+      buyResource: ResourceType;
+      sellAmount: number;
+    }
+  | {
+      type: 'LAUNCH_ESPIONAGE_OP';
+      originPlanetId: string;
+      targetPlanetId: string;
+      opType: EspionageOpType;
+      scoutCount: number;
+    };
 
 export interface CommandReceipt {
   success: boolean;

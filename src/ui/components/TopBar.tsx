@@ -5,6 +5,7 @@ import {
   ArrowRight,
   ChevronDown,
   CircleDot,
+  Coins,
   Crown,
   Eye,
   EyeOff,
@@ -12,6 +13,7 @@ import {
   Gem,
   Globe,
   HelpCircle,
+  LineChart,
   Moon,
   Navigation,
   Pause,
@@ -50,6 +52,8 @@ interface TopBarProps {
   onOpenShipyard?: () => void;
   onOpenResearch?: () => void;
   onOpenTransitRadar?: () => void;
+  onOpenMarket?: () => void;
+  onOpenEspionage?: () => void;
   onOpenBattles?: () => void;
   onOpenRelay?: () => void;
   onOpenAlliance?: () => void;
@@ -78,6 +82,8 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenShipyard,
   onOpenResearch,
   onOpenTransitRadar,
+  onOpenMarket,
+  onOpenEspionage,
   onOpenBattles,
   onOpenRelay,
   onOpenAlliance,
@@ -528,6 +534,74 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 ? `Şu anda ${activePlayer.researchQueue.type} araştırması yürütülüyor. Kalan: ${formatDuration(Math.max(0, activePlayer.researchQueue.finishTime - state.timeMs))}`
                 : 'Şu anda aktif bir araştırma yok. Yeni teknoloji başlatın.'}
             </p>
+          </div>
+        </div>
+
+        {/* 6. GALACTIC MARKET QUICK CHIP */}
+        <div className="relative group hidden lg:block">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenMarket) onOpenMarket();
+            }}
+            className="stellaris-resource-pod px-2 py-1 rounded-sm text-amber-300 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer hover:border-amber-500/60"
+            title="Galaktik Pazar & Dinamik Borsa (F6)"
+          >
+            <Coins className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span className="font-bold hidden xl:inline">Pazar</span>
+            <span className="text-[10px] text-slate-400 font-mono">
+              ⚡{state.market?.rates?.fuel?.toFixed(2) || '2.40'}
+            </span>
+          </button>
+
+          {/* Market Tooltip */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[210px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl text-left">
+            <span className="font-bold text-amber-300 text-xs block mb-1">📈 Galaktik Borsa Kurları</span>
+            <div className="space-y-1 text-[10px] font-mono text-slate-300">
+              <div className="flex justify-between">
+                <span>⛏️ Cevher:</span> <strong className="text-white">{state.market?.rates?.ore?.toFixed(3) || '1.000'} Cr</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>💎 Kristal:</span> <strong className="text-white">{state.market?.rates?.crystal?.toFixed(3) || '1.600'} Cr</strong>
+              </div>
+              <div className="flex justify-between">
+                <span>⚡ Yakıt:</span> <strong className="text-white">{state.market?.rates?.fuel?.toFixed(3) || '2.400'} Cr</strong>
+              </div>
+            </div>
+            <div className="mt-2 pt-1 border-t border-slate-800 text-[9.5px] text-cyan-400 font-mono text-center">
+              Pazarı açıp anında takas yapmak için tıklayın (F6)
+            </div>
+          </div>
+        </div>
+
+        {/* 7. COVERT OPS / ESPIONAGE STATUS CHIP */}
+        <div className="relative group hidden xl:block">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenEspionage) onOpenEspionage();
+            }}
+            className="stellaris-resource-pod px-2 py-1 rounded-sm text-purple-300 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer hover:border-purple-500/60"
+            title="Gizli Operasyonlar & Casusluk Şebekesi (F7)"
+          >
+            <Eye className="w-3.5 h-3.5 text-purple-400 group-hover:scale-110 transition-transform" />
+            <span className="font-bold">Casusluk</span>
+            {activePlayer?.espionageReports && activePlayer.espionageReports.length > 0 && (
+              <span className="text-[9px] bg-purple-950/80 border border-purple-500/40 text-purple-300 px-1 rounded-sm">
+                {activePlayer.espionageReports.length}
+              </span>
+            )}
+          </button>
+
+          {/* Espionage Tooltip */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[220px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl text-left">
+            <span className="font-bold text-purple-300 text-xs block mb-1">👁️ İstihbarat & Gölge Ağı</span>
+            <p className="text-[10px] text-slate-400 leading-snug">
+              Keşif sondaları ile düşman tersane sabotajı, teknoloji hırsızlığı ve kolonilere sızma.
+            </p>
+            <div className="mt-2 pt-1 border-t border-slate-800 text-[9.5px] text-cyan-400 font-mono text-center">
+              Casusluk komuta merkezini açmak için tıklayın (F7)
+            </div>
           </div>
         </div>
 

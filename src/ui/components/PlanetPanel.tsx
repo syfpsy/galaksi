@@ -5,9 +5,12 @@ import {
   Building,
   CheckCircle,
   Clock,
+  Coins,
   Compass,
+  Eye,
   Flame,
   Gem,
+  LineChart,
   Pickaxe,
   Radio,
   Rocket,
@@ -36,6 +39,8 @@ interface PlanetPanelProps {
   currentTimeMs: number;
   onOpenShipyard?: () => void;
   onOpenResearch?: () => void;
+  onOpenMarket?: () => void;
+  onOpenEspionage?: (targetPlanetId?: string) => void;
   onClose?: () => void;
 }
 
@@ -49,6 +54,8 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
   currentTimeMs,
   onOpenShipyard,
   onOpenResearch,
+  onOpenMarket,
+  onOpenEspionage,
   onClose,
 }) => {
   const currentPlanet = planets.find((p) => p.id === activePlanetId) || planets[0];
@@ -230,8 +237,32 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
             </div>
           </div>
 
-          {/* Stance Selector */}
+          {/* Quick Actions & Stance Selector */}
           <div className="flex items-center gap-1">
+            {onOpenMarket && (
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  onOpenMarket();
+                }}
+                className="p-1.5 rounded-sm text-xs stellaris-btn-metallic text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                title="Galaktik Borsa & Pazar (F6)"
+              >
+                <Coins className="w-4 h-4" />
+              </button>
+            )}
+            {onOpenEspionage && (
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  onOpenEspionage(currentPlanet.id);
+                }}
+                className="p-1.5 rounded-sm text-xs stellaris-btn-metallic text-purple-400 hover:text-purple-300 flex items-center gap-1 cursor-pointer"
+                title="Casusluk & Gölge Ağı (F7)"
+              >
+                <Eye className="w-4 h-4" />
+              </button>
+            )}
             <button
               onClick={() => {
                 sound.playClick();

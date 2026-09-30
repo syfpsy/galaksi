@@ -20,13 +20,19 @@ import {
   BuildingType,
   CommandReceipt,
   DefenseStructureType,
+  EspionageOp,
+  EspionageOpType,
+  EspionageReport,
   Fleet,
   GameCommand,
   GameEventRecord,
   GameState,
+  MarketState,
+  MarketTransaction,
   Planet,
   Player,
   ResearchType,
+  ResourceType,
   Resources,
   ScheduledEvent,
   ShipType,
@@ -37,6 +43,7 @@ export class GameEngine {
   public state: GameState;
   private scheduledEvents: ScheduledEvent[] = [];
   private prng: PRNG;
+  private lastMarketUpdateMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -58,6 +65,14 @@ export class GameEngine {
         sensorRadiusBonus: GAME_CONSTANTS.RELAY_SENSOR_RADIUS_BONUS,
       },
       alliances: {},
+      market: {
+        rates: { ore: 1.0, crystal: 1.6, fuel: 2.4 },
+        baseRates: { ore: 1.0, crystal: 1.6, fuel: 2.4 },
+        volume24h: { ore: 0, crystal: 0, fuel: 0 },
+        baseFeeRate: 0.15,
+        transactionHistory: [],
+      },
+      espionageOps: [],
       battleReports: [],
       eventLog: [],
       nextId: 100,
@@ -91,6 +106,7 @@ export class GameEngine {
         discoveredSystems: {},
         lastSeenFleets: {},
       },
+      espionageReports: [],
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -194,6 +210,23 @@ export class GameEngine {
 
       // Process Defense Installation Queue
       this.processPlanetDefenseQueue(planet, nowMs);
+    }
+
+    // Market mean reversion: rates gradually drift towards base rates (5% per hour)
+    if (this.state.market && this.state.market.rates && this.state.market.baseRates) {
+      if (this.lastMarketUpdateMs === 0) {
+        this.lastMarketUpdateMs = nowMs;
+      } else {
+        const elapsedMarketHours = (nowMs - this.lastMarketUpdateMs) / (3600 * 1000);
+        if (elapsedMarketHours >= 0.02) { // update at least every ~1-2 sim minutes
+          this.lastMarketUpdateMs = nowMs;
+          for (const res of ['ore', 'crystal', 'fuel'] as ResourceType[]) {
+            const base = this.state.market.baseRates[res];
+            const current = this.state.market.rates[res];
+            this.state.market.rates[res] = Number((current + (base - current) * 0.05 * Math.min(2, elapsedMarketHours)).toFixed(3));
+          }
+        }
+      }
     }
   }
 
@@ -318,6 +351,16 @@ export class GameEngine {
         if (!fleet || fleet.status === 'destroyed') return;
 
         this.handleFleetArrival(fleet);
+        break;
+      }
+
+      case 'espionage_op_arrival': {
+        const { opId } = event.payload as { opId: string };
+        const op = this.state.espionageOps?.find(o => o.id === opId);
+        if (!op || op.status === 'resolved') return;
+        op.status = 'resolved';
+
+        this.resolveEspionageOperation(op);
         break;
       }
     }
@@ -873,6 +916,208 @@ export class GameEngine {
     fleet.targetSystemId = temp;
 
     this.scheduleEvent(flightTimeMs, 'fleet_arrival', { fleetId: fleet.id });
+  }
+
+  // --- Espionage & Covert Ops Resolution ---
+  private resolveEspionageOperation(op: EspionageOp) {
+    const infiltrator = this.state.players[op.infiltratorId];
+    const targetPlanet = this.state.planets[op.targetPlanetId];
+    const targetPlayer = targetPlanet ? this.state.players[targetPlanet.ownerId] : null;
+    const originPlanet = this.state.planets[op.originPlanetId];
+    const targetSys = this.state.map.systems[op.targetSystemId];
+
+    if (!infiltrator || !targetPlanet || !targetPlayer || !targetSys) return;
+
+    // Counter-intelligence rating of target planet:
+    // Sensor array building provides +15 rating per level
+    // Defender's sensors research provides +10 rating per level
+    const sensorArrayLvl = targetPlanet.buildings.sensor_array || 0;
+    const defenderSensorsTech = targetPlayer.research?.sensors || 0;
+    const counterIntelRating = (sensorArrayLvl * 15) + (defenderSensorsTech * 10);
+
+    // Infiltrator stealth rating:
+    // Base 45 + 8 per scout probe + 12 per sensor tech level
+    const infiltratorSensorsTech = infiltrator.research?.sensors || 0;
+    const stealthRating = 45 + (op.scoutCount * 8) + (infiltratorSensorsTech * 12);
+
+    // Success roll:
+    // Base 60% chance + (stealth - counterIntel)/100, clamped between 15% and 92%
+    const successChance = Math.max(0.15, Math.min(0.92, 0.60 + (stealthRating - counterIntelRating) / 100));
+    const rollSuccess = this.prng.next();
+    const isSuccess = rollSuccess <= successChance;
+
+    // Detection roll:
+    // Target senses foreign probe if detection check passes
+    // Base 35% chance + (counterIntel - stealth)/100, clamped between 10% and 85%
+    const detectionChance = Math.max(0.10, Math.min(0.85, 0.35 + (counterIntelRating - stealthRating) / 100));
+    const rollDetection = this.prng.next();
+    const isDetected = rollDetection <= detectionChance;
+
+    let scoutsLost = 0;
+    let detailsTr = '';
+    let intelData: EspionageReport['intelData'] = undefined;
+    let sabotageImpact: EspionageReport['sabotageImpact'] = undefined;
+    let techStolen: EspionageReport['techStolen'] = undefined;
+
+    if (isSuccess) {
+      // Surviving scouts return home safely
+      if (originPlanet) {
+        originPlanet.garrison.scout = (originPlanet.garrison.scout || 0) + op.scoutCount;
+      }
+
+      switch (op.opType) {
+        case 'infiltrate_intel': {
+          detailsTr = `${targetPlanet.name} kolonisine sızma başarılı. Bütün savunma ağları, konuşlu filo ve teknolojik veriler deşifre edildi.`;
+          intelData = {
+            buildings: { ...targetPlanet.buildings },
+            garrison: { ...targetPlanet.garrison },
+            defenses: targetPlanet.defenses ? { ...targetPlanet.defenses } : { missile_battery: 0, plasma_turret: 0, ion_cannon: 0 },
+            resources: { ...targetPlanet.resources },
+            research: { ...targetPlayer.research },
+            storageCap: targetPlanet.storageCap,
+            buildingQueue: targetPlanet.buildingQueue ? { type: targetPlanet.buildingQueue.type, targetLevel: targetPlanet.buildingQueue.targetLevel } : null,
+            shipyardQueueCount: targetPlanet.shipyardQueue?.length || 0,
+            defenseQueueCount: targetPlanet.defenseQueue?.length || 0,
+          };
+          break;
+        }
+
+        case 'sabotage_shipyard': {
+          if (targetPlanet.shipyardQueue && targetPlanet.shipyardQueue.length > 0) {
+            const sabotagedShip = targetPlanet.shipyardQueue[0];
+            sabotagedShip.nextUnitFinishTime += 60000; // delay by 60s
+            sabotageImpact = {
+              disruptedTarget: `${SHIP_STATS[sabotagedShip.shipType].nameTr} İnşası`,
+              damageDescriptionTr: `Tersane montaj hattı sabote edildi. ${SHIP_STATS[sabotagedShip.shipType].nameTr} üretimi 60 sn geciktirildi.`,
+            };
+            detailsTr = `${targetPlanet.name} tersanesi sabote edildi! Üretim hattı aksadı.`;
+          } else if (targetPlanet.defenseQueue && targetPlanet.defenseQueue.length > 0) {
+            const sabotagedDef = targetPlanet.defenseQueue[0];
+            sabotagedDef.nextUnitFinishTime += 60000;
+            sabotageImpact = {
+              disruptedTarget: `${DEFENSE_STATS[sabotagedDef.defenseType].nameTr} Montajı`,
+              damageDescriptionTr: `Savunma tareti montaj hattı sabote edildi.`,
+            };
+            detailsTr = `${targetPlanet.name} savunma platformu montajı sabote edildi!`;
+          } else {
+            sabotageImpact = {
+              disruptedTarget: 'Tersane Enerji Şebekesi',
+              damageDescriptionTr: 'Tersane enerji şebekesi kısa devre yaptırıldı. Yeni gemi inşası geçici olarak kilitlendi.',
+            };
+            detailsTr = `${targetPlanet.name} tersane enerji şebekesi başarıyla sabote edildi.`;
+          }
+          break;
+        }
+
+        case 'tech_espionage': {
+          const stolenOre = 350;
+          const stolenCrystal = 250;
+          const stolenFuel = 150;
+          if (originPlanet) {
+            originPlanet.resources.ore = Math.min(originPlanet.storageCap, originPlanet.resources.ore + stolenOre);
+            originPlanet.resources.crystal = Math.min(originPlanet.storageCap, originPlanet.resources.crystal + stolenCrystal);
+            originPlanet.resources.fuel = Math.min(originPlanet.storageCap, originPlanet.resources.fuel + stolenFuel);
+          }
+          techStolen = {
+            scienceReward: 100,
+            resources: { ore: stolenOre, crystal: stolenCrystal, fuel: stolenFuel },
+          };
+          detailsTr = `${targetPlayer.name} Ar-Ge sunucularından gizli askeri şemalar çalındı! (${stolenOre} Cevher, ${stolenCrystal} Kristal, ${stolenFuel} Yakıt değerinde veri elde edildi).`;
+          break;
+        }
+
+        case 'destabilize_production': {
+          const leakOre = Math.min(targetPlanet.resources.ore * 0.25, 400);
+          const leakCrystal = Math.min(targetPlanet.resources.crystal * 0.25, 300);
+          const leakFuel = Math.min(targetPlanet.resources.fuel * 0.25, 200);
+          targetPlanet.resources.ore = Math.max(0, targetPlanet.resources.ore - leakOre);
+          targetPlanet.resources.crystal = Math.max(0, targetPlanet.resources.crystal - leakCrystal);
+          targetPlanet.resources.fuel = Math.max(0, targetPlanet.resources.fuel - leakFuel);
+          sabotageImpact = {
+            disruptedTarget: 'Maden & Rafineri Dağıtım Şebekesi',
+            damageDescriptionTr: `${Math.round(leakOre)} Cevher, ${Math.round(leakCrystal)} Kristal ve ${Math.round(leakFuel)} Yakıt sızıntısına yol açıldı.`,
+          };
+          detailsTr = `${targetPlanet.name} maden ve rafineri enerji hatları bozuldu. Depolardan kaynak sızıntısı sağlandı.`;
+          break;
+        }
+      }
+    } else {
+      // Failed: Probes lost
+      scoutsLost = op.scoutCount;
+      detailsTr = `Casusluk sondası ${targetPlanet.name} yörüngesindeki sensör ağı tarafından engellendi ve imha edildi.`;
+    }
+
+    // Create report for infiltrator
+    const reportId = `esprep_${this.state.nextId++}`;
+    const report: EspionageReport = {
+      id: reportId,
+      timestamp: this.state.timeMs,
+      infiltratorId: infiltrator.id,
+      infiltratorName: infiltrator.name,
+      targetPlayerId: targetPlayer.id,
+      targetPlayerName: targetPlayer.name,
+      targetPlanetId: targetPlanet.id,
+      targetPlanetName: targetPlanet.name,
+      targetSystemId: targetSys.id,
+      targetSystemName: targetSys.name,
+      opType: op.opType,
+      success: isSuccess,
+      detected: isDetected,
+      counterIntelRating,
+      stealthRating,
+      scoutsLost,
+      detailsTr,
+      intelData,
+      sabotageImpact,
+      techStolen,
+    };
+
+    if (!infiltrator.espionageReports) infiltrator.espionageReports = [];
+    infiltrator.espionageReports.unshift(report);
+    if (infiltrator.espionageReports.length > 30) infiltrator.espionageReports.pop();
+
+    this.logEvent(
+      isSuccess ? 'espionage_success' : 'espionage_failed',
+      `${infiltrator.name} gizli operasyonu (${op.opType}): ${isSuccess ? 'BAŞARILI' : 'BAŞARISIZ'} (${targetPlanet.name}).`,
+      infiltrator.id,
+      { reportId, success: isSuccess, detected: isDetected }
+    );
+
+    // If detected, alert defender
+    if (isDetected) {
+      const alertMsg = counterIntelRating >= 40
+        ? `KARŞI İSTİHBARAT ALARMI: ${infiltrator.name} tarafından ${targetPlanet.name} kolonisine gönderilen ${op.opType} casusluk girişimi tespit edildi!`
+        : `GÜVENLİK ALARMI: ${targetPlanet.name} kolonisi yörüngesinde kimliği belirsiz bir gizli casusluk sondası tespit edildi!`;
+
+      this.logEvent('espionage_detected', alertMsg, targetPlayer.id, {
+        infiltratorId: counterIntelRating >= 40 ? infiltrator.id : 'unknown',
+        targetPlanetId: targetPlanet.id,
+        opType: op.opType,
+        intercepted: !isSuccess,
+      });
+
+      if (!targetPlayer.espionageReports) targetPlayer.espionageReports = [];
+      targetPlayer.espionageReports.unshift({
+        id: `esprep_alert_${this.state.nextId++}`,
+        timestamp: this.state.timeMs,
+        infiltratorId: counterIntelRating >= 40 ? infiltrator.id : 'unknown',
+        infiltratorName: counterIntelRating >= 40 ? infiltrator.name : 'Bilinmeyen Casus',
+        targetPlayerId: targetPlayer.id,
+        targetPlayerName: targetPlayer.name,
+        targetPlanetId: targetPlanet.id,
+        targetPlanetName: targetPlanet.name,
+        targetSystemId: targetSys.id,
+        targetSystemName: targetSys.name,
+        opType: op.opType,
+        success: isSuccess,
+        detected: true,
+        counterIntelRating,
+        stealthRating,
+        scoutsLost: isSuccess ? 0 : op.scoutCount,
+        detailsTr: alertMsg,
+      });
+      if (targetPlayer.espionageReports.length > 30) targetPlayer.espionageReports.pop();
+    }
   }
 
   // --- Command Dispatch Interface ---
@@ -1590,6 +1835,169 @@ export class GameEngine {
           this.logEvent('vacation_enabled', `${player.name} tatil moduna geçti. Üretim durdu ve saldırılara karşı koruma aktif.`, playerId);
           return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { vacationMode: true } };
         }
+      }
+
+      case 'MARKET_TRADE': {
+        const { planetId, sellResource, buyResource, sellAmount } = cmd;
+        const planet = this.state.planets[planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz koloni veya erişim yetkisi yok.', timeMs: this.state.timeMs };
+        }
+        if (!sellResource || !buyResource || sellResource === buyResource) {
+          return { success: false, commandType: cmd.type, error: 'Aynı kaynak türü arasında takas yapılamaz.', timeMs: this.state.timeMs };
+        }
+        if (typeof sellAmount !== 'number' || sellAmount <= 0 || isNaN(sellAmount)) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz takas miktarı.', timeMs: this.state.timeMs };
+        }
+        if (planet.resources[sellResource] < sellAmount) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yetersiz kaynak. Kolonide mevcut ${sellResource}: ${Math.floor(planet.resources[sellResource])}`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // Calculate Fee
+        let feeRate = this.state.market.baseFeeRate;
+        if (player.allianceId) feeRate -= 0.05;
+        const sensorTech = player.research?.sensors || 0;
+        if (sensorTech >= 2) feeRate -= 0.025;
+        if (sensorTech >= 4) feeRate -= 0.025;
+        feeRate = Math.max(0.05, Math.min(0.20, feeRate));
+
+        const sellPrice = this.state.market.rates[sellResource];
+        const buyPrice = this.state.market.rates[buyResource];
+
+        const grossCredits = sellAmount * sellPrice;
+        const netCredits = grossCredits * (1 - feeRate);
+        const buyAmount = Math.max(1, Math.floor(netCredits / buyPrice));
+        const feePaid = Math.round(grossCredits * feeRate);
+
+        // Deduct sold and add bought
+        planet.resources[sellResource] -= sellAmount;
+        planet.resources[buyResource] = Math.min(planet.storageCap, planet.resources[buyResource] + buyAmount);
+
+        // Price elasticity
+        const baseSell = this.state.market.baseRates[sellResource];
+        const baseBuy = this.state.market.baseRates[buyResource];
+        const priceImpactSell = Math.min(0.15, (sellAmount / 25000) * 0.05);
+        this.state.market.rates[sellResource] = Math.max(baseSell * 0.4, Number((this.state.market.rates[sellResource] * (1 - priceImpactSell)).toFixed(3)));
+        const priceImpactBuy = Math.min(0.15, (buyAmount / 25000) * 0.05);
+        this.state.market.rates[buyResource] = Math.min(baseBuy * 2.5, Number((this.state.market.rates[buyResource] * (1 + priceImpactBuy)).toFixed(3)));
+
+        this.state.market.volume24h[sellResource] += sellAmount;
+        this.state.market.volume24h[buyResource] += buyAmount;
+
+        const transaction: MarketTransaction = {
+          id: `tx_${this.state.nextId++}`,
+          timestamp: this.state.timeMs,
+          playerId,
+          playerName: player.name,
+          sellResource,
+          sellAmount,
+          buyResource,
+          buyAmount,
+          effectiveRate: Number((buyAmount / sellAmount).toFixed(3)),
+          feePaid,
+        };
+
+        this.state.market.transactionHistory.unshift(transaction);
+        if (this.state.market.transactionHistory.length > 50) {
+          this.state.market.transactionHistory.pop();
+        }
+
+        const resLabels: Record<ResourceType, string> = { ore: 'Cevher', crystal: 'Kristal', fuel: 'Yakıt' };
+        this.logEvent(
+          'market_trade',
+          `${player.name}, ${planet.name} pazarında ${sellAmount} ${resLabels[sellResource]} satıp ${buyAmount} ${resLabels[buyResource]} aldı (Komisyon: %${Math.round(feeRate * 100)}).`,
+          playerId,
+          { sellResource, sellAmount, buyResource, buyAmount, feeRate }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: {
+            transaction,
+            newRates: this.state.market.rates,
+          },
+        };
+      }
+
+      case 'LAUNCH_ESPIONAGE_OP': {
+        const { originPlanetId, targetPlanetId, opType, scoutCount } = cmd;
+        const originPlanet = this.state.planets[originPlanetId];
+        if (!originPlanet || originPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz üs kolonisi veya yetkisiz erişim.', timeMs: this.state.timeMs };
+        }
+        const targetPlanet = this.state.planets[targetPlanetId];
+        if (!targetPlanet) {
+          return { success: false, commandType: cmd.type, error: 'Hedef koloni bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (targetPlanet.ownerId === playerId) {
+          return { success: false, commandType: cmd.type, error: 'Kendi koloninize casusluk operasyonu düzenleyemezsiniz.', timeMs: this.state.timeMs };
+        }
+        const validOpTypes: EspionageOpType[] = ['infiltrate_intel', 'sabotage_shipyard', 'tech_espionage', 'destabilize_production'];
+        if (!validOpTypes.includes(opType)) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz casusluk operasyon türü.', timeMs: this.state.timeMs };
+        }
+
+        const count = Math.max(1, Math.min(5, Math.floor(scoutCount || 1)));
+        if ((originPlanet.garrison.scout || 0) < count) {
+          return { success: false, commandType: cmd.type, error: `Yetersiz keşif sondası. Görev için ${count}x Keşif Gemisi (Scout) gereklidir.`, timeMs: this.state.timeMs };
+        }
+
+        const originSys = this.state.map.systems[originPlanet.systemId];
+        const targetSys = this.state.map.systems[targetPlanet.systemId];
+        const distance = Math.round(Math.hypot(targetSys.x - originSys.x, targetSys.y - originSys.y));
+
+        const fuelCost = Math.max(15, Math.round(count * (15 + distance * 0.08)));
+        if (originPlanet.resources.fuel < fuelCost) {
+          return { success: false, commandType: cmd.type, error: `Yetersiz yakıt. Operasyon için ${fuelCost} Yakıt gereklidir.`, timeMs: this.state.timeMs };
+        }
+
+        originPlanet.resources.fuel -= fuelCost;
+        originPlanet.garrison.scout -= count;
+
+        const engineTech = player.research?.engines || 0;
+        const speed = SHIP_STATS.scout.speed * (1 + engineTech * 0.15);
+        const durationMs = Math.max(2000, Math.round((distance / speed) * 1000));
+
+        const opId = `esp_${this.state.nextId++}`;
+        const op: EspionageOp = {
+          id: opId,
+          originPlanetId,
+          targetPlanetId,
+          targetSystemId: targetSys.id,
+          targetPlayerId: targetPlanet.ownerId,
+          infiltratorId: playerId,
+          opType,
+          scoutCount: count,
+          departureTime: this.state.timeMs,
+          arrivalTime: this.state.timeMs + durationMs,
+          status: 'in_transit',
+        };
+
+        if (!this.state.espionageOps) this.state.espionageOps = [];
+        this.state.espionageOps.push(op);
+
+        this.scheduleEvent(durationMs, 'espionage_op_arrival', { opId });
+
+        this.logEvent(
+          'espionage_launched',
+          `${player.name}, ${targetPlanet.name} hedefine ${count}x Casus Sondası sevk etti (${opType}).`,
+          playerId,
+          { opId, targetPlanetId, opType }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { op, fuelCost, durationMs },
+        };
       }
     }
   }

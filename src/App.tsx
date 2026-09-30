@@ -9,10 +9,12 @@ import { GameEngine } from './engine/engine';
 import {
   BuildingType,
   DefenseStructureType,
+  EspionageOpType,
   Fleet,
   MissionType,
   PlanetStance,
   ResearchType,
+  ResourceType,
   Resources,
   ShipType,
 } from './engine/types';
@@ -38,6 +40,8 @@ import { StellarisNotificationStrip } from './ui/components/StellarisNotificatio
 import { StellarisOutliner } from './ui/components/StellarisOutliner';
 import { SituationLogModal } from './ui/components/SituationLogModal';
 import { OrientationGuideModal } from './ui/components/OrientationGuideModal';
+import { TradeModal } from './ui/components/TradeModal';
+import { EspionageModal } from './ui/components/EspionageModal';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
 
@@ -46,6 +50,8 @@ type LeftPanelType =
   | 'shipyard'
   | 'research'
   | 'transit_radar'
+  | 'market'
+  | 'espionage'
   | 'situation'
   | 'battles'
   | 'admirals'
@@ -113,6 +119,7 @@ export function App() {
   // Auxiliary inspection / anomaly dialogs & orientation
   const [inspectedSystemId, setInspectedSystemId] = useState<string | null>(null);
   const [anomalyModalSystemId, setAnomalyModalSystemId] = useState<string | null>(null);
+  const [espionageTargetPlanetId, setEspionageTargetPlanetId] = useState<string | null>(null);
   const [isOrientationOpen, setIsOrientationOpen] = useState<boolean>(() => {
     return !localStorage.getItem('galaksi_orientation_seen');
   });
@@ -214,23 +221,31 @@ export function App() {
       } else if (e.key === 'F6') {
         e.preventDefault();
         sound.playClick();
-        setActiveLeftPanel((prev) => (prev === 'situation' ? null : 'situation'));
+        setActiveLeftPanel((prev) => (prev === 'market' ? null : 'market'));
       } else if (e.key === 'F7') {
         e.preventDefault();
         sound.playClick();
-        setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'));
+        setActiveLeftPanel((prev) => (prev === 'espionage' ? null : 'espionage'));
       } else if (e.key === 'F8') {
         e.preventDefault();
         sound.playClick();
-        setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'));
+        setActiveLeftPanel((prev) => (prev === 'situation' ? null : 'situation'));
       } else if (e.key === 'F9') {
         e.preventDefault();
         sound.playClick();
-        setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'));
+        setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'));
       } else if (e.key === 'F10') {
         e.preventDefault();
         sound.playClick();
-        setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'));
+        setActiveLeftPanel((prev) => (prev === 'admirals' ? null : 'admirals'));
+      } else if (e.key === 'F11') {
+        e.preventDefault();
+        sound.playClick();
+        setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'));
+      } else if (e.key === 'F12') {
+        e.preventDefault();
+        sound.playClick();
+        setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'));
       } else if (e.key === 'Escape') {
         if (isOrientationOpen) {
           setIsOrientationOpen(false);
@@ -594,6 +609,49 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleMarketTrade = (
+    sellResource: ResourceType,
+    buyResource: ResourceType,
+    sellAmount: number
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'MARKET_TRADE',
+      planetId: activePlanetId,
+      sellResource,
+      buyResource,
+      sellAmount,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleLaunchEspionageOp = (
+    originPlanetId: string,
+    targetPlanetId: string,
+    opType: EspionageOpType,
+    scoutCount: number
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'LAUNCH_ESPIONAGE_OP',
+      originPlanetId,
+      targetPlanetId,
+      opType,
+      scoutCount,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleAssaultRelay = () => {
     if (!engineState) return;
     setSelectedTarget({
@@ -654,6 +712,8 @@ export function App() {
         onOpenShipyard={() => setActiveLeftPanel((prev) => (prev === 'shipyard' ? null : 'shipyard'))}
         onOpenResearch={() => setActiveLeftPanel((prev) => (prev === 'research' ? null : 'research'))}
         onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
+        onOpenMarket={() => setActiveLeftPanel((prev) => (prev === 'market' ? null : 'market'))}
+        onOpenEspionage={() => setActiveLeftPanel((prev) => (prev === 'espionage' ? null : 'espionage'))}
         onOpenBattles={() => setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'))}
         onOpenRelay={() => setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'))}
         onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
@@ -681,6 +741,8 @@ export function App() {
           onOpenShipyard={() => setActiveLeftPanel((prev) => (prev === 'shipyard' ? null : 'shipyard'))}
           onOpenResearch={() => setActiveLeftPanel((prev) => (prev === 'research' ? null : 'research'))}
           onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
+          onOpenMarket={() => setActiveLeftPanel((prev) => (prev === 'market' ? null : 'market'))}
+          onOpenEspionage={() => setActiveLeftPanel((prev) => (prev === 'espionage' ? null : 'espionage'))}
           onOpenSituationLog={() => setActiveLeftPanel((prev) => (prev === 'situation' ? null : 'situation'))}
           onOpenBattles={() => setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'))}
           onOpenAdmirals={() => setActiveLeftPanel((prev) => (prev === 'admirals' ? null : 'admirals'))}
@@ -717,6 +779,11 @@ export function App() {
                 currentTimeMs={engineState.timeMs}
                 onOpenShipyard={() => setActiveLeftPanel('shipyard')}
                 onOpenResearch={() => setActiveLeftPanel('research')}
+                onOpenMarket={() => setActiveLeftPanel('market')}
+                onOpenEspionage={(targetId) => {
+                  setEspionageTargetPlanetId(targetId || null);
+                  setActiveLeftPanel('espionage');
+                }}
                 onClose={() => setActiveLeftPanel(null)}
               />
             )}
@@ -828,6 +895,30 @@ export function App() {
                 onDonateToAlliance={handleDonateToAlliance}
                 onWithdrawFromAlliance={handleWithdrawFromAlliance}
                 onTransferToAlly={handleTransferToAlly}
+              />
+            )}
+
+            {activeLeftPanel === 'market' && (
+              <TradeModal
+                state={engineState}
+                activePlayerId={activePlayerId}
+                activePlanet={activePlanet}
+                onClose={() => setActiveLeftPanel(null)}
+                onTrade={handleMarketTrade}
+              />
+            )}
+
+            {activeLeftPanel === 'espionage' && (
+              <EspionageModal
+                state={engineState}
+                activePlayerId={activePlayerId}
+                activePlanet={activePlanet}
+                initialTargetPlanetId={espionageTargetPlanetId}
+                onClose={() => {
+                  setEspionageTargetPlanetId(null);
+                  setActiveLeftPanel(null);
+                }}
+                onLaunchOp={handleLaunchEspionageOp}
               />
             )}
 

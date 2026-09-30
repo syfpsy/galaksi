@@ -1,5 +1,16 @@
 import { GAME_CONSTANTS } from './constants';
-import { Fleet, GameState, IntelLevel, Planet, SectorMap, ShipType, StarSystem } from './types';
+import {
+  EspionageOp,
+  EspionageReport,
+  Fleet,
+  GameState,
+  IntelLevel,
+  MarketState,
+  Planet,
+  SectorMap,
+  ShipType,
+  StarSystem,
+} from './types';
 
 export interface MaskedFleet {
   id: string;
@@ -40,6 +51,9 @@ export interface PlayerVisibleState {
     weeklyPoints: Record<string, number>;
   };
   recentBattles: GameState['battleReports'];
+  market: MarketState;
+  myEspionageReports: EspionageReport[];
+  myActiveEspionageOps: EspionageOp[];
 }
 
 /**
@@ -271,6 +285,11 @@ export function filterGameStateForPlayer(
     b => b.attackerId === playerId || b.defenderId === playerId
   );
 
+  // Espionage ops involving the player (sent by player)
+  const myActiveOps = (state.espionageOps || []).filter(
+    op => op.infiltratorId === playerId
+  );
+
   return {
     timeMs: state.timeMs,
     playerId,
@@ -286,5 +305,8 @@ export function filterGameStateForPlayer(
       weeklyPoints: state.relay.weeklyPoints,
     },
     recentBattles: myBattles.slice(-10),
+    market: state.market,
+    myEspionageReports: player?.espionageReports || [],
+    myActiveEspionageOps: myActiveOps,
   };
 }

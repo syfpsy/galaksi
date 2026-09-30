@@ -546,4 +546,122 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(ambushEvent).toBeDefined();
     expect(ambushEvent?.description).toContain('korsan pususuna uğradı');
   });
+
+  it('executes dynamic market trades with price curve elasticity and alliance fee discounts', () => {
+    const engine = new GameEngine(7890);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Traders Guild', '#00f3ff');
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Miner Syndicate', '#10b981');
+
+    hw1.resources.ore = 2000;
+    hw1.resources.crystal = 1000;
+    hw1.resources.fuel = 500;
+
+    const initialOrePrice = engine.state.market.rates.ore;
+    const initialFuelPrice = engine.state.market.rates.fuel;
+
+    // Reject trade if same resource
+    const invalidRes = engine.dispatchCommand('p1', {
+      type: 'MARKET_TRADE',
+      planetId: hw1.id,
+      sellResource: 'ore',
+      buyResource: 'ore',
+      sellAmount: 500,
+    });
+    expect(invalidRes.success).toBe(false);
+
+    // Reject trade if insufficient resources
+    const poorRes = engine.dispatchCommand('p1', {
+      type: 'MARKET_TRADE',
+      planetId: hw1.id,
+      sellResource: 'fuel',
+      buyResource: 'crystal',
+      sellAmount: 99999,
+    });
+    expect(poorRes.success).toBe(false);
+
+    // Execute standard trade: Sell 500 Ore for Fuel
+    // Baseline fee 15% (no alliance yet)
+    const tradeRes = engine.dispatchCommand('p1', {
+      type: 'MARKET_TRADE',
+      planetId: hw1.id,
+      sellResource: 'ore',
+      buyResource: 'fuel',
+      sellAmount: 500,
+    });
+    expect(tradeRes.success).toBe(true);
+    expect(hw1.resources.ore).toBe(1500);
+    expect(hw1.resources.fuel).toBeGreaterThan(500);
+
+    // Verify price elasticity: ore price decreased, fuel price increased
+    expect(engine.state.market.rates.ore).toBeLessThanOrEqual(initialOrePrice);
+    expect(engine.state.market.rates.fuel).toBeGreaterThanOrEqual(initialFuelPrice);
+    expect(engine.state.market.transactionHistory.length).toBe(1);
+
+    // Form an alliance: fee is discounted from 15% to 10%
+    engine.dispatchCommand('p1', { type: 'CREATE_ALLIANCE', name: 'Ticaret Paktı', tag: 'TP' });
+    const allyId = engine.state.players['p1'].allianceId!;
+    engine.dispatchCommand('p2', { type: 'JOIN_ALLIANCE', allianceId: allyId });
+
+    const tradeWithDiscount = engine.dispatchCommand('p1', {
+      type: 'MARKET_TRADE',
+      planetId: hw1.id,
+      sellResource: 'crystal',
+      buyResource: 'ore',
+      sellAmount: 200,
+    });
+    expect(tradeWithDiscount.success).toBe(true);
+    expect(tradeWithDiscount.data?.transaction).toBeDefined();
+    // 2 transactions recorded in market history
+    expect(engine.state.market.transactionHistory.length).toBe(2);
+  });
+
+  it('launches espionage operations with sensor counter-intelligence detection and gathers classified intel', () => {
+    const engine = new GameEngine(5555);
+    const { homeworld: hwAttacker } = engine.addPlayer('spy_master', 'Gölge Konsorsiyumu', '#a855f7');
+    const { homeworld: hwTarget } = engine.addPlayer('target_empire', 'Hedef İmparatorluk', '#f43f5e');
+
+    // Equip attacker with scouts and fuel
+    hwAttacker.garrison.scout = 3;
+    hwAttacker.resources.fuel = 2000;
+
+    // Equip target with known assets to spy on
+    hwTarget.buildings.ore_mine = 4;
+    hwTarget.buildings.sensor_array = 2;
+    hwTarget.garrison.fighter = 6;
+    hwTarget.defenses = { missile_battery: 3, plasma_turret: 1, ion_cannon: 0 };
+
+    // Launch Infiltrate Intel mission with 2 scouts
+    const launchRes = engine.dispatchCommand('spy_master', {
+      type: 'LAUNCH_ESPIONAGE_OP',
+      originPlanetId: hwAttacker.id,
+      targetPlanetId: hwTarget.id,
+      opType: 'infiltrate_intel',
+      scoutCount: 2,
+    });
+    expect(launchRes.success).toBe(true);
+    expect(hwAttacker.garrison.scout).toBe(1); // 3 - 2 = 1
+    expect(engine.state.espionageOps?.length).toBe(1);
+
+    // Advance time to resolve the espionage arrival
+    const arrivalTime = launchRes.data?.op.arrivalTime as number;
+    engine.advanceTo(arrivalTime + 100);
+
+    // Verify report was generated
+    const spyPlayer = engine.state.players['spy_master'];
+    expect(spyPlayer.espionageReports).toBeDefined();
+    expect(spyPlayer.espionageReports?.length).toBeGreaterThanOrEqual(1);
+
+    const report = spyPlayer.espionageReports![0];
+    expect(report.targetPlayerId).toBe('target_empire');
+    expect(report.targetPlanetName).toContain('Hedef İmparatorluk');
+    expect(report.counterIntelRating).toBeGreaterThan(0);
+    expect(report.stealthRating).toBeGreaterThan(0);
+
+    if (report.success) {
+      expect(report.intelData).toBeDefined();
+      expect(report.intelData?.buildings.ore_mine).toBe(4);
+      expect(report.intelData?.garrison.fighter).toBe(6);
+      expect(report.intelData?.defenses.missile_battery).toBe(3);
+    }
+  });
 });
