@@ -1194,7 +1194,7 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
           <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
           <span className="font-bold uppercase tracking-wider">{report.attackerName}</span>
           {currentRound && (
-            <span className="font-bold text-rose-400 bg-rose-950/80 px-1 py-0.2 rounded-xs border border-rose-500/30">
+            <span className="font-bold text-rose-400 bg-rose-950/80 px-1.5 py-0.5 rounded-sm border border-rose-500/30">
               ⚡ -{currentRound.attackerDamageDealt}
             </span>
           )}
@@ -1206,7 +1206,7 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
             <Swords className="w-3.5 h-3.5 text-amber-400" />
             <span>TUR {currentRoundIdx + 1} / {totalRounds}</span>
           </div>
-          <div className="hidden sm:flex items-center gap-1.5 bg-[#040914]/85 border border-[#1b3d52]/60 px-2 py-0.5 rounded-xs text-[9px] text-slate-400 backdrop-blur-xs">
+          <div className="hidden sm:flex items-center gap-1.5 bg-[#040914]/85 border border-[#1b3d52]/60 px-2 py-0.5 rounded-sm text-[9px] text-slate-400 backdrop-blur-xs">
             <span className="text-cyan-400/80 font-bold">3D Donanım:</span>
             <span className="text-rose-400">⚡ Lazer</span>
             <span className="text-amber-400">🔥 Plazma</span>
@@ -1218,7 +1218,7 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
         {/* Defender Flank Badge */}
         <div className="bg-[#0b141e]/90 border border-cyan-500/50 backdrop-blur-md px-2.5 py-1 rounded-sm text-cyan-300 flex items-center gap-1.5 shadow-[0_0_8px_rgba(6,182,212,0.2)]">
           {currentRound && (
-            <span className="font-bold text-cyan-300 bg-cyan-950/80 px-1 py-0.2 rounded-xs border border-cyan-500/30">
+            <span className="font-bold text-cyan-300 bg-cyan-950/80 px-1.5 py-0.5 rounded-sm border border-cyan-500/30">
               ⚡ -{currentRound.defenderDamageDealt}
             </span>
           )}

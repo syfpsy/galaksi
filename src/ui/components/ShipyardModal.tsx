@@ -346,25 +346,25 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-100 font-display">
+                          <span className="text-sm font-bold text-white font-display">
                             {baseStats.nameTr}
                           </span>
-                          <span className="stellaris-badge text-cyan-300 border-cyan-500/40">
+                          <span className="stellaris-badge text-cyan-300 font-bold border-cyan-500/40">
                             {baseStats.roleTr}
                           </span>
                           {isCustomized && (
-                            <span className="stellaris-badge text-[9px] text-amber-300 border-amber-500/40">
+                            <span className="stellaris-badge text-[9.5px] text-amber-300 font-bold border-amber-500/40">
                               Özel
                             </span>
                           )}
                         </div>
                         {/* Specs with mod indicators */}
-                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-[10.5px] text-slate-400 font-mono">
+                        <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-[11px] text-slate-300 font-mono font-medium">
                           <span>
                             Saldırı:{' '}
                             <strong className="text-rose-400">{modStats.attack}</strong>
                             {modStats.attack > baseStats.attack && (
-                              <span className="text-[9.5px] text-emerald-400 ml-0.5">
+                              <span className="text-[10px] text-emerald-400 ml-0.5 font-bold">
                                 (+{Math.round(((modStats.attack - baseStats.attack) / baseStats.attack) * 100)}%)
                               </span>
                             )}
@@ -373,7 +373,7 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
                             Kalkan:{' '}
                             <strong className="text-emerald-400">{modStats.hull + modStats.shield}</strong>
                             {modStats.hull + modStats.shield > baseStats.hull + baseStats.shield && (
-                              <span className="text-[9.5px] text-emerald-400 ml-0.5">
+                              <span className="text-[10px] text-emerald-400 ml-0.5 font-bold">
                                 (+{Math.round((((modStats.hull + modStats.shield) - (baseStats.hull + baseStats.shield)) / (baseStats.hull + baseStats.shield)) * 100)}%)
                               </span>
                             )}
@@ -514,18 +514,18 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
                   )}
 
                   {/* Total Cost Badges */}
-                  <div className="flex items-center gap-3 mt-2 text-[10.5px] font-mono">
-                    <span className={planet.resources.ore >= totalCost.ore ? 'text-slate-300' : 'text-rose-400 font-bold'}>
+                  <div className="flex items-center gap-2.5 mt-2 text-[11px] font-mono font-medium">
+                    <span className={planet.resources.ore >= totalCost.ore ? 'text-slate-200' : 'text-rose-400 font-bold'}>
                       {totalCost.ore} Cevher
                     </span>
-                    <span>•</span>
+                    <span className="text-slate-600">•</span>
                     <span className={planet.resources.crystal >= totalCost.crystal ? 'text-cyan-300' : 'text-rose-400 font-bold'}>
                       {totalCost.crystal} Kristal
                     </span>
                     {totalCost.fuel > 0 && (
                       <>
-                        <span>•</span>
-                        <span className={planet.resources.fuel >= totalCost.fuel ? 'text-amber-400' : 'text-rose-400 font-bold'}>
+                        <span className="text-slate-600">•</span>
+                        <span className={planet.resources.fuel >= totalCost.fuel ? 'text-amber-300' : 'text-rose-400 font-bold'}>
                           {totalCost.fuel} Yakıt
                         </span>
                       </>
@@ -661,20 +661,20 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-slate-100 text-xs font-display tracking-wide">
+                          <h3 className="font-bold text-white text-sm font-display tracking-wide">
                             {stats.nameTr}
                           </h3>
                           {isLocked && (
-                            <span className="stellaris-badge text-[9px] text-rose-400 border-rose-500/40">
+                            <span className="stellaris-badge text-[9.5px] text-rose-400 font-bold border-rose-500/40">
                               Tersane Seviye {reqShipyardLevel}+ Gerekli
                             </span>
                           )}
                         </div>
-                        <p className="text-[10.5px] text-slate-400 mt-0.5 leading-relaxed">
+                        <p className="text-xs text-slate-300 mt-0.5 leading-relaxed">
                           {stats.roleTr}
                         </p>
 
-                        <div className="flex items-center gap-2 mt-1.5 text-[10px] font-mono text-slate-300">
+                        <div className="flex items-center gap-2 mt-1.5 text-[11px] font-mono text-slate-200 font-medium">
                           <span className="text-cyan-400 font-bold flex items-center gap-0.5">
                             <Shield className="w-3 h-3 text-cyan-400" /> {stats.hull + stats.shield} HP
                           </span>
@@ -785,18 +785,18 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
                   </div>
 
                   {/* Cost Badges */}
-                  <div className="flex items-center gap-3 mt-2 text-[10.5px] font-mono">
-                    <span className={planet.resources.ore >= totalCost.ore ? 'text-slate-300' : 'text-rose-400 font-bold'}>
+                  <div className="flex items-center gap-2.5 mt-2 text-[11px] font-mono font-medium">
+                    <span className={planet.resources.ore >= totalCost.ore ? 'text-slate-200' : 'text-rose-400 font-bold'}>
                       {totalCost.ore} Cevher
                     </span>
-                    <span>•</span>
+                    <span className="text-slate-600">•</span>
                     <span className={planet.resources.crystal >= totalCost.crystal ? 'text-cyan-300' : 'text-rose-400 font-bold'}>
                       {totalCost.crystal} Kristal
                     </span>
                     {totalCost.fuel > 0 && (
                       <>
-                        <span>•</span>
-                        <span className={planet.resources.fuel >= totalCost.fuel ? 'text-amber-400' : 'text-rose-400 font-bold'}>
+                        <span className="text-slate-600">•</span>
+                        <span className={planet.resources.fuel >= totalCost.fuel ? 'text-amber-300' : 'text-rose-400 font-bold'}>
                           {totalCost.fuel} Yakıt
                         </span>
                       </>

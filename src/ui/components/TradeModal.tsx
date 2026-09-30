@@ -155,7 +155,7 @@ export const TradeModal: React.FC<TradeModalProps> = ({
             <div>
               <h2 className="stellaris-gold font-display text-base font-bold tracking-wider flex items-center gap-2">
                 GALAKTİK PAZAR & DİNAMİK TİCARET BORSASI
-                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1.5 py-0.2 rounded-sm font-normal">
+                <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1.5 py-0.5 rounded-sm font-normal">
                   CANLI KUR
                 </span>
               </h2>

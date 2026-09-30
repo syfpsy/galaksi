@@ -251,12 +251,12 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
             {/* Tactical Stellaris Tooltip */}
             {isHovered && (
               <div className="absolute bottom-11 left-1/2 -translate-x-1/2 z-40 w-64 stellaris-tooltip rounded-sm p-3 shadow-2xl text-xs font-mono animate-fade-in pointer-events-none">
-                <div className="flex items-center justify-between text-[10px] text-amber-400 font-bold mb-1 uppercase tracking-wider">
+                <div className="flex items-center justify-between text-[11px] text-amber-300 font-bold mb-1 uppercase tracking-wider">
                   <span>{n.title}</span>
                 </div>
-                <p className="text-slate-200 text-[11px] leading-snug">{n.description}</p>
-                <div className="mt-2 pt-1.5 border-t border-[#1c3647] text-[9.5px] text-slate-500 flex items-center justify-between">
-                  <span className="text-cyan-400">Sol Tık: İncele / Git</span>
+                <p className="text-white text-xs leading-snug">{n.description}</p>
+                <div className="mt-2 pt-1.5 border-t border-[#1c3647] text-[10px] text-slate-400 flex items-center justify-between font-mono font-medium">
+                  <span className="text-cyan-300 font-bold">Sol Tık: İncele / Git</span>
                   <span>Sağ Tık: Kapat</span>
                 </div>
               </div>

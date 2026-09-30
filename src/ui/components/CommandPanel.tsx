@@ -522,7 +522,7 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
                 </span>
               </div>
 
-              <div className="text-sm font-bold text-slate-100 font-display flex items-center justify-between">
+              <div className="text-sm font-bold text-white font-display flex items-center justify-between">
                 <span className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#3ca8d1]" />
                   {targetSystem.name} SİSTEMİ
@@ -550,7 +550,7 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
               {targetSlot && targetPlanetOrbit && (
                 <div className="mt-2 p-2 bg-[#06121c] border border-[#1b3e54] rounded-sm space-y-1.5 font-mono text-[11px]">
                   <div className="flex items-center justify-between border-b border-[#18374b] pb-1">
-                    <span className="font-bold text-slate-100 flex items-center gap-1.5">
+                    <span className="font-bold text-white flex items-center gap-1.5">
                       <span
                         className="w-2 h-2 rounded-full inline-block"
                         style={{ backgroundColor: targetPlanetOwner?.color || '#38bdf8' }}
@@ -790,14 +790,14 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
                     className="stellaris-item-card p-2 text-xs border border-[#1c3647]"
                   >
                     <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold text-slate-100 flex items-center gap-1.5">
-                        <span className="text-[#3ca8d1] font-mono font-bold">
+                      <span className="font-bold text-white flex items-center gap-1.5">
+                        <span className="text-cyan-400 font-mono font-bold">
                           {st === 'battleship' ? '🛡️' : st === 'fighter' ? '⚔️' : st === 'transport' ? '📦' : '🔭'}
                         </span>
                         {stats.nameTr}
                       </span>
-                      <span className="font-mono text-slate-400 text-[10px]">
-                        Garnizon: <span className="text-slate-200 font-bold">{available}</span>
+                      <span className="font-mono text-slate-300 text-[10.5px]">
+                        Garnizon: <span className="text-white font-bold">{available}</span>
                       </span>
                     </div>
 
@@ -817,11 +817,11 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
                         type="button"
                         disabled={available === 0}
                         onClick={() => setShips((prev) => ({ ...prev, [st]: available }))}
-                        className="px-1.5 py-0.5 rounded-sm text-[9px] font-mono border border-[#1c3d52] bg-[#0d2232] text-slate-300 hover:text-white disabled:opacity-30"
+                        className="px-1.5 py-0.5 rounded-sm text-[9.5px] font-mono border border-[#1c3d52] bg-[#0d2232] text-slate-200 hover:text-white disabled:opacity-30 cursor-pointer"
                       >
                         Tümü
                       </button>
-                      <span className="font-mono text-xs w-6 text-right font-bold text-[#3ca8d1]">
+                      <span className="font-mono text-xs w-6 text-right font-bold text-cyan-300">
                         {selected}
                       </span>
                     </div>

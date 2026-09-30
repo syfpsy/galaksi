@@ -178,7 +178,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
             <div>
               <h2 className="stellaris-gold font-display text-base font-bold tracking-wider flex items-center gap-2">
                 GİZLİ OPERASYONLAR & CASUSLUK ŞEBEKESİ
-                <span className="text-[10px] font-mono text-purple-400 bg-purple-950/60 border border-purple-500/40 px-1.5 py-0.2 rounded-sm font-normal">
+                <span className="text-[10px] font-mono text-purple-400 bg-purple-950/60 border border-purple-500/40 px-1.5 py-0.5 rounded-sm font-normal">
                   GÖLGE AĞI
                 </span>
               </h2>
@@ -230,7 +230,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
             <Database className="w-3.5 h-3.5" />
             İSTİHBARAT DOSYALARI
             {myReports.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-cyan-950 border border-cyan-500/50 text-cyan-300">
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-cyan-950 border border-cyan-500/50 text-cyan-300">
                 {myReports.length}
               </span>
             )}
@@ -250,7 +250,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
             <ShieldAlert className="w-3.5 h-3.5" />
             KARŞI-İSTİHBARAT & GÜVENLİK
             {securityAlerts.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-rose-950 border border-rose-500/50 text-rose-300">
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-rose-950 border border-rose-500/50 text-rose-300">
                 {securityAlerts.length}
               </span>
             )}
@@ -361,7 +361,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
                             </div>
                             <span className="font-semibold text-xs text-white">{op.titleTr}</span>
                           </div>
-                          <span className="text-[9px] font-mono text-purple-300 bg-purple-950/60 border border-purple-500/30 px-1 py-0.2 rounded-sm">
+                          <span className="text-[9px] font-mono text-purple-300 bg-purple-950/60 border border-purple-500/30 px-1 py-0.5 rounded-sm">
                             {op.badge}
                           </span>
                         </div>
@@ -535,7 +535,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
                                 <span>{rep.targetPlanetName}</span>
                                 <span className="text-slate-500">•</span>
                                 <span className="text-slate-300">{rep.targetPlayerName}</span>
-                                <span className="text-[9.5px] font-mono px-1.5 py-0.2 rounded bg-slate-800 text-slate-300">
+                                <span className="text-[9.5px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
                                   {opMeta?.titleTr || rep.opType}
                                 </span>
                               </div>

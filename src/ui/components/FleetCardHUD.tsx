@@ -475,8 +475,8 @@ const FleetCardHUDComponent: React.FC<FleetCardHUDProps> = ({
                         count > 0 ? '!border-cyan-500/50' : 'opacity-40'
                       }`}
                     >
-                      <div className="text-[10px] text-slate-400">{names[st]}</div>
-                      <div className="text-xs font-bold text-cyan-300 mt-0.5">{count}</div>
+                      <div className="text-[11px] font-medium text-slate-200">{names[st]}</div>
+                      <div className="text-sm font-mono font-bold text-cyan-300 mt-0.5">{count}</div>
                     </div>
                   );
                 })}
@@ -485,7 +485,7 @@ const FleetCardHUDComponent: React.FC<FleetCardHUDProps> = ({
 
             {/* Bottom Metrics & Tactical Actions */}
             <div className="flex items-center justify-between pt-2 border-t border-[#18374b] text-xs">
-              <div className="flex items-center gap-3 text-slate-400 text-[10.5px]">
+              <div className="flex items-center gap-3 text-slate-300 text-[11px] font-mono font-medium">
                 <span>
                   💥 Güç: <strong className="text-rose-400">{totalAttack}</strong>
                 </span>

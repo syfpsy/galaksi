@@ -223,16 +223,30 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
             </div>
 
             <div>
-              <div className="text-sm font-bold text-slate-100 font-display flex items-center gap-2">
+              <div className="text-sm font-bold text-white font-display flex items-center gap-2">
                 {currentPlanet.name}
                 {currentPlanet.isHomeworld && (
-                  <span className="text-[9px] bg-amber-400/20 text-[#e5c578] border border-amber-500/40 px-1.5 py-0.5 rounded-sm font-mono font-semibold">
+                  <span className="text-[9.5px] bg-amber-400/20 text-[#fbbf24] border border-amber-500/50 px-1.5 py-0.5 rounded-sm font-mono font-bold tracking-wide">
                     BAŞKENT
                   </span>
                 )}
               </div>
-              <div className="text-[11px] text-slate-400 font-mono mt-0.5">
-                Korumalı Depo: <strong className="text-slate-200">{currentPlanet.protectedCapacity.toLocaleString()}</strong> br
+              <div className="text-[11px] text-slate-300 font-mono mt-0.5">
+                Korumalı Depo: <strong className="text-white">{currentPlanet.protectedCapacity.toLocaleString()}</strong> br
+              </div>
+              {/* Planetary Hourly Production Strip */}
+              <div className="flex items-center gap-1.5 mt-1 text-[10.5px] font-mono font-medium">
+                <span className="text-orange-400 font-bold">
+                  +{calculateHourlyProduction('ore', currentPlanet.buildings.ore_mine || 0)}/s
+                </span>
+                <span className="text-slate-600">•</span>
+                <span className="text-cyan-300 font-bold">
+                  +{calculateHourlyProduction('crystal', currentPlanet.buildings.crystal_synth || 0)}/s
+                </span>
+                <span className="text-slate-600">•</span>
+                <span className="text-amber-300 font-bold">
+                  +{calculateHourlyProduction('fuel', currentPlanet.buildings.fuel_refinery || 0)}/s
+                </span>
               </div>
             </div>
           </div>
@@ -333,12 +347,17 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-semibold text-slate-200 font-display">
+                  <span className="text-xs font-bold text-white font-display">
                     {stats.nameTr}
                   </span>
                   <span className="text-[10.5px] font-mono text-cyan-300 font-bold bg-[#07101a] px-1.5 py-0.5 rounded-sm border border-[#19384c]">
                     Sv. {currentLevel}
                   </span>
+                  {(type === 'ore_mine' || type === 'crystal_synth' || type === 'fuel_refinery') && currentLevel > 0 && (
+                    <span className="text-[10.5px] font-mono text-emerald-400 font-bold">
+                      +{calculateHourlyProduction(type === 'ore_mine' ? 'ore' : type === 'crystal_synth' ? 'crystal' : 'fuel', currentLevel)}/s
+                    </span>
+                  )}
                 </div>
 
                 {/* Action Buttons: Shortcuts & Upgrade */}
@@ -405,18 +424,18 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
               )}
 
               {/* Cost requirement badges */}
-              <div className="flex items-center gap-2 mt-1.5 text-[10px] font-mono text-slate-400">
-                <span className={currentPlanet.resources.ore >= nextCost.ore ? 'text-slate-300' : 'text-rose-400 font-bold'}>
+              <div className="flex items-center gap-2 mt-1.5 text-[11px] font-mono font-medium">
+                <span className={currentPlanet.resources.ore >= nextCost.ore ? 'text-slate-200' : 'text-rose-400 font-bold'}>
                   {nextCost.ore} Cevher
                 </span>
-                <span>•</span>
-                <span className={currentPlanet.resources.crystal >= nextCost.crystal ? 'text-slate-300' : 'text-rose-400 font-bold'}>
+                <span className="text-slate-600">•</span>
+                <span className={currentPlanet.resources.crystal >= nextCost.crystal ? 'text-cyan-300' : 'text-rose-400 font-bold'}>
                   {nextCost.crystal} Kristal
                 </span>
                 {nextCost.fuel > 0 && (
                   <>
-                    <span>•</span>
-                    <span className={currentPlanet.resources.fuel >= nextCost.fuel ? 'text-slate-300' : 'text-rose-400 font-bold'}>
+                    <span className="text-slate-600">•</span>
+                    <span className={currentPlanet.resources.fuel >= nextCost.fuel ? 'text-amber-300' : 'text-rose-400 font-bold'}>
                       {nextCost.fuel} Yakıt
                     </span>
                   </>
@@ -446,8 +465,8 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
                   key={st}
                   className="stellaris-item-card rounded-sm p-2 flex items-center justify-between"
                 >
-                  <span className="text-[11px] text-slate-300">{names[st]}</span>
-                  <span className="text-xs font-mono font-bold text-cyan-300">{count}</span>
+                  <span className="text-xs text-slate-200 font-medium">{names[st]}</span>
+                  <span className="text-sm font-mono font-bold text-cyan-300">{count}</span>
                 </div>
               );
             })}
@@ -462,7 +481,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
               <span>YÖRÜNGE SAVUNMA BATARYALARI</span>
             </span>
             {currentPlanet.defenseQueue && currentPlanet.defenseQueue.length > 0 && (
-              <span className="text-[10px] font-mono text-emerald-300 animate-pulse">
+              <span className="text-[10px] font-mono text-emerald-300 animate-pulse font-bold">
                 {currentPlanet.defenseQueue.reduce((a, b) => a + (b.count - b.completed), 0)} İnşa Ediliyor
               </span>
             )}
@@ -470,22 +489,22 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
           <div className="grid grid-cols-3 gap-1.5">
             <div className="stellaris-item-card rounded-sm p-2 flex flex-col items-center text-center">
               <span className="text-base mb-0.5">🚀</span>
-              <span className="text-[10px] text-slate-300">Füze</span>
-              <span className="text-xs font-mono font-bold text-cyan-300 mt-0.5">
+              <span className="text-[11px] text-slate-200 font-medium">Füze</span>
+              <span className="text-sm font-mono font-bold text-cyan-300 mt-0.5">
                 {currentPlanet.defenses?.missile_battery || 0}
               </span>
             </div>
             <div className="stellaris-item-card rounded-sm p-2 flex flex-col items-center text-center">
               <span className="text-base mb-0.5">🔥</span>
-              <span className="text-[10px] text-slate-300">Plazma</span>
-              <span className="text-xs font-mono font-bold text-amber-300 mt-0.5">
+              <span className="text-[11px] text-slate-200 font-medium">Plazma</span>
+              <span className="text-sm font-mono font-bold text-amber-300 mt-0.5">
                 {currentPlanet.defenses?.plasma_turret || 0}
               </span>
             </div>
             <div className="stellaris-item-card rounded-sm p-2 flex flex-col items-center text-center">
               <span className="text-base mb-0.5">⚡</span>
-              <span className="text-[10px] text-slate-300">İyon</span>
-              <span className="text-xs font-mono font-bold text-purple-300 mt-0.5">
+              <span className="text-[11px] text-slate-200 font-medium">İyon</span>
+              <span className="text-sm font-mono font-bold text-purple-300 mt-0.5">
                 {currentPlanet.defenses?.ion_cannon || 0}
               </span>
             </div>

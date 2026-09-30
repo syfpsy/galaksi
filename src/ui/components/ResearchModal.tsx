@@ -139,14 +139,14 @@ const ResearchModalComponent: React.FC<ResearchModalProps> = ({
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-slate-100 font-display">
+                      <span className="text-sm font-bold text-white font-display">
                         {stats.nameTr}
                       </span>
-                      <span className="stellaris-badge text-amber-300 border-amber-500/40">
+                      <span className="stellaris-badge text-amber-300 font-bold border-amber-500/50">
                         Seviye {currentLevel}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1 max-w-[280px] leading-snug">
+                    <p className="text-xs text-slate-300 mt-1 max-w-[280px] leading-snug">
                       {stats.descriptionTr}
                     </p>
                   </div>
@@ -161,8 +161,8 @@ const ResearchModalComponent: React.FC<ResearchModalProps> = ({
                   }}
                   className={`px-3 py-1.5 rounded-sm text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
                     isResearchingThis
-                      ? 'stellaris-rail-btn active text-amber-300'
-                      : 'stellaris-btn-metallic text-[#e5c578] font-bold'
+                      ? 'stellaris-rail-btn active text-amber-300 font-bold'
+                      : 'stellaris-btn-metallic text-[#fbbf24] font-bold'
                   }`}
                 >
                   <Sparkles className="w-3.5 h-3.5" />
@@ -171,19 +171,19 @@ const ResearchModalComponent: React.FC<ResearchModalProps> = ({
               </div>
 
               {/* Cost Badges */}
-              <div className="flex items-center gap-3 mt-2.5 pt-2 border-t border-[#18374b] text-[10.5px] font-mono">
-                <span className={homeworld.resources.ore >= nextCost.ore ? 'text-slate-300' : 'text-rose-400 font-bold'}>
+              <div className="flex items-center gap-2.5 mt-2.5 pt-2 border-t border-[#18374b] text-[11px] font-mono font-medium">
+                <span className={homeworld.resources.ore >= nextCost.ore ? 'text-slate-200' : 'text-rose-400 font-bold'}>
                   {nextCost.ore} Cevher
                 </span>
-                <span>•</span>
+                <span className="text-slate-600">•</span>
                 <span className={homeworld.resources.crystal >= nextCost.crystal ? 'text-cyan-300' : 'text-rose-400 font-bold'}>
                   {nextCost.crystal} Kristal
                 </span>
-                <span>•</span>
-                <span className={homeworld.resources.fuel >= nextCost.fuel ? 'text-amber-400' : 'text-rose-400 font-bold'}>
+                <span className="text-slate-600">•</span>
+                <span className={homeworld.resources.fuel >= nextCost.fuel ? 'text-amber-300' : 'text-rose-400 font-bold'}>
                   {nextCost.fuel} Yakıt
                 </span>
-                <span className="text-slate-400 ml-auto font-mono">
+                <span className="text-amber-300/90 ml-auto font-mono font-bold">
                   Süre: {formatDuration(durationSec * 1000)}
                 </span>
               </div>

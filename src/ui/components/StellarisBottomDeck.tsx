@@ -668,7 +668,7 @@ const StellarisBottomDeckComponent: React.FC<StellarisBottomDeckProps> = ({
             >
               <Crown className="w-3.5 h-3.5 text-amber-400" />
               <span className="hidden md:inline font-bold">Başkent</span>
-              <kbd className="text-[9px] px-1 py-0.2 rounded-sm bg-amber-950/70 border border-amber-500/40 text-amber-300">H</kbd>
+              <kbd className="text-[9px] px-1 py-0.5 rounded-sm bg-amber-950/70 border border-amber-500/40 text-amber-300">H</kbd>
             </button>
           )}
 
@@ -683,7 +683,7 @@ const StellarisBottomDeckComponent: React.FC<StellarisBottomDeckProps> = ({
             >
               <Zap className="w-3.5 h-3.5 text-purple-400" />
               <span className="hidden md:inline font-bold">Nexus</span>
-              <kbd className="text-[9px] px-1 py-0.2 rounded-sm bg-purple-950/70 border border-purple-500/40 text-purple-300">R</kbd>
+              <kbd className="text-[9px] px-1 py-0.5 rounded-sm bg-purple-950/70 border border-purple-500/40 text-purple-300">R</kbd>
             </button>
           )}
 
@@ -698,7 +698,7 @@ const StellarisBottomDeckComponent: React.FC<StellarisBottomDeckProps> = ({
             >
               <Globe className="w-3.5 h-3.5 text-emerald-400" />
               <span className="hidden md:inline font-bold">Koloniler</span>
-              <kbd className="text-[9px] px-1 py-0.2 rounded-sm bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">Tab</kbd>
+              <kbd className="text-[9px] px-1 py-0.5 rounded-sm bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">Tab</kbd>
             </button>
           )}
         </div>
