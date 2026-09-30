@@ -156,7 +156,7 @@ const ResearchModalComponent: React.FC<ResearchModalProps> = ({
                 <button
                   disabled={isLabMissing || !canAfford || isAnyActive}
                   onClick={() => {
-                    sound.playColonize();
+                    sound.playTech();
                     onStartResearch(type);
                   }}
                   className={`px-3 py-1.5 rounded-sm text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${

@@ -349,7 +349,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
                     <button
                       disabled={!canAfford || isAnyUpgrading}
                       onClick={() => {
-                        sound.playClick();
+                        sound.playConstruction();
                         onUpgradeBuilding(currentPlanet.id, type);
                       }}
                       className="stellaris-btn-metallic flex items-center gap-1 px-2.5 py-1 rounded-sm text-[11px] font-medium text-cyan-300 transition-all cursor-pointer"

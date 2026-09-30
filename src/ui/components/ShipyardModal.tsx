@@ -195,7 +195,7 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
                 <button
                   disabled={isLocked || !canAfford}
                   onClick={() => {
-                    sound.playClick();
+                    sound.playConstruction();
                     onBuildShip(planet.id, st, buildCount);
                   }}
                   className="px-3.5 py-1.5 rounded-sm text-xs font-semibold flex items-center gap-1.5 transition-all stellaris-btn-metallic text-cyan-300 font-bold shrink-0 cursor-pointer"

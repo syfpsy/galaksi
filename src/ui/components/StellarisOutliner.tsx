@@ -92,12 +92,14 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
 
   // Filter incoming hostile threats targeting player's systems
   const mySystemIds = new Set(myPlanets.map((p) => p.systemId));
-  const hostileThreats = Object.values(state.fleets).filter(
-    (f) =>
-      f.ownerId !== activePlayerId &&
-      (f.status === 'in_transit' || f.status === 'intercepting') &&
-      mySystemIds.has(f.targetSystemId)
-  );
+  const hostileThreats = Object.values(state.fleets).filter((f) => {
+    if (f.ownerId === activePlayerId || f.status === 'destroyed') return false;
+    if (f.status !== 'in_transit' && f.status !== 'intercepting') return false;
+    if (f.targetPlanetId && state.planets[f.targetPlanetId]?.ownerId === activePlayerId) {
+      return f.mission === 'attack';
+    }
+    return mySystemIds.has(f.targetSystemId) && f.mission === 'attack';
+  });
 
   // Relay data
   const relay = state.relay;
