@@ -4,9 +4,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Compass,
+  Globe,
   Minus,
   Orbit,
+  Pickaxe,
   Plus,
+  Radio,
   Rocket,
   Swords,
 } from 'lucide-react';
@@ -15,7 +18,7 @@ import { calculatePlanetOrbit } from '../../engine/orbital';
 import { GameState, StarSystem } from '../../engine/types';
 import { SelectedTarget } from '../types';
 import { sound } from '../sound';
-import { GalaxyScene25D } from './GalaxyScene25D';
+import { GalaxyScene25D, MapMode } from './GalaxyScene25D';
 import { StellarisBottomDeck } from './StellarisBottomDeck';
 
 interface GalaxyMapProps {
@@ -54,6 +57,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
   const [focusedSystemId, setFocusedSystemId] = useState<string>('sys_relay');
   const [showProjections, setShowProjections] = useState<boolean>(true);
   const [hoveredPlanetSlotId, setHoveredPlanetSlotId] = useState<string | null>(null);
+  const [mapMode, setMapMode] = useState<MapMode>('default');
 
   const [zoom, setZoom] = useState(1);
   const activePlayer = state.players[activePlayerId];
@@ -167,6 +171,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
           onSelectFleet={onSelectFleet}
           onHoverPlanet={setHoveredPlanetSlotId}
           onContextMenuTarget={onContextMenuTarget}
+          mapMode={mapMode}
         />
       </div>
 
@@ -338,24 +343,140 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         onOpenTransitRadar={onOpenTransitRadar}
       />
 
-      {/* Map Legend (Bottom-Left) */}
+      {/* Dynamic Map Legend (Bottom-Left) */}
       <div className="absolute bottom-3 left-4 stellaris-item-card rounded-sm px-3 py-1.5 flex items-center gap-4 text-[11px] font-mono text-slate-300 pointer-events-none shadow-xl border border-slate-700/60 backdrop-blur-md">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-500/50" />
-          <span className="text-slate-200">Koloni</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-rose-500 inline-block shadow-sm shadow-rose-500/50" />
-          <span className="text-slate-200">Düşman</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-purple-500 inline-block shadow-sm shadow-purple-500/50" />
-          <span className="text-purple-300">Nexus Rölesi</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full bg-amber-400 inline-block shadow-sm shadow-amber-500/50" />
-          <span className="text-amber-300">Keşif / POI</span>
-        </div>
+        {mapMode === 'military' ? (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block shadow-sm shadow-cyan-500/50" />
+              <span className="text-cyan-200">Dost Filo</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 inline-block shadow-sm shadow-rose-500/50 animate-pulse" />
+              <span className="text-rose-200 font-bold">Düşman Tehdidi</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400 inline-block shadow-sm shadow-amber-500/50" />
+              <span className="text-amber-300">Muharebe Alanı</span>
+            </div>
+          </>
+        ) : mapMode === 'economy' ? (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-500/50" />
+              <span className="text-emerald-300 font-bold">Boş Koloni Dünyası</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400 inline-block shadow-sm shadow-amber-500/50" />
+              <span className="text-amber-300">Kurtarılabilir Enkaz</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block shadow-sm shadow-cyan-500/50" />
+              <span className="text-cyan-300">Keşfedilmemiş POI</span>
+            </div>
+          </>
+        ) : mapMode === 'intel' ? (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-cyan-400 inline-block shadow-sm shadow-cyan-500/50" />
+              <span className="text-cyan-200">Sensör Kapsamı</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-purple-400 inline-block shadow-sm shadow-purple-500/50" />
+              <span className="text-purple-300">Derin İstihbarat</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-slate-500 inline-block shadow-sm shadow-slate-500/50" />
+              <span className="text-slate-400">Sis Altında</span>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-500/50" />
+              <span className="text-slate-200">Koloni</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-rose-500 inline-block shadow-sm shadow-rose-500/50" />
+              <span className="text-slate-200">Düşman</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-purple-500 inline-block shadow-sm shadow-purple-500/50" />
+              <span className="text-purple-300">Nexus Rölesi</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-amber-400 inline-block shadow-sm shadow-amber-500/50" />
+              <span className="text-amber-300">Keşif / POI</span>
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Stellaris Map Modes Selector (Bottom-Right, canonical Stellaris placement) */}
+      <div className="absolute bottom-3 right-4 z-20 flex items-center bg-[#070e17]/95 border border-[#18374b] rounded-sm p-0.5 shadow-xl backdrop-blur-md">
+        <button
+          onClick={() => {
+            sound.playClick();
+            setMapMode('default');
+          }}
+          className={`px-2.5 py-1 rounded-sm text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            mapMode === 'default'
+              ? 'bg-cyan-500/25 text-cyan-300 border border-cyan-500/60 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title="Genel Harita Modu (İmparatorluk & Hâkimiyet)"
+        >
+          <Globe className="w-3.5 h-3.5" />
+          <span className="hidden sm:inline">Genel</span>
+        </button>
+
+        <button
+          onClick={() => {
+            sound.playClick();
+            setMapMode('military');
+          }}
+          className={`px-2.5 py-1 rounded-sm text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            mapMode === 'military'
+              ? 'bg-rose-500/25 text-rose-300 border border-rose-500/60 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title="Askeri & Tehdit Modu (Baskınlar, Filolar ve Çatışmalar)"
+        >
+          <Swords className="w-3.5 h-3.5 text-rose-400" />
+          <span className="hidden sm:inline">Askeri</span>
+        </button>
+
+        <button
+          onClick={() => {
+            sound.playClick();
+            setMapMode('economy');
+          }}
+          className={`px-2.5 py-1 rounded-sm text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            mapMode === 'economy'
+              ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-500/60 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title="Ekonomi & Koloni Modu (Boş Gezegenler ve Enkaz Alanları)"
+        >
+          <Pickaxe className="w-3.5 h-3.5 text-emerald-400" />
+          <span className="hidden sm:inline">Ekonomi</span>
+        </button>
+
+        <button
+          onClick={() => {
+            sound.playClick();
+            setMapMode('intel');
+          }}
+          className={`px-2.5 py-1 rounded-sm text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+            mapMode === 'intel'
+              ? 'bg-purple-500/25 text-purple-300 border border-purple-500/60 shadow-sm'
+              : 'text-slate-400 hover:text-slate-200'
+          }`}
+          title="Sensör & İstihbarat Modu (Sis Kapsamı ve Keşif)"
+        >
+          <Radio className="w-3.5 h-3.5 text-purple-400" />
+          <span className="hidden sm:inline">İstihbarat</span>
+        </button>
       </div>
     </div>
   );

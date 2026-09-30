@@ -51,7 +51,9 @@ function getFleetCombatPower(fleet: Fleet): number {
   );
 }
 
-interface GalaxyScene25DProps {
+export type MapMode = 'default' | 'military' | 'economy' | 'intel';
+
+export interface GalaxyScene25DProps {
   state: GameState;
   activePlayerId: string;
   selectedTarget: SelectedTarget | null;
@@ -69,6 +71,7 @@ interface GalaxyScene25DProps {
   onSelectFleet: (fleetId: string) => void;
   onHoverPlanet?: (planetId: string | null) => void;
   onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
+  mapMode?: MapMode;
 }
 
 interface ScreenLabel {
@@ -92,6 +95,9 @@ interface ScreenLabel {
   openSlotsCount?: number;
   hasPoi?: boolean;
   hasDebris?: boolean;
+  debrisTotal?: number;
+  intelLevel?: string;
+  hasHostileThreat?: boolean;
   isRelay?: boolean;
 }
 
@@ -113,6 +119,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onSelectFleet,
   onHoverPlanet,
   onContextMenuTarget,
+  mapMode = 'default',
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hudLabels, setHudLabels] = useState<ScreenLabel[]>([]);
@@ -120,6 +127,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onHoverPlanetRef.current = onHoverPlanet;
   const onContextMenuTargetRef = useRef(onContextMenuTarget);
   onContextMenuTargetRef.current = onContextMenuTarget;
+
+  const mapModeRef = useRef<MapMode>(mapMode);
+  mapModeRef.current = mapMode;
 
   // Live references for animation loop
   const stateRef = useRef(state);
@@ -2025,6 +2035,14 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 (s) => stateRef.current.planets[s.planetId]?.ownerId
               ).length;
               const openSlotsCount = sys.slots.length - colonizedCount;
+              const debrisTotal = (sys.hasDebris?.ore || 0) + (sys.hasDebris?.crystal || 0);
+              const playerIntel = stateRef.current.players[activePlayerIdRef.current]?.intel?.discoveredSystems[sys.id];
+              const hasHostileThreat = Object.values(stateRef.current.fleets).some(
+                (f) =>
+                  f.ownerId !== activePlayerIdRef.current &&
+                  f.targetSystemId === sys.id &&
+                  (f.status === 'in_transit' || f.status === 'intercepting')
+              );
 
               let subtitle = `${sys.slots.length} Gezegen`;
               if (isHomeworld) subtitle = 'ANA DÜNYA';
@@ -2046,6 +2064,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 openSlotsCount,
                 hasPoi: !!sys.poi && !sys.poi.explored,
                 hasDebris: !!sys.hasDebris && ((sys.hasDebris.ore || 0) > 0 || (sys.hasDebris.crystal || 0) > 0),
+                debrisTotal,
+                intelLevel: playerIntel || 'unexplored',
+                hasHostileThreat,
                 isRelay,
                 isRecentBattle: battleSystemIds.has(sys.id),
               });
@@ -2347,38 +2368,89 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
                 {/* Subtitle & Stellaris Badges Row */}
                 <div className="flex items-center gap-1 mt-0.5">
-                  {lbl.isRecentBattle && (
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-rose-950/90 border border-rose-500 text-rose-300 animate-pulse shadow-md shadow-rose-950/80">
-                      ⚔️ MUHAREBE
-                    </span>
-                  )}
-                  {lbl.isRelay ? (
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
-                      ⚡ RÖLE
-                    </span>
+                  {mapMode === 'military' ? (
+                    <>
+                      {lbl.hasHostileThreat && (
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-rose-950/95 border border-rose-500 text-rose-300 animate-pulse shadow-md shadow-rose-950/80">
+                          🚨 TEHDİT
+                        </span>
+                      )}
+                      {lbl.isRecentBattle && (
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-rose-950/90 border border-rose-500 text-rose-300 animate-pulse shadow-md shadow-rose-950/80">
+                          ⚔️ MUHAREBE
+                        </span>
+                      )}
+                      {lbl.isRelay && (
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
+                          ⚡ RÖLE
+                        </span>
+                      )}
+                    </>
+                  ) : mapMode === 'economy' ? (
+                    <>
+                      {lbl.openSlotsCount ? (
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-emerald-950/90 border border-emerald-500/80 text-emerald-300 shadow-sm">
+                          🪐 {lbl.openSlotsCount} Boş Dünya
+                        </span>
+                      ) : null}
+                      {lbl.hasDebris && (
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-amber-950/90 border border-amber-500/80 text-amber-300 shadow-sm">
+                          ⚙️ {lbl.debrisTotal || ''} Enkaz
+                        </span>
+                      )}
+                      {lbl.hasPoi && (
+                        <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-cyan-950/80 border border-cyan-500/60 text-cyan-300 animate-pulse shadow-sm">
+                          ★ KEŞİF
+                        </span>
+                      )}
+                    </>
+                  ) : mapMode === 'intel' ? (
+                    <>
+                      <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-cyan-950/80 border border-cyan-500/60 text-cyan-300 shadow-sm">
+                        📡 {lbl.intelLevel === 'deep_intel' ? 'DERİN SENSÖR' : lbl.intelLevel === 'full' ? 'TAM GÖRÜŞ' : lbl.intelLevel === 'basic' ? 'TEMEL İSTİHBARAT' : 'SİS'}
+                      </span>
+                      {lbl.isRelay && (
+                        <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
+                          ⚡ RÖLE
+                        </span>
+                      )}
+                    </>
                   ) : (
                     <>
-                      {lbl.colonizedCount ? (
-                        <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 shadow-sm">
-                          🏛️ {lbl.colonizedCount}
+                      {lbl.isRecentBattle && (
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-rose-950/90 border border-rose-500 text-rose-300 animate-pulse shadow-md shadow-rose-950/80">
+                          ⚔️ MUHAREBE
                         </span>
-                      ) : null}
-                      {lbl.openSlotsCount ? (
-                        <span className="text-[9px] font-mono px-1 rounded-sm bg-slate-900/80 border border-slate-700/60 text-slate-300 shadow-sm">
-                          🪐 {lbl.openSlotsCount}
+                      )}
+                      {lbl.isRelay ? (
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
+                          ⚡ RÖLE
                         </span>
-                      ) : null}
+                      ) : (
+                        <>
+                          {lbl.colonizedCount ? (
+                            <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 shadow-sm">
+                              🏛️ {lbl.colonizedCount}
+                            </span>
+                          ) : null}
+                          {lbl.openSlotsCount ? (
+                            <span className="text-[9px] font-mono px-1 rounded-sm bg-slate-900/80 border border-slate-700/60 text-slate-300 shadow-sm">
+                              🪐 {lbl.openSlotsCount}
+                            </span>
+                          ) : null}
+                        </>
+                      )}
+                      {lbl.hasPoi && (
+                        <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-amber-950/80 border border-amber-600/70 text-amber-300 animate-pulse shadow-sm">
+                          ★ KEŞİF
+                        </span>
+                      )}
+                      {lbl.hasDebris && (
+                        <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-rose-950/80 border border-rose-600/70 text-rose-300 shadow-sm">
+                          ⚙️ ENKAZ
+                        </span>
+                      )}
                     </>
-                  )}
-                  {lbl.hasPoi && (
-                    <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-amber-950/80 border border-amber-600/70 text-amber-300 animate-pulse shadow-sm">
-                      ★ KEŞİF
-                    </span>
-                  )}
-                  {lbl.hasDebris && (
-                    <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-rose-950/80 border border-rose-600/70 text-rose-300 shadow-sm">
-                      ⚙️ ENKAZ
-                    </span>
                   )}
                 </div>
               </div>
