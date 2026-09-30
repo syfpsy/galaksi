@@ -213,6 +213,62 @@ class SoundSystem {
     } catch {}
   }
 
+  public playTech() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const notes = [698.46, 880.0, 1046.5, 1567.98]; // F5, A5, C6, G6 sci-fi tech breakthrough chord
+      const now = this.ctx.currentTime;
+
+      notes.forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, now + idx * 0.07);
+
+        gain.gain.setValueAtTime(0.001, now + idx * 0.07);
+        gain.gain.exponentialRampToValueAtTime(0.1, now + idx * 0.07 + 0.04);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.07 + 0.55);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now + idx * 0.07);
+        osc.stop(now + idx * 0.07 + 0.55);
+      });
+    } catch {}
+  }
+
+  public playConstruction() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      const osc = this.ctx.createOscillator();
+      const gain = this.ctx.createGain();
+
+      osc.type = 'square';
+      osc.frequency.setValueAtTime(440, now);
+      osc.frequency.exponentialRampToValueAtTime(220, now + 0.06);
+      osc.frequency.setValueAtTime(554.37, now + 0.07);
+
+      gain.gain.setValueAtTime(0.08, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+
+      osc.connect(gain);
+      gain.connect(this.ctx.destination);
+
+      osc.start(now);
+      osc.stop(now + 0.25);
+    } catch {}
+  }
+
   public playLaser() {
     if (this.isMuted) return;
     this.initCtx();

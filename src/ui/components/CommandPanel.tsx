@@ -584,7 +584,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                   </div>
 
                   {projectedArrivalAngleDeg !== null && routeInfo && (
-                    <div className="pt-1.5 border-t border-[#18374b] text-[10px] bg-[#0c2438]/40 -mx-1 px-1.5 py-1 rounded">
+                    <div className="pt-1.5 border-t border-[#18374b] text-[10px] bg-[#0c2438]/40 -mx-1 px-1.5 py-1 rounded-sm">
                       <div className="flex items-center justify-between text-[#3ca8d1]">
                         <span>🎯 Varış Randevusu:</span>
                         <span className="font-bold">{projectedArrivalAngleDeg}°</span>
@@ -709,6 +709,73 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               <span className="stellaris-power text-[11px]">
                 {totalSelectedShips} Gemi (⚡ {selectedFleetPower})
               </span>
+            </div>
+
+            {/* Quick Fleet Composition Preset Chips */}
+            <div className="flex items-center gap-1 mb-2">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setShips({
+                    scout: garrison.scout || 0,
+                    transport: garrison.transport || 0,
+                    fighter: garrison.fighter || 0,
+                    battleship: garrison.battleship || 0,
+                  });
+                }}
+                disabled={Object.values(garrison).every((c) => c === 0)}
+                className="stellaris-btn-metallic px-2 py-1 rounded-sm text-[10px] font-mono text-cyan-300 hover:text-white transition-all cursor-pointer disabled:opacity-40"
+                title="Garnizondaki tüm gemileri seç"
+              >
+                ⚡ Tüm Filo
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setShips({
+                    scout: 0,
+                    transport: 0,
+                    fighter: garrison.fighter || 0,
+                    battleship: garrison.battleship || 0,
+                  });
+                }}
+                disabled={(garrison.fighter || 0) + (garrison.battleship || 0) === 0}
+                className="stellaris-btn-metallic px-2 py-1 rounded-sm text-[10px] font-mono text-rose-300 hover:text-rose-200 transition-all cursor-pointer disabled:opacity-40"
+                title="Yalnızca muharip gemileri seç (Avcı + Savaş Gemisi)"
+              >
+                ⚔️ Muharebe
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setShips({
+                    scout: Math.min(1, garrison.scout || 0),
+                    transport: 0,
+                    fighter: 0,
+                    battleship: 0,
+                  });
+                }}
+                disabled={(garrison.scout || 0) === 0}
+                className="stellaris-btn-metallic px-2 py-1 rounded-sm text-[10px] font-mono text-amber-300 hover:text-amber-200 transition-all cursor-pointer disabled:opacity-40"
+                title="Hızlı keşif için 1 Gözcü seç"
+              >
+                🔭 1 Gözcü
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setShips({ scout: 0, transport: 0, fighter: 0, battleship: 0 });
+                }}
+                disabled={totalSelectedShips === 0}
+                className="stellaris-btn-metallic px-2 py-1 rounded-sm text-[10px] font-mono text-slate-400 hover:text-slate-200 transition-all cursor-pointer ml-auto disabled:opacity-40"
+                title="Gemi seçimini sıfırla"
+              >
+                Sıfırla
+              </button>
             </div>
 
             <div className="space-y-2">

@@ -263,6 +263,8 @@ export function App() {
     initGame();
   }, [initGame]);
 
+  const lastThreatsCountRef = useRef(0);
+
   // Main simulation tick loop
   useEffect(() => {
     if (!isPlaying) return;
@@ -272,12 +274,62 @@ export function App() {
       const engine = engineRef.current;
       if (!engine) return;
 
-      const simDeltaMs = realIntervalMs * timeScale;
+      const curPlayerId = activePlayerIdRef.current;
       const prevBattleCount = engine.state.battleReports.length;
+      const prevResearchQ = engine.state.players[curPlayerId]?.researchQueue;
+      const prevColoniesCount = Object.values(engine.state.planets).filter(
+        (p) => p.ownerId === curPlayerId
+      ).length;
+      const prevBldgsInQueue = Object.values(engine.state.planets).filter(
+        (p) => p.ownerId === curPlayerId && p.buildingQueue
+      ).length;
+
+      const simDeltaMs = realIntervalMs * timeScale;
       engine.tick(simDeltaMs);
+
+      // 1. Battle Explosion SFX
       if (engine.state.battleReports.length > prevBattleCount) {
         sound.playExplosion();
       }
+
+      // 2. Tech Breakthrough Resonant Chord SFX
+      const curPlayer = engine.state.players[curPlayerId];
+      if (prevResearchQ && !curPlayer?.researchQueue) {
+        sound.playTech();
+      }
+
+      // 3. New Colony Established Chime SFX
+      const curColoniesCount = Object.values(engine.state.planets).filter(
+        (p) => p.ownerId === curPlayerId
+      ).length;
+      if (curColoniesCount > prevColoniesCount) {
+        sound.playColonize();
+      }
+
+      // 4. Construction Upgrade Finished SFX
+      const curBldgsInQueue = Object.values(engine.state.planets).filter(
+        (p) => p.ownerId === curPlayerId && p.buildingQueue
+      ).length;
+      if (prevBldgsInQueue > curBldgsInQueue && !curPlayer?.vacationMode) {
+        sound.playConstruction();
+      }
+
+      // 5. Incoming Threat Tactical Red Alert Alarm SFX
+      const curThreatsCount = Object.values(engine.state.fleets).filter((f) => {
+        if (f.ownerId === curPlayerId || f.status === 'destroyed') return false;
+        if (f.targetPlanetId && engine.state.planets[f.targetPlanetId]?.ownerId === curPlayerId) {
+          return f.mission === 'attack';
+        }
+        const isTargetSystemMyColony = Object.values(engine.state.planets).some(
+          (p) => p.ownerId === curPlayerId && p.systemId === f.targetSystemId
+        );
+        return isTargetSystemMyColony && f.mission === 'attack';
+      }).length;
+
+      if (curThreatsCount > lastThreatsCountRef.current) {
+        sound.playAlert();
+      }
+      lastThreatsCountRef.current = curThreatsCount;
 
       // In slow strategy, bots evaluate every 60 seconds of game time
       if (engine.state.timeMs - lastBotUpdateMsRef.current >= 60 * 1000) {
