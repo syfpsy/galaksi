@@ -375,7 +375,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             </div>
 
             {incomingThreats.length > 0 && (
-              <div className="mt-2 p-2 rounded-lg bg-rose-950/60 border border-rose-500/60 text-xs font-mono text-rose-300">
+              <div className="mt-2 p-2 rounded-sm bg-rose-950/60 border border-rose-500/60 text-xs font-mono text-rose-300">
                 <div className="flex items-center gap-1 font-bold">
                   <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
                   <span>DÜŞMAN BASKIN FİLOSU TESPİT EDİLDİ!</span>

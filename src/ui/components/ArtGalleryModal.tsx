@@ -278,7 +278,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
           <div className="flex-1 overflow-y-auto p-6 pb-6 flex flex-col justify-between bg-space-900/60">
             <div className="space-y-5">
               {/* Asset Hero Image Frame */}
-              <div className="relative w-full h-72 rounded-2xl overflow-hidden border border-slate-700 bg-space-950 group shadow-2xl flex items-center justify-center">
+              <div className="relative w-full h-72 rounded-sm overflow-hidden border border-slate-700 bg-space-950 group shadow-2xl flex items-center justify-center">
                 <img
                   src={activeAsset.imageSrc}
                   alt={activeAsset.title}
@@ -290,7 +290,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                 <div className="absolute top-3 right-3 flex items-center gap-2">
                   <button
                     onClick={() => setIsLightboxOpen(true)}
-                    className="p-2 rounded-lg bg-black/70 backdrop-blur-md border border-white/20 text-white hover:text-cyber-cyan transition-all"
+                    className="p-2 rounded-sm bg-black/70 backdrop-blur-md border border-white/20 text-white hover:text-cyber-cyan transition-all"
                     title="Tam Boyut Görüntüle"
                   >
                     <Maximize2 className="w-4 h-4" />
@@ -299,14 +299,14 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                     href={activeAsset.webUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="p-2 rounded-lg bg-black/70 backdrop-blur-md border border-white/20 text-white hover:text-cyber-cyan transition-all"
+                    className="p-2 rounded-sm bg-black/70 backdrop-blur-md border border-white/20 text-white hover:text-cyber-cyan transition-all"
                     title="Magnific Studio Bağlantısı"
                   >
                     <ExternalLink className="w-4 h-4" />
                   </a>
                 </div>
 
-                <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md border border-slate-700 px-3 py-1 rounded-lg text-xs font-mono text-slate-300">
+                <div className="absolute bottom-3 left-3 bg-black/80 backdrop-blur-md border border-slate-700 px-3 py-1 rounded-sm text-xs font-mono text-slate-300">
                   <span className="text-cyber-cyan font-bold">1024 × 1024</span> • Google Nano Banana Pro
                 </div>
               </div>

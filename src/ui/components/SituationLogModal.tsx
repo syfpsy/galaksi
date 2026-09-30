@@ -327,7 +327,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
                     onAssaultRelay();
                     onClose();
                   }}
-                  className="px-4 py-2 rounded-lg bg-purple-600 hover:bg-purple-500 text-white font-mono font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-950/60 transition-all shrink-0"
+                  className="px-4 py-2 rounded-sm bg-purple-600 hover:bg-purple-500 text-white font-mono font-bold text-xs flex items-center gap-2 shadow-lg shadow-purple-950/60 transition-all shrink-0"
                 >
                   <Swords className="w-4 h-4" />
                   <span>Röle Harekâtı Başlat</span>
@@ -349,7 +349,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
                       return (
                         <div
                           key={playerId}
-                          className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-3 py-2 rounded-lg text-xs font-mono"
+                          className="flex items-center justify-between bg-slate-950/60 border border-slate-800/80 px-3 py-2 rounded-sm text-xs font-mono"
                         >
                           <div className="flex items-center gap-2">
                             <span

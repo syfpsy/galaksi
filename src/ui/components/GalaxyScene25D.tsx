@@ -42,6 +42,15 @@ function getLoadedPlanetTexture(imagePath: string): THREE.Texture {
   return tex;
 }
 
+function getFleetCombatPower(fleet: Fleet): number {
+  return (
+    (fleet.ships.battleship || 0) * 140 +
+    (fleet.ships.fighter || 0) * 35 +
+    (fleet.ships.scout || 0) * 12 +
+    (fleet.ships.transport || 0) * 6
+  );
+}
+
 interface GalaxyScene25DProps {
   state: GameState;
   activePlayerId: string;
@@ -71,6 +80,8 @@ interface ScreenLabel {
   planetId?: string;
   targetSystemId?: string;
   fleetId?: string;
+  fleetPower?: number;
+  isRecentBattle?: boolean;
   x: number;
   y: number;
   visible: boolean;
@@ -419,6 +430,14 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     const hyperlaneGroup = new THREE.Group();
     galaxyMacroGroup.add(hyperlaneGroup);
 
+    interface LaneVisual {
+      line: THREE.Line;
+      mat: THREE.LineBasicMaterial;
+      fromSystemId: string;
+      toSystemId: string;
+    }
+    const laneVisuals: LaneVisual[] = [];
+
     interface LanePulse {
       from: THREE.Vector3;
       to: THREE.Vector3;
@@ -431,7 +450,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     const pulseSpriteMat = new THREE.SpriteMaterial({
       map: getShipEngineGlowTexture('#00f3ff'),
       transparent: true,
-      opacity: 0.75,
+      opacity: 0.85,
       blending: THREE.AdditiveBlending,
       depthWrite: false,
     });
@@ -444,31 +463,40 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const points = [from.clone(), to.clone()];
       const laneGeo = new THREE.BufferGeometry().setFromPoints(points);
       const laneMat = new THREE.LineBasicMaterial({
-        color: 0x1e3a8a,
+        color: 0x0284c7, // Radiant celestial hyperlane blue
         linewidth: 1.5,
         transparent: true,
-        opacity: 0.55,
+        opacity: 0.5,
       });
       const line = new THREE.Line(laneGeo, laneMat);
       line.raycast = () => {};
       hyperlaneGroup.add(line);
 
-      if (lIdx % 2 === 0) {
-        const pulseSprite = new THREE.Sprite(pulseSpriteMat);
-        pulseSprite.position.copy(from);
-        pulseSprite.scale.set(4, 4, 1);
-        pulseSprite.raycast = () => {};
-        hyperlaneGroup.add(pulseSprite);
+      laneVisuals.push({
+        line,
+        mat: laneMat,
+        fromSystemId: lane.fromSystemId,
+        toSystemId: lane.toSystemId,
+      });
 
-        lanePulses.push({
-          from,
-          to,
-          progress: (lIdx * 0.17) % 1,
-          speed: 0.14 + (lIdx % 3) * 0.04,
-          sprite: pulseSprite,
-        });
-      }
+      const pulseSprite = new THREE.Sprite(pulseSpriteMat);
+      pulseSprite.position.copy(from);
+      pulseSprite.scale.set(5, 5, 1);
+      pulseSprite.raycast = () => {};
+      hyperlaneGroup.add(pulseSprite);
+
+      lanePulses.push({
+        from,
+        to,
+        progress: (lIdx * 0.19) % 1,
+        speed: 0.15 + (lIdx % 4) * 0.03,
+        sprite: pulseSprite,
+      });
     });
+
+    // 2.45 Battle FX Shockwaves
+    const battleFxGroup = new THREE.Group();
+    galaxyMacroGroup.add(battleFxGroup);
 
     // 2.5 Macro Fleets in Transit
     const macroFleetsGroup = new THREE.Group();
@@ -1329,6 +1357,45 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         });
 
         const activeFleets = Object.values(stateRef.current.fleets);
+
+        // Dynamic Hyperlane Tactical Glow: Highlight active supply routes & incoming threats
+        const activeLanesWithOwnFleet = new Set<string>();
+        const activeLanesWithHostileFleet = new Set<string>();
+        const myColonySystemIds = new Set(
+          Object.values(stateRef.current.planets)
+            .filter((p) => p.ownerId === activePlayerIdRef.current)
+            .map((p) => p.systemId)
+        );
+
+        activeFleets.forEach((fl) => {
+          if (fl.status === 'in_transit' || fl.status === 'intercepting' || fl.status === 'returning') {
+            const k1 = `${fl.originSystemId}_${fl.targetSystemId}`;
+            const k2 = `${fl.targetSystemId}_${fl.originSystemId}`;
+            if (fl.ownerId === activePlayerIdRef.current) {
+              activeLanesWithOwnFleet.add(k1);
+              activeLanesWithOwnFleet.add(k2);
+            } else if (myColonySystemIds.has(fl.targetSystemId)) {
+              activeLanesWithHostileFleet.add(k1);
+              activeLanesWithHostileFleet.add(k2);
+            }
+          }
+        });
+
+        laneVisuals.forEach((lv) => {
+          const k = `${lv.fromSystemId}_${lv.toSystemId}`;
+          if (activeLanesWithHostileFleet.has(k)) {
+            const p = (Math.sin(currentTimeMs * 0.009) + 1) * 0.5;
+            lv.mat.color.setHex(0xf43f5e);
+            lv.mat.opacity = 0.55 + p * 0.4;
+          } else if (activeLanesWithOwnFleet.has(k)) {
+            lv.mat.color.setHex(0x00f3ff);
+            lv.mat.opacity = 0.85;
+          } else {
+            lv.mat.color.setHex(0x0284c7);
+            lv.mat.opacity = 0.45;
+          }
+        });
+
         const activeFleetIds = new Set<string>();
 
         activeFleets.forEach((fleet) => {
@@ -1747,6 +1814,13 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
         if (!isSystemMode) {
           // Macro Galaxy View Labels (All 12 Systems)
+          const recentBattleCutoff = currentTimeMs - 45000;
+          const battleSystemIds = new Set(
+            (stateRef.current.battleReports || [])
+              .filter((b) => b.timestamp >= recentBattleCutoff)
+              .map((b) => b.systemId)
+          );
+
           Object.values(stateRef.current.map.systems).forEach((sys) => {
             tempProjVec.set(sys.x, sys.y - 24, 0);
             tempProjVec.project(camera);
@@ -1803,7 +1877,50 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 hasPoi: !!sys.poi && !sys.poi.explored,
                 hasDebris: !!sys.hasDebris && ((sys.hasDebris.ore || 0) > 0 || (sys.hasDebris.crystal || 0) > 0),
                 isRelay,
+                isRecentBattle: battleSystemIds.has(sys.id),
               });
+            }
+          });
+
+          // Macro Moving Fleets Labels (Clickable tactical plates along hyperlanes)
+          const allFleets = Object.values(stateRef.current.fleets);
+          allFleets.forEach((fleet: Fleet) => {
+            const isOwn = fleet.ownerId === activePlayerIdRef.current;
+            const isVisible =
+              isGodMode ||
+              isOwn ||
+              currentCoverage.has(fleet.originSystemId) ||
+              currentCoverage.has(fleet.targetSystemId);
+
+            if (!isVisible) return;
+            if (fleet.status === 'in_transit' || fleet.status === 'returning' || fleet.status === 'intercepting') {
+              const pos = getFleetCurrentPosition(fleet, currentTimeMs, stateRef.current.map.systems);
+              tempProjVec.set(pos.x, pos.y - 14, 8);
+              tempProjVec.project(camera);
+
+              const screenX = ((tempProjVec.x + 1) * width) / 2;
+              const screenY = ((-tempProjVec.y + 1) * height) / 2;
+              const isVisibleScreen = tempProjVec.z < 1 && tempProjVec.z > -1;
+
+              if (isVisibleScreen) {
+                const owner = stateRef.current.players[fleet.ownerId];
+                const totalShips = Object.values(fleet.ships).reduce<number>((a, b) => a + ((b as number) || 0), 0);
+                const remainingMs = Math.max(0, fleet.arrivalTime - currentTimeMs);
+                const power = getFleetCombatPower(fleet);
+                labels.push({
+                  id: `macro_fleet_${fleet.id}`,
+                  type: 'fleet',
+                  title: isOwn ? (fleet.name || 'Filo') : `${owner?.name ? owner.name.slice(0, 10) + ' ' : ''}Filosu`,
+                  subtitle: `${totalShips}G • ${formatDuration(remainingMs)}`,
+                  color: owner?.color || (isOwn ? '#00f3ff' : '#f43f5e'),
+                  systemId: fleet.targetSystemId,
+                  fleetId: fleet.id,
+                  fleetPower: power,
+                  x: screenX,
+                  y: screenY,
+                  visible: true,
+                });
+              }
             }
           });
         } else if (currentOrrery) {
@@ -1881,8 +1998,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               if (isVisible) {
                 const isOwn = fl.ownerId === activePlayerIdRef.current;
                 const owner = stateRef.current.players[fl.ownerId];
-                const totalShips = Object.values(fl.ships).reduce((a, b) => a + b, 0);
+                const totalShips = Object.values(fl.ships).reduce<number>((a, b) => a + ((b as number) || 0), 0);
                 const remainingMs = Math.max(0, fl.arrivalTime - currentTimeMs);
+                const power = getFleetCombatPower(fl);
                 labels.push({
                   id: `fleet_${fl.id}`,
                   type: 'fleet',
@@ -1894,6 +2012,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   color: owner?.color || (isOwn ? '#00f3ff' : '#f43f5e'),
                   systemId: activeSys?.id || '',
                   fleetId: fl.id,
+                  fleetPower: power,
                   x: ((tempProjVec.x + 1) * width) / 2,
                   y: ((-tempProjVec.y + 1) * height) / 2,
                   visible: true,
@@ -2000,7 +2119,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             {lbl.type === 'system' ? (
               <div className="flex flex-col items-center group">
                 <div
-                  className="px-2.5 py-0.5 rounded-md bg-[#070d1d]/90 border border-slate-700/80 shadow-xl text-[11px] font-mono font-bold text-white flex items-center gap-1.5 backdrop-blur-md hover:border-cyber-cyan transition-all"
+                  className={`px-2.5 py-1 rounded-sm bg-[#091322]/95 border shadow-xl text-[11px] font-mono font-bold text-white flex items-center gap-1.5 backdrop-blur-md transition-all ${
+                    lbl.isRecentBattle
+                      ? 'border-rose-500 shadow-rose-950/70 animate-pulse'
+                      : 'border-slate-700/80 hover:border-cyber-cyan'
+                  }`}
                   style={{
                     borderTop: lbl.ownerColor ? `2px solid ${lbl.ownerColor}` : undefined,
                   }}
@@ -2009,10 +2132,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                     className="w-2 h-2 rounded-full inline-block shadow-sm"
                     style={{ backgroundColor: lbl.color }}
                   />
-                  <span>{lbl.title}</span>
+                  <span className="stellaris-gold tracking-wide">{lbl.title}</span>
                   {lbl.ownerName && (
                     <span
-                      className="text-[9px] font-mono px-1 py-0.5 rounded border"
+                      className="text-[9px] font-mono px-1 py-0.5 rounded-sm border"
                       style={{
                         backgroundColor: `${lbl.ownerColor}20`,
                         borderColor: `${lbl.ownerColor}60`,
@@ -2026,43 +2149,48 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
                 {/* Subtitle & Stellaris Badges Row */}
                 <div className="flex items-center gap-1 mt-0.5">
+                  {lbl.isRecentBattle && (
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-rose-950/90 border border-rose-500 text-rose-300 animate-pulse shadow-md shadow-rose-950/80">
+                      ⚔️ MUHAREBE
+                    </span>
+                  )}
                   {lbl.isRelay ? (
-                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
+                    <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
                       ⚡ RÖLE
                     </span>
                   ) : (
                     <>
                       {lbl.colonizedCount ? (
-                        <span className="text-[9px] font-mono font-bold px-1 rounded bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 shadow-sm">
+                        <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-emerald-950/80 border border-emerald-600/60 text-emerald-300 shadow-sm">
                           🏛️ {lbl.colonizedCount}
                         </span>
                       ) : null}
                       {lbl.openSlotsCount ? (
-                        <span className="text-[9px] font-mono px-1 rounded bg-slate-900/80 border border-slate-700/60 text-slate-300 shadow-sm">
+                        <span className="text-[9px] font-mono px-1 rounded-sm bg-slate-900/80 border border-slate-700/60 text-slate-300 shadow-sm">
                           🪐 {lbl.openSlotsCount}
                         </span>
                       ) : null}
                     </>
                   )}
                   {lbl.hasPoi && (
-                    <span className="text-[9px] font-mono font-bold px-1 rounded bg-amber-950/80 border border-amber-600/70 text-amber-300 animate-pulse shadow-sm">
+                    <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-amber-950/80 border border-amber-600/70 text-amber-300 animate-pulse shadow-sm">
                       ★ KEŞİF
                     </span>
                   )}
                   {lbl.hasDebris && (
-                    <span className="text-[9px] font-mono font-bold px-1 rounded bg-rose-950/80 border border-rose-600/70 text-rose-300 shadow-sm">
+                    <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-rose-950/80 border border-rose-600/70 text-rose-300 shadow-sm">
                       ⚙️ ENKAZ
                     </span>
                   )}
                 </div>
               </div>
             ) : lbl.type === 'jump_gate' ? (
-              <div className="px-2 py-0.5 rounded-full bg-space-950/90 border border-cyber-cyan/60 text-[10px] font-mono font-bold text-cyber-cyan shadow-lg shadow-cyan-950/50 backdrop-blur-md hover:bg-cyber-cyan hover:text-space-950 transition-all flex items-center gap-1">
+              <div className="px-2 py-0.5 rounded-sm bg-[#091322]/95 border border-cyber-cyan/60 text-[10px] font-mono font-bold text-cyber-cyan shadow-lg shadow-cyan-950/50 backdrop-blur-md hover:bg-cyber-cyan hover:text-[#091322] transition-all flex items-center gap-1">
                 <span>➔ {lbl.title}</span>
               </div>
             ) : lbl.type === 'star' ? (
               <div className="flex flex-col items-center">
-                <div className="px-2.5 py-0.5 rounded-md bg-space-950/90 border border-amber-500/60 text-xs font-mono font-bold text-amber-300 shadow-xl backdrop-blur-md">
+                <div className="px-2.5 py-0.5 rounded-sm bg-[#091322]/95 border border-amber-500/60 text-xs font-mono font-bold text-amber-300 shadow-xl backdrop-blur-md">
                   {lbl.title}
                 </div>
                 {lbl.subtitle && (
@@ -2073,25 +2201,42 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               </div>
             ) : lbl.type === 'fleet' ? (
               <div
-                className="px-2 py-0.5 rounded bg-space-950/90 border shadow-md backdrop-blur-md flex items-center gap-1.5 transition-all hover:scale-105"
+                className={`px-2 py-0.5 rounded-sm bg-[#091322]/95 border shadow-lg backdrop-blur-md flex items-center gap-1.5 transition-all hover:scale-105 ${
+                  selectedTarget?.type === 'fleet' && selectedTarget.fleetId === lbl.fleetId
+                    ? 'ring-1 ring-cyber-cyan border-cyber-cyan shadow-cyan-950/80'
+                    : ''
+                }`}
                 style={{
                   borderColor: `${lbl.color}80`,
-                  boxShadow: `0 0 8px ${lbl.color}30`,
+                  boxShadow: `0 0 10px ${lbl.color}35`,
                 }}
               >
+                <span
+                  className="w-1.5 h-3 rounded-none inline-block shrink-0"
+                  style={{ backgroundColor: lbl.color }}
+                />
                 <span className="text-[10px]">🛸</span>
-                <span className="text-[9.5px] font-mono font-bold text-white">{lbl.title}</span>
+                <span className="text-[9.5px] font-mono font-bold text-white tracking-tight">{lbl.title}</span>
+                {lbl.fleetPower !== undefined && (
+                  <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-950/60 px-1 py-0.5 rounded-sm border border-amber-500/40">
+                    ⚡{lbl.fleetPower}
+                  </span>
+                )}
                 {lbl.subtitle && (
                   <span
-                    className="text-[8.5px] font-mono font-bold px-1 rounded"
-                    style={{ backgroundColor: `${lbl.color}25`, color: lbl.color }}
+                    className="text-[8.5px] font-mono font-bold px-1 py-0.5 rounded-sm border"
+                    style={{
+                      backgroundColor: `${lbl.color}20`,
+                      borderColor: `${lbl.color}50`,
+                      color: lbl.color,
+                    }}
                   >
                     {lbl.subtitle}
                   </span>
                 )}
               </div>
             ) : (
-              <div className="px-1.5 py-0.5 rounded bg-space-950/80 border border-slate-700/60 text-[10px] font-mono text-slate-200 shadow-md backdrop-blur-sm hover:border-cyber-cyan transition-colors flex items-center gap-1">
+              <div className="px-1.5 py-0.5 rounded-sm bg-[#091322]/90 border border-slate-700/60 text-[10px] font-mono text-slate-200 shadow-md backdrop-blur-sm hover:border-cyber-cyan transition-colors flex items-center gap-1">
                 <span>{lbl.title}</span>
                 {lbl.subtitle && (
                   <span className="text-[8.5px] text-cyber-cyan/90 uppercase">{lbl.subtitle}</span>

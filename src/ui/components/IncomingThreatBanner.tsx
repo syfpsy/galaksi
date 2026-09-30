@@ -92,7 +92,7 @@ export const IncomingThreatBanner: React.FC<IncomingThreatBannerProps> = ({
     <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 select-none max-w-3xl w-full px-4 animate-bounce-subtle">
       <div className="bg-rose-950/95 border border-rose-500/80 rounded p-3 backdrop-blur-md shadow-2xl shadow-rose-950/60 flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-rose-600/30 border border-rose-500 flex items-center justify-center text-rose-400 shrink-0 animate-pulse">
+          <div className="w-10 h-10 rounded-sm bg-rose-600/30 border border-rose-500 flex items-center justify-center text-rose-400 shrink-0 animate-pulse">
             <ShieldAlert className="w-6 h-6" />
           </div>
 
@@ -101,11 +101,11 @@ export const IncomingThreatBanner: React.FC<IncomingThreatBannerProps> = ({
               <span className="text-xs font-mono font-bold uppercase tracking-wider text-rose-300">
                 🚨 SENSÖR ALARMI: DÜŞMAN BASKIN FİLOSU YOLDA!
               </span>
-              <span className="text-[10px] font-mono bg-rose-900/80 px-2 py-0.5 rounded border border-rose-600 text-rose-200">
+              <span className="text-[10px] font-mono bg-rose-900/80 px-2 py-0.5 rounded-sm border border-rose-600 text-rose-200">
                 Varış: {formatClockTime(threat.arrivalTime)} ({formatDuration(remainingMs)})
               </span>
               {threats.length > 1 && (
-                <span className="text-[10px] font-mono bg-rose-800 text-white px-1.5 py-0.5 rounded font-bold">
+                <span className="text-[10px] font-mono bg-rose-800 text-white px-1.5 py-0.5 rounded-sm font-bold">
                   +{threats.length - 1} diğer
                 </span>
               )}
@@ -132,7 +132,7 @@ export const IncomingThreatBanner: React.FC<IncomingThreatBannerProps> = ({
                 sound.playClick();
                 onOpenRadar();
               }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-cyan-950 hover:bg-cyan-900 border border-cyan-500/60 text-cyan-300 font-mono font-semibold text-xs transition-all"
+              className="stellaris-btn-metallic flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm !border-cyan-500/60 text-cyan-300 font-mono font-semibold text-xs transition-all"
               title="Tüm intikal ve tehdit hareketlerini Taktik Radarda incele"
             >
               <Radio className="w-3.5 h-3.5 text-cyan-400" />
@@ -145,10 +145,10 @@ export const IncomingThreatBanner: React.FC<IncomingThreatBannerProps> = ({
               sound.playClick();
               onTargetThreat(threat);
             }}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs transition-all shadow-md shadow-rose-900/50"
+            className="stellaris-btn-metallic flex items-center gap-1.5 px-3 py-1.5 rounded-sm !bg-rose-950/80 !border-rose-500 text-rose-200 hover:text-white font-bold text-xs transition-all shadow-md shadow-rose-900/50"
             title="Düşman filosunu rotada yakalamak için önleme emri hazırla"
           >
-            <Crosshair className="w-3.5 h-3.5" />
+            <Crosshair className="w-3.5 h-3.5 text-rose-400" />
             <span>Önleme Hazırla</span>
           </button>
 
@@ -158,7 +158,7 @@ export const IncomingThreatBanner: React.FC<IncomingThreatBannerProps> = ({
                 sound.playClick();
                 onEvacuatePlanet(targetPlanet.id);
               }}
-              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-space-850 hover:bg-space-800 border border-amber-500/40 text-amber-300 text-xs transition-all"
+              className="stellaris-btn-metallic flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm !border-amber-500/50 text-amber-300 text-xs transition-all"
               title="Kaynakları nakliyeye yükleyip güvenli üsse tahliye et (Fleet Save)"
             >
               <Truck className="w-3.5 h-3.5 text-amber-400" />
@@ -171,7 +171,7 @@ export const IncomingThreatBanner: React.FC<IncomingThreatBannerProps> = ({
               sound.playClick();
               setIsMinimized(true);
             }}
-            className="p-1.5 hover:bg-rose-900/60 text-rose-300 rounded-lg transition-colors ml-1"
+            className="p-1.5 hover:bg-rose-900/60 text-rose-300 rounded-sm transition-colors ml-1"
             title="Şeridi Küçült (Haritayı Aç)"
           >
             <ChevronUp className="w-4 h-4" />

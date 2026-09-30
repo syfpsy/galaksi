@@ -336,22 +336,22 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
       />
 
       {/* Map Legend (Bottom-Left) */}
-      <div className="absolute bottom-3 left-4 bg-space-900/85 backdrop-blur-md border border-slate-800 rounded-lg p-2.5 flex items-center gap-4 text-[11px] text-slate-300 pointer-events-none shadow-lg shadow-black/40">
+      <div className="absolute bottom-3 left-4 stellaris-item-card rounded-sm px-3 py-1.5 flex items-center gap-4 text-[11px] font-mono text-slate-300 pointer-events-none shadow-xl border border-slate-700/60 backdrop-blur-md">
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 inline-block" />
-          <span>Koloniniz</span>
+          <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block shadow-sm shadow-emerald-500/50" />
+          <span className="text-slate-200">Koloni</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-rose-500 inline-block" />
-          <span>Düşman Gezegen</span>
+          <span className="w-2 h-2 rounded-full bg-rose-500 inline-block shadow-sm shadow-rose-500/50" />
+          <span className="text-slate-200">Düşman</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-purple-500 inline-block" />
-          <span>Nexus Rölesi</span>
+          <span className="w-2 h-2 rounded-full bg-purple-500 inline-block shadow-sm shadow-purple-500/50" />
+          <span className="text-purple-300">Nexus Rölesi</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-amber-400 inline-block" />
-          <span>Keşif POI</span>
+          <span className="w-2 h-2 rounded-full bg-amber-400 inline-block shadow-sm shadow-amber-500/50" />
+          <span className="text-amber-300">Keşif / POI</span>
         </div>
       </div>
     </div>

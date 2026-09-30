@@ -421,7 +421,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
               {system.poi && (
                 <div className="p-3 rounded-sm bg-amber-950/30 border border-amber-500/40 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-sm">
+                    <div className="w-8 h-8 rounded-sm bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-sm">
                       ★
                     </div>
                     <div>
@@ -443,7 +443,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                         sound.playClick();
                         onOpenAnomaly(system);
                       }}
-                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 rounded-lg text-xs font-mono font-bold transition-all shrink-0"
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 rounded-sm text-xs font-mono font-bold transition-all shrink-0"
                     >
                       İncele
                     </button>
@@ -454,7 +454,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
               {system.hasDebris && ((system.hasDebris.ore || 0) > 0 || (system.hasDebris.crystal || 0) > 0) && (
                 <div className="p-3 rounded-sm bg-rose-950/30 border border-rose-500/40 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-sm">
+                    <div className="w-8 h-8 rounded-sm bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-sm">
                       ⚙️
                     </div>
                     <div>

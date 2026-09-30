@@ -159,7 +159,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                 {/* Fleet Rosters Overview */}
                 <div className="grid grid-cols-2 gap-3">
                   {/* Attacker Roster */}
-                  <div className="bg-space-850 border border-rose-500/30 rounded-lg p-3">
+                  <div className="bg-space-850 border border-rose-500/30 rounded-sm p-3">
                     <div className="text-xs font-bold text-rose-400 font-display mb-2 flex items-center justify-between">
                       <span>SALDIRGAN: {currentReport.attackerName}</span>
                       <span className="text-[10px] font-mono text-slate-400">
@@ -185,7 +185,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                   </div>
 
                   {/* Defender Roster */}
-                  <div className="bg-space-850 border border-blue-500/30 rounded-lg p-3">
+                  <div className="bg-space-850 border border-blue-500/30 rounded-sm p-3">
                     <div className="text-xs font-bold text-blue-400 font-display mb-2 flex items-center justify-between">
                       <span>SAVUNUCU: {currentReport.defenderName}</span>
                       <span className="text-[10px] font-mono text-slate-400">
@@ -213,7 +213,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
 
                 {/* Round Player Controls & Dynamic Combat Corridor */}
                 {totalRounds > 0 && (
-                  <div className="bg-space-850/90 border border-slate-800 rounded-lg p-3 space-y-3">
+                  <div className="bg-space-850/90 border border-slate-800 rounded-sm p-3 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold font-display text-slate-200">
@@ -272,7 +272,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                     </div>
 
                     {/* Dynamic Laser Fire Corridor */}
-                    <div className="relative h-14 bg-space-950/90 rounded-lg border border-slate-800 p-2 flex items-center justify-between overflow-hidden">
+                    <div className="relative h-14 bg-space-950/90 rounded-sm border border-slate-800 p-2 flex items-center justify-between overflow-hidden">
                       {/* Sub-grid pattern */}
                       <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:12px_12px]" />
 
@@ -315,7 +315,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                 )}
 
                 {/* Spoils & Debris Field Created */}
-                <div className="bg-space-950/80 border border-slate-800 rounded-lg p-3 flex items-center justify-between text-xs font-mono">
+                <div className="bg-space-950/80 border border-slate-800 rounded-sm p-3 flex items-center justify-between text-xs font-mono">
                   <div>
                     <span className="text-slate-400 text-[10px] uppercase block">Yağmalanan Kaynak</span>
                     <span className="text-amber-400 font-bold">
