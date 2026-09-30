@@ -157,7 +157,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
         {/* Header */}
         <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded bg-[#092233] border border-[#204963] flex items-center justify-center text-[#3ca8d1] shadow-inner">
+            <div className="w-8 h-8 rounded-sm bg-[#092233] border border-[#204963] flex items-center justify-center text-[#3ca8d1] shadow-inner">
               <Sparkles className="w-4 h-4 animate-pulse" />
             </div>
             <div>
@@ -165,7 +165,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                 <h2 className="text-xs font-bold text-slate-100 font-mono tracking-wider uppercase">
                   Galaksi Sanat & Konsept Galerisi
                 </h2>
-                <span className="text-[10px] bg-[#0b2438] text-cyan-300 px-2 py-0.5 rounded border border-[#1c445c] font-mono font-bold">
+                <span className="text-[10px] bg-[#0b2438] text-cyan-300 px-2 py-0.5 rounded-sm border border-[#1c445c] font-mono font-bold">
                   Magnific AI Powered
                 </span>
               </div>
@@ -181,7 +181,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
               sound.playClick();
               onClose();
             }}
-            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
+            className="p-1.5 rounded-sm text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
             title="Kapat"
           >
             <X className="w-4 h-4" />
@@ -203,7 +203,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                   sound.playClick();
                   setSelectedCategory(id as typeof selectedCategory);
                 }}
-                className={`px-3 py-1 rounded text-xs font-mono transition-all flex items-center gap-1.5 ${
+                className={`px-3 py-1 rounded-sm text-xs font-mono transition-all flex items-center gap-1.5 ${
                   selectedCategory === id
                     ? 'stellaris-switcher-btn active font-bold text-cyan-300'
                     : 'text-slate-400 hover:text-slate-200 hover:bg-[#0c2233]'
@@ -233,13 +233,13 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                     sound.playClick();
                     setActiveAsset(asset);
                   }}
-                  className={`p-2.5 rounded border cursor-pointer transition-all flex items-center gap-3 group ${
+                  className={`p-2.5 rounded-sm border cursor-pointer transition-all flex items-center gap-3 group ${
                     isSelected
                       ? 'bg-[#0f283d] border-[#3ca8d1] shadow-md shadow-cyan-950/40'
                       : 'stellaris-item-card border-[#1c3647] hover:border-[#3885a8]'
                   }`}
                 >
-                  <div className="w-14 h-14 rounded overflow-hidden shrink-0 border border-[#18374b] bg-[#07131e] relative">
+                  <div className="w-14 h-14 rounded-sm overflow-hidden shrink-0 border border-[#18374b] bg-[#07131e] relative">
                     <img
                       src={asset.imageSrc}
                       alt={asset.title}
@@ -259,7 +259,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                       {asset.role}
                     </span>
                     <span
-                      className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded inline-block mt-1"
+                      className="text-[9px] font-mono uppercase px-1.5 py-0.5 rounded-sm inline-block mt-1"
                       style={{
                         backgroundColor: `${asset.accentColor}20`,
                         color: asset.accentColor,
@@ -364,7 +364,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
                   sound.playClick();
                   onClose();
                 }}
-                className="px-4 py-1.5 stellaris-btn-metallic text-cyan-200 rounded font-mono font-bold text-xs uppercase tracking-wider transition-all"
+                className="px-4 py-1.5 stellaris-btn-metallic text-cyan-200 rounded-sm font-mono font-bold text-xs uppercase tracking-wider transition-all"
               >
                 Oyuna Dön
               </button>

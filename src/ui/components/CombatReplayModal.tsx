@@ -70,7 +70,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
         {/* Header */}
         <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded bg-rose-950/60 border border-rose-500/50 flex items-center justify-center text-rose-400">
+            <div className="w-8 h-8 rounded-sm bg-rose-950/60 border border-rose-500/50 flex items-center justify-center text-rose-400">
               <Swords className="w-4 h-4" />
             </div>
             <div>
@@ -87,7 +87,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
               sound.playClick();
               onClose();
             }}
-            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
+            className="p-1.5 rounded-sm text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
             title="Kapat"
           >
             <X className="w-4 h-4" />
@@ -113,7 +113,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                       setSelectedReportId(report.id);
                       setCurrentRoundIdx(0);
                     }}
-                    className={`w-full text-left p-2.5 rounded border transition-all ${
+                    className={`w-full text-left p-2.5 rounded-sm border transition-all ${
                       isSelected
                         ? 'bg-rose-950/60 border-rose-500/60 text-white shadow-sm'
                         : 'stellaris-item-card border-[#1c3647] hover:border-[#3885a8] text-slate-300'
@@ -150,7 +150,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                     </div>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-mono px-2.5 py-1 rounded bg-slate-900 border border-slate-700 text-emerald-400 font-bold">
+                    <span className="text-xs font-mono px-2.5 py-1 rounded-sm bg-[#06121c] border border-[#1c3647] text-emerald-400 font-bold">
                       🏆 KAZANAN: {currentReport.winner.toUpperCase()}
                     </span>
                   </div>
@@ -159,7 +159,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                 {/* Fleet Rosters Overview */}
                 <div className="grid grid-cols-2 gap-3">
                   {/* Attacker Roster */}
-                  <div className="bg-space-850 border border-rose-500/30 rounded-sm p-3">
+                  <div className="stellaris-item-card border border-rose-500/30 rounded-sm p-3">
                     <div className="text-xs font-bold text-rose-400 font-display mb-2 flex items-center justify-between">
                       <span>SALDIRGAN: {currentReport.attackerName}</span>
                       <span className="text-[10px] font-mono text-slate-400">
@@ -185,8 +185,8 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                   </div>
 
                   {/* Defender Roster */}
-                  <div className="bg-space-850 border border-blue-500/30 rounded-sm p-3">
-                    <div className="text-xs font-bold text-blue-400 font-display mb-2 flex items-center justify-between">
+                  <div className="stellaris-item-card border border-cyan-500/30 rounded-sm p-3">
+                    <div className="text-xs font-bold text-cyan-400 font-display mb-2 flex items-center justify-between">
                       <span>SAVUNUCU: {currentReport.defenderName}</span>
                       <span className="text-[10px] font-mono text-slate-400">
                         Başlangıç / Kalan
@@ -213,7 +213,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
 
                 {/* Round Player Controls & Dynamic Combat Corridor */}
                 {totalRounds > 0 && (
-                  <div className="bg-space-850/90 border border-slate-800 rounded-sm p-3 space-y-3">
+                  <div className="stellaris-item-card border border-[#1c3647] rounded-sm p-3 space-y-3">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <span className="text-xs font-bold font-display text-slate-200">
@@ -232,10 +232,10 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                               setIsPlaying(true);
                             }
                           }}
-                          className={`px-2.5 py-1 rounded text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all ${
+                          className={`px-2.5 py-1 rounded-sm text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all stellaris-btn-metallic ${
                             isPlaying
-                              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 animate-pulse'
-                              : 'bg-rose-500/20 text-rose-300 border border-rose-500/40 hover:bg-rose-500/30'
+                              ? '!border-amber-500/60 text-amber-300 animate-pulse'
+                              : '!border-rose-500/60 text-rose-300'
                           }`}
                         >
                           {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
@@ -251,7 +251,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                             setCurrentRoundIdx((prev) => Math.max(0, prev - 1));
                             sound.playLaser();
                           }}
-                          className="p-1 rounded bg-space-900 border border-slate-700 text-slate-300 hover:border-slate-500 disabled:opacity-40"
+                          className="p-1 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40"
                           title="Önceki Tur"
                         >
                           <ChevronLeft className="w-4 h-4" />
@@ -263,7 +263,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                             setCurrentRoundIdx((prev) => Math.min(totalRounds - 1, prev + 1));
                             sound.playLaser();
                           }}
-                          className="p-1 rounded bg-space-900 border border-slate-700 text-slate-300 hover:border-slate-500 disabled:opacity-40"
+                          className="p-1 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40"
                           title="Sonraki Tur"
                         >
                           <ChevronRight className="w-4 h-4" />
@@ -272,13 +272,13 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                     </div>
 
                     {/* Dynamic Laser Fire Corridor */}
-                    <div className="relative h-14 bg-space-950/90 rounded-sm border border-slate-800 p-2 flex items-center justify-between overflow-hidden">
+                    <div className="relative h-14 bg-[#050f18] rounded-sm border border-[#1c3647] p-2 flex items-center justify-between overflow-hidden">
                       {/* Sub-grid pattern */}
                       <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:12px_12px]" />
 
                       {/* Attacker plasma stream (Left to Right) */}
                       <div className="absolute left-3 right-1/2 h-1 bg-gradient-to-r from-rose-500 via-rose-400 to-amber-300 shadow-md shadow-rose-500/60 rounded-full animate-pulse" />
-                      <div className="absolute left-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-rose-300 bg-rose-950/90 px-1.5 py-0.5 rounded border border-rose-500/40 z-10">
+                      <div className="absolute left-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-rose-300 bg-rose-950/90 px-1.5 py-0.5 rounded-sm border border-rose-500/40 z-10">
                         ⚡ -{currentRound ? currentRound.attackerDamageDealt : 0} HP
                       </div>
 
@@ -289,7 +289,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
 
                       {/* Defender laser stream (Right to Left) */}
                       <div className="absolute right-3 left-1/2 h-1 bg-gradient-to-l from-blue-500 via-cyan-400 to-emerald-300 shadow-md shadow-cyan-400/60 rounded-full animate-pulse" />
-                      <div className="absolute right-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/90 px-1.5 py-0.5 rounded border border-cyan-500/40 z-10">
+                      <div className="absolute right-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/90 px-1.5 py-0.5 rounded-sm border border-cyan-500/40 z-10">
                         ⚡ -{currentRound ? currentRound.defenderDamageDealt : 0} HP
                       </div>
                     </div>
@@ -297,15 +297,15 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                     {/* Damage summary cards */}
                     {currentRound && (
                       <div className="grid grid-cols-2 gap-3 text-xs font-mono pt-1">
-                        <div className="bg-rose-950/30 border border-rose-500/20 rounded p-2 flex items-center justify-between">
+                        <div className="bg-rose-950/40 border border-rose-500/30 rounded-sm p-2 flex items-center justify-between">
                           <span className="text-slate-400 text-[11px]">Saldırgan Ateşi:</span>
                           <strong className="text-rose-400 text-sm">
                             {currentRound.attackerDamageDealt} Hasar
                           </strong>
                         </div>
-                        <div className="bg-blue-950/30 border border-blue-500/20 rounded p-2 flex items-center justify-between">
+                        <div className="bg-cyan-950/40 border border-cyan-500/30 rounded-sm p-2 flex items-center justify-between">
                           <span className="text-slate-400 text-[11px]">Savunucu Ateşi:</span>
-                          <strong className="text-blue-400 text-sm">
+                          <strong className="text-cyan-400 text-sm">
                             {currentRound.defenderDamageDealt} Hasar
                           </strong>
                         </div>
@@ -315,7 +315,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                 )}
 
                 {/* Spoils & Debris Field Created */}
-                <div className="bg-space-950/80 border border-slate-800 rounded-sm p-3 flex items-center justify-between text-xs font-mono">
+                <div className="stellaris-item-card border border-[#1c3647] rounded-sm p-3 flex items-center justify-between text-xs font-mono">
                   <div>
                     <span className="text-slate-400 text-[10px] uppercase block">Yağmalanan Kaynak</span>
                     <span className="text-amber-400 font-bold">

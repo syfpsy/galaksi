@@ -41,7 +41,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
       {/* Header */}
       <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-[#092233] border border-[#204963] flex items-center justify-center text-[#3ca8d1] shadow-inner">
+          <div className="w-8 h-8 rounded-sm bg-[#092233] border border-[#204963] flex items-center justify-center text-[#3ca8d1] shadow-inner">
             <Users className="w-4 h-4 animate-pulse" />
           </div>
           <div>
@@ -58,7 +58,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
             sound.playClick();
             onClose();
           }}
-          className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
+          className="p-1.5 rounded-sm text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
           title="Kapat"
         >
           <X className="w-4 h-4" />
@@ -73,7 +73,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
             <div className="stellaris-item-card border-[#1c3647] p-3.5 flex items-center justify-between">
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-mono font-bold bg-[#0b2438] text-cyan-300 px-2 py-0.5 rounded border border-[#1c445c]">
+                  <span className="text-xs font-mono font-bold bg-[#0b2438] text-cyan-300 px-2 py-0.5 rounded-sm border border-[#1c445c]">
                     [{myAlliance.tag}]
                   </span>
                   <h3 className="text-sm font-bold text-slate-100 font-display">
@@ -94,7 +94,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                   sound.playClick();
                   onLeaveAlliance();
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-rose-950/60 border border-rose-500/50 text-rose-300 hover:bg-rose-900/60 text-xs font-mono transition-all shadow-sm"
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm bg-rose-950/60 border border-rose-500/50 text-rose-300 hover:bg-rose-900/60 text-xs font-mono transition-all shadow-sm"
               >
                 <UserMinus className="w-3.5 h-3.5" />
                 <span>Ayrıl</span>
@@ -129,12 +129,12 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                           <div className="text-xs font-bold text-slate-100 flex items-center gap-2 font-mono">
                             {member.name}
                             {isMe && (
-                              <span className="text-[9.5px] bg-[#0c2438] text-cyan-300 px-1.5 py-0.5 rounded border border-[#1b3e54] font-mono">
+                              <span className="text-[9.5px] bg-[#0c2438] text-cyan-300 px-1.5 py-0.5 rounded-sm border border-[#1b3e54] font-mono">
                                 Siz
                               </span>
                             )}
                             {memberId === myAlliance.founderId && (
-                              <span className="text-[9.5px] bg-amber-950/60 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded font-mono">
+                              <span className="text-[9.5px] bg-amber-950/60 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded-sm font-mono">
                                 Kurucu
                               </span>
                             )}
@@ -153,7 +153,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                             onSupportAlly(memberPlanets[0].systemId, memberPlanets[0].id);
                             onClose();
                           }}
-                          className="flex items-center gap-1 px-3 py-1 rounded stellaris-btn-metallic text-cyan-200 font-medium text-xs font-mono transition-all"
+                          className="flex items-center gap-1 px-3 py-1 rounded-sm stellaris-btn-metallic text-cyan-200 font-medium text-xs font-mono transition-all"
                         >
                           <Shield className="w-3.5 h-3.5 text-[#3ca8d1]" />
                           <span>Destek Gönder</span>
@@ -177,7 +177,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                   sound.playClick();
                   setIsCreating(!isCreating);
                 }}
-                className="px-3 py-1.5 rounded stellaris-btn-metallic text-cyan-300 font-bold text-xs font-mono flex items-center gap-1.5 shrink-0 transition-all"
+                className="px-3 py-1.5 rounded-sm stellaris-btn-metallic text-cyan-300 font-bold text-xs font-mono flex items-center gap-1.5 shrink-0 transition-all"
               >
                 <Plus className="w-3.5 h-3.5 text-[#3ca8d1]" />
                 <span>{isCreating ? 'Vazgeç' : 'Yeni İttifak'}</span>
@@ -200,7 +200,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                       placeholder="Örn: Solaria Federasyonu"
                       value={newName}
                       onChange={(e) => setNewName(e.target.value)}
-                      className="w-full bg-[#07131e] border border-[#18374b] rounded px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-[#3ca8d1] font-mono"
+                      className="w-full bg-[#07131e] border border-[#18374b] rounded-sm px-3 py-1.5 text-xs text-slate-100 focus:outline-none focus:border-[#3ca8d1] font-mono"
                     />
                   </div>
                   <div>
@@ -213,7 +213,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                       placeholder="SOL"
                       value={newTag}
                       onChange={(e) => setNewTag(e.target.value)}
-                      className="w-full bg-[#07131e] border border-[#18374b] rounded px-3 py-1.5 text-xs text-slate-100 uppercase focus:outline-none focus:border-[#3ca8d1] font-mono font-bold"
+                      className="w-full bg-[#07131e] border border-[#18374b] rounded-sm px-3 py-1.5 text-xs text-slate-100 uppercase focus:outline-none focus:border-[#3ca8d1] font-mono font-bold"
                     />
                   </div>
                 </div>
@@ -224,7 +224,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                     onCreateAlliance(newName.trim(), newTag.trim());
                     setIsCreating(false);
                   }}
-                  className="w-full py-2 stellaris-btn-metallic text-cyan-200 rounded font-bold text-xs font-mono uppercase tracking-wider disabled:opacity-40"
+                  className="w-full py-2 stellaris-btn-metallic text-cyan-200 rounded-sm font-bold text-xs font-mono uppercase tracking-wider disabled:opacity-40"
                 >
                   İttifakı Kur
                 </button>
@@ -250,7 +250,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                     >
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-mono font-bold bg-[#0b2438] text-cyan-300 px-2 py-0.5 rounded border border-[#1c445c]">
+                          <span className="text-xs font-mono font-bold bg-[#0b2438] text-cyan-300 px-2 py-0.5 rounded-sm border border-[#1c445c]">
                             [{ally.tag}]
                           </span>
                           <span className="text-xs font-bold text-slate-100 font-display">
@@ -267,7 +267,7 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
                           sound.playClick();
                           onJoinAlliance(ally.id);
                         }}
-                        className="px-3 py-1.5 rounded stellaris-btn-metallic text-cyan-300 font-mono text-xs font-bold"
+                        className="px-3 py-1.5 rounded-sm stellaris-btn-metallic text-cyan-300 font-mono text-xs font-bold"
                       >
                         Katıl
                       </button>

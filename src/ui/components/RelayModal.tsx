@@ -45,7 +45,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
       {/* Header */}
       <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded bg-purple-950/60 border border-purple-500/50 flex items-center justify-center text-purple-400">
+          <div className="w-8 h-8 rounded-sm bg-purple-950/60 border border-purple-500/50 flex items-center justify-center text-purple-400">
             <Crown className="w-4 h-4 animate-pulse" />
           </div>
           <div>
@@ -62,7 +62,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
             sound.playClick();
             onClose();
           }}
-          className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
+          className="p-1.5 rounded-sm text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
           title="Kapat"
         >
           <X className="w-4 h-4" />
@@ -72,7 +72,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-4 pb-6 space-y-4">
         {/* Hero Visual Banner of Nexus Relay */}
-        <div className="relative w-full h-44 rounded overflow-hidden border border-purple-500/40 bg-[#06101a] shadow-lg shadow-purple-950/40 flex items-center justify-center group">
+        <div className="relative w-full h-44 rounded-sm overflow-hidden border border-purple-500/40 bg-[#06101a] shadow-lg shadow-purple-950/40 flex items-center justify-center group">
           <img
             src="/assets/art/nexus_relay.png"
             alt="Nexus Relay Megastructure"
@@ -82,7 +82,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
 
           <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
             <div>
-              <span className="text-[10px] font-mono text-purple-300 uppercase tracking-widest bg-purple-950/80 px-2 py-0.5 rounded border border-purple-500/30 inline-block font-bold">
+              <span className="text-[10px] font-mono text-purple-300 uppercase tracking-widest bg-purple-950/80 px-2 py-0.5 rounded-sm border border-purple-500/30 inline-block font-bold">
                 Kadim Öncü Megastrüktürü
               </span>
               <div className="flex items-center gap-2 mt-1">
@@ -107,7 +107,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
                 onAssaultRelay();
                 onClose();
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded stellaris-btn-metallic text-cyan-200 font-mono font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm stellaris-btn-metallic text-cyan-200 font-mono font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95"
             >
               <Swords className="w-4 h-4 text-[#3ca8d1]" />
               <span>Röleye Sefer Düzenle</span>
@@ -148,7 +148,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
 
           <div className="grid grid-cols-4 gap-2 font-mono text-xs text-center">
             {(['scout', 'transport', 'fighter', 'battleship'] as ShipType[]).map((st) => (
-              <div key={st} className="bg-[#07131e] p-2 rounded border border-[#18374b]">
+              <div key={st} className="bg-[#07131e] p-2 rounded-sm border border-[#18374b]">
                 <span className="text-[10px] text-slate-400 block">{SHIP_STATS[st].nameTr}</span>
                 <span className="text-xs font-bold text-[#3ca8d1]">{relay.garrison[st] || 0}</span>
               </div>
@@ -167,7 +167,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
               Henüz röle kontrol puanı toplanmadı.
             </div>
           ) : (
-            <div className="divide-y divide-[#18374b] stellaris-item-card border-[#1c3647] overflow-hidden font-mono text-xs">
+            <div className="divide-y divide-[#18374b] stellaris-item-card border-[#1c3647] rounded-sm overflow-hidden font-mono text-xs">
               {leaderboard.map((item, idx) => (
                 <div
                   key={item.player.id}

@@ -200,7 +200,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                 sound.playClick();
                 onSelectPlayer(e.target.value);
               }}
-              className="bg-[#060c14] border border-[#1a384d] hover:border-cyan-400 text-[9px] font-mono rounded px-1.5 py-0.5 text-cyan-300 focus:outline-none cursor-pointer"
+              className="bg-[#060c14] border border-[#1a384d] hover:border-cyan-400 text-[9px] font-mono rounded-sm px-1.5 py-0.5 text-cyan-300 focus:outline-none cursor-pointer"
               title="Diplomatik Perspektif Değiştir"
             >
               {Object.values(state.players).map((p) => (
@@ -241,7 +241,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="text-xs font-bold text-slate-100 font-display">
                 🪐 İmparatorluk Kolonileri
               </span>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded border border-emerald-500/40">
+              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/80 px-1.5 py-0.5 rounded-sm border border-emerald-500/40">
                 {myPlanets.length} / 3 Yuva
               </span>
             </div>
@@ -262,7 +262,7 @@ export const TopBar: React.FC<TopBarProps> = ({
                       />
                       <span className="font-semibold text-slate-200">{p.name}</span>
                       {p.isHomeworld && (
-                        <span className="text-[9px] text-amber-300 bg-amber-950/60 px-1 rounded">
+                        <span className="text-[9px] text-amber-300 bg-amber-950/60 px-1 rounded-sm">
                           Ana Dünya
                         </span>
                       )}
@@ -302,7 +302,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="text-xs font-bold text-slate-100 font-display">
                 ⚔️ İmparatorluk Donanma Gücü
               </span>
-              <span className="text-[10px] font-mono text-blue-400 bg-blue-950/80 px-1.5 py-0.5 rounded border border-blue-500/40">
+              <span className="text-[10px] font-mono text-blue-400 bg-blue-950/80 px-1.5 py-0.5 rounded-sm border border-blue-500/40">
                 {totalEmpireShips} / 30 Kapasite
               </span>
             </div>
@@ -378,7 +378,7 @@ export const TopBar: React.FC<TopBarProps> = ({
               <span className="text-xs font-bold text-slate-100 font-display">
                 🛸 Taktik İntikal & Filo Radarı
               </span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-1.5 py-0.5 rounded border border-cyan-500/40">
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/80 px-1.5 py-0.5 rounded-sm border border-cyan-500/40">
                 {movingFleets.length} Aktif İntikal
               </span>
             </div>
@@ -421,7 +421,7 @@ export const TopBar: React.FC<TopBarProps> = ({
           <div className="hidden lg:flex items-center gap-1.5 text-xs font-mono">
             {/* Energy / Fuel */}
             <div className="stellaris-resource-pod px-2 py-0.5 rounded-sm relative group flex items-center gap-1.5 cursor-pointer">
-              <div className="w-3.5 h-3.5 rounded bg-amber-950/60 flex items-center justify-center text-amber-400 border border-amber-500/30">
+              <div className="w-3.5 h-3.5 rounded-sm bg-amber-950/60 flex items-center justify-center text-amber-400 border border-amber-500/30">
                 <Zap className="w-2.5 h-2.5" />
               </div>
               <span className="font-bold text-slate-100">
@@ -448,7 +448,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
             {/* Ore / Minerals */}
             <div className="stellaris-resource-pod px-2 py-0.5 rounded-sm relative group flex items-center gap-1.5 cursor-pointer">
-              <div className="w-3.5 h-3.5 rounded bg-orange-950/60 flex items-center justify-center text-orange-400 border border-orange-500/30">
+              <div className="w-3.5 h-3.5 rounded-sm bg-orange-950/60 flex items-center justify-center text-orange-400 border border-orange-500/30">
                 <Pickaxe className="w-2.5 h-2.5" />
               </div>
               <span className="font-bold text-slate-100">
@@ -475,7 +475,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
             {/* Rare Crystals */}
             <div className="stellaris-resource-pod px-2 py-0.5 rounded-sm relative group flex items-center gap-1.5 cursor-pointer">
-              <div className="w-3.5 h-3.5 rounded bg-cyan-950/60 flex items-center justify-center text-cyan-400 border border-cyan-500/30">
+              <div className="w-3.5 h-3.5 rounded-sm bg-cyan-950/60 flex items-center justify-center text-cyan-400 border border-cyan-500/30">
                 <Gem className="w-2.5 h-2.5" />
               </div>
               <span className="font-bold text-slate-100">
