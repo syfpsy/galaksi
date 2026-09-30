@@ -8,6 +8,7 @@ import {
   IntelLevel,
   MarketState,
   Planet,
+  RadioTransmission,
   SectorEvent,
   SectorMap,
   ShipType,
@@ -58,6 +59,8 @@ export interface PlayerVisibleState {
   myEspionageReports: EspionageReport[];
   myActiveEspionageOps: EspionageOp[];
   activeSectorEvents?: SectorEvent[];
+  myTransmissions?: RadioTransmission[];
+  myActiveTruces?: { withPlayerId: string; expiresAtMs: number }[];
 }
 
 /**
@@ -316,5 +319,21 @@ export function filterGameStateForPlayer(
     activeSectorEvents: Object.values(state.sectorEvents || {}).filter(
       (e) => !e.resolved && state.timeMs < e.expiresAtMs
     ),
+    myTransmissions: Object.values(state.transmissions || {}).filter(
+      (t) => t.recipientId === 'all' || t.recipientId === playerId || t.senderId === playerId
+    ),
+    myActiveTruces: (() => {
+      const list: { withPlayerId: string; expiresAtMs: number }[] = [];
+      if (state.truces) {
+        for (const [key, expiresAtMs] of Object.entries(state.truces)) {
+          if (state.timeMs < expiresAtMs && key.includes(playerId)) {
+            const parts = key.split('_');
+            const otherId = parts.find((p) => p !== playerId) || parts[0];
+            list.push({ withPlayerId: otherId, expiresAtMs });
+          }
+        }
+      }
+      return list;
+    })(),
   };
 }

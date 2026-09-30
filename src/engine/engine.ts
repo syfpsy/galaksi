@@ -33,6 +33,7 @@ import {
   MarketTransaction,
   Planet,
   Player,
+  RadioTransmission,
   ResearchType,
   ResourceType,
   Resources,
@@ -40,6 +41,7 @@ import {
   SectorEvent,
   SectorEventType,
   ShipType,
+  TransmissionType,
 } from './types';
 import { createHomeworldPlanet, generateSectorMap } from './universe';
 import {
@@ -69,6 +71,8 @@ export class GameEngine {
       fleets: {},
       admirals: {},
       sectorEvents: {},
+      transmissions: {},
+      truces: {},
       relay: {
         systemId: map.relaySystemId,
         controllingPlayerId: null,
@@ -93,6 +97,23 @@ export class GameEngine {
 
     // Schedule initial relay point tick
     this.scheduleEvent(GAME_CONSTANTS.RELAY_POINT_INTERVAL_MS, 'relay_point_tick', {});
+  }
+
+  /**
+   * Generates a unique canonical key for a truce between two players
+   */
+  public getTruceKey(p1: string, p2: string): string {
+    return [p1, p2].sort().join('_');
+  }
+
+  /**
+   * Checks if an active truce/ceasefire exists between two players
+   */
+  public hasActiveTruce(p1: string, p2: string): boolean {
+    if (!this.state.truces) return false;
+    const key = this.getTruceKey(p1, p2);
+    const exp = this.state.truces[key];
+    return exp !== undefined && this.state.timeMs < exp;
   }
 
   // --- Player Management ---
@@ -718,6 +739,25 @@ export class GameEngine {
 
         // 1. Planetary Raid Combat
         if (targetPlanet && targetPlanet.ownerId !== fleet.ownerId) {
+          // If active truce exists, cancel raid and return peacefully
+          if (this.hasActiveTruce(fleet.ownerId, targetPlanet.ownerId)) {
+            this.logEvent(
+              'truce_enforced',
+              `Barış/ateşkes paktı yürürlükte olduğu için ${fleet.name} taarruz gerçekleştirmeden üsse dönüyor.`,
+              fleet.ownerId
+            );
+            fleet.status = 'returning';
+            fleet.isReturning = true;
+            fleet.departureTime = this.state.timeMs;
+            const tripDuration = Math.max(1000, fleet.arrivalTime - fleet.departureTime);
+            fleet.arrivalTime = this.state.timeMs + tripDuration;
+            fleet.path = [...fleet.path].reverse();
+            fleet.targetSystemId = fleet.originSystemId;
+            fleet.mission = 'transport';
+            this.scheduleEvent(tripDuration, 'fleet_arrival', { fleetId: fleet.id });
+            break;
+          }
+
           const defenderPlayer = this.state.players[targetPlanet.ownerId];
           const attackerWeapons = player?.research.weapons || 0;
           const defenderWeapons = defenderPlayer?.research.weapons || 0;
@@ -1688,6 +1728,18 @@ export class GameEngine {
               };
             }
 
+            // Check active diplomatic truce / ceasefire
+            if (this.hasActiveTruce(playerId, targetPlanet.ownerId)) {
+              const exp = this.state.truces![this.getTruceKey(playerId, targetPlanet.ownerId)];
+              const remainingSec = Math.max(1, Math.round((exp - this.state.timeMs) / 1000));
+              return {
+                success: false,
+                commandType: cmd.type,
+                error: `Hedef imparatorluk ile yürürlükte bir barış/ateşkes paktı bulunmaktadır (${remainingSec} sn kaldı).`,
+                timeMs: this.state.timeMs,
+              };
+            }
+
             // Anti-Bash rule: Max 6 attacks on same target planet per 24 hours
             const dayAgo = this.state.timeMs - 24 * 3600 * 1000;
             const recentAttacksOnTarget = Object.values(this.state.fleets).filter(
@@ -1706,6 +1758,21 @@ export class GameEngine {
                 timeMs: this.state.timeMs,
               };
             }
+          }
+        }
+
+        // Intercept truce check
+        if (cmd.mission === 'intercept' && cmd.targetFleetId && this.state.fleets[cmd.targetFleetId]) {
+          const targetFleet = this.state.fleets[cmd.targetFleetId];
+          if (targetFleet.ownerId !== playerId && this.hasActiveTruce(playerId, targetFleet.ownerId)) {
+            const exp = this.state.truces![this.getTruceKey(playerId, targetFleet.ownerId)];
+            const remainingSec = Math.max(1, Math.round((exp - this.state.timeMs) / 1000));
+            return {
+              success: false,
+              commandType: cmd.type,
+              error: `Hedef filo ile yürürlükte bir barış/ateşkes paktı bulunmaktadır (${remainingSec} sn kaldı).`,
+              timeMs: this.state.timeMs,
+            };
           }
         }
 
@@ -2386,7 +2453,234 @@ export class GameEngine {
         this.logEvent('admiral_dismissed', `Komutan ${adm.name} görevden ayrıldı.`, playerId);
         return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
       }
+
+      case 'SEND_TRANSMISSION': {
+        const sender = this.state.players[playerId];
+        if (!sender) {
+          return { success: false, commandType: cmd.type, error: 'Gönderici oyuncu bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (cmd.recipientId !== 'all' && !this.state.players[cmd.recipientId]) {
+          return { success: false, commandType: cmd.type, error: 'Alıcı imparatorluk bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        // If trade offer, check sender has at least the offered resources across their empire
+        if (cmd.tradeOffer) {
+          const myPlanets = Object.values(this.state.planets).filter((p) => p.ownerId === playerId);
+          const totalRes = myPlanets.reduce(
+            (acc, p) => {
+              acc.ore += p.resources.ore;
+              acc.crystal += p.resources.crystal;
+              acc.fuel += p.resources.fuel;
+              return acc;
+            },
+            { ore: 0, crystal: 0, fuel: 0 }
+          );
+          if (
+            totalRes.ore < cmd.tradeOffer.give.ore ||
+            totalRes.crystal < cmd.tradeOffer.give.crystal ||
+            totalRes.fuel < cmd.tradeOffer.give.fuel
+          ) {
+            return {
+              success: false,
+              commandType: cmd.type,
+              error: 'Teklif edilen takas kaynakları depolarınızda mevcut değil.',
+              timeMs: this.state.timeMs,
+            };
+          }
+        }
+
+        if (!this.state.transmissions) this.state.transmissions = {};
+        const transmissionId = `trans_${this.state.nextId++}`;
+        const transmission: RadioTransmission = {
+          id: transmissionId,
+          senderId: playerId,
+          senderName: sender.name,
+          senderColor: sender.color,
+          senderArchetype: sender.botArchetype,
+          recipientId: cmd.recipientId,
+          type: cmd.transmissionType,
+          title: cmd.title,
+          message: cmd.message,
+          timestampMs: this.state.timeMs,
+          expiresAtMs: this.state.timeMs + (cmd.truceDurationMs || 30 * 60 * 1000),
+          read: false,
+          status: 'pending',
+          systemId: cmd.systemId,
+          tradeOffer: cmd.tradeOffer,
+          truceDurationMs: cmd.truceDurationMs,
+        };
+
+        this.state.transmissions[transmissionId] = transmission;
+        const targetName = cmd.recipientId === 'all' ? 'Tüm Galaksi' : this.state.players[cmd.recipientId]?.name || cmd.recipientId;
+        this.logEvent(
+          'transmission_sent',
+          `${sender.name}, ${targetName} kanalına telsiz mesajı iletti: "${cmd.title}".`,
+          playerId,
+          { transmissionId, recipientId: cmd.recipientId, type: cmd.transmissionType }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { transmissionId, transmission },
+        };
+      }
+
+      case 'RESPOND_TRANSMISSION': {
+        if (!this.state.transmissions || !this.state.transmissions[cmd.transmissionId]) {
+          return { success: false, commandType: cmd.type, error: 'Telsiz mesajı bulunamadı.', timeMs: this.state.timeMs };
+        }
+        const trans = this.state.transmissions[cmd.transmissionId];
+        if (trans.recipientId !== 'all' && trans.recipientId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Bu mesaja yalnızca muhatap yanıt verebilir.', timeMs: this.state.timeMs };
+        }
+        if (trans.status !== 'pending') {
+          return { success: false, commandType: cmd.type, error: `Bu mesaj zaten '${trans.status}' durumundadır.`, timeMs: this.state.timeMs };
+        }
+
+        const responder = this.state.players[playerId];
+
+        if (cmd.action === 'dismiss') {
+          trans.status = 'dismissed';
+          return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+        }
+
+        if (cmd.action === 'reject') {
+          trans.status = 'rejected';
+          this.logEvent(
+            'transmission_rejected',
+            `${responder?.name || playerId}, ${trans.senderName} tarafından sunulan "${trans.title}" teklifini reddetti.`,
+            playerId,
+            { transmissionId: trans.id }
+          );
+          return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+        }
+
+        // action === 'accept'
+        if (trans.type === 'trade_proposal' && trans.tradeOffer) {
+          const senderPlanet = Object.values(this.state.planets).find((p) => p.ownerId === trans.senderId);
+          const responderPlanet = Object.values(this.state.planets).find((p) => p.ownerId === playerId);
+
+          if (!senderPlanet || !responderPlanet) {
+            return { success: false, commandType: cmd.type, error: 'Tarafların ticaret üssü bulunamadı.', timeMs: this.state.timeMs };
+          }
+
+          if (
+            senderPlanet.resources.ore < trans.tradeOffer.give.ore ||
+            senderPlanet.resources.crystal < trans.tradeOffer.give.crystal ||
+            senderPlanet.resources.fuel < trans.tradeOffer.give.fuel
+          ) {
+            return {
+              success: false,
+              commandType: cmd.type,
+              error: `${trans.senderName} taahhüt ettiği kaynakları artık karşılayamıyor.`,
+              timeMs: this.state.timeMs,
+            };
+          }
+
+          if (
+            responderPlanet.resources.ore < trans.tradeOffer.receive.ore ||
+            responderPlanet.resources.crystal < trans.tradeOffer.receive.crystal ||
+            responderPlanet.resources.fuel < trans.tradeOffer.receive.fuel
+          ) {
+            return {
+              success: false,
+              commandType: cmd.type,
+              error: 'Takas için talep edilen kaynaklar depolarınızda eksik.',
+              timeMs: this.state.timeMs,
+            };
+          }
+
+          // Execute bilateral transfer
+          senderPlanet.resources.ore = senderPlanet.resources.ore - trans.tradeOffer.give.ore + trans.tradeOffer.receive.ore;
+          senderPlanet.resources.crystal = senderPlanet.resources.crystal - trans.tradeOffer.give.crystal + trans.tradeOffer.receive.crystal;
+          senderPlanet.resources.fuel = senderPlanet.resources.fuel - trans.tradeOffer.give.fuel + trans.tradeOffer.receive.fuel;
+
+          responderPlanet.resources.ore = responderPlanet.resources.ore - trans.tradeOffer.receive.ore + trans.tradeOffer.give.ore;
+          responderPlanet.resources.crystal = responderPlanet.resources.crystal - trans.tradeOffer.receive.crystal + trans.tradeOffer.give.crystal;
+          responderPlanet.resources.fuel = responderPlanet.resources.fuel - trans.tradeOffer.receive.fuel + trans.tradeOffer.give.fuel;
+
+          trans.status = 'accepted';
+          this.logEvent(
+            'trade_deal_concluded',
+            `DİPLOMATİK TİCARET ONAYLANDI: ${responder?.name || playerId} ile ${trans.senderName} maden takasını tamamladı.`,
+            playerId,
+            { transmissionId: trans.id, tradeOffer: trans.tradeOffer }
+          );
+          return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+        }
+
+        if (trans.type === 'truce_offer' && trans.truceDurationMs) {
+          if (!this.state.truces) this.state.truces = {};
+          const key = this.getTruceKey(trans.senderId, playerId);
+          const expiresAtMs = this.state.timeMs + trans.truceDurationMs;
+          this.state.truces[key] = expiresAtMs;
+          trans.status = 'accepted';
+
+          const durationMin = Math.round(trans.truceDurationMs / 60000);
+          this.logEvent(
+            'truce_established',
+            `BARIŞ PAKTI İMZALANDI: ${responder?.name || playerId} ve ${trans.senderName} ${durationMin} dakika boyunca saldırmazlık ilan etti.`,
+            playerId,
+            { transmissionId: trans.id, expiresAtMs }
+          );
+          return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { expiresAtMs } };
+        }
+
+        trans.status = 'accepted';
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
     }
+  }
+
+  /**
+   * Helper to send automated bot transmission to player(s)
+   */
+  public sendBotTransmission(
+    botPlayerId: string,
+    recipientId: string,
+    transmissionType: TransmissionType,
+    title: string,
+    message: string,
+    options?: {
+      tradeOffer?: { give: Resources; receive: Resources };
+      truceDurationMs?: number;
+      systemId?: string;
+    }
+  ): RadioTransmission | null {
+    const sender = this.state.players[botPlayerId];
+    if (!sender) return null;
+    if (!this.state.transmissions) this.state.transmissions = {};
+
+    const transmissionId = `trans_${this.state.nextId++}`;
+    const transmission: RadioTransmission = {
+      id: transmissionId,
+      senderId: botPlayerId,
+      senderName: sender.name,
+      senderColor: sender.color,
+      senderArchetype: sender.botArchetype,
+      recipientId,
+      type: transmissionType,
+      title,
+      message,
+      timestampMs: this.state.timeMs,
+      expiresAtMs: this.state.timeMs + (options?.truceDurationMs || 30 * 60 * 1000),
+      read: false,
+      status: 'pending',
+      systemId: options?.systemId,
+      tradeOffer: options?.tradeOffer,
+      truceDurationMs: options?.truceDurationMs,
+    };
+
+    this.state.transmissions[transmissionId] = transmission;
+    this.logEvent(
+      'transmission_sent',
+      `${sender.name}, telsiz kanalı üzerinden yayın yaptı: "${title}".`,
+      botPlayerId,
+      { transmissionId, recipientId, type: transmissionType }
+    );
+    return transmission;
   }
 
   // --- Filtered Client State ---

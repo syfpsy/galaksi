@@ -425,6 +425,35 @@ export interface SectorEvent {
   resolved?: boolean;
 }
 
+export type TransmissionType =
+  | 'warning'
+  | 'truce_offer'
+  | 'trade_proposal'
+  | 'bravado'
+  | 'intel_sharing';
+
+export interface RadioTransmission {
+  id: string;
+  senderId: string;
+  senderName: string;
+  senderColor: string;
+  senderArchetype?: string;
+  recipientId: string; // playerId or 'all'
+  type: TransmissionType;
+  title: string;
+  message: string;
+  timestampMs: number;
+  expiresAtMs: number;
+  read: boolean;
+  status: 'pending' | 'accepted' | 'rejected' | 'dismissed';
+  systemId?: string;
+  tradeOffer?: {
+    give: Resources;
+    receive: Resources;
+  };
+  truceDurationMs?: number;
+}
+
 export interface GameState {
   timeMs: number;
   seed: number;
@@ -437,6 +466,8 @@ export interface GameState {
   alliances: Record<string, Alliance>;
   market: MarketState;
   sectorEvents?: Record<string, SectorEvent>;
+  transmissions?: Record<string, RadioTransmission>;
+  truces?: Record<string, number>; // key: `${p1}_${p2}` (sorted alphabetically) -> expiresAtMs
   espionageOps?: EspionageOp[];
   battleReports: BattleReport[];
   eventLog: GameEventRecord[];
@@ -527,6 +558,21 @@ export type GameCommand =
   | {
       type: 'DISMISS_ADMIRAL';
       admiralId: string;
+    }
+  | {
+      type: 'SEND_TRANSMISSION';
+      recipientId: string;
+      transmissionType: TransmissionType;
+      title: string;
+      message: string;
+      systemId?: string;
+      tradeOffer?: { give: Resources; receive: Resources };
+      truceDurationMs?: number;
+    }
+  | {
+      type: 'RESPOND_TRANSMISSION';
+      transmissionId: string;
+      action: 'accept' | 'reject' | 'dismiss';
     };
 
 export interface CommandReceipt {

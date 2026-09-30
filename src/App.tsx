@@ -18,8 +18,9 @@ import {
   ResourceType,
   Resources,
   ShipType,
+  TransmissionType,
 } from './engine/types';
-import { AllianceModal } from './ui/components/AllianceModal';
+import { AllianceModal, AllianceTab } from './ui/components/AllianceModal';
 import { AnomalyEventModal } from './ui/components/AnomalyEventModal';
 import { ArtGalleryModal } from './ui/components/ArtGalleryModal';
 import { CombatReplayModal } from './ui/components/CombatReplayModal';
@@ -121,6 +122,7 @@ export function App() {
   const [inspectedSystemId, setInspectedSystemId] = useState<string | null>(null);
   const [anomalyModalSystemId, setAnomalyModalSystemId] = useState<string | null>(null);
   const [espionageTargetPlanetId, setEspionageTargetPlanetId] = useState<string | null>(null);
+  const [allianceInitialTab, setAllianceInitialTab] = useState<AllianceTab>('members');
   const [isOrientationOpen, setIsOrientationOpen] = useState<boolean>(() => {
     return !localStorage.getItem('galaksi_orientation_seen');
   });
@@ -405,6 +407,10 @@ export function App() {
     return isTargetSystemMyColony && f.mission === 'attack';
   }).length;
 
+  const pendingTransmissionsCount = Object.values(engineState.transmissions || {}).filter(
+    (t) => t.recipientId === activePlayerId && t.status === 'pending' && t.expiresAtMs > engineState.timeMs
+  ).length;
+
   // Command handlers
   const handleUpgradeBuilding = (planetId: string, buildingType: BuildingType) => {
     if (!engineRef.current) return;
@@ -645,6 +651,49 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleSendTransmission = (
+    recipientId: string,
+    transmissionType: TransmissionType,
+    title: string,
+    message: string,
+    systemId?: string,
+    tradeOffer?: { give: Resources; receive: Resources },
+    truceDurationMs?: number
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SEND_TRANSMISSION',
+      recipientId,
+      transmissionType,
+      title,
+      message,
+      systemId,
+      tradeOffer,
+      truceDurationMs,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleRespondTransmission = (transmissionId: string, accept: boolean) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RESPOND_TRANSMISSION',
+      transmissionId,
+      action: accept ? 'accept' : 'reject',
+    });
+    if (res.success) {
+      sound.playNotification();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleMarketTrade = (
     sellResource: ResourceType,
     buyResource: ResourceType,
@@ -789,6 +838,7 @@ export function App() {
           movingFleetsCount={movingFleetsCount}
           threatsCount={threatsCount}
           unreadBattlesCount={engineState.battleReports.length}
+          pendingTransmissionsCount={pendingTransmissionsCount}
           isRelayControlled={engineState.relay.controllingPlayerId === activePlayerId}
           planetsCount={myPlanets.length}
           godMode={godMode}
@@ -926,6 +976,7 @@ export function App() {
                 activePlayerId={activePlayerId}
                 isOpen={true}
                 isDocked={true}
+                initialTab={allianceInitialTab}
                 onClose={() => setActiveLeftPanel(null)}
                 onCreateAlliance={handleCreateAlliance}
                 onJoinAlliance={handleJoinAlliance}
@@ -934,6 +985,8 @@ export function App() {
                 onDonateToAlliance={handleDonateToAlliance}
                 onWithdrawFromAlliance={handleWithdrawFromAlliance}
                 onTransferToAlly={handleTransferToAlly}
+                onSendTransmission={handleSendTransmission}
+                onRespondTransmission={handleRespondTransmission}
               />
             )}
 
@@ -1018,6 +1071,10 @@ export function App() {
             onOpenShipyard={() => setActiveLeftPanel('shipyard')}
             onOpenSituationLog={() => setActiveLeftPanel('situation')}
             onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
+            onOpenAlliance={(tab) => {
+              if (tab) setAllianceInitialTab(tab as AllianceTab);
+              setActiveLeftPanel('alliance');
+            }}
           />
 
           <GalaxyMap

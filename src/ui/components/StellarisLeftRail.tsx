@@ -44,6 +44,7 @@ interface StellarisLeftRailProps {
   movingFleetsCount?: number;
   threatsCount?: number;
   unreadBattlesCount: number;
+  pendingTransmissionsCount?: number;
   isRelayControlled: boolean;
   planetsCount: number;
   godMode: boolean;
@@ -75,6 +76,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   movingFleetsCount = 0,
   threatsCount = 0,
   unreadBattlesCount,
+  pendingTransmissionsCount = 0,
   isRelayControlled,
   planetsCount,
   godMode,
@@ -465,6 +467,11 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Users className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
+            {pendingTransmissionsCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-purple-600 text-white text-[9px] font-bold font-mono flex items-center justify-center border border-purple-400 shadow-md animate-pulse">
+                {pendingTransmissionsCount}
+              </span>
+            )}
             <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F12
             </span>
@@ -472,11 +479,11 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
 
           <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
             <div className="flex items-center justify-between text-xs font-bold">
-              <span className="stellaris-gold tracking-wide">GALAKTİK İTTİFAKLAR</span>
+              <span className="stellaris-gold tracking-wide">GALAKTİK İTTİFAKLAR & DİPLOMASİ</span>
               <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F12</span>
             </div>
             <p className="text-[11px] text-slate-300 mt-1 leading-snug">
-              Diplomatik paktlar, ortak sensör görüşü ve askeri müttefik savunması.
+              Diplomatik paktlar, radyo telsiz iletişimi, kaynak takası ve ortak savunma.
             </p>
           </div>
         </div>

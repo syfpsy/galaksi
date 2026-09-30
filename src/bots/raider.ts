@@ -1,6 +1,7 @@
 import { getResearchCost, SHIP_STATS } from '../engine/constants';
 import { GameEngine } from '../engine/engine';
 import { GameCommand, ShipType } from '../engine/types';
+import { evaluateBotDiplomacy } from './diplomacy';
 import { IBotAgent } from './types';
 
 export class RaiderBot implements IBotAgent {
@@ -91,6 +92,13 @@ export class RaiderBot implements IBotAgent {
         const receipt = engine.dispatchCommand(this.playerId, cmd);
         if (receipt.success) executedCommands.push(cmd);
       }
+    }
+
+    // 5. Diplomatic Radio Transmissions
+    const diplomacyCmds = evaluateBotDiplomacy(engine, this.playerId);
+    for (const cmd of diplomacyCmds) {
+      const receipt = engine.dispatchCommand(this.playerId, cmd);
+      if (receipt.success) executedCommands.push(cmd);
     }
 
     return executedCommands;

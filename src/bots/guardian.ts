@@ -1,6 +1,7 @@
 import { SHIP_STATS } from '../engine/constants';
 import { GameEngine } from '../engine/engine';
 import { GameCommand } from '../engine/types';
+import { evaluateBotDiplomacy } from './diplomacy';
 import { IBotAgent } from './types';
 
 export class GuardianBot implements IBotAgent {
@@ -75,6 +76,13 @@ export class GuardianBot implements IBotAgent {
         planetId: homeworld.id,
         buildingType: 'shipyard',
       };
+      const receipt = engine.dispatchCommand(this.playerId, cmd);
+      if (receipt.success) executedCommands.push(cmd);
+    }
+
+    // 4. Diplomatic Radio Transmissions
+    const diplomacyCmds = evaluateBotDiplomacy(engine, this.playerId);
+    for (const cmd of diplomacyCmds) {
       const receipt = engine.dispatchCommand(this.playerId, cmd);
       if (receipt.success) executedCommands.push(cmd);
     }

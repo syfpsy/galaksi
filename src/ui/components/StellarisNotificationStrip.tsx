@@ -21,7 +21,7 @@ import { sound } from '../sound';
 
 export interface EmpireNotification {
   id: string;
-  type: 'threat' | 'battle' | 'research' | 'colony' | 'shipyard' | 'anomaly' | 'debris' | 'relay' | 'crisis';
+  type: 'threat' | 'battle' | 'research' | 'colony' | 'shipyard' | 'anomaly' | 'debris' | 'relay' | 'crisis' | 'transmission';
   title: string;
   description: string;
   timestampMs: number;
@@ -39,6 +39,7 @@ interface StellarisNotificationStripProps {
   onOpenShipyard: () => void;
   onOpenSituationLog: () => void;
   onOpenTransitRadar?: () => void;
+  onOpenAlliance?: (tab?: string) => void;
 }
 
 const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripProps> = ({
@@ -50,6 +51,7 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
   onOpenShipyard,
   onOpenSituationLog,
   onOpenTransitRadar,
+  onOpenAlliance,
 }) => {
   const [notifications, setNotifications] = useState<EmpireNotification[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -78,7 +80,27 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
       });
     }
 
-    // 2. Active Sector Crises & Dynamic Events
+    // 2. Pending Radio Transmissions / Diplomatic Comms
+    if (state.transmissions) {
+      Object.values(state.transmissions).forEach((trans) => {
+        if (
+          trans.status === 'pending' &&
+          (trans.recipientId === activePlayerId || trans.recipientId === 'all') &&
+          state.timeMs < trans.expiresAtMs
+        ) {
+          notifs.push({
+            id: `trans_${trans.id}`,
+            type: 'transmission',
+            title: `TELSİZ: ${trans.senderName.toUpperCase()}`,
+            description: `${trans.title}: ${trans.message.slice(0, 95)}...`,
+            timestampMs: trans.timestampMs,
+            systemId: trans.systemId,
+          });
+        }
+      });
+    }
+
+    // 3. Active Sector Crises & Dynamic Events
     if (state.sectorEvents) {
       Object.values(state.sectorEvents).forEach((crisis) => {
         if (!crisis.resolved && state.timeMs < crisis.expiresAtMs) {
@@ -143,7 +165,7 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
     });
 
     setNotifications(notifs);
-  }, [state.eventLog.length, state.fleets, state.sectorEvents, state.timeMs, activePlayerId]);
+  }, [state.eventLog.length, state.fleets, state.sectorEvents, state.transmissions, state.timeMs, activePlayerId]);
 
   if (notifications.length === 0) return null;
 
@@ -212,6 +234,13 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
           bg: 'bg-amber-950/90',
           pulse: 'animate-pulse',
         };
+      case 'transmission':
+        return {
+          icon: <Radio className="w-4 h-4 text-purple-300" />,
+          border: 'border-purple-400 shadow-purple-950/80',
+          bg: 'bg-purple-950/90',
+          pulse: 'animate-pulse',
+        };
     }
   };
 
@@ -233,6 +262,8 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
       onOpenShipyard();
     } else if (notif.type === 'anomaly' || notif.type === 'relay') {
       onOpenSituationLog();
+    } else if (notif.type === 'transmission') {
+      if (onOpenAlliance) onOpenAlliance('comms');
     } else if (notif.type === 'crisis') {
       if (notif.systemId) {
         onFocusSystem(notif.systemId);

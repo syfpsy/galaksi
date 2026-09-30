@@ -2,6 +2,7 @@ import { SHIP_STATS } from '../engine/constants';
 import { GameEngine } from '../engine/engine';
 import { checkInterceptionFeasibility } from '../engine/flight';
 import { GameCommand, ShipType } from '../engine/types';
+import { evaluateBotDiplomacy } from './diplomacy';
 import { IBotAgent } from './types';
 
 /**
@@ -185,6 +186,13 @@ export class AdmiralBot implements IBotAgent {
         const cmd: GameCommand = { type: 'UPGRADE_BUILDING', planetId: homeworld.id, buildingType: 'fuel_refinery' };
         if (engine.dispatchCommand(this.playerId, cmd).success) executedCommands.push(cmd);
       }
+    }
+
+    // 7. Diplomatic Radio Transmissions
+    const diplomacyCmds = evaluateBotDiplomacy(engine, this.playerId);
+    for (const cmd of diplomacyCmds) {
+      const receipt = engine.dispatchCommand(this.playerId, cmd);
+      if (receipt.success) executedCommands.push(cmd);
     }
 
     return executedCommands;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   AlertTriangle,
   ArrowDownLeft,
@@ -9,6 +9,7 @@ import {
   Eye,
   Plus,
   Radio,
+  Send,
   Shield,
   ShieldAlert,
   ShieldCheck,
@@ -17,16 +18,17 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { GameState, Player, Resources } from '../../engine/types';
+import { GameState, Player, Resources, TransmissionType, RadioTransmission } from '../../engine/types';
 import { sound } from '../sound';
 
-export type AllianceTab = 'members' | 'treasury' | 'logistics' | 'defense';
+export type AllianceTab = 'members' | 'treasury' | 'logistics' | 'defense' | 'comms' | 'browse';
 
 interface AllianceModalProps {
   state: GameState;
   activePlayerId: string;
   isOpen: boolean;
   isDocked?: boolean;
+  initialTab?: AllianceTab;
   onClose: () => void;
   onCreateAlliance: (name: string, tag: string) => void;
   onJoinAlliance: (allianceId: string) => void;
@@ -35,6 +37,16 @@ interface AllianceModalProps {
   onDonateToAlliance?: (planetId: string, resources: Resources) => void;
   onWithdrawFromAlliance?: (planetId: string, resources: Resources) => void;
   onTransferToAlly?: (sourcePlanetId: string, targetPlanetId: string, resources: Resources) => void;
+  onSendTransmission?: (
+    recipientId: string,
+    transmissionType: TransmissionType,
+    title: string,
+    message: string,
+    systemId?: string,
+    tradeOffer?: { give: Resources; receive: Resources },
+    truceDurationMs?: number
+  ) => void;
+  onRespondTransmission?: (transmissionId: string, accept: boolean) => void;
 }
 
 const AllianceModalComponent: React.FC<AllianceModalProps> = ({
@@ -42,6 +54,7 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
   activePlayerId,
   isOpen,
   isDocked = false,
+  initialTab,
   onClose,
   onCreateAlliance,
   onJoinAlliance,
@@ -50,8 +63,23 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
   onDonateToAlliance,
   onWithdrawFromAlliance,
   onTransferToAlly,
+  onSendTransmission,
+  onRespondTransmission,
 }) => {
-  const [activeTab, setActiveTab] = useState<AllianceTab>('members');
+  const player = state.players[activePlayerId];
+  const myAlliance = player?.allianceId ? state.alliances[player.allianceId] : null;
+
+  const [activeTab, setActiveTab] = useState<AllianceTab>(() => {
+    if (initialTab) return initialTab;
+    return myAlliance ? 'members' : 'comms';
+  });
+
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
+
   const [newName, setNewName] = useState('');
   const [newTag, setNewTag] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -72,10 +100,23 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
   const [shipCrystal, setShipCrystal] = useState(50);
   const [shipFuel, setShipFuel] = useState(20);
 
+  // Radio Comms & Diplomacy form state
+  const otherPlayers = Object.values(state.players).filter((p) => p.id !== activePlayerId);
+  const [recipientId, setRecipientId] = useState<string>('all');
+  const [commsType, setCommsType] = useState<TransmissionType>('warning');
+  const [commsTitle, setCommsTitle] = useState('');
+  const [commsMessage, setCommsMessage] = useState('');
+  const [giveOre, setGiveOre] = useState(100);
+  const [giveCrystal, setGiveCrystal] = useState(50);
+  const [giveFuel, setGiveFuel] = useState(25);
+  const [receiveOre, setReceiveOre] = useState(50);
+  const [receiveCrystal, setReceiveCrystal] = useState(100);
+  const [receiveFuel, setReceiveFuel] = useState(50);
+  const [truceDurationMinutes, setTruceDurationMinutes] = useState(15);
+  const [isComposing, setIsComposing] = useState(false);
+
   if (!isOpen) return null;
 
-  const player = state.players[activePlayerId];
-  const myAlliance = player?.allianceId ? state.alliances[player.allianceId] : null;
   const allAlliances = Object.values(state.alliances);
 
   // Treasury numbers
@@ -88,6 +129,35 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
         (p) => p.ownerId !== activePlayerId && myAlliance.memberIds.includes(p.ownerId)
       )
     : [];
+
+  // Transmissions & Active Truces
+  const transmissionsList = Object.values(state.transmissions || {})
+    .filter(
+      (t) =>
+        t.recipientId === activePlayerId ||
+        t.recipientId === 'all' ||
+        t.senderId === activePlayerId
+    )
+    .sort((a, b) => b.timestampMs - a.timestampMs);
+
+  const pendingTransmissionsCount = transmissionsList.filter(
+    (t) => t.recipientId === activePlayerId && t.status === 'pending' && t.expiresAtMs > state.timeMs
+  ).length;
+
+  const activeTrucesList: { otherPlayerId: string; expiresAtMs: number }[] = [];
+  if (state.truces) {
+    for (const [key, expiresAtMs] of Object.entries(state.truces)) {
+      if (expiresAtMs > state.timeMs) {
+        const parts = key.split('_');
+        if (parts.includes(activePlayerId)) {
+          const otherId = parts.find((id) => id !== activePlayerId);
+          if (otherId) {
+            activeTrucesList.push({ otherPlayerId: otherId, expiresAtMs });
+          }
+        }
+      }
+    }
+  }
 
   // Filter recent defense alerts from eventLog
   const defenseEvents = state.eventLog
@@ -136,75 +206,574 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
         </button>
       </div>
 
-      {/* Tabs navigation when active in an alliance */}
-      {myAlliance && (
-        <div className="flex items-center bg-[#06111c] border-b border-[#18374d] px-3 pt-2 gap-1 overflow-x-auto">
+      {/* Tabs navigation: always visible */}
+      <div className="flex items-center bg-[#06111c] border-b border-[#18374d] px-3 pt-2 gap-1 overflow-x-auto">
+        {myAlliance ? (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setActiveTab('members');
+              }}
+              className={`px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
+                activeTab === 'members'
+                  ? 'border-cyan-400 text-cyan-300 bg-[#0d263b]/60'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Users className="w-3.5 h-3.5" />
+              <span>Üyeler ({myAlliance.memberIds.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setActiveTab('treasury');
+              }}
+              className={`px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
+                activeTab === 'treasury'
+                  ? 'border-amber-400 text-amber-300 bg-[#0d263b]/60'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Coins className="w-3.5 h-3.5 text-amber-400" />
+              <span>Ortak Kasa</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setActiveTab('logistics');
+              }}
+              className={`px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
+                activeTab === 'logistics'
+                  ? 'border-sky-400 text-sky-300 bg-[#0d263b]/60'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Truck className="w-3.5 h-3.5 text-sky-400" />
+              <span>Kaynak Sevkiyatı</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                sound.playClick();
+                setActiveTab('defense');
+              }}
+              className={`px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
+                activeTab === 'defense'
+                  ? 'border-rose-400 text-rose-300 bg-[#0d263b]/60'
+                  : 'border-transparent text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>Ortak Savunma</span>
+            </button>
+          </>
+        ) : (
           <button
             type="button"
             onClick={() => {
               sound.playClick();
-              setActiveTab('members');
+              setActiveTab('browse');
             }}
             className={`px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'members'
+              activeTab === 'browse'
                 ? 'border-cyan-400 text-cyan-300 bg-[#0d263b]/60'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
             <Users className="w-3.5 h-3.5" />
-            <span>Üyeler ({myAlliance.memberIds.length})</span>
+            <span>İttifak Keşfi & Kurulum</span>
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              sound.playClick();
-              setActiveTab('treasury');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'treasury'
-                ? 'border-amber-400 text-amber-300 bg-[#0d263b]/60'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Coins className="w-3.5 h-3.5 text-amber-400" />
-            <span>Ortak Kasa</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              sound.playClick();
-              setActiveTab('logistics');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'logistics'
-                ? 'border-sky-400 text-sky-300 bg-[#0d263b]/60'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <Truck className="w-3.5 h-3.5 text-sky-400" />
-            <span>Kaynak Sevkiyatı</span>
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              sound.playClick();
-              setActiveTab('defense');
-            }}
-            className={`px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
-              activeTab === 'defense'
-                ? 'border-rose-400 text-rose-300 bg-[#0d263b]/60'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
-            }`}
-          >
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>Ortak Savunma</span>
-          </button>
-        </div>
-      )}
+        )}
+
+        {/* Comms & Diplomacy tab is always present! */}
+        <button
+          type="button"
+          onClick={() => {
+            sound.playClick();
+            setActiveTab('comms');
+          }}
+          className={`px-3 py-1.5 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all cursor-pointer ${
+            activeTab === 'comms'
+              ? 'border-purple-400 text-purple-300 bg-[#161226]/60'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Radio className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+          <span>Telsiz & Diplomasi</span>
+          {pendingTransmissionsCount > 0 && (
+            <span className="w-4 h-4 rounded-full bg-purple-500 text-white text-[9.5px] font-bold flex items-center justify-center animate-bounce">
+              {pendingTransmissionsCount}
+            </span>
+          )}
+        </button>
+      </div>
 
       {/* Content Body */}
       <div className="flex-1 overflow-y-auto p-4 pb-6 space-y-4">
-        {myAlliance ? (
+        {activeTab === 'comms' ? (
+          /* Radio Comms & Diplomacy View */
+          <div className="space-y-4">
+            {/* Section 1: Active Truces & Non-Aggression Pacts */}
+            <div className="space-y-2">
+              <div className="stellaris-section-header px-2 py-1 text-[10px] font-mono uppercase tracking-wider flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Aktif Saldırmazlık Ateşkesleri ({activeTrucesList.length})</span>
+                </div>
+              </div>
+
+              {activeTrucesList.length === 0 ? (
+                <div className="stellaris-item-card border-dashed border-[#1c3647] p-3 text-center text-xs text-slate-400 font-mono">
+                  Aktif bir ateşkes paktı bulunmuyor. Bir imparatorluğa telsiz üzerinden ateşkes teklif edebilirsiniz.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {activeTrucesList.map((truce) => {
+                    const other = state.players[truce.otherPlayerId];
+                    const remainingSec = Math.max(0, Math.ceil((truce.expiresAtMs - state.timeMs) / 1000));
+                    const minutes = Math.floor(remainingSec / 60);
+                    const seconds = remainingSec % 60;
+                    return (
+                      <div
+                        key={truce.otherPlayerId}
+                        className="stellaris-item-card border-emerald-500/40 bg-[#061715]/50 p-2.5 flex items-center justify-between"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <div
+                            className="w-3 h-3 rounded-full shrink-0 shadow-sm"
+                            style={{ backgroundColor: other?.color || '#10b981' }}
+                          />
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-bold text-slate-100 font-mono">
+                                {other?.name || truce.otherPlayerId}
+                              </span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded-sm bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono">
+                                Ateşkes Aktif
+                              </span>
+                            </div>
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              Karşılıklı filo saldırısı ve gezegen çıkarması sistem protokolü tarafından engellendi.
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right font-mono shrink-0">
+                          <div className="text-xs font-bold text-emerald-400">
+                            {minutes}:{seconds.toString().padStart(2, '0')}
+                          </div>
+                          <span className="text-[9px] text-slate-500 uppercase">Kalan Süre</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Section 2: Outgoing Transmission Composer */}
+            <div className="stellaris-item-card border-[#1c3d52] p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Radio className="w-3.5 h-3.5 text-purple-400 animate-pulse" />
+                  <h4 className="text-xs font-bold text-slate-100 font-mono uppercase tracking-wider">
+                    Yeni Telsiz Yayını Gönder
+                  </h4>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setIsComposing(!isComposing);
+                  }}
+                  className="px-2.5 py-1 text-[11px] font-mono rounded-sm stellaris-btn-metallic text-cyan-300 cursor-pointer"
+                >
+                  {isComposing ? 'Kapat' : '+ Yeni Mesaj / Teklif'}
+                </button>
+              </div>
+
+              {isComposing && (
+                <div className="space-y-3 pt-2 border-t border-[#152e3d]">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] font-mono text-slate-400 block mb-1">
+                        Hedef Frekans / İmparatorluk
+                      </label>
+                      <select
+                        value={recipientId}
+                        onChange={(e) => setRecipientId(e.target.value)}
+                        className="w-full bg-[#07131e] border border-[#18374b] rounded-sm px-2.5 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-[#3ca8d1]"
+                      >
+                        <option value="all">📡 Genel Sektör Yayını (Tüm İmparatorluklar)</option>
+                        {otherPlayers.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.name} ({p.isBot ? 'Yapay Zekâ' : 'Oyuncu'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="text-[10px] font-mono text-slate-400 block mb-1">
+                        Yayın Tipi
+                      </label>
+                      <select
+                        value={commsType}
+                        onChange={(e) => setCommsType(e.target.value as TransmissionType)}
+                        className="w-full bg-[#07131e] border border-[#18374b] rounded-sm px-2.5 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-[#3ca8d1]"
+                      >
+                        <option value="warning">⚠️ Sınır / Tehdit Uyarısı</option>
+                        <option value="truce_offer">🤝 Saldırmazlık Ateşkesi Teklifi</option>
+                        <option value="trade_proposal">⚖️ İkili Kaynak Takası Teklifi</option>
+                        <option value="intel_sharing">🔭 İstihbarat & Anomali Paylaşımı</option>
+                        <option value="bravado">⚔️ Diplomatik Meydan Okuma</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-mono text-slate-400 block mb-1">
+                      Yayın Başlığı
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Örn: Sınır Bölgesi Güvenlik Anlaşması"
+                      value={commsTitle}
+                      onChange={(e) => setCommsTitle(e.target.value)}
+                      className="w-full bg-[#07131e] border border-[#18374b] rounded-sm px-3 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-[#3ca8d1]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] font-mono text-slate-400 block mb-1">
+                      Mesaj İçeriği
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="Frekans üzerinden iletmek istediğiniz diplomatik bildiri..."
+                      value={commsMessage}
+                      onChange={(e) => setCommsMessage(e.target.value)}
+                      className="w-full bg-[#07131e] border border-[#18374b] rounded-sm px-3 py-1.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-[#3ca8d1] resize-none"
+                    />
+                  </div>
+
+                  {/* Conditional Truce Duration */}
+                  {commsType === 'truce_offer' && (
+                    <div>
+                      <label className="text-[10px] font-mono text-slate-400 block mb-1">
+                        Önerilen Ateşkes Süresi
+                      </label>
+                      <div className="flex gap-2">
+                        {[10, 15, 30, 60].map((mins) => (
+                          <button
+                            key={mins}
+                            type="button"
+                            onClick={() => setTruceDurationMinutes(mins)}
+                            className={`flex-1 py-1 text-xs font-mono font-bold rounded-sm border transition-all cursor-pointer ${
+                              truceDurationMinutes === mins
+                                ? 'bg-emerald-950/80 border-emerald-400 text-emerald-300'
+                                : 'bg-[#07131e] border-[#18374b] text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            {mins} Dakika
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Conditional Trade Proposal Inputs */}
+                  {commsType === 'trade_proposal' && (
+                    <div className="space-y-2 p-2.5 rounded-sm bg-[#05131f] border border-[#17384c]">
+                      <div className="text-[10px] font-mono text-amber-300 font-bold uppercase tracking-wider">
+                        İkili Kaynak Takası Detayları
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <div className="text-[9.5px] font-mono text-emerald-400 mb-1">
+                            Verilecek Kaynaklar (Bizden)
+                          </div>
+                          <div className="grid grid-cols-3 gap-1">
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="Cevher"
+                              value={giveOre}
+                              onChange={(e) => setGiveOre(Math.max(0, parseInt(e.target.value) || 0))}
+                              className="bg-[#07131e] border border-[#18374b] rounded-sm p-1 text-[11px] text-cyan-300 font-mono"
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="Kristal"
+                              value={giveCrystal}
+                              onChange={(e) => setGiveCrystal(Math.max(0, parseInt(e.target.value) || 0))}
+                              className="bg-[#07131e] border border-[#18374b] rounded-sm p-1 text-[11px] text-emerald-300 font-mono"
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="Yakıt"
+                              value={giveFuel}
+                              onChange={(e) => setGiveFuel(Math.max(0, parseInt(e.target.value) || 0))}
+                              className="bg-[#07131e] border border-[#18374b] rounded-sm p-1 text-[11px] text-amber-300 font-mono"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <div className="text-[9.5px] font-mono text-amber-400 mb-1">
+                            İstenen Kaynaklar (Karşıdan)
+                          </div>
+                          <div className="grid grid-cols-3 gap-1">
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="Cevher"
+                              value={receiveOre}
+                              onChange={(e) => setReceiveOre(Math.max(0, parseInt(e.target.value) || 0))}
+                              className="bg-[#07131e] border border-[#18374b] rounded-sm p-1 text-[11px] text-cyan-300 font-mono"
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="Kristal"
+                              value={receiveCrystal}
+                              onChange={(e) => setReceiveCrystal(Math.max(0, parseInt(e.target.value) || 0))}
+                              className="bg-[#07131e] border border-[#18374b] rounded-sm p-1 text-[11px] text-emerald-300 font-mono"
+                            />
+                            <input
+                              type="number"
+                              min={0}
+                              placeholder="Yakıt"
+                              value={receiveFuel}
+                              onChange={(e) => setReceiveFuel(Math.max(0, parseInt(e.target.value) || 0))}
+                              className="bg-[#07131e] border border-[#18374b] rounded-sm p-1 text-[11px] text-amber-300 font-mono"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  <button
+                    type="button"
+                    disabled={!commsTitle.trim() || !commsMessage.trim()}
+                    onClick={() => {
+                      if (!onSendTransmission || !commsTitle.trim() || !commsMessage.trim()) return;
+                      sound.playClick();
+                      onSendTransmission(
+                        recipientId,
+                        commsType,
+                        commsTitle.trim(),
+                        commsMessage.trim(),
+                        undefined,
+                        commsType === 'trade_proposal'
+                          ? {
+                              give: { ore: giveOre, crystal: giveCrystal, fuel: giveFuel },
+                              receive: { ore: receiveOre, crystal: receiveCrystal, fuel: receiveFuel },
+                            }
+                          : undefined,
+                        commsType === 'truce_offer' ? truceDurationMinutes * 60 * 1000 : undefined
+                      );
+                      setCommsTitle('');
+                      setCommsMessage('');
+                      setIsComposing(false);
+                    }}
+                    className="w-full py-2 stellaris-btn-metallic text-purple-200 rounded-sm font-bold text-xs font-mono uppercase tracking-wider disabled:opacity-40 cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    <Send className="w-3.5 h-3.5 text-purple-400" />
+                    <span>Şifreli Telsiz Sinyalini Gönder</span>
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Section 3: Radio Transmissions Feed */}
+            <div className="space-y-2">
+              <div className="stellaris-section-header px-2 py-1 text-[10px] font-mono uppercase tracking-wider flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                  <span>Sektör Frekansı & Gelen İletimler ({transmissionsList.length})</span>
+                </div>
+              </div>
+
+              {transmissionsList.length === 0 ? (
+                <div className="stellaris-item-card border-dashed border-[#1c3647] p-8 text-center text-xs text-slate-500 font-mono">
+                  Henüz sektör frekansında yakalanan bir telsiz yayını yok.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {transmissionsList.map((t) => {
+                    const isIncoming = t.recipientId === activePlayerId;
+                    const isBroadcast = t.recipientId === 'all';
+                    const isMine = t.senderId === activePlayerId;
+                    const isExpired = state.timeMs > t.expiresAtMs;
+
+                    let borderClass = 'border-[#1c3647]';
+                    let bgClass = 'bg-[#05111c]';
+                    let typeLabel = 'Bilinmeyen İletim';
+                    let typeBadgeColor = 'text-slate-400 border-slate-700 bg-slate-900/50';
+
+                    if (t.type === 'warning') {
+                      borderClass = 'border-rose-500/40';
+                      bgClass = 'bg-rose-950/20';
+                      typeLabel = 'Sınır Uyarısı';
+                      typeBadgeColor = 'text-rose-300 border-rose-500/40 bg-rose-950/60';
+                    } else if (t.type === 'truce_offer') {
+                      borderClass = 'border-emerald-500/40';
+                      bgClass = 'bg-emerald-950/20';
+                      typeLabel = 'Ateşkes Teklifi';
+                      typeBadgeColor = 'text-emerald-300 border-emerald-500/40 bg-emerald-950/60';
+                    } else if (t.type === 'trade_proposal') {
+                      borderClass = 'border-amber-500/40';
+                      bgClass = 'bg-amber-950/20';
+                      typeLabel = 'Takas Teklifi';
+                      typeBadgeColor = 'text-amber-300 border-amber-500/40 bg-amber-950/60';
+                    } else if (t.type === 'intel_sharing') {
+                      borderClass = 'border-cyan-500/40';
+                      bgClass = 'bg-cyan-950/20';
+                      typeLabel = 'İstihbarat';
+                      typeBadgeColor = 'text-cyan-300 border-cyan-500/40 bg-cyan-950/60';
+                    } else if (t.type === 'bravado') {
+                      borderClass = 'border-purple-500/40';
+                      bgClass = 'bg-purple-950/20';
+                      typeLabel = 'Meydan Okuma';
+                      typeBadgeColor = 'text-purple-300 border-purple-500/40 bg-purple-950/60';
+                    }
+
+                    return (
+                      <div
+                        key={t.id}
+                        className={`stellaris-item-card ${borderClass} ${bgClass} p-3 space-y-2`}
+                      >
+                        {/* Transmission Header */}
+                        <div className="flex items-center justify-between text-xs font-mono">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-sm"
+                              style={{ backgroundColor: t.senderColor || '#38bdf8' }}
+                            />
+                            <span className="font-bold text-slate-100">{t.senderName}</span>
+                            {t.senderArchetype && (
+                              <span className="text-[10px] text-slate-400">[{t.senderArchetype}]</span>
+                            )}
+                            <span
+                              className={`text-[9.5px] px-1.5 py-0.2 rounded-sm border uppercase font-bold ${typeBadgeColor}`}
+                            >
+                              {typeLabel}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2 text-[10px] text-slate-400 font-mono">
+                            {isBroadcast && (
+                              <span className="text-cyan-400 bg-cyan-950/60 px-1.5 py-0.5 rounded-sm border border-cyan-500/30">
+                                Genel Yayın
+                              </span>
+                            )}
+                            {isMine && (
+                              <span className="text-purple-300 bg-purple-950/60 px-1.5 py-0.5 rounded-sm border border-purple-500/30">
+                                Giden İletim
+                              </span>
+                            )}
+                            <span>{Math.max(1, Math.round((state.timeMs - t.timestampMs) / 1000))}s önce</span>
+                          </div>
+                        </div>
+
+                        {/* Title & Message */}
+                        <div>
+                          <h5 className="text-xs font-bold text-slate-100 font-display mb-1">{t.title}</h5>
+                          <p className="text-[11.5px] text-slate-200 font-mono leading-relaxed">{t.message}</p>
+                        </div>
+
+                        {/* Trade Offer Details */}
+                        {t.tradeOffer && (
+                          <div className="p-2 rounded-sm bg-[#040e17] border border-[#163347] flex items-center justify-between text-xs font-mono">
+                            <div className="text-emerald-300">
+                              <span className="text-[10px] text-slate-400 block">Önerilen Kaynaklar:</span>
+                              <span>
+                                C:{t.tradeOffer.give.ore} K:{t.tradeOffer.give.crystal} Y:{t.tradeOffer.give.fuel}
+                              </span>
+                            </div>
+                            <ArrowRight className="w-3.5 h-3.5 text-slate-500" />
+                            <div className="text-amber-300 text-right">
+                              <span className="text-[10px] text-slate-400 block">Talep Edilen Kaynaklar:</span>
+                              <span>
+                                C:{t.tradeOffer.receive.ore} K:{t.tradeOffer.receive.crystal} Y:{t.tradeOffer.receive.fuel}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+
+                        {/* Truce Duration Details */}
+                        {t.truceDurationMs && (
+                          <div className="p-1.5 rounded-sm bg-emerald-950/30 border border-emerald-500/30 text-xs font-mono text-emerald-300 flex items-center gap-2">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>
+                              Önerilen Saldırmazlık Süresi: {Math.round(t.truceDurationMs / 60000)} Dakika
+                            </span>
+                          </div>
+                        )}
+
+                        {/* Action / Status Footer */}
+                        <div className="pt-1.5 border-t border-[#132c3d] flex items-center justify-between">
+                          <div>
+                            {t.status === 'accepted' && (
+                              <span className="text-xs font-mono font-bold text-emerald-400 flex items-center gap-1">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                Teklif Kabul Edildi
+                              </span>
+                            )}
+                            {t.status === 'rejected' && (
+                              <span className="text-xs font-mono font-bold text-rose-400 flex items-center gap-1">
+                                <X className="w-3.5 h-3.5" />
+                                Reddedildi
+                              </span>
+                            )}
+                            {t.status === 'pending' && isExpired && (
+                              <span className="text-xs font-mono text-slate-500">Süresi Doldu</span>
+                            )}
+                            {t.status === 'pending' && !isExpired && !isIncoming && (
+                              <span className="text-xs font-mono text-slate-400 italic">Yanıt bekleniyor...</span>
+                            )}
+                          </div>
+
+                          {/* Interactive Accept / Reject buttons if incoming and pending */}
+                          {t.status === 'pending' && !isExpired && isIncoming && (
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  sound.playClick();
+                                  onRespondTransmission?.(t.id, false);
+                                }}
+                                className="px-2.5 py-1 text-xs font-mono font-bold text-rose-300 bg-rose-950/60 hover:bg-rose-900 border border-rose-500/40 rounded-sm cursor-pointer transition-all"
+                              >
+                                Reddet
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  sound.playClick();
+                                  onRespondTransmission?.(t.id, true);
+                                }}
+                                className="px-3 py-1 text-xs font-mono font-bold text-emerald-200 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-400 rounded-sm cursor-pointer shadow-sm transition-all"
+                              >
+                                Kabul Et
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        ) : myAlliance ? (
           /* Active Alliance Content */
           <div className="space-y-4">
             {/* Top Summary Card */}

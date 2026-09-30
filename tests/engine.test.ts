@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { GameEngine } from '../src/engine/engine';
 import { resolveCombat } from '../src/engine/combat';
 import { calculateRouteInfo, checkInterceptionFeasibility } from '../src/engine/flight';
+import { evaluateBotDiplomacy, resetBotDiplomacyCooldowns } from '../src/bots/diplomacy';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -875,5 +876,166 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     // Verify admiral gained massive XP (+350 XP)
     const updatedAdmiral = engine.state.admirals![myAdmiral!.id];
     expect(updatedAdmiral.xp).toBeGreaterThan(initialXP);
+  });
+
+  it('supports sending and filtering diplomatic radio transmissions in fog of war', () => {
+    const engine = new GameEngine(1234);
+    engine.addPlayer('p1', 'Player Alpha', '#00f3ff');
+    engine.addPlayer('p2', 'Player Beta', '#f43f5e');
+    engine.addPlayer('p3', 'Player Gamma', '#10b981');
+
+    // p1 sends a warning to p2
+    const sendRes = engine.dispatchCommand('p1', {
+      type: 'SEND_TRANSMISSION',
+      recipientId: 'p2',
+      transmissionType: 'warning',
+      title: 'Sınır İhlali Uyarısı',
+      message: 'Sektörümüzden derhal çekilin.',
+    });
+    expect(sendRes.success).toBe(true);
+    const transId = sendRes.data?.transmissionId as string;
+    expect(transId).toBeDefined();
+
+    // Check fog of war filtering
+    const viewP1 = engine.getPlayerView('p1');
+    const viewP2 = engine.getPlayerView('p2');
+    const viewP3 = engine.getPlayerView('p3');
+
+    expect(viewP1.myTransmissions?.some((t) => t.id === transId)).toBe(true);
+    expect(viewP2.myTransmissions?.some((t) => t.id === transId)).toBe(true);
+    // p3 should NOT see private transmission between p1 and p2
+    expect(viewP3.myTransmissions?.some((t) => t.id === transId)).toBe(false);
+  });
+
+  it('executes bilateral trade when responding to trade proposal transmission', () => {
+    const engine = new GameEngine(2345);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Trader Alpha', '#00f3ff');
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Miner Beta', '#10b981');
+
+    hw1.resources = { ore: 1000, crystal: 500, fuel: 300 };
+    hw2.resources = { ore: 200, crystal: 100, fuel: 800 };
+
+    // p1 offers 400 Ore in exchange for 200 Fuel from p2
+    const sendRes = engine.dispatchCommand('p1', {
+      type: 'SEND_TRANSMISSION',
+      recipientId: 'p2',
+      transmissionType: 'trade_proposal',
+      title: 'Cevher - Yakıt Takas Teklifi',
+      message: '400 Cevher verip 200 Yakıt talep ediyoruz.',
+      tradeOffer: {
+        give: { ore: 400, crystal: 0, fuel: 0 },
+        receive: { ore: 0, crystal: 0, fuel: 200 },
+      },
+    });
+    expect(sendRes.success).toBe(true);
+    const transId = sendRes.data?.transmissionId as string;
+
+    // p2 accepts trade proposal
+    const respondRes = engine.dispatchCommand('p2', {
+      type: 'RESPOND_TRANSMISSION',
+      transmissionId: transId,
+      action: 'accept',
+    });
+    expect(respondRes.success).toBe(true);
+
+    // Verify resources transferred accurately
+    // p1: lost 400 ore, gained 200 fuel -> ore: 600, fuel: 500
+    expect(hw1.resources.ore).toBe(600);
+    expect(hw1.resources.fuel).toBe(500);
+
+    // p2: gained 400 ore, lost 200 fuel -> ore: 600, fuel: 600
+    expect(hw2.resources.ore).toBe(600);
+    expect(hw2.resources.fuel).toBe(600);
+
+    // Transmission marked accepted
+    expect(engine.state.transmissions![transId].status).toBe('accepted');
+  });
+
+  it('enforces non-aggression ceasefire when agreeing to a truce offer transmission', () => {
+    const engine = new GameEngine(3456);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Terran Empire', '#00f3ff');
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Centauri Union', '#f43f5e');
+
+    // Turn off newbie protection for test
+    engine.state.players['p1'].protectionUntilTime = 0;
+    engine.state.players['p2'].protectionUntilTime = 0;
+
+    // p2 sends 15-minute truce offer to p1
+    const sendRes = engine.dispatchCommand('p2', {
+      type: 'SEND_TRANSMISSION',
+      recipientId: 'p1',
+      transmissionType: 'truce_offer',
+      title: 'Ateşkes Önerisi',
+      message: '15 dakika boyunca çatışmaları donduralım.',
+      truceDurationMs: 15 * 60 * 1000,
+    });
+    expect(sendRes.success).toBe(true);
+    const transId = sendRes.data?.transmissionId as string;
+
+    // p1 accepts the truce
+    const acceptRes = engine.dispatchCommand('p1', {
+      type: 'RESPOND_TRANSMISSION',
+      transmissionId: transId,
+      action: 'accept',
+    });
+    expect(acceptRes.success).toBe(true);
+
+    // Verify truce is recorded
+    expect(engine.hasActiveTruce('p1', 'p2')).toBe(true);
+
+    // p1 attempts to attack p2 while truce is active -> should be rejected!
+    hw1.garrison.fighter = 10;
+    hw1.resources.fuel = 2000;
+    const attackRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw1.id,
+      targetSystemId: hw2.systemId,
+      targetPlanetId: hw2.id,
+      ships: { scout: 0, transport: 0, fighter: 5, battleship: 0 },
+      mission: 'attack',
+    });
+    expect(attackRes.success).toBe(false);
+    expect(attackRes.error).toContain('barış/ateşkes paktı');
+
+    // Advance time beyond truce duration (16 minutes)
+    engine.advanceTo(engine.state.timeMs + 16 * 60 * 1000);
+    expect(engine.hasActiveTruce('p1', 'p2')).toBe(false);
+
+    // Now attack should be allowed
+    const attackAllowedRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw1.id,
+      targetSystemId: hw2.systemId,
+      targetPlanetId: hw2.id,
+      ships: { scout: 0, transport: 0, fighter: 5, battleship: 0 },
+      mission: 'attack',
+    });
+    expect(attackAllowedRes.success).toBe(true);
+  });
+
+  it('triggers archetype-specific bot diplomatic radio transmissions', () => {
+    resetBotDiplomacyCooldowns();
+    const engine = new GameEngine(4567);
+    engine.addPlayer('p_human', 'Human Commander', '#00f3ff');
+    engine.addPlayer('bot_ind', 'Aethel Sanayi Konsorsiyumu', '#10b981', true, 'industrialist');
+    engine.addPlayer('bot_guard', 'Nexus Muhafızları', '#3b82f6', true, 'guardian');
+
+    // Industrialist bot sends trade proposal
+    const indCmds = evaluateBotDiplomacy(engine, 'bot_ind');
+    expect(indCmds.length).toBe(1);
+    expect(indCmds[0].type).toBe('SEND_TRANSMISSION');
+    if (indCmds[0].type === 'SEND_TRANSMISSION') {
+      expect(indCmds[0].transmissionType).toBe('trade_proposal');
+      expect(indCmds[0].tradeOffer).toBeDefined();
+    }
+
+    // Guardian bot sends truce offer
+    const guardCmds = evaluateBotDiplomacy(engine, 'bot_guard');
+    expect(guardCmds.length).toBe(1);
+    expect(guardCmds[0].type).toBe('SEND_TRANSMISSION');
+    if (guardCmds[0].type === 'SEND_TRANSMISSION') {
+      expect(guardCmds[0].transmissionType).toBe('truce_offer');
+      expect(guardCmds[0].truceDurationMs).toBeGreaterThan(0);
+    }
   });
 });
