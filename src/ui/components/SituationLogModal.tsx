@@ -31,6 +31,7 @@ interface SituationLogModalProps {
   onClose: () => void;
   state: GameState;
   activePlayerId: string;
+  initialTab?: 'anomalies' | 'relay' | 'missions' | 'bounties';
   onSelectSystem: (systemId: string) => void;
   onOpenAnomaly: (system: StarSystem) => void;
   onAssaultRelay: () => void;
@@ -42,11 +43,18 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
   onClose,
   state,
   activePlayerId,
+  initialTab = 'anomalies',
   onSelectSystem,
   onOpenAnomaly,
   onAssaultRelay,
 }) => {
-  const [activeTab, setActiveTab] = useState<'anomalies' | 'relay' | 'missions' | 'bounties'>('anomalies');
+  const [activeTab, setActiveTab] = useState<'anomalies' | 'relay' | 'missions' | 'bounties'>(initialTab);
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab]);
 
   if (!isOpen) return null;
 
@@ -318,6 +326,33 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
           {/* TAB 2: NEXUS RELAY */}
           {activeTab === 'relay' && (
             <div className="space-y-4">
+              {/* Hero Visual Banner of Nexus Relay */}
+              <div className="relative w-full h-36 rounded-sm overflow-hidden border border-purple-500/40 bg-[#06101a] shadow-lg shadow-purple-950/40 flex items-center justify-center group">
+                <img
+                  src="/assets/art/nexus_relay.png"
+                  alt="Nexus Relay Megastructure"
+                  className="w-full h-full object-cover opacity-80 transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[#080d19] via-[#080d19]/60 to-transparent" />
+
+                <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
+                  <div>
+                    <span className="text-[10px] font-mono text-purple-200 uppercase tracking-widest bg-purple-950/80 px-2 py-0.5 rounded-sm border border-purple-500/40 inline-block font-bold">
+                      Kadim Öncü Megastrüktürü
+                    </span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span
+                        className="w-3 h-3 rounded-full"
+                        style={{ backgroundColor: relayController?.color || '#a855f7' }}
+                      />
+                      <span className="text-sm font-bold text-white font-display drop-shadow">
+                        {relayController ? relayController.name : 'Tarafsız Savunma Garnizonu'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="bg-purple-950/30 border border-purple-500/40 rounded-sm p-4 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
                   <div className="w-12 h-12 rounded-sm bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0">

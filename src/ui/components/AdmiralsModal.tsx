@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Award,
   Check,
@@ -31,12 +31,13 @@ interface AdmiralsModalProps {
   isOpen: boolean;
   isDocked?: boolean;
   onClose: () => void;
-  onAssignAdmiralToFleet?: (admiralId: string, fleetId: string | null) => void;
-  onAssignAdmiralToPlanet?: (admiralId: string, planetId: string | null) => void;
+  onRecruitAdmiral?: (candidate: Admiral, planetId: string) => void;
+  onAssignAdmiral?: (admiralId: string, fleetId: string | null, planetId: string | null) => void;
+  onDismissAdmiral?: (admiralId: string) => void;
 }
 
 const RECRUIT_COST = {
-  crystal: 250,
+  crystal: 200,
   fuel: 100,
 };
 
@@ -46,15 +47,27 @@ export const AdmiralsModal: React.FC<AdmiralsModalProps> = ({
   isOpen,
   isDocked = false,
   onClose,
+  onRecruitAdmiral,
+  onAssignAdmiral,
+  onDismissAdmiral,
 }) => {
   const [activeTab, setActiveTab] = useState<'roster' | 'academy'>('roster');
-  const [admirals, setAdmirals] = useState<Admiral[]>(() => loadSavedAdmirals());
+  const [localAdmirals, setLocalAdmirals] = useState<Admiral[]>(() => loadSavedAdmirals());
   const [candidates, setCandidates] = useState<Admiral[]>([
     generateCandidateAdmiral(),
     generateCandidateAdmiral(),
     generateCandidateAdmiral(),
   ]);
   const [successToast, setSuccessToast] = useState<string | null>(null);
+
+  // Player's registered admirals from engine state
+  const stateAdmirals = useMemo(() => {
+    if (!state.admirals) return [];
+    return Object.values(state.admirals).filter((a) => a.ownerId === activePlayerId);
+  }, [state.admirals, activePlayerId]);
+
+  // Use engine state admirals if populated, fallback to local
+  const admirals = stateAdmirals.length > 0 ? stateAdmirals : localAdmirals;
 
   if (!isOpen) return null;
 
@@ -70,14 +83,17 @@ export const AdmiralsModal: React.FC<AdmiralsModalProps> = ({
       return;
     }
 
-    // Deduct resources
-    homeworld.resources.crystal -= RECRUIT_COST.crystal;
-    homeworld.resources.fuel -= RECRUIT_COST.fuel;
-
     sound.playTech();
-    const updated = [...admirals, candidate];
-    setAdmirals(updated);
-    saveAdmirals(updated);
+    if (onRecruitAdmiral) {
+      onRecruitAdmiral(candidate, homeworld.id);
+    } else {
+      // Deduct resources locally if fallback
+      homeworld.resources.crystal -= RECRUIT_COST.crystal;
+      homeworld.resources.fuel -= RECRUIT_COST.fuel;
+      const updated = [...localAdmirals, candidate];
+      setLocalAdmirals(updated);
+      saveAdmirals(updated);
+    }
 
     // Refresh candidate slot
     setCandidates((prev) => prev.map((c) => (c.id === candidate.id ? generateCandidateAdmiral() : c)));
@@ -88,44 +104,55 @@ export const AdmiralsModal: React.FC<AdmiralsModalProps> = ({
 
   const handleAssignToFleet = (admiralId: string, fleetId: string | null) => {
     sound.playClick();
-    setAdmirals((prev) => {
-      const next = prev.map((adm) => {
-        if (adm.id === admiralId) {
-          return { ...adm, assignedFleetId: fleetId, assignedPlanetId: null };
-        }
-        // If another admiral had this fleet, unassign them
-        if (fleetId && adm.assignedFleetId === fleetId) {
-          return { ...adm, assignedFleetId: null };
-        }
-        return adm;
+    if (onAssignAdmiral) {
+      onAssignAdmiral(admiralId, fleetId, null);
+    } else {
+      setLocalAdmirals((prev) => {
+        const next = prev.map((adm) => {
+          if (adm.id === admiralId) {
+            return { ...adm, assignedFleetId: fleetId, assignedPlanetId: null };
+          }
+          if (fleetId && adm.assignedFleetId === fleetId) {
+            return { ...adm, assignedFleetId: null };
+          }
+          return adm;
+        });
+        saveAdmirals(next);
+        return next;
       });
-      saveAdmirals(next);
-      return next;
-    });
+    }
   };
 
   const handleAssignToPlanet = (admiralId: string, planetId: string | null) => {
     sound.playClick();
-    setAdmirals((prev) => {
-      const next = prev.map((adm) => {
-        if (adm.id === admiralId) {
-          return { ...adm, assignedPlanetId: planetId, assignedFleetId: null };
-        }
-        if (planetId && adm.assignedPlanetId === planetId) {
-          return { ...adm, assignedPlanetId: null };
-        }
-        return adm;
+    if (onAssignAdmiral) {
+      onAssignAdmiral(admiralId, null, planetId);
+    } else {
+      setLocalAdmirals((prev) => {
+        const next = prev.map((adm) => {
+          if (adm.id === admiralId) {
+            return { ...adm, assignedPlanetId: planetId, assignedFleetId: null };
+          }
+          if (planetId && adm.assignedPlanetId === planetId) {
+            return { ...adm, assignedPlanetId: null };
+          }
+          return adm;
+        });
+        saveAdmirals(next);
+        return next;
       });
-      saveAdmirals(next);
-      return next;
-    });
+    }
   };
 
   const handleDismissAdmiral = (admiralId: string) => {
     sound.playClick();
-    const updated = admirals.filter((a) => a.id !== admiralId);
-    setAdmirals(updated);
-    saveAdmirals(updated);
+    if (onDismissAdmiral) {
+      onDismissAdmiral(admiralId);
+    } else {
+      const updated = localAdmirals.filter((a) => a.id !== admiralId);
+      setLocalAdmirals(updated);
+      saveAdmirals(updated);
+    }
   };
 
   const content = (

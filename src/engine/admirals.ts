@@ -1,12 +1,5 @@
-import { ShipType } from './types';
-
-export type AdmiralTraitId =
-  | 'tactical_genius'
-  | 'iron_discipline'
-  | 'evasion_master'
-  | 'siege_breaker'
-  | 'fleet_logistician'
-  | 'debris_scavenger';
+import { Admiral, AdmiralTraitId, ShipType } from './types';
+export type { Admiral, AdmiralTraitId };
 
 export interface AdmiralTraitDefinition {
   id: AdmiralTraitId;
@@ -109,22 +102,6 @@ export const ADMIRAL_TRAITS: Record<AdmiralTraitId, AdmiralTraitDefinition> = {
     salvageMultiplier: 1.35,
   },
 };
-
-export interface Admiral {
-  id: string;
-  name: string;
-  title: string;
-  avatar: string;
-  level: number;
-  xp: number;
-  xpToNextLevel: number;
-  traitId: AdmiralTraitId;
-  assignedFleetId: string | null;
-  assignedPlanetId: string | null;
-  battlesWon: number;
-  battlesLost: number;
-  recruitedAt: number;
-}
 
 const XP_LEVEL_THRESHOLDS = [0, 200, 500, 950, 1500];
 

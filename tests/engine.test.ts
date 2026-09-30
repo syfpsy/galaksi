@@ -341,6 +341,57 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(res.attackerAdmiralXP?.xpGained).toBe(150);
   });
 
+  it('assigns admiral to dispatched fleet, carries into combat, awards XP and frees admiral upon return', () => {
+    const engine = new GameEngine(1234);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Player 1', '#00f3ff', false, undefined, false);
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Player 2', '#f43f5e', false, undefined, false);
+
+    hw1.garrison.fighter = 20;
+    hw1.resources.fuel = 5000;
+
+    const myAdmirals = Object.values(engine.state.admirals || {}).filter(a => a.ownerId === 'p1');
+    expect(myAdmirals.length).toBeGreaterThan(0);
+    const chosenAdmiral = myAdmirals[0];
+    expect(chosenAdmiral.assignedFleetId).toBeNull();
+    const initialXP = chosenAdmiral.xp;
+
+    // Dispatch fleet with chosen admiral
+    const res = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw1.id,
+      targetSystemId: hw2.systemId,
+      targetPlanetId: hw2.id,
+      ships: { scout: 0, transport: 0, fighter: 10, battleship: 0 },
+      mission: 'attack',
+      admiralId: chosenAdmiral.id,
+    });
+
+    expect(res.success).toBe(true);
+    const fleetId = (res.data as any).fleetId;
+    const fleet = engine.state.fleets[fleetId];
+    expect(fleet.admiralId).toBe(chosenAdmiral.id);
+    expect(chosenAdmiral.assignedFleetId).toBe(fleetId);
+
+    // Advance simulation until combat occurs and fleet returns
+    engine.advanceTo(fleet.arrivalTime + 100);
+
+    // Verify combat report has admiral
+    const lastReport = engine.state.battleReports[engine.state.battleReports.length - 1];
+    expect(lastReport.attackerAdmiralName).toBe(chosenAdmiral.name);
+
+    // Verify admiral gained XP
+    expect(engine.state.admirals![chosenAdmiral.id].xp).toBeGreaterThan(initialXP);
+
+    // Advance time until fleet returns home
+    const returningFleet = Object.values(engine.state.fleets).find(f => f.ownerId === 'p1');
+    if (returningFleet) {
+      engine.advanceTo(returningFleet.arrivalTime + 100);
+    }
+
+    // Admiral should now be free for new missions
+    expect(engine.state.admirals![chosenAdmiral.id].assignedFleetId).toBeNull();
+  });
+
   it('supports alliance resource logistics, common defense alerts, and treasury pooling', () => {
     const engine = new GameEngine(4444);
     const { homeworld: hw1 } = engine.addPlayer('p1', 'Player 1', '#00f3ff');

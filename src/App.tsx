@@ -7,6 +7,7 @@ import { RaiderBot } from './bots/raider';
 import { IBotAgent } from './bots/types';
 import { GameEngine } from './engine/engine';
 import {
+  Admiral,
   BuildingType,
   DefenseStructureType,
   EspionageOpType,
@@ -28,7 +29,6 @@ import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
 import { IncomingThreatBanner } from './ui/components/IncomingThreatBanner';
 import { PlanetPanel } from './ui/components/PlanetPanel';
-import { RelayModal } from './ui/components/RelayModal';
 import { ResearchModal } from './ui/components/ResearchModal';
 import { ShipyardModal } from './ui/components/ShipyardModal';
 import { FleetTransitRadarModal } from './ui/components/FleetTransitRadarModal';
@@ -453,7 +453,8 @@ export function App() {
     targetFleetId: string | undefined,
     ships: Record<ShipType, number>,
     cargo: Partial<Resources>,
-    mission: MissionType
+    mission: MissionType,
+    admiralId?: string
   ) => {
     if (!engineRef.current || !activePlanet) return;
     engineRef.current.dispatchCommand(activePlayerId, {
@@ -465,6 +466,40 @@ export function App() {
       ships,
       cargo,
       mission,
+      admiralId,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleRecruitAdmiral = (candidate: Admiral, planetId: string) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RECRUIT_ADMIRAL',
+      planetId,
+      name: candidate.name,
+      title: candidate.title,
+      avatar: candidate.avatar,
+      traitId: candidate.traitId,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAssignAdmiral = (admiralId: string, fleetId: string | null, planetId: string | null) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ASSIGN_ADMIRAL',
+      admiralId,
+      fleetId,
+      planetId,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismissAdmiral = (admiralId: string) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMISS_ADMIRAL',
+      admiralId,
     });
     setEngineState({ ...engineRef.current.state });
   };
@@ -879,6 +914,9 @@ export function App() {
                 isOpen={true}
                 isDocked={true}
                 onClose={() => setActiveLeftPanel(null)}
+                onRecruitAdmiral={handleRecruitAdmiral}
+                onAssignAdmiral={handleAssignAdmiral}
+                onDismissAdmiral={handleDismissAdmiral}
               />
             )}
 
@@ -924,11 +962,19 @@ export function App() {
             )}
 
             {activeLeftPanel === 'relay' && (
-              <RelayModal
-                state={engineState}
+              <SituationLogModal
                 isOpen={true}
                 isDocked={true}
                 onClose={() => setActiveLeftPanel(null)}
+                state={engineState}
+                activePlayerId={activePlayerId}
+                initialTab="relay"
+                onSelectSystem={(sysId) => {
+                  setSelectedTarget({ type: 'system', systemId: sysId });
+                }}
+                onOpenAnomaly={(sys) => {
+                  setAnomalyModalSystemId(sys.id);
+                }}
                 onAssaultRelay={handleAssaultRelay}
               />
             )}

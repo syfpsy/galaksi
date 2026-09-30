@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Award,
   CheckCircle2,
   Compass,
   Crosshair,
@@ -19,11 +20,13 @@ import {
   Swords,
   TriangleAlert,
   Truck,
+  UserCheck,
   X,
   Zap,
 } from 'lucide-react';
 import { calculateRouteInfo, checkInterceptionFeasibility } from '../../engine/flight';
 import { calculatePlanetOrbit } from '../../engine/orbital';
+import { ADMIRAL_TRAITS } from '../../engine/admirals';
 import {
   Fleet,
   GameState,
@@ -49,7 +52,8 @@ interface CommandPanelProps {
     targetFleetId: string | undefined,
     ships: Record<ShipType, number>,
     cargo: Partial<Resources>,
-    mission: MissionType
+    mission: MissionType,
+    admiralId?: string
   ) => void;
   onRecallFleet: (fleetId: string) => void;
   currentTimeMs: number;
@@ -75,6 +79,22 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
   });
   const [cargo, setCargo] = useState<Resources>({ ore: 0, crystal: 0, fuel: 0 });
   const [activeTab, setActiveTab] = useState<'dispatch' | 'active_fleets'>('dispatch');
+  const [selectedAdmiralId, setSelectedAdmiralId] = useState<string>('');
+
+  // Player's admirals for fleet command assignment
+  const playerAdmirals = useMemo(() => {
+    if (!state.admirals) return [];
+    return Object.values(state.admirals).filter((a) => a.ownerId === activePlayerId);
+  }, [state.admirals, activePlayerId]);
+
+  const availableAdmirals = useMemo(() => {
+    return playerAdmirals.filter((a) => !a.assignedFleetId);
+  }, [playerAdmirals]);
+
+  const selectedAdmiral = useMemo(() => {
+    if (!selectedAdmiralId || !state.admirals) return null;
+    return state.admirals[selectedAdmiralId] || null;
+  }, [selectedAdmiralId, state.admirals]);
 
   // Resolve target system & fleet
   const targetSystem = selectedTarget ? state.map.systems[selectedTarget.systemId] : null;
@@ -95,17 +115,41 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
   const activePlayer = state.players[activePlayerId];
   const engineTech = activePlayer?.research.engines || 0;
 
-  // Pre-flight calculation
+  // Pre-flight calculation (incorporating admiral flight traits)
   const routeInfo = useMemo(() => {
     if (!activePlanet || !targetSystem) return null;
-    return calculateRouteInfo(
+    const baseRoute = calculateRouteInfo(
       activePlanet.systemId,
       targetSystem.id,
       ships,
       state.map.lanes,
       engineTech
     );
-  }, [activePlanet, targetSystem, ships, state.map.lanes, engineTech]);
+    if (!baseRoute) return null;
+
+    if (selectedAdmiral) {
+      const trait = ADMIRAL_TRAITS[selectedAdmiral.traitId];
+      if (trait) {
+        let speed = baseRoute.speed;
+        let durationMs = baseRoute.durationMs;
+        let fuelCost = baseRoute.fuelCost;
+        if (trait.speedMultiplier > 1) {
+          speed = Math.round(speed * trait.speedMultiplier);
+          durationMs = Math.max(1000, Math.round(durationMs / trait.speedMultiplier));
+        }
+        if (trait.fuelDiscount > 0) {
+          fuelCost = Math.max(1, Math.round(fuelCost * (1 - trait.fuelDiscount)));
+        }
+        return {
+          ...baseRoute,
+          speed,
+          durationMs,
+          fuelCost,
+        };
+      }
+    }
+    return baseRoute;
+  }, [activePlanet, targetSystem, ships, state.map.lanes, engineTech, selectedAdmiral]);
 
   // Projected arrival orbital angle
   const projectedArrivalAngleDeg = useMemo(() => {
@@ -284,7 +328,13 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
     }
 
     const myWepLevel = activePlayer?.research.weapons || 0;
-    const myWepMult = 1 + myWepLevel * 0.10;
+    let myWepMult = 1 + myWepLevel * 0.10;
+    if (selectedAdmiral) {
+      const trait = ADMIRAL_TRAITS[selectedAdmiral.traitId];
+      if (trait?.attackMultiplier) {
+        myWepMult *= trait.attackMultiplier;
+      }
+    }
 
     let myAtt = 0;
     let myHp = 0;
@@ -363,17 +413,24 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
     }
 
     return null;
-  }, [selectedMission, totalSelectedShips, ships, activePlayer, targetFleet, selectedTarget, state.planets, state.players]);
+  }, [selectedMission, totalSelectedShips, ships, activePlayer, targetFleet, selectedTarget, state.planets, state.players, selectedAdmiral]);
 
-  // Military power calculation for selected fleet
+  // Military power calculation for selected fleet (incorporating admiral leadership)
   const selectedFleetPower = useMemo(() => {
-    return (
+    let basePower = (
       (ships.battleship || 0) * 140 +
       (ships.fighter || 0) * 35 +
       (ships.scout || 0) * 12 +
       (ships.transport || 0) * 6
     );
-  }, [ships]);
+    if (selectedAdmiral) {
+      const trait = ADMIRAL_TRAITS[selectedAdmiral.traitId];
+      if (trait?.attackMultiplier) {
+        basePower = Math.round(basePower * trait.attackMultiplier);
+      }
+    }
+    return basePower;
+  }, [ships, selectedAdmiral]);
 
   return (
     <aside className="w-[390px] min-w-[390px] max-w-[390px] shrink-0 h-full border-l border-[#1c3647] stellaris-outliner flex flex-col z-20 select-none overflow-hidden shadow-2xl">
@@ -1065,6 +1122,59 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
             </div>
           )}
 
+          {/* Admiral Leadership Assignment Card */}
+          <div className="stellaris-item-card p-3 space-y-2 border border-[#1b3a4f]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-300 font-display">
+                <Award className="w-3.5 h-3.5 text-amber-400" />
+                <span>Filo Komutanı (Amiral)</span>
+              </div>
+              <span className="text-[10px] font-mono text-cyan-300">
+                {availableAdmirals.length} Müsait
+              </span>
+            </div>
+
+            <select
+              value={selectedAdmiralId}
+              onChange={(e) => {
+                sound.playClick();
+                setSelectedAdmiralId(e.target.value);
+              }}
+              className="w-full bg-[#081521] border border-[#18374b] text-slate-100 text-xs rounded-sm p-2 font-mono focus:border-[#3ca8d1] focus:outline-none cursor-pointer"
+            >
+              <option value="">Komutansız Sefer (Standart Doktrin)</option>
+              {playerAdmirals.map((adm) => {
+                const trait = ADMIRAL_TRAITS[adm.traitId];
+                const isBusy = !!adm.assignedFleetId;
+                return (
+                  <option key={adm.id} value={adm.id} disabled={isBusy}>
+                    {adm.name} ({adm.title}) - Sv.{adm.level} [{trait?.nameTr || adm.traitId}]
+                    {isBusy ? ' (Görevde)' : ''}
+                  </option>
+                );
+              })}
+            </select>
+
+            {selectedAdmiral && (
+              <div className="p-2 bg-[#06121c] border border-amber-500/30 rounded-sm flex items-center justify-between text-[11px] font-mono">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">{selectedAdmiral.avatar}</span>
+                  <div>
+                    <span className="font-bold text-white block">
+                      {selectedAdmiral.name}
+                    </span>
+                    <span className="text-[10px] text-amber-300">
+                      {ADMIRAL_TRAITS[selectedAdmiral.traitId]?.combatBonusDescriptionTr || selectedAdmiral.traitId}
+                    </span>
+                  </div>
+                </div>
+                <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-amber-500/20 text-amber-300 font-bold border border-amber-500/40 shrink-0">
+                  Sv. {selectedAdmiral.level}
+                </span>
+              </div>
+            )}
+          </div>
+
           {/* Dispatch Button */}
           <button
             disabled={
@@ -1085,8 +1195,10 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
                   selectedTarget?.fleetId,
                   ships,
                   cargo,
-                  selectedMission
+                  selectedMission,
+                  selectedAdmiralId || undefined
                 );
+                setSelectedAdmiralId('');
               }
             }}
             className="w-full py-2.5 px-4 rounded-sm stellaris-btn-metallic text-cyan-200 font-bold font-mono tracking-wider text-xs uppercase flex items-center justify-center gap-2 transition-all shadow-lg active:scale-98 cursor-pointer"

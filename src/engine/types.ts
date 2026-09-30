@@ -41,6 +41,31 @@ export interface DefenseStats {
 
 export type PlanetStance = 'hold_position' | 'evade_safeguard';
 
+export type AdmiralTraitId =
+  | 'tactical_genius'
+  | 'iron_discipline'
+  | 'evasion_master'
+  | 'siege_breaker'
+  | 'fleet_logistician'
+  | 'debris_scavenger';
+
+export interface Admiral {
+  id: string;
+  ownerId?: string;
+  name: string;
+  title: string;
+  avatar: string;
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+  traitId: AdmiralTraitId;
+  assignedFleetId: string | null;
+  assignedPlanetId: string | null;
+  battlesWon: number;
+  battlesLost: number;
+  recruitedAt: number;
+}
+
 export type MissionType =
   | 'explore'
   | 'transport'
@@ -381,6 +406,7 @@ export interface GameState {
   players: Record<string, Player>;
   planets: Record<string, Planet>;
   fleets: Record<string, Fleet>;
+  admirals?: Record<string, Admiral>;
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -431,6 +457,7 @@ export type GameCommand =
       ships: Record<ShipType, number>;
       cargo?: Partial<Resources>;
       mission: MissionType;
+      admiralId?: string;
     }
   | { type: 'RECALL_FLEET'; fleetId: string }
   | { type: 'SET_PLANET_STANCE'; planetId: string; stance: PlanetStance }
@@ -454,6 +481,24 @@ export type GameCommand =
       targetPlanetId: string;
       opType: EspionageOpType;
       scoutCount: number;
+    }
+  | {
+      type: 'RECRUIT_ADMIRAL';
+      planetId: string;
+      name: string;
+      title: string;
+      avatar: string;
+      traitId: AdmiralTraitId;
+    }
+  | {
+      type: 'ASSIGN_ADMIRAL';
+      admiralId: string;
+      fleetId?: string | null;
+      planetId?: string | null;
+    }
+  | {
+      type: 'DISMISS_ADMIRAL';
+      admiralId: string;
     };
 
 export interface CommandReceipt {

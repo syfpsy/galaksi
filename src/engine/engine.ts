@@ -12,11 +12,13 @@ import {
   RESEARCH_STATS,
   SHIP_STATS,
 } from './constants';
-import { resolveCombat } from './combat';
+import { resolveCombat, CombatResult } from './combat';
+import { addAdmiralXP, ADMIRAL_TRAITS } from './admirals';
 import { calculateRouteInfo, checkInterceptionFeasibility } from './flight';
 import { filterGameStateForPlayer, PlayerVisibleState } from './fog';
 import { PRNG } from './prng';
 import {
+  Admiral,
   BuildingType,
   CommandReceipt,
   DefenseStructureType,
@@ -56,6 +58,7 @@ export class GameEngine {
       players: {},
       planets: {},
       fleets: {},
+      admirals: {},
       relay: {
         systemId: map.relaySystemId,
         controllingPlayerId: null,
@@ -133,6 +136,47 @@ export class GameEngine {
 
     // Player discovers their own system immediately
     player.intel.discoveredSystems[targetSys.id] = 'full';
+
+    // Initialize starter admirals
+    if (!this.state.admirals) {
+      this.state.admirals = {};
+    }
+    const adm1Id = `admiral_${id}_1`;
+    this.state.admirals[adm1Id] = {
+      id: adm1Id,
+      ownerId: id,
+      name: isBot ? `${name} Filo Komutanı` : 'Kaelen Valerius',
+      title: 'Filo Amirali',
+      avatar: '👨‍✈️',
+      level: 1,
+      xp: 0,
+      xpToNextLevel: 200,
+      traitId: isBot && botArchetype === 'raider' ? 'tactical_genius' : isBot && botArchetype === 'guardian' ? 'iron_discipline' : 'tactical_genius',
+      assignedFleetId: null,
+      assignedPlanetId: null,
+      battlesWon: 0,
+      battlesLost: 0,
+      recruitedAt: this.state.timeMs,
+    };
+    if (!isBot) {
+      const adm2Id = `admiral_${id}_2`;
+      this.state.admirals[adm2Id] = {
+        id: adm2Id,
+        ownerId: id,
+        name: 'Lyra Solari',
+        title: 'Kıdemli Taktik Komutanı',
+        avatar: '👩‍✈️',
+        level: 1,
+        xp: 0,
+        xpToNextLevel: 200,
+        traitId: 'iron_discipline',
+        assignedFleetId: null,
+        assignedPlanetId: null,
+        battlesWon: 0,
+        battlesLost: 0,
+        recruitedAt: this.state.timeMs,
+      };
+    }
 
     this.logEvent('player_joined', `${name} galaksiye katıldı (${targetSys.name}).`, id);
 
@@ -394,6 +438,10 @@ export class GameEngine {
         );
       }
 
+      if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+        this.state.admirals[fleet.admiralId].assignedFleetId = null;
+      }
+
       fleet.status = 'destroyed'; // remove from active space
       delete this.state.fleets[fleet.id];
       return;
@@ -611,6 +659,7 @@ export class GameEngine {
               ownerName: player?.name || 'Saldırgan',
               ships: fleet.ships,
               weaponsResearchLevel: attackerWeapons,
+              admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
             },
             {
               ownerId: targetPlanet.ownerId,
@@ -630,6 +679,7 @@ export class GameEngine {
           );
 
           this.state.battleReports.push(combatResult.report);
+          this.handlePostCombatAdmiralXP(combatResult);
 
           // Update defender garrison, defenses, and deducted looted resources
           targetPlanet.garrison = combatResult.remainingDefender;
@@ -662,6 +712,9 @@ export class GameEngine {
             this.orderFleetReturn(fleet);
           } else {
             fleet.status = 'destroyed';
+            if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+              this.state.admirals[fleet.admiralId].assignedFleetId = null;
+            }
             delete this.state.fleets[fleet.id];
           }
           break;
@@ -688,6 +741,7 @@ export class GameEngine {
               ownerName: player?.name || 'Saldırgan Komutan',
               ships: fleet.ships,
               weaponsResearchLevel: player?.research.weapons || 0,
+              admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
             },
             {
               ownerId: 'pirates',
@@ -706,6 +760,7 @@ export class GameEngine {
           );
 
           this.state.battleReports.push(combatResult.report);
+          this.handlePostCombatAdmiralXP(combatResult);
 
           if (combatResult.report.winner === 'attacker') {
             if (pirateBounty) {
@@ -755,6 +810,9 @@ export class GameEngine {
             this.orderFleetReturn(fleet);
           } else {
             fleet.status = 'destroyed';
+            if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+              this.state.admirals[fleet.admiralId].assignedFleetId = null;
+            }
             delete this.state.fleets[fleet.id];
           }
           break;
@@ -780,12 +838,14 @@ export class GameEngine {
             ownerName: player?.name || 'Önleyici',
             ships: fleet.ships,
             weaponsResearchLevel: player?.research.weapons || 0,
+            admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
           },
           {
             ownerId: targetFleet.ownerId,
             ownerName: defenderPlayer?.name || 'Hedef Filo',
             ships: targetFleet.ships,
             weaponsResearchLevel: defenderPlayer?.research.weapons || 0,
+            admiral: targetFleet.admiralId && this.state.admirals ? this.state.admirals[targetFleet.admiralId] : undefined,
           },
           targetSystem.id,
           targetSystem.name,
@@ -797,6 +857,7 @@ export class GameEngine {
         );
 
         this.state.battleReports.push(combatResult.report);
+        this.handlePostCombatAdmiralXP(combatResult);
 
         // Add debris
         if (!targetSystem.hasDebris) targetSystem.hasDebris = { ore: 0, crystal: 0, fuel: 0 };
@@ -808,6 +869,9 @@ export class GameEngine {
 
         if (Object.values(targetFleet.ships).reduce((a, b) => a + b, 0) === 0) {
           targetFleet.status = 'destroyed';
+          if (targetFleet.admiralId && this.state.admirals && this.state.admirals[targetFleet.admiralId]) {
+            this.state.admirals[targetFleet.admiralId].assignedFleetId = null;
+          }
           delete this.state.fleets[targetFleet.id];
         }
 
@@ -816,6 +880,9 @@ export class GameEngine {
           this.orderFleetReturn(fleet);
         } else {
           fleet.status = 'destroyed';
+          if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+            this.state.admirals[fleet.admiralId].assignedFleetId = null;
+          }
           delete this.state.fleets[fleet.id];
         }
         break;
@@ -830,6 +897,9 @@ export class GameEngine {
               this.state.relay.garrison[type] += count;
             }
             fleet.status = 'destroyed';
+            if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+              this.state.admirals[fleet.admiralId].assignedFleetId = null;
+            }
             delete this.state.fleets[fleet.id];
             this.logEvent('relay_reinforced', `${fleet.name} Nexus Rölesi garnizonuna katıldı.`, fleet.ownerId);
           } else {
@@ -844,6 +914,7 @@ export class GameEngine {
                 ownerName: player?.name || 'İstila Filosu',
                 ships: fleet.ships,
                 weaponsResearchLevel: player?.research.weapons || 0,
+                admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
               },
               {
                 ownerId: this.state.relay.controllingPlayerId || 'neutral',
@@ -861,12 +932,16 @@ export class GameEngine {
             );
 
             this.state.battleReports.push(combatResult.report);
+            this.handlePostCombatAdmiralXP(combatResult);
 
             if (combatResult.report.winner === 'attacker') {
               this.state.relay.controllingPlayerId = fleet.ownerId;
               this.state.relay.garrison = combatResult.remainingAttacker;
               this.state.relay.capturedAtTime = this.state.timeMs;
               fleet.status = 'destroyed';
+              if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+                this.state.admirals[fleet.admiralId].assignedFleetId = null;
+              }
               delete this.state.fleets[fleet.id];
 
               this.logEvent(
@@ -881,6 +956,9 @@ export class GameEngine {
                 this.orderFleetReturn(fleet);
               } else {
                 fleet.status = 'destroyed';
+                if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+                  this.state.admirals[fleet.admiralId].assignedFleetId = null;
+                }
                 delete this.state.fleets[fleet.id];
               }
             }
@@ -893,6 +971,9 @@ export class GameEngine {
               planet.garrison[type] += count;
             }
             fleet.status = 'destroyed';
+            if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+              this.state.admirals[fleet.admiralId].assignedFleetId = null;
+            }
             delete this.state.fleets[fleet.id];
             this.logEvent('garrison_reinforced', `${fleet.name} ${planet.name} savunmasına katıldı.`, fleet.ownerId);
           } else {
@@ -916,6 +997,52 @@ export class GameEngine {
     fleet.targetSystemId = temp;
 
     this.scheduleEvent(flightTimeMs, 'fleet_arrival', { fleetId: fleet.id });
+  }
+
+  private handlePostCombatAdmiralXP(combatResult: CombatResult) {
+    if (combatResult.attackerAdmiralXP && this.state.admirals) {
+      const { admiralId, xpGained } = combatResult.attackerAdmiralXP;
+      const adm = this.state.admirals[admiralId];
+      if (adm) {
+        if (combatResult.report.winner === 'attacker') {
+          adm.battlesWon++;
+        } else if (combatResult.report.winner === 'defender') {
+          adm.battlesLost++;
+        }
+        const { admiral: updatedAdm, leveledUp } = addAdmiralXP(adm, xpGained);
+        this.state.admirals[admiralId] = updatedAdm;
+        if (leveledUp) {
+          this.logEvent(
+            'admiral_leveled_up',
+            `⭐ Komutan ${adm.name} Seviye ${updatedAdm.level}'e terfi etti!`,
+            adm.ownerId,
+            { admiralId, newLevel: updatedAdm.level }
+          );
+        }
+      }
+    }
+
+    if (combatResult.defenderAdmiralXP && this.state.admirals) {
+      const { admiralId, xpGained } = combatResult.defenderAdmiralXP;
+      const adm = this.state.admirals[admiralId];
+      if (adm) {
+        if (combatResult.report.winner === 'defender') {
+          adm.battlesWon++;
+        } else if (combatResult.report.winner === 'attacker') {
+          adm.battlesLost++;
+        }
+        const { admiral: updatedAdm, leveledUp } = addAdmiralXP(adm, xpGained);
+        this.state.admirals[admiralId] = updatedAdm;
+        if (leveledUp) {
+          this.logEvent(
+            'admiral_leveled_up',
+            `⭐ Savunma Komutanı ${adm.name} Seviye ${updatedAdm.level}'e terfi etti!`,
+            adm.ownerId,
+            { admiralId, newLevel: updatedAdm.level }
+          );
+        }
+      }
+    }
   }
 
   // --- Espionage & Covert Ops Resolution ---
@@ -1452,9 +1579,31 @@ export class GameEngine {
           return { success: false, commandType: cmd.type, error: 'Hedef sisteme rota bulunamadı.', timeMs: this.state.timeMs };
         }
 
+        let assignedAdmiralId: string | undefined = undefined;
+        let effectiveDurationMs = route.durationMs;
+        let effectiveFuelCost = route.fuelCost;
+        let effectiveSpeed = route.speed;
+
+        if (cmd.admiralId && this.state.admirals && this.state.admirals[cmd.admiralId]) {
+          const candidateAdm = this.state.admirals[cmd.admiralId];
+          if (candidateAdm.ownerId === playerId && !candidateAdm.assignedFleetId) {
+            assignedAdmiralId = cmd.admiralId;
+            const trait = ADMIRAL_TRAITS[candidateAdm.traitId];
+            if (trait) {
+              if (trait.speedMultiplier > 1) {
+                effectiveSpeed = Math.round(effectiveSpeed * trait.speedMultiplier);
+                effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / trait.speedMultiplier));
+              }
+              if (trait.fuelDiscount > 0) {
+                effectiveFuelCost = Math.max(1, Math.round(effectiveFuelCost * (1 - trait.fuelDiscount)));
+              }
+            }
+          }
+        }
+
         // Check fuel
-        if (originPlanet.resources.fuel < route.fuelCost) {
-          return { success: false, commandType: cmd.type, error: `Yetersiz yakıt (${route.fuelCost} birim gerekli).`, timeMs: this.state.timeMs };
+        if (originPlanet.resources.fuel < effectiveFuelCost) {
+          return { success: false, commandType: cmd.type, error: `Yetersiz yakıt (${effectiveFuelCost} birim gerekli).`, timeMs: this.state.timeMs };
         }
 
         // Cargo validation
@@ -1511,15 +1660,19 @@ export class GameEngine {
         }
 
         // Deduct fuel & cargo from planet
-        originPlanet.resources.fuel -= route.fuelCost;
+        originPlanet.resources.fuel -= effectiveFuelCost;
         originPlanet.resources.ore -= cargo.ore;
         originPlanet.resources.crystal -= cargo.crystal;
         originPlanet.resources.fuel -= cargo.fuel;
 
         const fleetId = `fleet_${this.state.nextId++}`;
         const departureTime = this.state.timeMs;
-        const arrivalTime = departureTime + route.durationMs;
-        const recallLockedAfterTime = departureTime + (route.durationMs * GAME_CONSTANTS.RECALL_LOCK_RATIO);
+        const arrivalTime = departureTime + effectiveDurationMs;
+        const recallLockedAfterTime = departureTime + (effectiveDurationMs * GAME_CONSTANTS.RECALL_LOCK_RATIO);
+
+        if (assignedAdmiralId && this.state.admirals && this.state.admirals[assignedAdmiralId]) {
+          this.state.admirals[assignedAdmiralId].assignedFleetId = fleetId;
+        }
 
         const newFleet: Fleet = {
           id: fleetId,
@@ -1537,19 +1690,20 @@ export class GameEngine {
           departureTime,
           arrivalTime,
           totalDistance: route.totalDistance,
-          speed: route.speed,
-          fuelCost: route.fuelCost,
+          speed: effectiveSpeed,
+          fuelCost: effectiveFuelCost,
           recallLockedAfterTime,
           isReturning: false,
           status: 'in_transit',
+          admiralId: assignedAdmiralId,
         };
 
         this.state.fleets[fleetId] = newFleet;
-        this.scheduleEvent(route.durationMs, 'fleet_arrival', { fleetId });
+        this.scheduleEvent(effectiveDurationMs, 'fleet_arrival', { fleetId });
 
         this.logEvent(
           'fleet_dispatched',
-          `${newFleet.name} sevk edildi -> ${cmd.mission.toUpperCase()} (${route.path.join(' -> ')}). Varış: ${Math.round(route.durationMs / 1000)}s`,
+          `${newFleet.name} sevk edildi -> ${cmd.mission.toUpperCase()} (${route.path.join(' -> ')}). Varış: ${Math.round(effectiveDurationMs / 1000)}s`,
           playerId
         );
 
@@ -1998,6 +2152,71 @@ export class GameEngine {
           timeMs: this.state.timeMs,
           data: { op, fuelCost, durationMs },
         };
+      }
+
+      case 'RECRUIT_ADMIRAL': {
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Gezegen üssü bulunamadı.', timeMs: this.state.timeMs };
+        }
+        const cost = { crystal: 200, fuel: 100 };
+        if (planet.resources.crystal < cost.crystal || planet.resources.fuel < cost.fuel) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yetersiz kaynak (${cost.crystal} Kristal, ${cost.fuel} Yakıt gerekli).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+        planet.resources.crystal -= cost.crystal;
+        planet.resources.fuel -= cost.fuel;
+
+        if (!this.state.admirals) {
+          this.state.admirals = {};
+        }
+        const admiralId = `admiral_${playerId}_${this.state.nextId++}`;
+        const newAdmiral: Admiral = {
+          id: admiralId,
+          ownerId: playerId,
+          name: cmd.name,
+          title: cmd.title,
+          avatar: cmd.avatar,
+          level: 1,
+          xp: 0,
+          xpToNextLevel: 200,
+          traitId: cmd.traitId,
+          assignedFleetId: null,
+          assignedPlanetId: cmd.planetId,
+          battlesWon: 0,
+          battlesLost: 0,
+          recruitedAt: this.state.timeMs,
+        };
+        this.state.admirals[admiralId] = newAdmiral;
+        this.logEvent('admiral_recruited', `Komutan ${newAdmiral.name} (${newAdmiral.title}) hizmete alındı.`, playerId);
+
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { admiralId } };
+      }
+
+      case 'ASSIGN_ADMIRAL': {
+        const adm = this.state.admirals ? this.state.admirals[cmd.admiralId] : null;
+        if (!adm || adm.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Komutan bulunamadı.', timeMs: this.state.timeMs };
+        }
+        adm.assignedFleetId = cmd.fleetId || null;
+        adm.assignedPlanetId = cmd.planetId || null;
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
+
+      case 'DISMISS_ADMIRAL': {
+        const adm = this.state.admirals ? this.state.admirals[cmd.admiralId] : null;
+        if (!adm || adm.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Komutan bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (this.state.admirals) {
+          delete this.state.admirals[cmd.admiralId];
+        }
+        this.logEvent('admiral_dismissed', `Komutan ${adm.name} görevden ayrıldı.`, playerId);
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
       }
     }
   }

@@ -1,5 +1,6 @@
 import { GAME_CONSTANTS } from './constants';
 import {
+  Admiral,
   EspionageOp,
   EspionageReport,
   Fleet,
@@ -36,6 +37,7 @@ export interface PlayerVisibleState {
   myFleets: Fleet[];
   myResearch: Record<string, number>;
   myResearchQueue: GameState['players'][string]['researchQueue'];
+  myAdmirals?: Admiral[];
   discoveredSystems: Record<string, {
     system: StarSystem;
     intelLevel: IntelLevel;
@@ -297,6 +299,7 @@ export function filterGameStateForPlayer(
     myFleets,
     myResearch: player?.research || { engines: 0, weapons: 0, sensors: 0 },
     myResearchQueue: player?.researchQueue || null,
+    myAdmirals: Object.values(state.admirals || {}).filter(a => a.ownerId === playerId),
     discoveredSystems,
     visibleFleets,
     relayContest: {
