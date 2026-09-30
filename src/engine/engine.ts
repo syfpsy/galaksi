@@ -37,15 +37,24 @@ import {
   ResourceType,
   Resources,
   ScheduledEvent,
+  SectorEvent,
+  SectorEventType,
   ShipType,
 } from './types';
 import { createHomeworldPlanet, generateSectorMap } from './universe';
+import {
+  generateSectorCrisis,
+  applySectorCrisisStart,
+  applySectorCrisisEnd,
+  getRouteCrisisModifiers,
+} from './events';
 
 export class GameEngine {
   public state: GameState;
   private scheduledEvents: ScheduledEvent[] = [];
   private prng: PRNG;
   private lastMarketUpdateMs: number = 0;
+  private lastSectorEventSpawnMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -59,6 +68,7 @@ export class GameEngine {
       planets: {},
       fleets: {},
       admirals: {},
+      sectorEvents: {},
       relay: {
         systemId: map.relaySystemId,
         controllingPlayerId: null,
@@ -272,6 +282,52 @@ export class GameEngine {
         }
       }
     }
+
+    // Check and spawn procedural sector crises & dynamic events
+    if (this.lastSectorEventSpawnMs === 0) {
+      this.lastSectorEventSpawnMs = nowMs;
+    } else if (nowMs - this.lastSectorEventSpawnMs >= 20 * 60 * 1000) {
+      this.lastSectorEventSpawnMs = nowMs;
+      this.spawnProceduralSectorCrisis(nowMs);
+    }
+
+    // Check expiration of active sector events
+    if (this.state.sectorEvents) {
+      for (const evt of Object.values(this.state.sectorEvents)) {
+        if (!evt.resolved && nowMs >= evt.expiresAtMs) {
+          evt.resolved = true;
+          applySectorCrisisEnd(this.state, evt);
+          this.logEvent('sector_event_expired', `Sektör Olayı Sona Erdi: ${evt.title}`);
+        }
+      }
+    }
+  }
+
+  public spawnProceduralSectorCrisis(nowMs: number = this.state.timeMs): SectorEvent | null {
+    if (!this.state.sectorEvents) {
+      this.state.sectorEvents = {};
+    }
+    const activeCount = Object.values(this.state.sectorEvents).filter(
+      (e) => !e.resolved && nowMs < e.expiresAtMs
+    ).length;
+
+    if (activeCount >= 2) return null;
+
+    const crisis = generateSectorCrisis(this.state, this.prng, nowMs);
+    if (!crisis) return null;
+
+    this.state.sectorEvents[crisis.id] = crisis;
+    applySectorCrisisStart(this.state, crisis);
+    this.scheduleEvent(crisis.durationMs, 'sector_event_expiry', { eventId: crisis.id });
+
+    this.logEvent(
+      'galactic_crisis',
+      `🚨 GALAKTİK OLAY: ${crisis.title} — ${crisis.description}`,
+      undefined,
+      { crisisId: crisis.id, systemId: crisis.systemId, type: crisis.type }
+    );
+
+    return crisis;
   }
 
   private processPlanetShipyardQueue(planet: Planet, nowMs: number) {
@@ -405,6 +461,19 @@ export class GameEngine {
         op.status = 'resolved';
 
         this.resolveEspionageOperation(op);
+        break;
+      }
+
+      case 'sector_event_expiry': {
+        const { eventId } = event.payload as { eventId: string };
+        if (this.state.sectorEvents && this.state.sectorEvents[eventId]) {
+          const evt = this.state.sectorEvents[eventId];
+          if (!evt.resolved) {
+            evt.resolved = true;
+            applySectorCrisisEnd(this.state, evt);
+            this.logEvent('sector_event_expired', `Sektör Olayı Sona Erdi: ${evt.title}`);
+          }
+        }
         break;
       }
     }
@@ -720,7 +789,97 @@ export class GameEngine {
           break;
         }
 
-        // 2. Pirate Lair Assault
+        // 2. Ancient Titan Leviathan Battle
+        const activeTitanEvent = Object.values(this.state.sectorEvents || {}).find(
+          (e) => e.systemId === targetSystem.id && e.type === 'ancient_titan' && !e.resolved
+        );
+
+        if (!targetPlanet && activeTitanEvent) {
+          const titanReward = activeTitanEvent.effects.titanReward || { ore: 2400, crystal: 1600, fuel: 900 };
+          const titanGarrison: Record<ShipType, number> = { scout: 0, transport: 0, fighter: 6, battleship: 3 };
+          const titanDefenses: Record<DefenseStructureType, number> = { missile_battery: 3, plasma_turret: 3, ion_cannon: 2 };
+
+          const combatResult = resolveCombat(
+            {
+              ownerId: fleet.ownerId,
+              ownerName: player?.name || 'Saldırgan',
+              ships: fleet.ships,
+              weaponsResearchLevel: player?.research.weapons || 0,
+              admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
+            },
+            {
+              ownerId: 'ancient_titan',
+              ownerName: 'Kadim Muhafız Titanı',
+              ships: titanGarrison,
+              weaponsResearchLevel: 3,
+              stance: 'hold_position',
+              defenses: titanDefenses,
+            },
+            targetSystem.id,
+            targetSystem.name,
+            'planet_raid',
+            titanReward,
+            0,
+            this.state.timeMs,
+            this.prng.nextInt(100, 999999)
+          );
+
+          this.state.battleReports.push(combatResult.report);
+          this.handlePostCombatAdmiralXP(combatResult);
+
+          if (!targetSystem.hasDebris) targetSystem.hasDebris = { ore: 0, crystal: 0, fuel: 0 };
+          targetSystem.hasDebris.ore += combatResult.debrisFieldCreated.ore;
+          targetSystem.hasDebris.crystal += combatResult.debrisFieldCreated.crystal;
+
+          fleet.ships = combatResult.remainingAttacker;
+          fleet.cargo.ore += combatResult.lootedResources.ore;
+          fleet.cargo.crystal += combatResult.lootedResources.crystal;
+          fleet.cargo.fuel += combatResult.lootedResources.fuel;
+
+          if (combatResult.report.winner === 'attacker') {
+            activeTitanEvent.resolved = true;
+            if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+              const adm = this.state.admirals[fleet.admiralId];
+              const xpGain = 350;
+              const { admiral: updatedAdm, leveledUp } = addAdmiralXP(adm, xpGain);
+              this.state.admirals[fleet.admiralId] = updatedAdm;
+              if (leveledUp) {
+                this.logEvent(
+                  'admiral_level_up',
+                  `TİTAN ZAFERİ TERFİSİ: ${updatedAdm.name} (${updatedAdm.title}) Kadim Titan'ı dize getirerek Seviye ${updatedAdm.level}'e ulaştı!`,
+                  fleet.ownerId
+                );
+              }
+            }
+
+            this.logEvent(
+              'ancient_titan_slain',
+              `👑 TİTAN DÜŞTÜ: ${player?.name || 'Komutan'} ${targetSystem.name} sistemindeki Kadim Muhafız Titanı'nı mağlup etti! Yağma: ${Math.round(combatResult.lootedResources.ore)}C, ${Math.round(combatResult.lootedResources.crystal)}K, ${Math.round(combatResult.lootedResources.fuel)}Y.`,
+              undefined,
+              { systemId: targetSystem.id, victorPlayerId: fleet.ownerId }
+            );
+          } else {
+            this.logEvent(
+              'battle_finished',
+              `Kadim Titan ile muharebe: Titan saldırıyı püskürttü (${targetSystem.name}).`,
+              fleet.ownerId
+            );
+          }
+
+          const survivingCount = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
+          if (survivingCount > 0) {
+            this.orderFleetReturn(fleet);
+          } else {
+            fleet.status = 'destroyed';
+            if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+              this.state.admirals[fleet.admiralId].assignedFleetId = null;
+            }
+            delete this.state.fleets[fleet.id];
+          }
+          break;
+        }
+
+        // 3. Pirate Lair Assault
         if (!targetPlanet && targetSystem.poi?.type === 'pirate_lair' && !targetSystem.poi.bounty?.claimed) {
           const pirateBounty = targetSystem.poi.bounty;
           const pirateGarrison = pirateBounty?.pirateGarrison || { scout: 2, transport: 1, fighter: 5, battleship: 1 };
@@ -818,7 +977,7 @@ export class GameEngine {
           break;
         }
 
-        // Neither target planet nor pirate base
+        // Neither target planet nor pirate base nor titan
         this.orderFleetReturn(fleet);
         break;
       }
@@ -1601,6 +1760,15 @@ export class GameEngine {
           }
         }
 
+        const crisisMod = getRouteCrisisModifiers(this.state, route.path, this.state.timeMs);
+        if (crisisMod.speedMultiplier < 1) {
+          effectiveSpeed = Math.round(effectiveSpeed * crisisMod.speedMultiplier);
+          effectiveDurationMs = Math.round(effectiveDurationMs / crisisMod.speedMultiplier);
+        }
+        if (crisisMod.fuelCostMultiplier > 1) {
+          effectiveFuelCost = Math.round(effectiveFuelCost * crisisMod.fuelCostMultiplier);
+        }
+
         // Check fuel
         if (originPlanet.resources.fuel < effectiveFuelCost) {
           return { success: false, commandType: cmd.type, error: `Yetersiz yakıt (${effectiveFuelCost} birim gerekli).`, timeMs: this.state.timeMs };
@@ -1734,7 +1902,7 @@ export class GameEngine {
           success: true,
           commandType: cmd.type,
           timeMs: this.state.timeMs,
-          data: { fleetId, arrivalTime, durationMs: route.durationMs },
+          data: { fleetId, arrivalTime, durationMs: effectiveDurationMs },
         };
       }
 

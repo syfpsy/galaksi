@@ -6,6 +6,7 @@ import {
   Compass,
   Crown,
   Database,
+  Flame,
   Radio,
   Rocket,
   ShieldAlert,
@@ -20,7 +21,7 @@ import { sound } from '../sound';
 
 export interface EmpireNotification {
   id: string;
-  type: 'threat' | 'battle' | 'research' | 'colony' | 'shipyard' | 'anomaly' | 'debris' | 'relay';
+  type: 'threat' | 'battle' | 'research' | 'colony' | 'shipyard' | 'anomaly' | 'debris' | 'relay' | 'crisis';
   title: string;
   description: string;
   timestampMs: number;
@@ -77,7 +78,24 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
       });
     }
 
-    // 2. Scan recent event log for significant events
+    // 2. Active Sector Crises & Dynamic Events
+    if (state.sectorEvents) {
+      Object.values(state.sectorEvents).forEach((crisis) => {
+        if (!crisis.resolved && state.timeMs < crisis.expiresAtMs) {
+          const remainingMins = Math.max(1, Math.round((crisis.expiresAtMs - state.timeMs) / 60000));
+          notifs.push({
+            id: `crisis_${crisis.id}`,
+            type: 'crisis',
+            title: crisis.title.toUpperCase(),
+            description: `${crisis.description.slice(0, 110)}... (Kalan Süre: ${remainingMins} dk)`,
+            timestampMs: crisis.startTimeMs,
+            systemId: crisis.systemId,
+          });
+        }
+      });
+    }
+
+    // 3. Scan recent event log for significant events
     const recentEvents = state.eventLog
       .filter((e) => !e.playerId || e.playerId === activePlayerId)
       .slice(-12)
@@ -87,7 +105,10 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
       let notifType: EmpireNotification['type'] | null = null;
       let title = '';
 
-      if (evt.type === 'battle_occurred' || evt.type.includes('combat')) {
+      if (evt.type === 'ancient_titan_slain') {
+        notifType = 'crisis';
+        title = 'KADİM TİTAN MAĞLUP EDİLDİ';
+      } else if (evt.type === 'battle_occurred' || evt.type.includes('combat')) {
         notifType = 'battle';
         title = 'MUHAREBE RAPORU';
       } else if (evt.type === 'research_completed' || evt.type.includes('research')) {
@@ -110,7 +131,7 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
         title = 'NEXUS RÖLE KONTROL DEĞİŞİMİ';
       }
 
-      if (notifType && notifs.length < 6 && !notifs.some((n) => n.id === evt.id)) {
+      if (notifType && notifs.length < 8 && !notifs.some((n) => n.id === evt.id)) {
         notifs.push({
           id: evt.id,
           type: notifType,
@@ -122,7 +143,7 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
     });
 
     setNotifications(notifs);
-  }, [state.eventLog.length, state.fleets, activePlayerId]);
+  }, [state.eventLog.length, state.fleets, state.sectorEvents, state.timeMs, activePlayerId]);
 
   if (notifications.length === 0) return null;
 
@@ -184,6 +205,13 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
           bg: 'bg-purple-950/70',
           pulse: '',
         };
+      case 'crisis':
+        return {
+          icon: <Flame className="w-4 h-4 text-amber-400" />,
+          border: 'border-amber-500/90 shadow-amber-950/70',
+          bg: 'bg-amber-950/90',
+          pulse: 'animate-pulse',
+        };
     }
   };
 
@@ -205,6 +233,12 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
       onOpenShipyard();
     } else if (notif.type === 'anomaly' || notif.type === 'relay') {
       onOpenSituationLog();
+    } else if (notif.type === 'crisis') {
+      if (notif.systemId) {
+        onFocusSystem(notif.systemId);
+      } else {
+        onOpenSituationLog();
+      }
     } else if (notif.systemId) {
       onFocusSystem(notif.systemId);
     }

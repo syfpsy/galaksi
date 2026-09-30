@@ -399,6 +399,32 @@ export interface SectorMap {
   relaySystemId: string;
 }
 
+export type SectorEventType = 'solar_storm' | 'ancient_titan' | 'market_shock' | 'mineral_rush';
+
+export interface SectorEvent {
+  id: string;
+  type: SectorEventType;
+  title: string;
+  description: string;
+  systemId: string;
+  systemName: string;
+  startTimeMs: number;
+  durationMs: number;
+  expiresAtMs: number;
+  effects: {
+    speedMultiplier?: number;
+    fuelCostMultiplier?: number;
+    marketResource?: ResourceType;
+    marketMultiplier?: number;
+    titanHp?: number;
+    titanMaxHp?: number;
+    titanAttack?: number;
+    titanReward?: Resources;
+    mineralReward?: Resources;
+  };
+  resolved?: boolean;
+}
+
 export interface GameState {
   timeMs: number;
   seed: number;
@@ -410,6 +436,7 @@ export interface GameState {
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
+  sectorEvents?: Record<string, SectorEvent>;
   espionageOps?: EspionageOp[];
   battleReports: BattleReport[];
   eventLog: GameEventRecord[];
@@ -433,7 +460,8 @@ export type ScheduledEventType =
   | 'defense_batch_tick'
   | 'fleet_arrival'
   | 'relay_point_tick'
-  | 'espionage_op_arrival';
+  | 'espionage_op_arrival'
+  | 'sector_event_expiry';
 
 export interface ScheduledEvent {
   id: string;

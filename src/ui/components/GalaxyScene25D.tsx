@@ -2,7 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import * as THREE from 'three';
 import { calculatePlanetOrbit } from '../../engine/orbital';
 import { getFleetCurrentPosition } from '../../engine/flight';
-import { Fleet, GameState, StarSystem } from '../../engine/types';
+import { Fleet, GameState, SectorEventType, StarSystem } from '../../engine/types';
 import { SelectedTarget } from '../types';
 import {
   getAtmosphereTexture,
@@ -102,6 +102,11 @@ interface ScreenLabel {
   isRelay?: boolean;
   isHomeworld?: boolean;
   transitProgress?: number;
+  activeCrisis?: {
+    type: SectorEventType;
+    title: string;
+    remainingMins: number;
+  };
 }
 
 export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
@@ -358,7 +363,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     boundaryGroup.add(createSectorRing(410, 0x64748b, 0.12));
 
     // 2.3 Macro Star Systems & Coronas
-    const starMeshes = new Map<string, { group: THREE.Group; mesh: THREE.Mesh; light: THREE.PointLight; corona: THREE.Sprite }>();
+    const starMeshes = new Map<string, { group: THREE.Group; mesh: THREE.Mesh; light: THREE.PointLight; corona: THREE.Sprite; hazardRing: THREE.Line }>();
     const systemPositions = new Map<string, THREE.Vector3>();
 
     Object.values(stateRef.current.map.systems).forEach((sys, idx) => {
@@ -426,6 +431,34 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       territoryLine.raycast = () => {};
       group.add(territoryLine);
 
+      // Sector Crisis Tactical Hazard Pulse Ring (Solar Storms & Titans)
+      const hazardPts: THREE.Vector3[] = [];
+      const hazardSegments = 40;
+      const hazardRadius = starRadius * 3.8;
+      for (let r = 0; r <= hazardSegments; r++) {
+        const theta = (r / hazardSegments) * Math.PI * 2;
+        hazardPts.push(
+          new THREE.Vector3(
+            Math.cos(theta) * hazardRadius,
+            Math.sin(theta) * hazardRadius * 0.85,
+            1
+          )
+        );
+      }
+      const hazardGeo = new THREE.BufferGeometry().setFromPoints(hazardPts);
+      const hazardMat = new THREE.LineDashedMaterial({
+        color: 0xfbbf24,
+        dashSize: 8,
+        gapSize: 4,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      });
+      const hazardRing = new THREE.Line(hazardGeo, hazardMat);
+      hazardRing.computeLineDistances();
+      hazardRing.raycast = () => {};
+      group.add(hazardRing);
+
       // Determine controlling faction for Stellaris territory influence
       let controllingOwnerId: string | null = null;
       if (sys.hasRelay && stateRef.current.relay.controllingPlayerId) {
@@ -457,7 +490,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }
 
       galaxyMacroGroup.add(group);
-      starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight, corona: coronaSprite });
+      starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight, corona: coronaSprite, hazardRing });
     });
 
     // 2.4 Macro Subspace Hyperlanes
@@ -1438,10 +1471,35 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
       // 6.4 If in Galaxy Macro Mode: Update macro star lights, pulses, and fleets
       if (!isSystemMode) {
-        starMeshes.forEach(({ group, light, corona }, sysId) => {
+        starMeshes.forEach(({ group, light, corona, hazardRing }, sysId) => {
           const isVisible = isGodMode || currentCoverage.has(sysId);
           light.intensity = isVisible ? 2.5 : 0.6;
           corona.material.opacity = isVisible ? 0.88 : 0.3;
+
+          // Crisis Hazard Ring pulsing & rotation
+          const crisis = stateRef.current.sectorEvents
+            ? Object.values(stateRef.current.sectorEvents).find(
+                (ev) => ev.systemId === sysId && !ev.resolved && stateRef.current.timeMs < ev.expiresAtMs
+              )
+            : null;
+
+          if (crisis && isVisible) {
+            const pulse = (Math.sin(stateRef.current.timeMs * 0.005) + 1) * 0.35 + 0.25;
+            const hMat = hazardRing.material as THREE.LineDashedMaterial;
+            hMat.opacity = pulse;
+            if (crisis.type === 'ancient_titan') {
+              hMat.color.setHex(0xf43f5e);
+            } else if (crisis.type === 'solar_storm') {
+              hMat.color.setHex(0xfbbf24);
+            } else if (crisis.type === 'mineral_rush') {
+              hMat.color.setHex(0x10b981);
+            } else {
+              hMat.color.setHex(0x38bdf8);
+            }
+            hazardRing.rotation.z += delta * 0.4;
+          } else {
+            (hazardRing.material as THREE.LineDashedMaterial).opacity = 0;
+          }
         });
 
         lanePulses.forEach((pulse) => {
@@ -2085,6 +2143,20 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               if (isHomeworld) subtitle = 'ANA DÜNYA';
               else if (isRelay) subtitle = 'NEXUS RÖLESİ';
 
+              const systemCrisis = stateRef.current.sectorEvents
+                ? Object.values(stateRef.current.sectorEvents).find(
+                    (ev) => ev.systemId === sys.id && !ev.resolved && stateRef.current.timeMs < ev.expiresAtMs
+                  )
+                : undefined;
+
+              const activeCrisis = systemCrisis
+                ? {
+                    type: systemCrisis.type,
+                    title: systemCrisis.title,
+                    remainingMins: Math.max(1, Math.round((systemCrisis.expiresAtMs - stateRef.current.timeMs) / 60000)),
+                  }
+                : undefined;
+
               labels.push({
                 id: sys.id,
                 type: 'system',
@@ -2107,6 +2179,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 isRelay,
                 isHomeworld,
                 isRecentBattle: battleSystemIds.has(sys.id),
+                activeCrisis,
               });
             }
           });
@@ -2387,7 +2460,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               <div className="flex flex-col items-center group">
                 <div
                   className={`px-2.5 py-1 rounded-sm bg-[#091322]/95 border shadow-xl text-[11px] font-mono font-bold text-white flex items-center gap-1.5 backdrop-blur-md transition-all ${
-                    lbl.isRecentBattle
+                    lbl.activeCrisis?.type === 'ancient_titan'
+                      ? 'border-rose-500 shadow-rose-950/80 ring-1 ring-rose-500/80'
+                      : lbl.activeCrisis?.type === 'solar_storm'
+                      ? 'border-amber-500 shadow-amber-950/80 ring-1 ring-amber-500/80'
+                      : lbl.isRecentBattle
                       ? 'border-rose-500 shadow-rose-950/70 animate-pulse'
                       : 'border-slate-700/80 hover:border-cyber-cyan'
                   }`}
@@ -2416,6 +2493,28 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
                 {/* Subtitle & Stellaris Badges Row */}
                 <div className="flex items-center gap-1 mt-0.5">
+                  {lbl.activeCrisis && (
+                    <span
+                      className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm shadow-md animate-pulse ${
+                        lbl.activeCrisis.type === 'ancient_titan'
+                          ? 'bg-rose-950/95 border border-rose-500 text-rose-300 shadow-rose-950/80 animate-bounce'
+                          : lbl.activeCrisis.type === 'solar_storm'
+                          ? 'bg-amber-950/95 border border-amber-400 text-amber-300 shadow-amber-950/80'
+                          : lbl.activeCrisis.type === 'mineral_rush'
+                          ? 'bg-emerald-950/95 border border-emerald-400 text-emerald-300 shadow-emerald-950/80'
+                          : 'bg-cyan-950/95 border border-cyan-400 text-cyan-300 shadow-cyan-950/80'
+                      }`}
+                      title={`${lbl.activeCrisis.title} (${lbl.activeCrisis.remainingMins} dk kaldı)`}
+                    >
+                      {lbl.activeCrisis.type === 'ancient_titan'
+                        ? '👑 TİTAN'
+                        : lbl.activeCrisis.type === 'solar_storm'
+                        ? '⚡ FIRTINA'
+                        : lbl.activeCrisis.type === 'mineral_rush'
+                        ? '💎 MADEN AKINI'
+                        : '📈 ŞOK'}
+                    </span>
+                  )}
                   {mapMode === 'military' ? (
                     <>
                       {lbl.hasHostileThreat && (

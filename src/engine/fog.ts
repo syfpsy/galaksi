@@ -8,6 +8,7 @@ import {
   IntelLevel,
   MarketState,
   Planet,
+  SectorEvent,
   SectorMap,
   ShipType,
   StarSystem,
@@ -56,6 +57,7 @@ export interface PlayerVisibleState {
   market: MarketState;
   myEspionageReports: EspionageReport[];
   myActiveEspionageOps: EspionageOp[];
+  activeSectorEvents?: SectorEvent[];
 }
 
 /**
@@ -311,5 +313,8 @@ export function filterGameStateForPlayer(
     market: state.market,
     myEspionageReports: player?.espionageReports || [],
     myActiveEspionageOps: myActiveOps,
+    activeSectorEvents: Object.values(state.sectorEvents || {}).filter(
+      (e) => !e.resolved && state.timeMs < e.expiresAtMs
+    ),
   };
 }

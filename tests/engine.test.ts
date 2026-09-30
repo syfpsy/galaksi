@@ -715,4 +715,165 @@ describe('GameEngine Headless Rules (Phase A)', () => {
       expect(report.intelData?.defenses.missile_battery).toBe(3);
     }
   });
+
+  it('spawns procedural sector crises and manages their lifecycle', () => {
+    const engine = new GameEngine(4242);
+    engine.addPlayer('p1', 'Explorer', '#00f3ff');
+
+    // Initially no crisis
+    expect(Object.keys(engine.state.sectorEvents || {}).length).toBe(0);
+
+    // Spawn a crisis
+    const crisis = engine.spawnProceduralSectorCrisis(1000);
+    expect(crisis).toBeDefined();
+    expect(crisis?.id).toBeDefined();
+    expect(crisis?.type).toMatch(/solar_storm|ancient_titan|market_shock|mineral_rush/);
+    expect(engine.state.sectorEvents?.[crisis!.id]).toBeDefined();
+
+    // Verify crisis event was logged
+    const crisisLog = engine.state.eventLog.find((e) => e.type === 'galactic_crisis');
+    expect(crisisLog).toBeDefined();
+    expect(crisisLog?.description).toContain(crisis!.title);
+
+    // Advance time past crisis expiration
+    engine.advanceTo(crisis!.expiresAtMs + 100);
+
+    // Crisis should now be marked resolved
+    expect(engine.state.sectorEvents?.[crisis!.id].resolved).toBe(true);
+    const expireLog = engine.state.eventLog.find((e) => e.type === 'sector_event_expired');
+    expect(expireLog).toBeDefined();
+  });
+
+  it('slows fleet transit through solar storm systems', () => {
+    const engine = new GameEngine(5555);
+    const { homeworld: hw } = engine.addPlayer('p1', 'Storm Pilot', '#00f3ff');
+
+    // Find adjacent target system
+    const adjacentLane = engine.state.map.lanes.find(
+      (l) => l.fromSystemId === hw.systemId || l.toSystemId === hw.systemId
+    );
+    const targetSysId = adjacentLane!.fromSystemId === hw.systemId
+      ? adjacentLane!.toSystemId
+      : adjacentLane!.fromSystemId;
+
+    hw.garrison.fighter = 5;
+    hw.resources.fuel = 5000;
+
+    // Normal dispatch without solar storm
+    const normalDispatch = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw.id,
+      targetSystemId: targetSysId,
+      ships: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+      mission: 'explore',
+    });
+    expect(normalDispatch.success).toBe(true);
+    const normalDuration = normalDispatch.data?.durationMs as number;
+    const normalFleetId = normalDispatch.data?.fleetId as string;
+    const normalFuelCost = engine.state.fleets[normalFleetId].fuelCost;
+
+    // Now inject a solar storm on the target system
+    if (!engine.state.sectorEvents) engine.state.sectorEvents = {};
+    const stormEventId = 'crisis_storm_test';
+    engine.state.sectorEvents[stormEventId] = {
+      id: stormEventId,
+      type: 'solar_storm',
+      title: 'Test Güneş Fırtınası',
+      description: 'Test Fırtına plazma dalgaları',
+      systemId: targetSysId,
+      systemName: engine.state.map.systems[targetSysId].name,
+      startTimeMs: engine.state.timeMs,
+      durationMs: 3600 * 1000,
+      expiresAtMs: engine.state.timeMs + 3600 * 1000,
+      effects: {
+        speedMultiplier: 0.6,
+        fuelCostMultiplier: 1.25,
+      },
+      resolved: false,
+    };
+
+    // Dispatch another fleet through the storm
+    const stormDispatch = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw.id,
+      targetSystemId: targetSysId,
+      ships: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+      mission: 'explore',
+    });
+    expect(stormDispatch.success).toBe(true);
+    const stormDuration = stormDispatch.data?.durationMs as number;
+    const stormFleetId = stormDispatch.data?.fleetId as string;
+    const stormFuelCost = engine.state.fleets[stormFleetId].fuelCost;
+
+    // Speed reduced by 40% means duration is ~1.67x longer
+    expect(stormDuration).toBeGreaterThan(normalDuration);
+    // Fuel cost increased by 25%
+    expect(stormFuelCost).toBeGreaterThanOrEqual(normalFuelCost);
+  });
+
+  it('resolves combat against Ancient Titan and awards massive loot and admiral XP', () => {
+    const engine = new GameEngine(7777);
+    const { homeworld: hw } = engine.addPlayer('p1', 'Titan Slayer', '#00f3ff');
+
+    const emptySys = Object.values(engine.state.map.systems).find(
+      (s) => s.id !== hw.systemId && s.slots.every((sl) => !sl.ownerId) && !s.hasRelay
+    );
+    expect(emptySys).toBeDefined();
+
+    // Inject Ancient Titan crisis in this system
+    if (!engine.state.sectorEvents) engine.state.sectorEvents = {};
+    const titanEventId = 'crisis_titan_boss';
+    engine.state.sectorEvents[titanEventId] = {
+      id: titanEventId,
+      type: 'ancient_titan',
+      title: `Kadim Muhafız Titanı: ${emptySys!.name}`,
+      description: 'Uyanan devasa kadim savaş titanı',
+      systemId: emptySys!.id,
+      systemName: emptySys!.name,
+      startTimeMs: engine.state.timeMs,
+      durationMs: 3600 * 1000,
+      expiresAtMs: engine.state.timeMs + 3600 * 1000,
+      effects: {
+        titanHp: 2200,
+        titanAttack: 135,
+        titanReward: { ore: 2500, crystal: 1800, fuel: 1000 },
+      },
+      resolved: false,
+    };
+
+    // Prepare elite player armada led by Admiral Kaelen Valerius
+    hw.garrison.battleship = 10;
+    hw.garrison.fighter = 25;
+    hw.resources.fuel = 10000;
+    engine.state.players['p1'].protectionUntilTime = 0;
+
+    const myAdmiral = Object.values(engine.state.admirals || {}).find((a) => a.ownerId === 'p1');
+    expect(myAdmiral).toBeDefined();
+    const initialXP = myAdmiral!.xp;
+
+    const dispatchRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw.id,
+      targetSystemId: emptySys!.id,
+      ships: { scout: 0, transport: 0, fighter: 20, battleship: 8 },
+      mission: 'attack',
+      admiralId: myAdmiral!.id,
+    });
+    expect(dispatchRes.success).toBe(true);
+
+    // Advance time until fleet arrives and fights the Titan
+    const arrivalTime = dispatchRes.data?.arrivalTime as number;
+    engine.advanceTo(arrivalTime + 100);
+
+    // Verify Titan crisis was defeated and marked resolved
+    expect(engine.state.sectorEvents[titanEventId].resolved).toBe(true);
+
+    // Check ancient titan slain log
+    const titanLog = engine.state.eventLog.find((e) => e.type === 'ancient_titan_slain');
+    expect(titanLog).toBeDefined();
+
+    // Verify admiral gained massive XP (+350 XP)
+    const updatedAdmiral = engine.state.admirals![myAdmiral!.id];
+    expect(updatedAdmiral.xp).toBeGreaterThan(initialXP);
+  });
 });

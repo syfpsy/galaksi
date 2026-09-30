@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Compass,
   Crosshair,
+  Crown,
   Flame,
   Gem,
   HelpCircle,
@@ -26,6 +27,7 @@ import {
 } from 'lucide-react';
 import { calculateRouteInfo, checkInterceptionFeasibility } from '../../engine/flight';
 import { calculatePlanetOrbit } from '../../engine/orbital';
+import { getRouteCrisisModifiers } from '../../engine/events';
 import { ADMIRAL_TRAITS } from '../../engine/admirals';
 import {
   Fleet,
@@ -115,7 +117,7 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
   const activePlayer = state.players[activePlayerId];
   const engineTech = activePlayer?.research.engines || 0;
 
-  // Pre-flight calculation (incorporating admiral flight traits)
+  // Pre-flight calculation (incorporating admiral flight traits and sector crisis modifiers)
   const routeInfo = useMemo(() => {
     if (!activePlanet || !targetSystem) return null;
     const baseRoute = calculateRouteInfo(
@@ -127,12 +129,13 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
     );
     if (!baseRoute) return null;
 
+    let speed = baseRoute.speed;
+    let durationMs = baseRoute.durationMs;
+    let fuelCost = baseRoute.fuelCost;
+
     if (selectedAdmiral) {
       const trait = ADMIRAL_TRAITS[selectedAdmiral.traitId];
       if (trait) {
-        let speed = baseRoute.speed;
-        let durationMs = baseRoute.durationMs;
-        let fuelCost = baseRoute.fuelCost;
         if (trait.speedMultiplier > 1) {
           speed = Math.round(speed * trait.speedMultiplier);
           durationMs = Math.max(1000, Math.round(durationMs / trait.speedMultiplier));
@@ -140,16 +143,39 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
         if (trait.fuelDiscount > 0) {
           fuelCost = Math.max(1, Math.round(fuelCost * (1 - trait.fuelDiscount)));
         }
-        return {
-          ...baseRoute,
-          speed,
-          durationMs,
-          fuelCost,
-        };
       }
     }
-    return baseRoute;
-  }, [activePlanet, targetSystem, ships, state.map.lanes, engineTech, selectedAdmiral]);
+
+    const crisisMod = getRouteCrisisModifiers(state, baseRoute.path, currentTimeMs);
+    if (crisisMod.speedMultiplier !== 1.0) {
+      durationMs = Math.round(durationMs / crisisMod.speedMultiplier);
+    }
+    if (crisisMod.fuelCostMultiplier !== 1.0) {
+      fuelCost = Math.round(fuelCost * crisisMod.fuelCostMultiplier);
+    }
+
+    return {
+      ...baseRoute,
+      speed,
+      durationMs,
+      fuelCost,
+      crisisMod,
+    };
+  }, [activePlanet, targetSystem, ships, state.map.lanes, engineTech, selectedAdmiral, state, currentTimeMs]);
+
+  // Target Ancient Titan Boss check
+  const targetTitanBoss = useMemo(() => {
+    if (!targetSystem || !state.sectorEvents) return null;
+    return (
+      Object.values(state.sectorEvents).find(
+        (ev) =>
+          ev.systemId === targetSystem.id &&
+          ev.type === 'ancient_titan' &&
+          !ev.resolved &&
+          currentTimeMs < ev.expiresAtMs
+      ) || null
+    );
+  }, [targetSystem, state.sectorEvents, currentTimeMs]);
 
   // Projected arrival orbital angle
   const projectedArrivalAngleDeg = useMemo(() => {
@@ -1069,6 +1095,32 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
                       <span>{interceptCheck.reason}</span>
                     </div>
                   )}
+                </div>
+              )}
+
+              {/* Sector Crisis Route Warning */}
+              {routeInfo.crisisMod && routeInfo.crisisMod.affectedSystemNames.length > 0 && (
+                <div className="mt-2 p-2 rounded-sm text-[11px] border bg-amber-950/50 border-amber-500/60 text-amber-300 font-mono">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    <span>Güneş İyon Fırtınası Tehlikesi:</span>
+                  </div>
+                  <p className="mt-1 text-slate-300 text-[10px] leading-snug">
+                    Rota üzerindeki <span className="text-amber-200 font-bold">{routeInfo.crisisMod.affectedSystemNames.join(', ')}</span> sektöründe güneş fırtınası aktif. Seyir hızı -%40, yakıt tüketimi +%25 uygulandı.
+                  </p>
+                </div>
+              )}
+
+              {/* Target Ancient Titan Boss Notice */}
+              {targetTitanBoss && (
+                <div className="mt-2 p-2 rounded-sm text-[11px] border bg-rose-950/70 border-rose-500/70 text-rose-300 font-mono animate-pulse">
+                  <div className="flex items-center gap-1.5 font-bold">
+                    <Crown className="w-3.5 h-3.5 text-rose-400" />
+                    <span>Kadim Muhafız Titanı Tespit Edildi!</span>
+                  </div>
+                  <p className="mt-1 text-slate-300 text-[10px] leading-snug">
+                    Hedef sektörde uyanan kadim savaş titanı hüküm sürüyor (HP: {targetTitanBoss.effects.titanHp || 2200}, Güç: {targetTitanBoss.effects.titanAttack || 135}). Yalnızca donanımlı armadalar hayatta kalabilir.
+                  </p>
                 </div>
               )}
             </div>
