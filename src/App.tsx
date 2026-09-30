@@ -30,6 +30,7 @@ import { ResearchModal } from './ui/components/ResearchModal';
 import { ShipyardModal } from './ui/components/ShipyardModal';
 import { FleetTransitRadarModal } from './ui/components/FleetTransitRadarModal';
 import { SystemInspectionModal } from './ui/components/SystemInspectionModal';
+import { AdmiralsModal } from './ui/components/AdmiralsModal';
 import { TopBar } from './ui/components/TopBar';
 import { StellarisLeftRail } from './ui/components/StellarisLeftRail';
 import { StellarisNotificationStrip } from './ui/components/StellarisNotificationStrip';
@@ -46,6 +47,7 @@ type LeftPanelType =
   | 'transit_radar'
   | 'situation'
   | 'battles'
+  | 'admirals'
   | 'alliance'
   | 'relay'
   | 'gallery'
@@ -536,6 +538,50 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleDonateToAlliance = (planetId: string, resources: { ore: number; crystal: number; fuel: number }) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DONATE_TO_ALLIANCE',
+      planetId,
+      resources,
+    });
+    if (res.success) {
+      sound.playNotification();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleWithdrawFromAlliance = (planetId: string, resources: { ore: number; crystal: number; fuel: number }) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'WITHDRAW_FROM_ALLIANCE',
+      planetId,
+      resources,
+    });
+    if (res.success) {
+      sound.playNotification();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleTransferToAlly = (
+    sourcePlanetId: string,
+    targetPlanetId: string,
+    resources: { ore: number; crystal: number; fuel: number }
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ALLIANCE_TRANSFER_RESOURCES',
+      sourcePlanetId,
+      targetPlanetId,
+      resources,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleAssaultRelay = () => {
     if (!engineState) return;
     setSelectedTarget({
@@ -625,6 +671,7 @@ export function App() {
           onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
           onOpenSituationLog={() => setActiveLeftPanel((prev) => (prev === 'situation' ? null : 'situation'))}
           onOpenBattles={() => setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'))}
+          onOpenAdmirals={() => setActiveLeftPanel((prev) => (prev === 'admirals' ? null : 'admirals'))}
           onOpenRelay={() => setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'))}
           onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
@@ -744,6 +791,16 @@ export function App() {
               />
             )}
 
+            {activeLeftPanel === 'admirals' && (
+              <AdmiralsModal
+                state={engineState}
+                activePlayerId={activePlayerId}
+                isOpen={true}
+                isDocked={true}
+                onClose={() => setActiveLeftPanel(null)}
+              />
+            )}
+
             {activeLeftPanel === 'alliance' && (
               <AllianceModal
                 state={engineState}
@@ -755,6 +812,9 @@ export function App() {
                 onJoinAlliance={handleJoinAlliance}
                 onLeaveAlliance={handleLeaveAlliance}
                 onSupportAlly={handleSupportAlly}
+                onDonateToAlliance={handleDonateToAlliance}
+                onWithdrawFromAlliance={handleWithdrawFromAlliance}
+                onTransferToAlly={handleTransferToAlly}
               />
             )}
 

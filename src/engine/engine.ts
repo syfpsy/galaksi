@@ -446,14 +446,33 @@ export class GameEngine {
           }
         }
 
-        // Deliver cargo if targeted at own planet
+        // Deliver cargo if targeted at own planet OR allied planet
         if (fleet.targetPlanetId && this.state.planets[fleet.targetPlanetId]) {
           const targetPlanet = this.state.planets[fleet.targetPlanetId];
-          if (targetPlanet.ownerId === fleet.ownerId) {
-            targetPlanet.resources.ore = Math.min(targetPlanet.storageCap, targetPlanet.resources.ore + fleet.cargo.ore);
-            targetPlanet.resources.crystal = Math.min(targetPlanet.storageCap, targetPlanet.resources.crystal + fleet.cargo.crystal);
-            targetPlanet.resources.fuel = Math.min(targetPlanet.storageCap, targetPlanet.resources.fuel + fleet.cargo.fuel);
-            fleet.cargo = { ore: 0, crystal: 0, fuel: 0 };
+          const targetOwner = this.state.players[targetPlanet.ownerId];
+          const isAlly = Boolean(player?.allianceId && targetOwner?.allianceId && player.allianceId === targetOwner.allianceId);
+
+          if (targetPlanet.ownerId === fleet.ownerId || isAlly) {
+            const deliveredOre = Math.min(Math.max(0, targetPlanet.storageCap - targetPlanet.resources.ore), fleet.cargo.ore);
+            const deliveredCrystal = Math.min(Math.max(0, targetPlanet.storageCap - targetPlanet.resources.crystal), fleet.cargo.crystal);
+            const deliveredFuel = Math.min(Math.max(0, targetPlanet.storageCap - targetPlanet.resources.fuel), fleet.cargo.fuel);
+
+            targetPlanet.resources.ore += deliveredOre;
+            targetPlanet.resources.crystal += deliveredCrystal;
+            targetPlanet.resources.fuel += deliveredFuel;
+
+            fleet.cargo.ore -= deliveredOre;
+            fleet.cargo.crystal -= deliveredCrystal;
+            fleet.cargo.fuel -= deliveredFuel;
+
+            if (isAlly && targetPlanet.ownerId !== fleet.ownerId) {
+              this.logEvent(
+                'alliance_resource_transfer',
+                `${player?.name || 'Komutan'} nakliye filosu müttefik ${targetOwner?.name} kolonisinde (${targetPlanet.name}) ${deliveredOre} Cevher, ${deliveredCrystal} Kristal ve ${deliveredFuel} Yakıt nakliyesi gerçekleştirdi.`,
+                targetPlanet.ownerId,
+                { fromPlayerId: fleet.ownerId, targetPlanetId: targetPlanet.id, delivered: { ore: deliveredOre, crystal: deliveredCrystal, fuel: deliveredFuel } }
+              );
+            }
           }
         }
 
@@ -1044,6 +1063,29 @@ export class GameEngine {
           playerId
         );
 
+        // Common Defense Pact: If an allied planet is attacked, broadcast alert & share sensor ping
+        if (cmd.mission === 'attack' && cmd.targetPlanetId && this.state.planets[cmd.targetPlanetId]) {
+          const targetPlanet = this.state.planets[cmd.targetPlanetId];
+          const targetOwner = this.state.players[targetPlanet.ownerId];
+          if (targetOwner?.allianceId && this.state.alliances[targetOwner.allianceId]) {
+            const ally = this.state.alliances[targetOwner.allianceId];
+            for (const memberId of ally.memberIds) {
+              if (memberId !== playerId) {
+                this.logEvent(
+                  'alliance_defense_alert',
+                  `🚨 ORTAK SAVUNMA ALARMI: [${ally.tag}] Müttefik ${targetOwner.name} kolonisini (${targetPlanet.name}) hedef alan düşman filosu tespit edildi!`,
+                  memberId,
+                  { attackerId: playerId, targetPlanetId: targetPlanet.id, etaMs: route.durationMs }
+                );
+                const allyMember = this.state.players[memberId];
+                if (allyMember) {
+                  allyMember.intel.discoveredSystems[originPlanet.systemId] = 'sensor_contact';
+                }
+              }
+            }
+          }
+        }
+
         return {
           success: true,
           commandType: cmd.type,
@@ -1114,6 +1156,7 @@ export class GameEngine {
           founderId: playerId,
           memberIds: [playerId],
           createdAt: this.state.timeMs,
+          treasury: { ore: 0, crystal: 0, fuel: 0 },
         };
         player.allianceId = allianceId;
         this.logEvent('alliance_created', `[${cmd.tag}] ${cmd.name} ittifakı kuruldu (Kurucu: ${player.name}).`, playerId);
@@ -1148,6 +1191,136 @@ export class GameEngine {
         player.allianceId = null;
         this.logEvent('alliance_left', `${player.name} ittifaktan ayrıldı.`, playerId);
         return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
+
+      case 'DONATE_TO_ALLIANCE': {
+        if (!player.allianceId) {
+          return { success: false, commandType: cmd.type, error: 'Herhangi bir ittifakta değilsiniz.', timeMs: this.state.timeMs };
+        }
+        const ally = this.state.alliances[player.allianceId];
+        if (!ally) {
+          return { success: false, commandType: cmd.type, error: 'İttifak bulunamadı.', timeMs: this.state.timeMs };
+        }
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Gezegen size ait değil.', timeMs: this.state.timeMs };
+        }
+        if (
+          planet.resources.ore < cmd.resources.ore ||
+          planet.resources.crystal < cmd.resources.crystal ||
+          planet.resources.fuel < cmd.resources.fuel
+        ) {
+          return { success: false, commandType: cmd.type, error: 'Gezegende yeterli kaynak bulunmuyor.', timeMs: this.state.timeMs };
+        }
+
+        planet.resources.ore -= cmd.resources.ore;
+        planet.resources.crystal -= cmd.resources.crystal;
+        planet.resources.fuel -= cmd.resources.fuel;
+
+        if (!ally.treasury) ally.treasury = { ore: 0, crystal: 0, fuel: 0 };
+        ally.treasury.ore += cmd.resources.ore;
+        ally.treasury.crystal += cmd.resources.crystal;
+        ally.treasury.fuel += cmd.resources.fuel;
+
+        this.logEvent(
+          'alliance_donation',
+          `${player.name} [${ally.tag}] kasasına ${cmd.resources.ore}C, ${cmd.resources.crystal}K, ${cmd.resources.fuel}Y bağışladı.`,
+          playerId
+        );
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { treasury: ally.treasury } };
+      }
+
+      case 'WITHDRAW_FROM_ALLIANCE': {
+        if (!player.allianceId) {
+          return { success: false, commandType: cmd.type, error: 'Herhangi bir ittifakta değilsiniz.', timeMs: this.state.timeMs };
+        }
+        const ally = this.state.alliances[player.allianceId];
+        if (!ally) {
+          return { success: false, commandType: cmd.type, error: 'İttifak bulunamadı.', timeMs: this.state.timeMs };
+        }
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Gezegen size ait değil.', timeMs: this.state.timeMs };
+        }
+        if (!ally.treasury) ally.treasury = { ore: 0, crystal: 0, fuel: 0 };
+
+        if (
+          ally.treasury.ore < cmd.resources.ore ||
+          ally.treasury.crystal < cmd.resources.crystal ||
+          ally.treasury.fuel < cmd.resources.fuel
+        ) {
+          return { success: false, commandType: cmd.type, error: 'İttifak kasasında yeterli kaynak yok.', timeMs: this.state.timeMs };
+        }
+
+        const addedOre = Math.min(planet.storageCap - planet.resources.ore, cmd.resources.ore);
+        const addedCrystal = Math.min(planet.storageCap - planet.resources.crystal, cmd.resources.crystal);
+        const addedFuel = Math.min(planet.storageCap - planet.resources.fuel, cmd.resources.fuel);
+
+        ally.treasury.ore -= addedOre;
+        ally.treasury.crystal -= addedCrystal;
+        ally.treasury.fuel -= addedFuel;
+
+        planet.resources.ore += addedOre;
+        planet.resources.crystal += addedCrystal;
+        planet.resources.fuel += addedFuel;
+
+        this.logEvent(
+          'alliance_withdrawal',
+          `${player.name} [${ally.tag}] kasasından ${addedOre}C, ${addedCrystal}K, ${addedFuel}Y çekti.`,
+          playerId
+        );
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { treasury: ally.treasury } };
+      }
+
+      case 'ALLIANCE_TRANSFER_RESOURCES': {
+        if (!player.allianceId) {
+          return { success: false, commandType: cmd.type, error: 'Herhangi bir ittifakta değilsiniz.', timeMs: this.state.timeMs };
+        }
+        const sourcePlanet = this.state.planets[cmd.sourcePlanetId];
+        if (!sourcePlanet || sourcePlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Kaynak gezegen size ait değil.', timeMs: this.state.timeMs };
+        }
+        const targetPlanet = this.state.planets[cmd.targetPlanetId];
+        if (!targetPlanet) {
+          return { success: false, commandType: cmd.type, error: 'Hedef gezegen bulunamadı.', timeMs: this.state.timeMs };
+        }
+        const targetOwner = this.state.players[targetPlanet.ownerId];
+        if (!targetOwner || targetOwner.allianceId !== player.allianceId) {
+          return { success: false, commandType: cmd.type, error: 'Hedef gezegen ittifak üyenize ait değil.', timeMs: this.state.timeMs };
+        }
+        if (
+          sourcePlanet.resources.ore < cmd.resources.ore ||
+          sourcePlanet.resources.crystal < cmd.resources.crystal ||
+          sourcePlanet.resources.fuel < cmd.resources.fuel
+        ) {
+          return { success: false, commandType: cmd.type, error: 'Kaynak gezegende yeterli kaynak yok.', timeMs: this.state.timeMs };
+        }
+
+        const deliveredOre = Math.min(Math.max(0, targetPlanet.storageCap - targetPlanet.resources.ore), cmd.resources.ore);
+        const deliveredCrystal = Math.min(Math.max(0, targetPlanet.storageCap - targetPlanet.resources.crystal), cmd.resources.crystal);
+        const deliveredFuel = Math.min(Math.max(0, targetPlanet.storageCap - targetPlanet.resources.fuel), cmd.resources.fuel);
+
+        sourcePlanet.resources.ore -= cmd.resources.ore;
+        sourcePlanet.resources.crystal -= cmd.resources.crystal;
+        sourcePlanet.resources.fuel -= cmd.resources.fuel;
+
+        targetPlanet.resources.ore += deliveredOre;
+        targetPlanet.resources.crystal += deliveredCrystal;
+        targetPlanet.resources.fuel += deliveredFuel;
+
+        this.logEvent(
+          'alliance_resource_transfer',
+          `${player.name} müttefik ${targetOwner.name} kolonisinde (${targetPlanet.name}) ${deliveredOre} Cevher, ${deliveredCrystal} Kristal, ${deliveredFuel} Yakıt nakliyesi sağladı.`,
+          targetPlanet.ownerId,
+          { fromPlayerId: playerId, targetPlanetId: targetPlanet.id, delivered: { ore: deliveredOre, crystal: deliveredCrystal, fuel: deliveredFuel } }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { delivered: { ore: deliveredOre, crystal: deliveredCrystal, fuel: deliveredFuel } },
+        };
       }
 
       case 'TOGGLE_VACATION_MODE': {

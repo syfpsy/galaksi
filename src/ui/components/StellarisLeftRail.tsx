@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Activity,
+  Award,
   Bed,
   Compass,
   Crown,
@@ -33,6 +34,7 @@ interface StellarisLeftRailProps {
   onOpenTransitRadar?: () => void;
   onOpenSituationLog?: () => void;
   onOpenBattles: () => void;
+  onOpenAdmirals?: () => void;
   onOpenRelay: () => void;
   onOpenAlliance: () => void;
   onOpenGallery: () => void;
@@ -61,6 +63,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenTransitRadar,
   onOpenSituationLog,
   onOpenBattles,
+  onOpenAdmirals,
   onOpenRelay,
   onOpenAlliance,
   onOpenGallery,
@@ -327,6 +330,34 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
                 {unreadBattlesCount} Çatışma Raporu
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Admirals & Naval Academy (F8) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenAdmirals) onOpenAdmirals();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'admirals' ? 'active' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Award className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+              F8
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
+            <div className="flex items-center justify-between text-[11px] font-bold">
+              <span className="stellaris-gold tracking-wide">FİLO AMİRALLERİ & AKADEMİ</span>
+              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F8</span>
+            </div>
+            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+              Komutan atamaları, seviye/XP gelişimi ve kritik vuruş/kaçınma doktrinleri.
+            </p>
           </div>
         </div>
 

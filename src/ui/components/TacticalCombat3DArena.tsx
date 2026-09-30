@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import { BattleReport, CombatRound, ShipType } from '../../engine/types';
 import { SHIP_STATS } from '../../engine/constants';
+import { WeaponModuleId, loadSavedLoadouts, DEFAULT_LOADOUTS, WEAPON_MODULES } from '../../engine/shipDesign';
 import { sound } from '../sound';
 import { Camera, Eye, Flame, Maximize2, Pause, Play, RotateCcw, Shield, Sparkles, Swords, Zap } from 'lucide-react';
 
@@ -29,13 +30,15 @@ interface LaserBeam {
   elapsed: number;
 }
 
-interface TorpedoProjectile {
-  mesh: THREE.Mesh;
+interface CombatProjectile {
+  mesh: THREE.Object3D;
   startPos: THREE.Vector3;
   targetPos: THREE.Vector3;
   progress: number;
   speed: number;
-  trailPoints: THREE.Vector3[];
+  weaponType: WeaponModuleId;
+  isAttacker: boolean;
+  smokeTimer?: number;
 }
 
 export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
@@ -65,7 +68,7 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
   // Live particle and projectile arrays
   const activeParticlesRef = useRef<Particle[]>([]);
   const activeLasersRef = useRef<LaserBeam[]>([]);
-  const activeTorpedoesRef = useRef<TorpedoProjectile[]>([]);
+  const activeProjectilesRef = useRef<CombatProjectile[]>([]);
 
   // Camera animation target & orbit state
   const cameraTargetRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
@@ -344,6 +347,164 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
     [createBattleshipMesh, createFighterMesh, createScoutMesh, createTransportMesh]
   );
 
+  // --- Weapon-Specific Projectile & VFX Spawners ---
+  const spawnLaserBeam = useCallback((start: THREE.Vector3, end: THREE.Vector3, isAttacker: boolean) => {
+    if (!fxGroupRef.current) return;
+    const fxGroup = fxGroupRef.current;
+    sound.playLaser();
+
+    const distance = start.distanceTo(end);
+    const beamGeo = new THREE.CylinderGeometry(0.18, 0.18, distance, 6);
+    const beamMat = new THREE.MeshBasicMaterial({
+      color: isAttacker ? 0xf43f5e : 0x00f3ff,
+      blending: THREE.AdditiveBlending,
+      transparent: true,
+      opacity: 0.95,
+    });
+    const beam = new THREE.Mesh(beamGeo, beamMat);
+
+    const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+    beam.position.copy(midPoint);
+    beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.clone().sub(start).normalize());
+
+    fxGroup.add(beam);
+    activeLasersRef.current.push({
+      mesh: beam,
+      duration: 0.32,
+      elapsed: 0,
+    });
+
+    // Deflector shield flare at impact target
+    const shieldGeo = new THREE.SphereGeometry(2.5, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+    const shieldMat = new THREE.MeshBasicMaterial({
+      color: isAttacker ? 0x00f3ff : 0xf59e0b,
+      transparent: true,
+      opacity: 0.7,
+      blending: THREE.AdditiveBlending,
+      side: THREE.DoubleSide,
+    });
+    const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+    shieldMesh.position.copy(end);
+    shieldMesh.rotation.y = isAttacker ? Math.PI / 2 : -Math.PI / 2;
+    fxGroup.add(shieldMesh);
+    activeLasersRef.current.push({
+      mesh: shieldMesh,
+      duration: 0.28,
+      elapsed: 0,
+    });
+  }, []);
+
+  const spawnPlasmaOrb = useCallback((start: THREE.Vector3, end: THREE.Vector3, isAttacker: boolean) => {
+    if (!fxGroupRef.current) return;
+    const fxGroup = fxGroupRef.current;
+    sound.playPlasma();
+
+    const group = new THREE.Group();
+    // Inner superheated molten core
+    const coreGeo = new THREE.SphereGeometry(0.48, 10, 10);
+    const coreMat = new THREE.MeshBasicMaterial({
+      color: 0xfffbeb,
+      blending: THREE.AdditiveBlending,
+    });
+    const core = new THREE.Mesh(coreGeo, coreMat);
+    group.add(core);
+
+    // Outer fiery plasma corona
+    const coronaGeo = new THREE.SphereGeometry(0.85, 10, 10);
+    const coronaMat = new THREE.MeshBasicMaterial({
+      color: isAttacker ? 0xf97316 : 0xf59e0b,
+      transparent: true,
+      opacity: 0.85,
+      blending: THREE.AdditiveBlending,
+    });
+    const corona = new THREE.Mesh(coronaGeo, coronaMat);
+    group.add(corona);
+
+    group.position.copy(start);
+    fxGroup.add(group);
+
+    activeProjectilesRef.current.push({
+      mesh: group,
+      startPos: start,
+      targetPos: end,
+      progress: 0,
+      speed: 1.85,
+      weaponType: 'plasma',
+      isAttacker,
+    });
+  }, []);
+
+  const spawnRailgunSlug = useCallback((start: THREE.Vector3, end: THREE.Vector3, isAttacker: boolean) => {
+    if (!fxGroupRef.current) return;
+    const fxGroup = fxGroupRef.current;
+    sound.playRailgun();
+
+    // Hypersonic solid tungsten projectile
+    const slugGeo = new THREE.CylinderGeometry(0.09, 0.14, 3.2, 5);
+    const slugMat = new THREE.MeshBasicMaterial({
+      color: isAttacker ? 0x93c5fd : 0xbae6fd,
+      blending: THREE.AdditiveBlending,
+    });
+    const slug = new THREE.Mesh(slugGeo, slugMat);
+    slug.position.copy(start);
+    slug.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.clone().sub(start).normalize());
+    fxGroup.add(slug);
+
+    activeProjectilesRef.current.push({
+      mesh: slug,
+      startPos: start,
+      targetPos: end,
+      progress: 0,
+      speed: 3.5,
+      weaponType: 'railgun',
+      isAttacker,
+    });
+  }, []);
+
+  const spawnTorpedoMissile = useCallback((start: THREE.Vector3, end: THREE.Vector3, isAttacker: boolean) => {
+    if (!fxGroupRef.current) return;
+    const fxGroup = fxGroupRef.current;
+    sound.playTorpedo();
+
+    const group = new THREE.Group();
+    // Fuselage
+    const fuseGeo = new THREE.CylinderGeometry(0.24, 0.24, 1.6, 6);
+    const fuseMat = new THREE.MeshStandardMaterial({ color: 0x3b0764, metalness: 0.85 });
+    const fuse = new THREE.Mesh(fuseGeo, fuseMat);
+    fuse.rotation.x = Math.PI / 2;
+    group.add(fuse);
+
+    // Purple warhead
+    const warheadGeo = new THREE.ConeGeometry(0.28, 0.7, 6);
+    const warheadMat = new THREE.MeshBasicMaterial({ color: 0xa855f7, blending: THREE.AdditiveBlending });
+    const warhead = new THREE.Mesh(warheadGeo, warheadMat);
+    warhead.rotation.x = Math.PI / 2;
+    warhead.position.z = 1.0;
+    group.add(warhead);
+
+    // Exhaust glow
+    const exhaustGeo = new THREE.CylinderGeometry(0.08, 0.35, 0.4, 6);
+    const exhaustMat = new THREE.MeshBasicMaterial({ color: 0xd946ef, blending: THREE.AdditiveBlending });
+    const exhaust = new THREE.Mesh(exhaustGeo, exhaustMat);
+    exhaust.rotation.x = Math.PI / 2;
+    exhaust.position.z = -0.9;
+    group.add(exhaust);
+
+    group.position.copy(start);
+    group.lookAt(end);
+    fxGroup.add(group);
+
+    activeProjectilesRef.current.push({
+      mesh: group,
+      startPos: start,
+      targetPos: end,
+      progress: 0,
+      speed: 1.35,
+      weaponType: 'torpedo',
+      isAttacker,
+    });
+  }, []);
+
   // Trigger weapon fire VFX for this round
   const triggerRoundFireEffects = useCallback(
     (round: CombatRound) => {
@@ -355,116 +516,63 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
 
       if (attShips.length === 0 || defShips.length === 0) return;
 
-      // 1. Attacker Laser / Railgun Fire
-      if (round.attackerDamageDealt > 0) {
-        sound.playLaser();
-        const numBeams = Math.min(attShips.length, 4);
+      const playerLoadouts = loadSavedLoadouts();
 
-        for (let i = 0; i < numBeams; i++) {
+      // 1. Attacker Weapon Salvos
+      if (round.attackerDamageDealt > 0) {
+        const numSalvos = Math.min(attShips.length, 5);
+
+        for (let i = 0; i < numSalvos; i++) {
           const shooter = attShips[i % attShips.length];
           const target = defShips[Math.floor(Math.random() * defShips.length)];
+          const shipType = (shooter.userData?.shipType as ShipType) || 'fighter';
+          const weaponType: WeaponModuleId =
+            playerLoadouts[shipType]?.weapon || DEFAULT_LOADOUTS[shipType]?.weapon || 'laser';
 
           const start = shooter.position.clone();
           const end = target.position.clone();
 
-          // Laser beam cylinder
-          const distance = start.distanceTo(end);
-          const beamGeo = new THREE.CylinderGeometry(0.18, 0.18, distance, 6);
-          const beamMat = new THREE.MeshBasicMaterial({
-            color: 0xf43f5e,
-            blending: THREE.AdditiveBlending,
-            transparent: true,
-            opacity: 0.95,
-          });
-          const beam = new THREE.Mesh(beamGeo, beamMat);
-
-          // Position & orient beam
-          const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-          beam.position.copy(midPoint);
-          beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.clone().sub(start).normalize());
-
-          fxGroup.add(beam);
-          activeLasersRef.current.push({
-            mesh: beam,
-            duration: 0.35,
-            elapsed: 0,
-          });
-
-          // Deflector shield flare at impact target
-          const shieldGeo = new THREE.SphereGeometry(2.5, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-          const shieldMat = new THREE.MeshBasicMaterial({
-            color: 0x00f3ff,
-            transparent: true,
-            opacity: 0.7,
-            blending: THREE.AdditiveBlending,
-            side: THREE.DoubleSide,
-          });
-          const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
-          shieldMesh.position.copy(end);
-          shieldMesh.rotation.y = Math.PI / 2;
-          fxGroup.add(shieldMesh);
-          activeLasersRef.current.push({
-            mesh: shieldMesh,
-            duration: 0.28,
-            elapsed: 0,
-          });
+          setTimeout(() => {
+            if (weaponType === 'laser') {
+              spawnLaserBeam(start, end, true);
+            } else if (weaponType === 'plasma') {
+              spawnPlasmaOrb(start, end, true);
+            } else if (weaponType === 'railgun') {
+              spawnRailgunSlug(start, end, true);
+            } else if (weaponType === 'torpedo') {
+              spawnTorpedoMissile(start, end, true);
+            }
+          }, i * 65);
         }
       }
 
-      // 2. Defender Return Fire (Cyan Lasers)
+      // 2. Defender Return Fire
       if (round.defenderDamageDealt > 0) {
         setTimeout(() => {
-          sound.playLaser();
-          const numBeams = Math.min(defShips.length, 3);
+          const numSalvos = Math.min(defShips.length, 4);
 
-          for (let i = 0; i < numBeams; i++) {
+          for (let i = 0; i < numSalvos; i++) {
             const shooter = defShips[i % defShips.length];
             const target = attShips[Math.floor(Math.random() * attShips.length)];
+            const shipType = (shooter.userData?.shipType as ShipType) || 'scout';
+            const weaponType: WeaponModuleId = DEFAULT_LOADOUTS[shipType]?.weapon || 'laser';
 
             const start = shooter.position.clone();
             const end = target.position.clone();
 
-            const distance = start.distanceTo(end);
-            const beamGeo = new THREE.CylinderGeometry(0.18, 0.18, distance, 6);
-            const beamMat = new THREE.MeshBasicMaterial({
-              color: 0x00f3ff,
-              blending: THREE.AdditiveBlending,
-              transparent: true,
-              opacity: 0.95,
-            });
-            const beam = new THREE.Mesh(beamGeo, beamMat);
-
-            const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
-            beam.position.copy(midPoint);
-            beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.clone().sub(start).normalize());
-
-            fxGroup.add(beam);
-            activeLasersRef.current.push({
-              mesh: beam,
-              duration: 0.35,
-              elapsed: 0,
-            });
-
-            // Shield flare on attacker
-            const shieldGeo = new THREE.SphereGeometry(2.5, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2);
-            const shieldMat = new THREE.MeshBasicMaterial({
-              color: 0xf59e0b,
-              transparent: true,
-              opacity: 0.65,
-              blending: THREE.AdditiveBlending,
-              side: THREE.DoubleSide,
-            });
-            const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
-            shieldMesh.position.copy(end);
-            shieldMesh.rotation.y = -Math.PI / 2;
-            fxGroup.add(shieldMesh);
-            activeLasersRef.current.push({
-              mesh: shieldMesh,
-              duration: 0.28,
-              elapsed: 0,
-            });
+            setTimeout(() => {
+              if (weaponType === 'laser') {
+                spawnLaserBeam(start, end, false);
+              } else if (weaponType === 'plasma') {
+                spawnPlasmaOrb(start, end, false);
+              } else if (weaponType === 'railgun') {
+                spawnRailgunSlug(start, end, false);
+              } else if (weaponType === 'torpedo') {
+                spawnTorpedoMissile(start, end, false);
+              }
+            }, i * 75);
           }
-        }, 120);
+        }, 130);
       }
 
       // 3. Casualties & Explosions
@@ -506,7 +614,7 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
         }, 220);
       }
     },
-    []
+    [spawnLaserBeam, spawnPlasmaOrb, spawnRailgunSlug, spawnTorpedoMissile]
   );
 
   // Initialize Scene, Camera, Lights, Grid, Starfield
@@ -655,6 +763,144 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
         }
       }
 
+      // Update active moving projectiles (Plasma, Railgun, Torpedo)
+      for (let i = activeProjectilesRef.current.length - 1; i >= 0; i--) {
+        const proj = activeProjectilesRef.current[i];
+        proj.progress += delta * proj.speed;
+
+        if (proj.weaponType === 'torpedo') {
+          // Smoke puff in wake
+          proj.smokeTimer = (proj.smokeTimer || 0) + delta;
+          if (proj.smokeTimer > 0.04) {
+            proj.smokeTimer = 0;
+            const smokeGeo = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+            const smokeMat = new THREE.MeshBasicMaterial({
+              color: 0x9333ea,
+              transparent: true,
+              opacity: 0.75,
+              blending: THREE.AdditiveBlending,
+            });
+            const smoke = new THREE.Mesh(smokeGeo, smokeMat);
+            smoke.position.copy(proj.mesh.position);
+            fxGroup.add(smoke);
+            activeParticlesRef.current.push({
+              mesh: smoke,
+              velocity: new THREE.Vector3(
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2,
+                (Math.random() - 0.5) * 2
+              ),
+              life: 0,
+              maxLife: 0.35,
+            });
+          }
+        } else if (proj.weaponType === 'plasma') {
+          // Pulsing thermal core
+          proj.mesh.scale.setScalar(0.9 + Math.sin(now * 0.025) * 0.2);
+        }
+
+        if (proj.progress >= 1) {
+          // Reached target! Trigger impact visual
+          const impactPos = proj.targetPos.clone();
+          if (proj.weaponType === 'plasma') {
+            // Thermal shockwave sphere + scattering embers
+            const blastGeo = new THREE.SphereGeometry(2.8, 12, 12);
+            const blastMat = new THREE.MeshBasicMaterial({
+              color: 0xf97316,
+              transparent: true,
+              opacity: 0.9,
+              blending: THREE.AdditiveBlending,
+            });
+            const blast = new THREE.Mesh(blastGeo, blastMat);
+            blast.position.copy(impactPos);
+            fxGroup.add(blast);
+            activeLasersRef.current.push({ mesh: blast, duration: 0.35, elapsed: 0 });
+
+            for (let p = 0; p < 8; p++) {
+              const emberGeo = new THREE.BoxGeometry(0.25, 0.25, 0.25);
+              const emberMat = new THREE.MeshBasicMaterial({ color: 0xfbbf24, blending: THREE.AdditiveBlending });
+              const ember = new THREE.Mesh(emberGeo, emberMat);
+              ember.position.copy(impactPos);
+              fxGroup.add(ember);
+              activeParticlesRef.current.push({
+                mesh: ember,
+                velocity: new THREE.Vector3(
+                  (Math.random() - 0.5) * 14,
+                  (Math.random() - 0.5) * 14,
+                  (Math.random() - 0.5) * 14
+                ),
+                life: 0,
+                maxLife: 0.45,
+              });
+            }
+          } else if (proj.weaponType === 'railgun') {
+            // Tungsten kinetic ricochet sparks
+            for (let p = 0; p < 14; p++) {
+              const sparkGeo = new THREE.BoxGeometry(0.14, 0.14, 0.14);
+              const sparkMat = new THREE.MeshBasicMaterial({ color: 0x67e8f9, blending: THREE.AdditiveBlending });
+              const spark = new THREE.Mesh(sparkGeo, sparkMat);
+              spark.position.copy(impactPos);
+              fxGroup.add(spark);
+              activeParticlesRef.current.push({
+                mesh: spark,
+                velocity: new THREE.Vector3(
+                  (Math.random() - 0.5) * 20,
+                  (Math.random() - 0.5) * 20,
+                  (Math.random() - 0.5) * 20
+                ),
+                life: 0,
+                maxLife: 0.32,
+              });
+            }
+          } else if (proj.weaponType === 'torpedo') {
+            // Heavy antimatter explosion
+            sound.playExplosion();
+            const ringGeo = new THREE.RingGeometry(0.5, 3.8, 16);
+            const ringMat = new THREE.MeshBasicMaterial({
+              color: 0xc084fc,
+              transparent: true,
+              opacity: 0.95,
+              side: THREE.DoubleSide,
+              blending: THREE.AdditiveBlending,
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            ring.position.copy(impactPos);
+            ring.lookAt(camera.position);
+            fxGroup.add(ring);
+            activeLasersRef.current.push({ mesh: ring, duration: 0.4, elapsed: 0 });
+
+            for (let p = 0; p < 18; p++) {
+              const debrisGeo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+              const debrisMat = new THREE.MeshBasicMaterial({
+                color: p % 2 === 0 ? 0xa855f7 : 0xe879f9,
+                blending: THREE.AdditiveBlending,
+              });
+              const debris = new THREE.Mesh(debrisGeo, debrisMat);
+              debris.position.copy(impactPos);
+              fxGroup.add(debris);
+              activeParticlesRef.current.push({
+                mesh: debris,
+                velocity: new THREE.Vector3(
+                  (Math.random() - 0.5) * 16,
+                  (Math.random() - 0.5) * 16,
+                  (Math.random() - 0.5) * 16
+                ),
+                life: 0,
+                maxLife: 0.55,
+              });
+            }
+          }
+
+          fxGroup.remove(proj.mesh);
+          activeProjectilesRef.current.splice(i, 1);
+        } else {
+          proj.mesh.position.lerpVectors(proj.startPos, proj.targetPos, Math.min(1, proj.progress));
+          if (proj.weaponType === 'torpedo') {
+            proj.mesh.lookAt(proj.targetPos);
+          }
+        }
+      }
+
       // Update active explosion particles
       for (let i = activeParticlesRef.current.length - 1; i >= 0; i--) {
         const p = activeParticlesRef.current[i];
@@ -682,6 +928,17 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
     return () => {
       resizeObserver.disconnect();
       if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+      activeLasersRef.current.forEach((l) => {
+        fxGroup.remove(l.mesh);
+        if (l.mesh.geometry) l.mesh.geometry.dispose();
+      });
+      activeProjectilesRef.current.forEach((p) => {
+        fxGroup.remove(p.mesh);
+      });
+      activeParticlesRef.current.forEach((p) => {
+        fxGroup.remove(p.mesh);
+        if (p.mesh.geometry) p.mesh.geometry.dispose();
+      });
       renderer.dispose();
     };
   }, [cameraPreset]);
@@ -768,10 +1025,19 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
           )}
         </div>
 
-        {/* Center Round Indicator */}
-        <div className="bg-[#08131e]/95 border border-cyan-400/40 backdrop-blur-md px-3 py-1 rounded-sm text-cyan-300 font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.2)]">
-          <Swords className="w-3.5 h-3.5 text-amber-400" />
-          <span>TUR {currentRoundIdx + 1} / {totalRounds}</span>
+        {/* Center Round Indicator & Active Weapon VFX Legend */}
+        <div className="flex flex-col items-center gap-1">
+          <div className="bg-[#08131e]/95 border border-cyan-400/40 backdrop-blur-md px-3 py-1 rounded-sm text-cyan-300 font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.2)]">
+            <Swords className="w-3.5 h-3.5 text-amber-400" />
+            <span>TUR {currentRoundIdx + 1} / {totalRounds}</span>
+          </div>
+          <div className="hidden sm:flex items-center gap-1.5 bg-[#040914]/85 border border-[#1b3d52]/60 px-2 py-0.5 rounded-xs text-[9px] text-slate-400 backdrop-blur-xs">
+            <span className="text-cyan-400/80 font-bold">3D Donanım:</span>
+            <span className="text-rose-400">⚡ Lazer</span>
+            <span className="text-amber-400">🔥 Plazma</span>
+            <span className="text-sky-300">☄️ Raylı Top</span>
+            <span className="text-purple-400">🚀 Torpido</span>
+          </div>
         </div>
 
         {/* Defender Flank Badge */}

@@ -113,6 +113,7 @@ export interface Planet {
   }[];
   garrison: Record<ShipType, number>;
   stance: PlanetStance;
+  assignedAdmiralId?: string;
 }
 
 export interface StarSystem {
@@ -159,6 +160,7 @@ export interface Fleet {
   recallLockedAfterTime: number; // after this time cannot recall
   isReturning: boolean;
   status: 'orbiting' | 'in_transit' | 'intercepting' | 'returning' | 'destroyed';
+  admiralId?: string;
 }
 
 export interface RelayContest {
@@ -198,6 +200,8 @@ export interface BattleReport {
   winner: 'attacker' | 'defender' | 'draw';
   lootedResources: Resources;
   debrisFieldCreated: Resources;
+  attackerAdmiralName?: string;
+  defenderAdmiralName?: string;
 }
 
 export interface PlayerIntel {
@@ -220,6 +224,7 @@ export interface Alliance {
   founderId: string;
   memberIds: string[];
   createdAt: number;
+  treasury: Resources;
 }
 
 export interface Player {
@@ -307,6 +312,9 @@ export type GameCommand =
   | { type: 'CREATE_ALLIANCE'; name: string; tag: string }
   | { type: 'JOIN_ALLIANCE'; allianceId: string }
   | { type: 'LEAVE_ALLIANCE' }
+  | { type: 'DONATE_TO_ALLIANCE'; planetId: string; resources: Resources }
+  | { type: 'WITHDRAW_FROM_ALLIANCE'; planetId: string; resources: Resources }
+  | { type: 'ALLIANCE_TRANSFER_RESOURCES'; sourcePlanetId: string; targetPlanetId: string; resources: Resources }
   | { type: 'TOGGLE_VACATION_MODE' };
 
 export interface CommandReceipt {

@@ -294,4 +294,119 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(seventhAttack.success).toBe(false);
     expect(seventhAttack.error).toContain('Anti-Bash Sınırı');
   });
+
+  it('applies admiral leadership bonuses and awards XP deterministically', () => {
+    const admiralAttacker = {
+      id: 'adm_1',
+      name: 'Kaelen Valerius',
+      title: 'Filo Amirali',
+      avatar: '👨‍✈️',
+      level: 3,
+      xp: 500,
+      xpToNextLevel: 950,
+      traitId: 'tactical_genius' as const,
+      assignedFleetId: null,
+      assignedPlanetId: null,
+      battlesWon: 5,
+      battlesLost: 0,
+      recruitedAt: 1000,
+    };
+
+    const res = resolveCombat(
+      {
+        ownerId: 'att',
+        ownerName: 'Attacker',
+        ships: { scout: 0, transport: 0, fighter: 10, battleship: 2 },
+        weaponsResearchLevel: 2,
+        admiral: admiralAttacker,
+      },
+      {
+        ownerId: 'def',
+        ownerName: 'Defender',
+        ships: { scout: 0, transport: 0, fighter: 5, battleship: 1 },
+        weaponsResearchLevel: 0,
+      },
+      'sys_2',
+      'Orion Prime',
+      'fleet_interception',
+      undefined,
+      1000,
+      10000,
+      7777
+    );
+
+    expect(res.report.attackerAdmiralName).toBe('Kaelen Valerius');
+    expect(res.report.winner).toBe('attacker');
+    expect(res.attackerAdmiralXP).toBeDefined();
+    expect(res.attackerAdmiralXP?.xpGained).toBe(150);
+  });
+
+  it('supports alliance resource logistics, common defense alerts, and treasury pooling', () => {
+    const engine = new GameEngine(4444);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Player 1', '#00f3ff');
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Player 2', '#10b981');
+    const { homeworld: hw3 } = engine.addPlayer('p3', 'Enemy 3', '#f43f5e', undefined, false);
+
+    // p1 creates an alliance and p2 joins
+    engine.dispatchCommand('p1', { type: 'CREATE_ALLIANCE', name: 'Kozmik Birlik', tag: 'KB' });
+    const allyId = engine.state.players['p1'].allianceId!;
+    engine.dispatchCommand('p2', { type: 'JOIN_ALLIANCE', allianceId: allyId });
+
+    // p1 donates 200 ore to alliance treasury
+    const initialHw1Ore = hw1.resources.ore;
+    const donateRes = engine.dispatchCommand('p1', {
+      type: 'DONATE_TO_ALLIANCE',
+      planetId: hw1.id,
+      resources: { ore: 200, crystal: 0, fuel: 0 },
+    });
+    expect(donateRes.success).toBe(true);
+    expect(hw1.resources.ore).toBe(initialHw1Ore - 200);
+    expect(engine.state.alliances[allyId].treasury.ore).toBe(200);
+
+    // p2 withdraws 150 ore from alliance treasury
+    const initialHw2Ore = hw2.resources.ore;
+    const withdrawRes = engine.dispatchCommand('p2', {
+      type: 'WITHDRAW_FROM_ALLIANCE',
+      planetId: hw2.id,
+      resources: { ore: 150, crystal: 0, fuel: 0 },
+    });
+    expect(withdrawRes.success).toBe(true);
+    expect(hw2.resources.ore).toBe(initialHw2Ore + 150);
+    expect(engine.state.alliances[allyId].treasury.ore).toBe(50);
+
+    // Direct logistics transfer between allied colonies
+    const transferRes = engine.dispatchCommand('p1', {
+      type: 'ALLIANCE_TRANSFER_RESOURCES',
+      sourcePlanetId: hw1.id,
+      targetPlanetId: hw2.id,
+      resources: { ore: 100, crystal: 50, fuel: 20 },
+    });
+    expect(transferRes.success).toBe(true);
+    expect(hw2.resources.crystal).toBeGreaterThanOrEqual(50);
+
+    // Hostile raid triggers mutual defense alert to all allies
+    hw3.garrison.fighter = 10;
+    hw3.resources.fuel = 5000;
+    engine.state.timeMs = 100000000;
+    engine.state.players['p1'].protectionUntilTime = 0;
+    engine.state.players['p2'].protectionUntilTime = 0;
+    engine.state.players['p3'].protectionUntilTime = 0;
+
+    const attackRes = engine.dispatchCommand('p3', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw3.id,
+      targetSystemId: hw2.systemId,
+      targetPlanetId: hw2.id,
+      ships: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+      mission: 'attack',
+    });
+    expect(attackRes.success).toBe(true);
+
+    // Verify defense alert logged for fellow ally p1
+    const defenseAlert = engine.state.eventLog.find(
+      (e) => e.type === 'alliance_defense_alert' && e.playerId === 'p1'
+    );
+    expect(defenseAlert).toBeDefined();
+    expect(defenseAlert?.description).toContain('ORTAK SAVUNMA ALARMI');
+  });
 });

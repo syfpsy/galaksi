@@ -1,6 +1,7 @@
 import { GAME_CONSTANTS, SHIP_STATS } from './constants';
 import { PRNG } from './prng';
 import { BattleReport, CombatRound, PlanetStance, Resources, ShipType } from './types';
+import { Admiral, ADMIRAL_TRAITS } from './admirals';
 
 export interface CombatFleetInput {
   ownerId: string;
@@ -8,6 +9,7 @@ export interface CombatFleetInput {
   ships: Record<ShipType, number>;
   weaponsResearchLevel: number;
   stance?: PlanetStance;
+  admiral?: Admiral;
 }
 
 export interface CombatResult {
@@ -16,6 +18,8 @@ export interface CombatResult {
   remainingDefender: Record<ShipType, number>;
   lootedResources: Resources;
   debrisFieldCreated: Resources;
+  attackerAdmiralXP?: { admiralId: string; xpGained: number };
+  defenderAdmiralXP?: { admiralId: string; xpGained: number };
 }
 
 /**
@@ -92,11 +96,44 @@ export function resolveCombat(
     const attRating = getFleetCombatRating(currentAttacker, attacker.weaponsResearchLevel);
     const defRating = getFleetCombatRating(currentDefender, defender.weaponsResearchLevel);
 
+    // Admiral bonuses
+    const attAdmiralMult = attacker.admiral ? 1 + (attacker.admiral.level - 1) * 0.05 : 1.0;
+    const attTraitMult = attacker.admiral
+      ? attacker.admiral.traitId === 'siege_breaker' && (context === 'planet_raid' || context === 'relay_contest')
+        ? 1.30
+        : ADMIRAL_TRAITS[attacker.admiral.traitId].attackMultiplier
+      : 1.0;
+
+    const defAdmiralMult = defender.admiral ? 1 + (defender.admiral.level - 1) * 0.05 : 1.0;
+    const defTraitMult = defender.admiral ? ADMIRAL_TRAITS[defender.admiral.traitId].attackMultiplier : 1.0;
+
     const attVariance = 0.9 + prng.next() * 0.2;
     const defVariance = 0.9 + prng.next() * 0.2;
 
-    const attDmg = Math.round(attRating.totalAttack * attVariance);
-    const defDmg = Math.round(defRating.totalAttack * defVariance);
+    let attDmg = Math.round(attRating.totalAttack * attVariance * attAdmiralMult * attTraitMult);
+    let defDmg = Math.round(defRating.totalAttack * defVariance * defAdmiralMult * defTraitMult);
+
+    // Attacker Critical Strike check
+    if (attacker.admiral && attacker.admiral.traitId === 'tactical_genius') {
+      if (prng.next() < 0.18) {
+        attDmg = Math.round(attDmg * 1.45);
+      }
+    }
+
+    // Defender Evasion check
+    if (defender.admiral && defender.admiral.traitId === 'evasion_master') {
+      if (prng.next() < 0.18) {
+        attDmg = Math.round(attDmg * 0.65);
+      }
+    }
+
+    // Iron discipline damage reductions
+    if (defender.admiral && defender.admiral.traitId === 'iron_discipline') {
+      attDmg = Math.round(attDmg * 0.85);
+    }
+    if (attacker.admiral && attacker.admiral.traitId === 'iron_discipline') {
+      defDmg = Math.round(defDmg * 0.85);
+    }
 
     // Apply losses to defender
     const defLosses = applyDamageToFleet(currentDefender, attDmg, prng);
@@ -195,7 +232,23 @@ export function resolveCombat(
     winner,
     lootedResources,
     debrisFieldCreated,
+    attackerAdmiralName: attacker.admiral?.name,
+    defenderAdmiralName: defender.admiral?.name,
   };
+
+  const attackerAdmiralXP = attacker.admiral
+    ? {
+        admiralId: attacker.admiral.id,
+        xpGained: winner === 'attacker' ? 150 : 60,
+      }
+    : undefined;
+
+  const defenderAdmiralXP = defender.admiral
+    ? {
+        admiralId: defender.admiral.id,
+        xpGained: winner === 'defender' ? 150 : 60,
+      }
+    : undefined;
 
   return {
     report,
@@ -203,6 +256,8 @@ export function resolveCombat(
     remainingDefender: currentDefender,
     lootedResources,
     debrisFieldCreated,
+    attackerAdmiralXP,
+    defenderAdmiralXP,
   };
 }
 
