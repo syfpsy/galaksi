@@ -51,19 +51,50 @@ type LeftPanelType =
   | 'gallery'
   | null;
 
+function createInitialGame(seed: number = 42) {
+  const engine = new GameEngine(seed);
+  const bots: IBotAgent[] = [];
+
+  // Human player
+  const { homeworld: humanHw } = engine.addPlayer('player_human', 'Komutan Shepard', '#00f3ff');
+
+  // Archetype bots
+  engine.addPlayer('bot_ind', 'Aethel Sanayi Konsorsiyumu', '#10b981', true, 'industrialist');
+  bots.push(new IndustrialistBot('bot_ind'));
+
+  engine.addPlayer('bot_raid', 'Kızıl Akın Filosu', '#f43f5e', true, 'raider');
+  bots.push(new RaiderBot('bot_raid'));
+
+  engine.addPlayer('bot_guard', 'Nexus Muhafızları', '#3b82f6', true, 'guardian');
+  bots.push(new GuardianBot('bot_guard'));
+
+  engine.addPlayer('bot_exp', 'Yıldız Kâşifleri Cemiyeti', '#ffaa00', true, 'explorer');
+  bots.push(new ExplorerBot('bot_exp'));
+
+  engine.addPlayer('bot_adm', 'Amiral Valerius Filosu', '#a855f7', true, 'admiral');
+  bots.push(new AdmiralBot('bot_adm'));
+
+  return { engine, bots, humanHw };
+}
+
 export function App() {
+  const [initialData] = useState(() => createInitialGame(42));
+
   // Engine Instance reference
-  const engineRef = useRef<GameEngine | null>(null);
-  const botsRef = useRef<IBotAgent[]>([]);
+  const engineRef = useRef<GameEngine>(initialData.engine);
+  const botsRef = useRef<IBotAgent[]>(initialData.bots);
   const lastBotUpdateMsRef = useRef<number>(0);
 
-  // Engine state mirror for React rendering
-  const [engineState, setEngineState] = useState<GameEngine['state'] | null>(null);
+  // Engine state mirror for React rendering (immediately initialized)
+  const [engineState, setEngineState] = useState<GameEngine['state']>(initialData.engine.state);
 
-  // Active user selection state
+  // Active user selection state (immediately initialized to homeworld)
   const [activePlayerId, setActivePlayerId] = useState<string>('player_human');
-  const [activePlanetId, setActivePlanetId] = useState<string>('');
-  const [selectedTarget, setSelectedTarget] = useState<SelectedTarget | null>(null);
+  const [activePlanetId, setActivePlanetId] = useState<string>(initialData.humanHw.id);
+  const [selectedTarget, setSelectedTarget] = useState<SelectedTarget | null>({
+    type: 'system',
+    systemId: initialData.humanHw.systemId,
+  });
 
   // Simulation controls (default 1x for real-time slow persistent pace, up to 300x)
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
@@ -226,30 +257,9 @@ export function App() {
     handleCycleColonies,
   ]);
 
-  // Initialize engine & players
+  // Re-initialize engine & players on reset
   const initGame = useCallback((seed: number = 42) => {
-    const engine = new GameEngine(seed);
-    const bots: IBotAgent[] = [];
-
-    // Human player
-    const { homeworld: humanHw } = engine.addPlayer('player_human', 'Komutan Shepard', '#00f3ff');
-
-    // 4 Archetype bots
-    engine.addPlayer('bot_ind', 'Aethel Sanayi Konsorsiyumu', '#10b981', true, 'industrialist');
-    bots.push(new IndustrialistBot('bot_ind'));
-
-    engine.addPlayer('bot_raid', 'Kızıl Akın Filosu', '#f43f5e', true, 'raider');
-    bots.push(new RaiderBot('bot_raid'));
-
-    engine.addPlayer('bot_guard', 'Nexus Muhafızları', '#3b82f6', true, 'guardian');
-    bots.push(new GuardianBot('bot_guard'));
-
-    engine.addPlayer('bot_exp', 'Yıldız Kâşifleri Cemiyeti', '#ffaa00', true, 'explorer');
-    bots.push(new ExplorerBot('bot_exp'));
-
-    engine.addPlayer('bot_adm', 'Amiral Valerius Filosu', '#a855f7', true, 'admiral');
-    bots.push(new AdmiralBot('bot_adm'));
-
+    const { engine, bots, humanHw } = createInitialGame(seed);
     engineRef.current = engine;
     botsRef.current = bots;
     lastBotUpdateMsRef.current = 0;
@@ -258,10 +268,6 @@ export function App() {
     setSelectedTarget({ type: 'system', systemId: humanHw.systemId });
     setEngineState({ ...engine.state });
   }, []);
-
-  useEffect(() => {
-    initGame();
-  }, [initGame]);
 
   const lastThreatsCountRef = useRef(0);
 
@@ -346,7 +352,14 @@ export function App() {
     return () => clearInterval(interval);
   }, [isPlaying, timeScale]);
 
-  if (!engineState) return null;
+  if (!engineState) {
+    return (
+      <div className="w-screen h-screen bg-[#030712] flex flex-col items-center justify-center font-mono text-cyan-400 select-none">
+        <div className="w-10 h-10 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin mb-4" />
+        <span className="text-xs uppercase tracking-widest animate-pulse">Sektör Matrisi Yükleniyor...</span>
+      </div>
+    );
+  }
 
   // Active player owned planets
   const myPlanets = Object.values(engineState.planets).filter(
