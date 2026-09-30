@@ -31,6 +31,7 @@ import { getRouteCrisisModifiers } from '../../engine/events';
 import { ADMIRAL_TRAITS } from '../../engine/admirals';
 import {
   Fleet,
+  FleetDoctrine,
   GameState,
   MissionType,
   Planet,
@@ -55,7 +56,8 @@ interface CommandPanelProps {
     ships: Record<ShipType, number>,
     cargo: Partial<Resources>,
     mission: MissionType,
-    admiralId?: string
+    admiralId?: string,
+    doctrine?: FleetDoctrine
   ) => void;
   onRecallFleet: (fleetId: string) => void;
   currentTimeMs: number;
@@ -82,6 +84,7 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
   const [cargo, setCargo] = useState<Resources>({ ore: 0, crystal: 0, fuel: 0 });
   const [activeTab, setActiveTab] = useState<'dispatch' | 'active_fleets'>('dispatch');
   const [selectedAdmiralId, setSelectedAdmiralId] = useState<string>('');
+  const [doctrine, setDoctrine] = useState<FleetDoctrine>('balanced');
 
   // Player's admirals for fleet command assignment
   const playerAdmirals = useMemo(() => {
@@ -1227,6 +1230,46 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
             )}
           </div>
 
+          {/* Tactical Fleet Combat Doctrine Selector */}
+          <div className="bg-[#0b1624] p-3 rounded-sm border border-[#1a384f] space-y-2">
+            <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
+              <span className="flex items-center gap-1.5 text-cyan-300">
+                <Swords className="w-3.5 h-3.5 text-cyan-400" />
+                Filo Muharebe Doktrini
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">Taktik Angajman</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-1.5">
+              {[
+                { id: 'balanced', name: 'Dengeli', desc: 'Standart muharebe parametreleri' },
+                { id: 'spearhead', name: 'Yıldırım', desc: '+%15 Ateş Gücü, +%10 Hız, +%10 Hasar Alma' },
+                { id: 'fortress', name: 'Ağır Hisar', desc: '-%10 Ateş Gücü, -%10 Hız, -%20 Hasar Alma' },
+                { id: 'hit_and_run', name: 'Vur-Kaç', desc: '%20 İhtimalle Yarım Hasar Sıyrılma' },
+              ].map((d) => (
+                <button
+                  key={d.id}
+                  type="button"
+                  onClick={() => {
+                    sound.playClick();
+                    setDoctrine(d.id as FleetDoctrine);
+                  }}
+                  className={`p-2 rounded text-left border transition-all cursor-pointer ${
+                    doctrine === d.id
+                      ? 'bg-cyan-950/60 border-cyan-400 text-white shadow-[0_0_8px_rgba(6,182,212,0.25)]'
+                      : 'bg-[#060c14] border-slate-800 text-slate-400 hover:text-slate-200 hover:border-slate-700'
+                  }`}
+                >
+                  <div className="text-[11px] font-bold text-cyan-200 font-display flex items-center justify-between">
+                    <span>{d.name}</span>
+                    {doctrine === d.id && <span className="text-[9px] text-cyan-400">●</span>}
+                  </div>
+                  <div className="text-[9px] text-slate-400 leading-tight mt-0.5">{d.desc}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
           {/* Dispatch Button */}
           <button
             disabled={
@@ -1248,7 +1291,8 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
                   ships,
                   cargo,
                   selectedMission,
-                  selectedAdmiralId || undefined
+                  selectedAdmiralId || undefined,
+                  doctrine
                 );
                 setSelectedAdmiralId('');
               }

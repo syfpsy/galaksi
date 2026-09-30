@@ -12,6 +12,7 @@ import {
   DefenseStructureType,
   EspionageOpType,
   Fleet,
+  FleetDoctrine,
   MissionType,
   PlanetSpecialization,
   PlanetStance,
@@ -512,7 +513,8 @@ export function App() {
     ships: Record<ShipType, number>,
     cargo: Partial<Resources>,
     mission: MissionType,
-    admiralId?: string
+    admiralId?: string,
+    doctrine?: FleetDoctrine
   ) => {
     if (!engineRef.current || !activePlanet) return;
     engineRef.current.dispatchCommand(activePlayerId, {
@@ -525,6 +527,26 @@ export function App() {
       cargo,
       mission,
       admiralId,
+      doctrine,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSetFleetDoctrine = (fleetId: string, doctrine: FleetDoctrine) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SET_FLEET_DOCTRINE',
+      fleetId,
+      doctrine,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDispatchSupplyConvoy = (colonyPlanetId: string) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISPATCH_SUPPLY_CONVOY',
+      colonyPlanetId,
     });
     setEngineState({ ...engineRef.current.state });
   };
@@ -966,6 +988,7 @@ export function App() {
                   setEspionageTargetPlanetId(targetId || null);
                   setActiveLeftPanel('espionage');
                 }}
+                onDispatchSupplyConvoy={handleDispatchSupplyConvoy}
                 onClose={() => setActiveLeftPanel(null)}
               />
             )}
@@ -991,6 +1014,7 @@ export function App() {
                 onClose={() => setActiveLeftPanel(null)}
                 onStartResearch={handleStartResearch}
                 currentTimeMs={engineState.timeMs}
+                hasTechHaven={myPlanets.some((p) => p.specialization === 'tech_haven')}
               />
             )}
 
@@ -1224,6 +1248,7 @@ export function App() {
               onClose={() => setSelectedTarget(null)}
               onRecallFleet={handleRecallFleet}
               onOpenCommandPanel={() => setIsCommandPanelOpen(true)}
+              onSetDoctrine={handleSetFleetDoctrine}
               onFocusFleetPosition={() => {
                 if (selectedTarget.fleetId) {
                   const fl = engineState.fleets[selectedTarget.fleetId];

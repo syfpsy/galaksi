@@ -152,9 +152,16 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
             <h2 className="text-sm font-bold stellaris-gold font-display uppercase tracking-wider">
               Tersane & Tasarımcı — {planet.name}
             </h2>
-            <span className="text-[11px] text-cyan-300 font-mono">
-              Tersane Seviyesi: {shipyardLevel} • Üretim & Donanım Dokları
-            </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[11px] text-cyan-300 font-mono">
+                Tersane Seviyesi: {shipyardLevel} • Üretim & Donanım Dokları
+              </span>
+              {planet.specialization === 'military_bastion' && (
+                <span className="text-[9.5px] text-emerald-300 bg-emerald-950/70 border border-emerald-500/40 px-1.5 py-0.5 rounded font-mono font-bold">
+                  🛡️ Askeri Hisar (-%15 Gemi, -%20 Savunma)
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <button

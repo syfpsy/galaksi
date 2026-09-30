@@ -5,7 +5,7 @@ import { calculateRouteInfo, checkInterceptionFeasibility } from '../src/engine/
 import { evaluateBotDiplomacy, resetBotDiplomacyCooldowns } from '../src/bots/diplomacy';
 import { ExplorerBot } from '../src/bots/explorer';
 import { IndustrialistBot } from '../src/bots/industrialist';
-import { GAME_CONSTANTS } from '../src/engine/constants';
+import { GAME_CONSTANTS, getDefenseBuildDurationMs, getShipBuildDurationMs } from '../src/engine/constants';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -1320,4 +1320,235 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const dirMine3 = view3.myDirectives?.find((d) => d.id === 'upgrade_mine');
     expect(dirMine3?.isClaimed).toBe(true);
   });
+
+  it('applies deep planetary specialization synergies: tech_haven research and military_bastion build times', () => {
+    const engine = new GameEngine(1234);
+    const { player, homeworld } = engine.addPlayer('Valerius');
+
+    // Build lab and shipyard
+    homeworld.buildings.research_lab = 2;
+    homeworld.buildings.shipyard = 2;
+    homeworld.resources.ore = 10000;
+    homeworld.resources.crystal = 10000;
+    homeworld.resources.fuel = 10000;
+
+    // Normal baseline research duration
+    const resNormal = engine.dispatchCommand(player.id, {
+      type: 'START_RESEARCH',
+      researchType: 'weapons',
+    });
+    expect(resNormal.success).toBe(true);
+    const normalDuration = (resNormal.data as { durationMs: number }).durationMs;
+
+    // Fast-forward to finish research
+    engine.tick(normalDuration + 1000);
+    expect(player.research.weapons).toBe(1);
+    expect(player.researchQueue).toBeNull();
+
+    // Now set homeworld specialization to tech_haven
+    engine.dispatchCommand(player.id, {
+      type: 'SET_PLANET_SPECIALIZATION',
+      planetId: homeworld.id,
+      specialization: 'tech_haven',
+    });
+
+    // Start research again - should be ~20% faster
+    const resTechHaven = engine.dispatchCommand(player.id, {
+      type: 'START_RESEARCH',
+      researchType: 'sensors',
+    });
+    expect(resTechHaven.success).toBe(true);
+    const techHavenDuration = (resTechHaven.data as { durationMs: number }).durationMs;
+
+    // Fast forward to finish
+    engine.tick(techHavenDuration + 1000);
+
+    // Test military bastion: set specialization
+    engine.dispatchCommand(player.id, {
+      type: 'SET_PLANET_SPECIALIZATION',
+      planetId: homeworld.id,
+      specialization: 'military_bastion',
+    });
+
+    // Build defenses: unitBuildTimeMs should be reduced by 20%
+    const defRes = engine.dispatchCommand(player.id, {
+      type: 'BUILD_DEFENSES',
+      planetId: homeworld.id,
+      defenseType: 'missile_battery',
+      count: 1,
+    });
+    expect(defRes.success).toBe(true);
+    const expectedDefDuration = Math.round(
+      getDefenseBuildDurationMs('missile_battery', homeworld.buildings.shipyard) * 0.8
+    );
+    expect(homeworld.defenseQueue![0].unitBuildTimeMs).toBe(expectedDefDuration);
+
+    // Build ships: unitBuildTimeMs should be reduced by 15%
+    const shipRes = engine.dispatchCommand(player.id, {
+      type: 'BUILD_SHIPS',
+      planetId: homeworld.id,
+      shipType: 'fighter',
+      count: 1,
+    });
+    expect(shipRes.success).toBe(true);
+    const expectedShipDuration = Math.round(
+      getShipBuildDurationMs('fighter', homeworld.buildings.shipyard) * 0.85
+    );
+    expect(homeworld.shipyardQueue[0].unitBuildTimeMs).toBe(expectedShipDuration);
+  });
+
+  it('handles fleet combat doctrines (spearhead, fortress, hit_and_run) and live doctrine switching', () => {
+    const engine = new GameEngine(777);
+    const { player, homeworld } = engine.addPlayer('Admiral Fleet');
+
+    // Give ships and fuel
+    homeworld.garrison.fighter = 10;
+    homeworld.resources.fuel = 5000;
+
+    // Find another system
+    const otherSys = Object.values(engine.state.map.systems).find(
+      (s) => s.id !== homeworld.systemId && !s.hasRelay
+    )!;
+
+    // Dispatch fleet with spearhead doctrine (+10% speed)
+    const dispatchRes = engine.dispatchCommand(player.id, {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: homeworld.id,
+      targetSystemId: otherSys.id,
+      ships: { fighter: 5 },
+      mission: 'recon',
+      doctrine: 'spearhead',
+    });
+    expect(dispatchRes.success).toBe(true);
+
+    const fleetId = (dispatchRes.data as { fleetId: string }).fleetId;
+    const fleet = engine.state.fleets[fleetId];
+    expect(fleet).toBeDefined();
+    expect(fleet.doctrine).toBe('spearhead');
+
+    // Switch doctrine live using SET_FLEET_DOCTRINE
+    const switchRes = engine.dispatchCommand(player.id, {
+      type: 'SET_FLEET_DOCTRINE',
+      fleetId,
+      doctrine: 'fortress',
+    });
+    expect(switchRes.success).toBe(true);
+    expect(fleet.doctrine).toBe('fortress');
+
+    // Fog of war view should display doctrine for own fleet
+    const view = engine.getPlayerView(player.id);
+    const viewFleet = view.myFleets.find((f) => f.id === fleetId);
+    expect(viewFleet?.doctrine).toBe('fortress');
+  });
+
+  it('dispatches one-click quick supply convoys from colony to homeworld via DISPATCH_SUPPLY_CONVOY', () => {
+    const engine = new GameEngine(999);
+    const { player, homeworld } = engine.addPlayer('Tycoon');
+
+    // Create a colony for the player
+    const emptySys = Object.values(engine.state.map.systems).find(
+      (s) => s.id !== homeworld.systemId && !s.hasRelay && s.slots.some((sl) => sl.ownerId === null)
+    )!;
+    const slot = emptySys.slots.find((sl) => sl.ownerId === null)!;
+    const colonyId = `planet_colony_${player.id}`;
+    const colony = {
+      ...homeworld,
+      id: colonyId,
+      name: 'Yeni Maden Dünyası',
+      systemId: emptySys.id,
+      slotIndex: slot.slotIndex,
+      ownerId: player.id,
+      isHomeworld: false,
+      resources: { ore: 2500, crystal: 1800, fuel: 1200 },
+      garrison: { scout: 0, transport: 2, fighter: 0, battleship: 0 },
+      shipyardQueue: [],
+      defenseQueue: [],
+    };
+    slot.ownerId = player.id;
+    slot.planetId = colonyId;
+    engine.state.planets[colonyId] = colony;
+
+    // Dispatch supply convoy from colony
+    const convoyRes = engine.dispatchCommand(player.id, {
+      type: 'DISPATCH_SUPPLY_CONVOY',
+      colonyPlanetId: colonyId,
+    });
+    expect(convoyRes.success).toBe(true);
+
+    const data = convoyRes.data as { fleetId: string; transports: number; cargo: Resources };
+    expect(data.transports).toBeGreaterThan(0);
+    // Surplus ore (2500 - 300 = 2200) should be loaded into cargo
+    expect(data.cargo.ore).toBe(2200);
+    // Surplus crystal (1800 - 200 = 1600) should be loaded into cargo
+    expect(data.cargo.crystal).toBe(1600);
+
+    const convoyFleet = engine.state.fleets[data.fleetId];
+    expect(convoyFleet).toBeDefined();
+    expect(convoyFleet.targetPlanetId).toBe(homeworld.id);
+    expect(convoyFleet.mission).toBe('transport');
+
+    // Transports deducted from colony garrison
+    expect(colony.garrison.transport).toBe(2 - data.transports);
+  });
+
+  it('verifies combat modifiers for spearhead and fortress doctrines as well as military_bastion in resolveCombat', () => {
+    // 1. Spearhead vs Balanced
+    const resSpearhead = resolveCombat(
+      {
+        ownerId: 'att1',
+        ownerName: 'Attacker Spearhead',
+        ships: { fighter: 10, scout: 0, transport: 0, battleship: 0 },
+        weaponsResearchLevel: 0,
+        doctrine: 'spearhead',
+      },
+      {
+        ownerId: 'def1',
+        ownerName: 'Defender Balanced',
+        ships: { fighter: 10, scout: 0, transport: 0, battleship: 0 },
+        weaponsResearchLevel: 0,
+        doctrine: 'balanced',
+      },
+      'sys_1',
+      'Alpha',
+      'fleet_interception',
+      undefined,
+      0,
+      1000,
+      42
+    );
+
+    // Spearhead deals +15% damage, should inflict heavier casualties on round 1
+    expect(resSpearhead.report.rounds.length).toBeGreaterThan(0);
+    expect(resSpearhead.report.attackerDoctrine).toBe('spearhead');
+    expect(resSpearhead.report.defenderDoctrine).toBe('balanced');
+
+    // 2. Military Bastion defense platform bonus in planet raid
+    const resBastion = resolveCombat(
+      {
+        ownerId: 'att2',
+        ownerName: 'Attacker',
+        ships: { fighter: 5, scout: 0, transport: 0, battleship: 0 },
+        weaponsResearchLevel: 0,
+        doctrine: 'balanced',
+      },
+      {
+        ownerId: 'def2',
+        ownerName: 'Bastion Defender',
+        ships: { fighter: 2, scout: 0, transport: 0, battleship: 0 },
+        weaponsResearchLevel: 0,
+        defenses: { missile_battery: 4, plasma_turret: 0, ion_cannon: 0 },
+        planetSpecialization: 'military_bastion',
+      },
+      'sys_2',
+      'Beta',
+      'planet_raid',
+      { ore: 1000, crystal: 1000, fuel: 1000 },
+      1200,
+      1000,
+      42
+    );
+
+    expect(resBastion.report.winner).toBe('defender');
+  });
 });
+

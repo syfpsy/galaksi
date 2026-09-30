@@ -1,6 +1,6 @@
 import { DEFENSE_STATS, GAME_CONSTANTS, SHIP_STATS } from './constants';
 import { PRNG } from './prng';
-import { BattleReport, CombatRound, DefenseStructureType, PlanetStance, Resources, ShipType } from './types';
+import { BattleReport, CombatRound, DefenseStructureType, FleetDoctrine, PlanetSpecialization, PlanetStance, Resources, ShipType } from './types';
 import { Admiral, ADMIRAL_TRAITS } from './admirals';
 
 export interface CombatFleetInput {
@@ -11,6 +11,8 @@ export interface CombatFleetInput {
   stance?: PlanetStance;
   admiral?: Admiral;
   defenses?: Record<DefenseStructureType, number>;
+  doctrine?: FleetDoctrine;
+  planetSpecialization?: PlanetSpecialization;
 }
 
 export interface CombatResult {
@@ -142,6 +144,10 @@ export function resolveCombat(
     const attRating = getFleetCombatRating(currentAttacker, attacker.weaponsResearchLevel);
     const defRating = getFleetCombatRating(currentDefender, defender.weaponsResearchLevel);
     const currentDefenseRating = getDefenseCombatRating(currentDefenses, defender.weaponsResearchLevel);
+    const isMilitaryBastion = context === 'planet_raid' && defender.planetSpecialization === 'military_bastion';
+    if (isMilitaryBastion) {
+      currentDefenseRating.totalAttack = Math.round(currentDefenseRating.totalAttack * 1.25);
+    }
 
     // Admiral bonuses
     const attAdmiralMult = attacker.admiral ? 1 + (attacker.admiral.level - 1) * 0.05 : 1.0;
@@ -184,12 +190,35 @@ export function resolveCombat(
       defDmg = Math.round(defDmg * 0.85);
     }
 
+    // Fleet Doctrine combat adjustments
+    // 1. Attacker Doctrine
+    if (attacker.doctrine === 'spearhead') {
+      attDmg = Math.round(attDmg * 1.15); // +15% offensive firepower
+      defDmg = Math.round(defDmg * 1.10); // +10% damage taken
+    } else if (attacker.doctrine === 'fortress') {
+      attDmg = Math.round(attDmg * 0.90); // -10% offensive firepower
+      defDmg = Math.round(defDmg * 0.80); // 20% shield/hull damage absorption
+    } else if (attacker.doctrine === 'hit_and_run' && prng.next() < 0.20) {
+      defDmg = Math.round(defDmg * 0.50); // 20% evasion chance to dodge half damage
+    }
+
+    // 2. Defender Doctrine
+    if (defender.doctrine === 'spearhead') {
+      defDmg = Math.round(defDmg * 1.15); // +15% offensive firepower
+      attDmg = Math.round(attDmg * 1.10); // +10% damage taken
+    } else if (defender.doctrine === 'fortress') {
+      defDmg = Math.round(defDmg * 0.90); // -10% offensive firepower
+      attDmg = Math.round(attDmg * 0.80); // 20% shield/hull damage absorption
+    } else if (defender.doctrine === 'hit_and_run' && prng.next() < 0.20) {
+      attDmg = Math.round(attDmg * 0.50); // 20% evasion chance to dodge half damage
+    }
+
     // Apply losses to defender (ships and orbital defenses)
     let defLosses: { losses: Record<ShipType, number> };
     let defDefenseLosses: Record<DefenseStructureType, number> | undefined;
 
     if (hasInitialDefenses) {
-      const defRes = applyDamageToDefender(currentDefender, currentDefenses, attDmg, prng);
+      const defRes = applyDamageToDefender(currentDefender, currentDefenses, attDmg, prng, isMilitaryBastion);
       defLosses = { losses: defRes.shipLosses };
       defDefenseLosses = defRes.defenseLosses;
     } else {
@@ -311,6 +340,8 @@ export function resolveCombat(
     debrisFieldCreated,
     attackerAdmiralName: attacker.admiral?.name,
     defenderAdmiralName: defender.admiral?.name,
+    attackerDoctrine: attacker.doctrine,
+    defenderDoctrine: defender.doctrine,
   };
 
   const attackerAdmiralXP = attacker.admiral
@@ -345,7 +376,8 @@ export function resolveCombat(
 function applyDamageToDefenses(
   defenses: Record<DefenseStructureType, number>,
   incomingDamage: number,
-  prng: PRNG
+  prng: PRNG,
+  isMilitaryBastion: boolean = false
 ): { losses: Record<DefenseStructureType, number> } {
   const losses: Record<DefenseStructureType, number> = { missile_battery: 0, plasma_turret: 0, ion_cannon: 0 };
   let remainingDmg = incomingDamage;
@@ -357,7 +389,7 @@ function applyDamageToDefenses(
     if (count <= 0) continue;
 
     const stats = DEFENSE_STATS[dt];
-    const unitHp = stats.hull + stats.shield;
+    const unitHp = Math.round((stats.hull + stats.shield) * (isMilitaryBastion ? 1.25 : 1.0));
 
     const unitsDestroyed = Math.min(count, Math.floor(remainingDmg / unitHp));
     if (unitsDestroyed > 0) {
@@ -385,7 +417,8 @@ function applyDamageToDefender(
   fleet: Record<ShipType, number>,
   defenses: Record<DefenseStructureType, number>,
   incomingDamage: number,
-  prng: PRNG
+  prng: PRNG,
+  isMilitaryBastion: boolean = false
 ): {
   shipLosses: Record<ShipType, number>;
   defenseLosses: Record<DefenseStructureType, number>;
@@ -409,18 +442,19 @@ function applyDamageToDefender(
   }
 
   if (shipCount === 0) {
-    const defenseLosses = applyDamageToDefenses(defenses, incomingDamage, prng).losses;
+    const defenseLosses = applyDamageToDefenses(defenses, incomingDamage, prng, isMilitaryBastion).losses;
     return {
       shipLosses: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
       defenseLosses,
     };
   }
 
-  // Defenses absorb 40% of incoming damage, protecting the fleet; fleet takes 60%
-  const defDmg = Math.round(incomingDamage * 0.40);
+  // Defenses absorb 40% (or 60% if military_bastion) of incoming damage, protecting the fleet
+  const defenseRatio = isMilitaryBastion ? 0.60 : 0.40;
+  const defDmg = Math.round(incomingDamage * defenseRatio);
   const shipDmg = incomingDamage - defDmg;
 
-  const defenseLosses = applyDamageToDefenses(defenses, defDmg, prng).losses;
+  const defenseLosses = applyDamageToDefenses(defenses, defDmg, prng, isMilitaryBastion).losses;
   const shipLosses = applyDamageToFleet(fleet, shipDmg, prng).losses;
 
   return { shipLosses, defenseLosses };

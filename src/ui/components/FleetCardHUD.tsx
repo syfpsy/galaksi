@@ -20,7 +20,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
-import { Fleet, GameState, ShipType } from '../../engine/types';
+import { Fleet, FleetDoctrine, GameState, ShipType } from '../../engine/types';
 import { GAME_CONSTANTS, SHIP_STATS } from '../../engine/constants';
 import { formatClockTime, formatDuration } from '../timeUtils';
 import { sound } from '../sound';
@@ -34,6 +34,7 @@ interface FleetCardHUDProps {
   onRecallFleet: (fleetId: string) => void;
   onOpenCommandPanel: () => void;
   onFocusFleetPosition?: () => void;
+  onSetDoctrine?: (fleetId: string, doctrine: FleetDoctrine) => void;
 }
 
 const FleetCardHUDComponent: React.FC<FleetCardHUDProps> = ({
@@ -45,6 +46,7 @@ const FleetCardHUDComponent: React.FC<FleetCardHUDProps> = ({
   onRecallFleet,
   onOpenCommandPanel,
   onFocusFleetPosition,
+  onSetDoctrine,
 }) => {
   const fleet = state.fleets[fleetId];
 
@@ -436,6 +438,48 @@ const FleetCardHUDComponent: React.FC<FleetCardHUDProps> = ({
                 </div>
               </div>
             )}
+
+            {/* Fleet Combat Doctrine Row */}
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between text-[11px]">
+              <div className="flex items-center gap-1.5 text-cyan-300 font-bold shrink-0">
+                <Swords className="w-3.5 h-3.5 text-cyan-400" />
+                <span>Doktrin:</span>
+              </div>
+              {fleet.ownerId === activePlayerId && onSetDoctrine ? (
+                <div className="flex items-center gap-1 shrink-0">
+                  {(['balanced', 'spearhead', 'fortress', 'hit_and_run'] as FleetDoctrine[]).map((doc) => {
+                    const isActive = (fleet.doctrine || 'balanced') === doc;
+                    const docDetails: Record<FleetDoctrine, { label: string; tip: string }> = {
+                      balanced: { label: 'Dengeli', tip: 'Standart muharebe dengesi' },
+                      spearhead: { label: 'Yıldırım', tip: '+%15 Ateş Gücü, +%10 Hız, +%10 Hasar Alma' },
+                      fortress: { label: 'Hisar', tip: '-%10 Ateş Gücü, -%10 Hız, -%20 Hasar Alma' },
+                      hit_and_run: { label: 'Vur-Kaç', tip: '%20 İhtimalle Yarım Hasar Sıyrılma' },
+                    };
+                    return (
+                      <button
+                        key={doc}
+                        onClick={() => {
+                          sound.playClick();
+                          onSetDoctrine(fleet.id, doc);
+                        }}
+                        title={docDetails[doc].tip}
+                        className={`px-1.5 py-0.5 rounded text-[9.5px] font-mono cursor-pointer transition-colors border ${
+                          isActive
+                            ? 'bg-cyan-500/25 border-cyan-400 text-cyan-200 font-bold shadow-[0_0_6px_rgba(6,182,212,0.3)]'
+                            : 'bg-slate-900/60 border-slate-700/50 text-slate-400 hover:text-white hover:border-slate-500'
+                        }`}
+                      >
+                        {docDetails[doc].label}
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : (
+                <span className="text-slate-300 font-mono text-[10px] uppercase font-bold">
+                  {fleet.doctrine || 'balanced'}
+                </span>
+              )}
+            </div>
 
             {/* Cargo Payload Row (if any) */}
             {hasCargo && (

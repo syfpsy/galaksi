@@ -128,6 +128,7 @@ export interface PlanetSlot {
 }
 
 export type PlanetSpecialization = 'balanced' | 'mining_hub' | 'tech_haven' | 'military_bastion';
+export type FleetDoctrine = 'balanced' | 'spearhead' | 'fortress' | 'hit_and_run';
 
 export interface Planet {
   id: string;
@@ -220,6 +221,7 @@ export interface Fleet {
   isReturning: boolean;
   status: 'orbiting' | 'in_transit' | 'intercepting' | 'returning' | 'destroyed';
   admiralId?: string;
+  doctrine?: FleetDoctrine;
 }
 
 export interface RelayContest {
@@ -265,6 +267,8 @@ export interface BattleReport {
   debrisFieldCreated: Resources;
   attackerAdmiralName?: string;
   defenderAdmiralName?: string;
+  attackerDoctrine?: FleetDoctrine;
+  defenderDoctrine?: FleetDoctrine;
   bountyEarned?: {
     resources: Resources;
     xp: number;
@@ -578,6 +582,7 @@ export type GameCommand =
       cargo?: Partial<Resources>;
       mission: MissionType;
       admiralId?: string;
+      doctrine?: FleetDoctrine;
     }
   | { type: 'RECALL_FLEET'; fleetId: string }
   | { type: 'SET_PLANET_STANCE'; planetId: string; stance: PlanetStance }
@@ -647,6 +652,16 @@ export type GameCommand =
   | {
       type: 'CLAIM_DIRECTIVE_REWARD';
       directiveId: EmpireDirectiveId;
+      targetPlanetId?: string;
+    }
+  | {
+      type: 'SET_FLEET_DOCTRINE';
+      fleetId: string;
+      doctrine: FleetDoctrine;
+    }
+  | {
+      type: 'DISPATCH_SUPPLY_CONVOY';
+      colonyPlanetId: string;
       targetPlanetId?: string;
     };
 

@@ -26,6 +26,7 @@ import {
   EspionageOpType,
   EspionageReport,
   Fleet,
+  FleetDoctrine,
   GameCommand,
   GameEventRecord,
   GameState,
@@ -790,6 +791,7 @@ export class GameEngine {
               ships: fleet.ships,
               weaponsResearchLevel: attackerWeapons,
               admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
+              doctrine: fleet.doctrine || 'balanced',
             },
             {
               ownerId: targetPlanet.ownerId,
@@ -798,6 +800,7 @@ export class GameEngine {
               weaponsResearchLevel: defenderWeapons,
               stance: targetPlanet.stance,
               defenses: targetPlanet.defenses,
+              planetSpecialization: targetPlanet.specialization,
             },
             targetSystem.id,
             targetSystem.name,
@@ -867,6 +870,7 @@ export class GameEngine {
               ships: fleet.ships,
               weaponsResearchLevel: player?.research.weapons || 0,
               admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
+              doctrine: fleet.doctrine || 'balanced',
             },
             {
               ownerId: 'ancient_titan',
@@ -875,6 +879,7 @@ export class GameEngine {
               weaponsResearchLevel: 3,
               stance: 'hold_position',
               defenses: titanDefenses,
+              doctrine: 'fortress',
             },
             targetSystem.id,
             targetSystem.name,
@@ -968,6 +973,7 @@ export class GameEngine {
               ships: fleet.ships,
               weaponsResearchLevel: player?.research.weapons || 0,
               admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
+              doctrine: fleet.doctrine || 'balanced',
             },
             {
               ownerId: 'pirates',
@@ -975,6 +981,7 @@ export class GameEngine {
               ships: pirateGarrison,
               weaponsResearchLevel: pirateWeapons,
               defenses: pirateDefenses,
+              doctrine: 'hit_and_run',
             },
             targetSystem.id,
             targetSystem.name,
@@ -1065,6 +1072,7 @@ export class GameEngine {
             ships: fleet.ships,
             weaponsResearchLevel: player?.research.weapons || 0,
             admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
+            doctrine: fleet.doctrine || 'balanced',
           },
           {
             ownerId: targetFleet.ownerId,
@@ -1072,6 +1080,7 @@ export class GameEngine {
             ships: targetFleet.ships,
             weaponsResearchLevel: defenderPlayer?.research.weapons || 0,
             admiral: targetFleet.admiralId && this.state.admirals ? this.state.admirals[targetFleet.admiralId] : undefined,
+            doctrine: targetFleet.doctrine || 'balanced',
           },
           targetSystem.id,
           targetSystem.name,
@@ -1141,12 +1150,14 @@ export class GameEngine {
                 ships: fleet.ships,
                 weaponsResearchLevel: player?.research.weapons || 0,
                 admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
+                doctrine: fleet.doctrine || 'balanced',
               },
               {
                 ownerId: this.state.relay.controllingPlayerId || 'neutral',
                 ownerName: currentController,
                 ships: this.state.relay.garrison,
                 weaponsResearchLevel: 1,
+                doctrine: 'fortress',
               },
               targetSystem.id,
               targetSystem.name,
@@ -1563,7 +1574,13 @@ export class GameEngine {
         hw.resources.crystal -= cost.crystal;
         hw.resources.fuel -= cost.fuel;
 
-        const durationMs = getResearchDurationMs(cmd.researchType, currentLvl, maxLab);
+        const hasTechHaven = Object.values(this.state.planets).some(
+          p => p.ownerId === playerId && p.specialization === 'tech_haven'
+        );
+        let durationMs = getResearchDurationMs(cmd.researchType, currentLvl, maxLab);
+        if (hasTechHaven) {
+          durationMs = Math.max(1000, Math.round(durationMs * 0.8)); // -20% research duration
+        }
         const finishTime = this.state.timeMs + durationMs;
 
         player.researchQueue = {
@@ -1619,7 +1636,11 @@ export class GameEngine {
         planet.resources.crystal -= totalCrystal;
         planet.resources.fuel -= totalFuel;
 
-        const unitBuildTimeMs = getShipBuildDurationMs(cmd.shipType, planet.buildings.shipyard);
+        const isBastion = planet.specialization === 'military_bastion';
+        let unitBuildTimeMs = getShipBuildDurationMs(cmd.shipType, planet.buildings.shipyard);
+        if (isBastion) {
+          unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs * 0.85)); // -15% ship build duration
+        }
         const nextFinish = (planet.shipyardQueue.length === 0)
           ? this.state.timeMs + unitBuildTimeMs
           : planet.shipyardQueue[planet.shipyardQueue.length - 1].nextUnitFinishTime + unitBuildTimeMs;
@@ -1686,7 +1707,11 @@ export class GameEngine {
           planet.defenseQueue = [];
         }
 
-        const unitBuildTimeMs = getDefenseBuildDurationMs(cmd.defenseType, planet.buildings.shipyard);
+        const isBastion = planet.specialization === 'military_bastion';
+        let unitBuildTimeMs = getDefenseBuildDurationMs(cmd.defenseType, planet.buildings.shipyard);
+        if (isBastion) {
+          unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs * 0.80)); // -20% defense build duration
+        }
         const nextFinish = (planet.defenseQueue.length === 0)
           ? this.state.timeMs + unitBuildTimeMs
           : planet.defenseQueue[planet.defenseQueue.length - 1].nextUnitFinishTime + unitBuildTimeMs;
@@ -1872,6 +1897,15 @@ export class GameEngine {
           effectiveFuelCost = Math.round(effectiveFuelCost * crisisMod.fuelCostMultiplier);
         }
 
+        const fleetDoctrine: FleetDoctrine = cmd.doctrine || 'balanced';
+        if (fleetDoctrine === 'spearhead') {
+          effectiveSpeed = Math.round(effectiveSpeed * 1.10);
+          effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / 1.10));
+        } else if (fleetDoctrine === 'fortress') {
+          effectiveSpeed = Math.max(1, Math.round(effectiveSpeed * 0.90));
+          effectiveDurationMs = Math.round(effectiveDurationMs / 0.90);
+        }
+
         // Cargo validation
         const cargo: Resources = {
           ore: cmd.cargo?.ore || 0,
@@ -1976,6 +2010,7 @@ export class GameEngine {
           isReturning: false,
           status: 'in_transit',
           admiralId: assignedAdmiralId,
+          doctrine: fleetDoctrine,
         };
 
         this.state.fleets[fleetId] = newFleet;
@@ -2827,6 +2862,224 @@ export class GameEngine {
           commandType: cmd.type,
           timeMs: this.state.timeMs,
           data: { directiveId: cmd.directiveId, reward: directive.reward },
+        };
+      }
+
+      case 'SET_FLEET_DOCTRINE': {
+        const fleet = this.state.fleets[cmd.fleetId];
+        if (!fleet || fleet.ownerId !== playerId) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Filo bulunamadı veya size ait değil.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        fleet.doctrine = cmd.doctrine;
+        const doctrineLabels: Record<string, string> = {
+          balanced: 'Dengeli Doktrin',
+          spearhead: 'Yıldırım Taarruzu (+%15 Ateş Gücü, +%10 Hız, +%10 Hasar Alma)',
+          fortress: 'Ağır Hisar (-%10 Ateş Gücü, -%10 Hız, -%20 Hasar Alma)',
+          hit_and_run: 'Vur-Kaç (%20 İhtimalle Yarım Hasar Sıyrılma)',
+        };
+
+        this.logEvent(
+          'fleet_doctrine_set',
+          `${fleet.name} muharebe doktrini '${doctrineLabels[cmd.doctrine] || cmd.doctrine}' olarak güncellendi.`,
+          playerId,
+          { fleetId: fleet.id, doctrine: cmd.doctrine }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { fleetId: fleet.id, doctrine: cmd.doctrine },
+        };
+      }
+
+      case 'DISPATCH_SUPPLY_CONVOY': {
+        const colony = this.state.planets[cmd.colonyPlanetId];
+        if (!colony || colony.ownerId !== playerId) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Koloni bulunamadı veya size ait değil.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // Determine destination: homeworld or explicit target
+        const targetPlanet = cmd.targetPlanetId
+          ? this.state.planets[cmd.targetPlanetId]
+          : Object.values(this.state.planets).find((p) => p.ownerId === playerId && p.isHomeworld);
+
+        if (!targetPlanet || targetPlanet.ownerId !== playerId) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'İkmal hedefi geçerli bir ana üs veya koloni değil.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        if (targetPlanet.id === colony.id) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Hedef koloni ile kalkış üssü aynı olamaz.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // Check available transports in colony garrison
+        const availableTransports = colony.garrison.transport || 0;
+        if (availableTransports <= 0) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Kolonide sevk edilecek Ağır Nakliye gemisi bulunmuyor.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // Reserve safe buffer for colony operation (300 ore, 200 crystal, 100 fuel)
+        const reserveBuffer: Resources = { ore: 300, crystal: 200, fuel: 100 };
+        const surplusOre = Math.max(0, colony.resources.ore - reserveBuffer.ore);
+        const surplusCrystal = Math.max(0, colony.resources.crystal - reserveBuffer.crystal);
+        const rawSurplusFuel = Math.max(0, colony.resources.fuel - reserveBuffer.fuel);
+
+        if (surplusOre <= 0 && surplusCrystal <= 0 && rawSurplusFuel <= 0) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Kolonide asgari güvenlik rezervi üzerinde aktarılacak ihtiyaç fazlası kaynak yok.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // Estimate route fuel consumption
+        const engineLevel = player.research.engines || 0;
+        const testRoute = calculateRouteInfo(
+          colony.systemId,
+          targetPlanet.systemId,
+          { scout: 0, transport: 1, fighter: 0, battleship: 0 },
+          this.state.map.lanes,
+          engineLevel
+        );
+
+        if (!testRoute) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Hedef ana üsse seyrüsefer rotası bulunamadı.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        const transportCap = SHIP_STATS.transport.cargoCapacity;
+        const totalSurplusToShip = surplusOre + surplusCrystal + rawSurplusFuel;
+        const neededTransports = Math.max(1, Math.min(availableTransports, Math.ceil(totalSurplusToShip / transportCap)));
+
+        const actualRoute = calculateRouteInfo(
+          colony.systemId,
+          targetPlanet.systemId,
+          { scout: 0, transport: neededTransports, fighter: 0, battleship: 0 },
+          this.state.map.lanes,
+          engineLevel
+        );
+
+        if (!actualRoute) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Rota hesaplanamadı.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        if (colony.resources.fuel < actualRoute.fuelCost) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `İkmal konvoyu yakıtı yetersiz (Gerekli rota yakıtı: ${actualRoute.fuelCost} Yakıt).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // Available cargo capacity
+        const totalCapacity = neededTransports * transportCap;
+        let remainingCap = totalCapacity;
+
+        // Allocate ore
+        const cargoOre = Math.min(surplusOre, remainingCap);
+        remainingCap -= cargoOre;
+
+        // Allocate crystal
+        const cargoCrystal = Math.min(surplusCrystal, remainingCap);
+        remainingCap -= cargoCrystal;
+
+        // Allocate surplus fuel (after reserving flight fuel cost)
+        const netFuelAvailableForCargo = Math.max(0, colony.resources.fuel - actualRoute.fuelCost - reserveBuffer.fuel);
+        const cargoFuel = Math.min(netFuelAvailableForCargo, remainingCap);
+
+        // Deduct from colony
+        colony.garrison.transport -= neededTransports;
+        colony.resources.fuel -= actualRoute.fuelCost;
+        colony.resources.ore -= cargoOre;
+        colony.resources.crystal -= cargoCrystal;
+        colony.resources.fuel -= cargoFuel;
+
+        const fleetId = `fleet_${this.state.nextId++}`;
+        const departureTime = this.state.timeMs;
+        const arrivalTime = departureTime + actualRoute.durationMs;
+        const recallLockedAfterTime = departureTime + actualRoute.durationMs * GAME_CONSTANTS.RECALL_LOCK_RATIO;
+
+        const newFleet: Fleet = {
+          id: fleetId,
+          name: `${colony.name} İkmal Konvoyu #${fleetId.slice(-3)}`,
+          ownerId: playerId,
+          ships: { scout: 0, transport: neededTransports, fighter: 0, battleship: 0 },
+          cargo: { ore: cargoOre, crystal: cargoCrystal, fuel: cargoFuel },
+          originSystemId: colony.systemId,
+          targetSystemId: targetPlanet.systemId,
+          path: actualRoute.path,
+          pathIndex: 0,
+          mission: 'transport',
+          targetPlanetId: targetPlanet.id,
+          departureTime,
+          arrivalTime,
+          totalDistance: actualRoute.totalDistance,
+          speed: actualRoute.speed,
+          fuelCost: actualRoute.fuelCost,
+          recallLockedAfterTime,
+          isReturning: false,
+          status: 'in_transit',
+          doctrine: 'balanced',
+        };
+
+        this.state.fleets[fleetId] = newFleet;
+        this.scheduleEvent(actualRoute.durationMs, 'fleet_arrival', { fleetId });
+
+        this.logEvent(
+          'fleet_dispatched',
+          `📦 İKMAL SEVKİYATI: ${newFleet.name} (${neededTransports}x Nakliye) ${colony.name} -> ${targetPlanet.name} rotasına çıktı. Yük: ${cargoOre}C / ${cargoCrystal}K / ${cargoFuel}Y.`,
+          playerId,
+          { fleetId, cargo: newFleet.cargo, targetPlanetId: targetPlanet.id }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: {
+            fleetId,
+            transports: neededTransports,
+            cargo: newFleet.cargo,
+            arrivalTime,
+            durationMs: actualRoute.durationMs,
+          },
         };
       }
     }

@@ -42,6 +42,7 @@ interface PlanetPanelProps {
   onOpenResearch?: () => void;
   onOpenMarket?: () => void;
   onOpenEspionage?: (targetPlanetId?: string) => void;
+  onDispatchSupplyConvoy?: (colonyPlanetId: string) => void;
   onClose?: () => void;
 }
 
@@ -58,6 +59,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
   onOpenResearch,
   onOpenMarket,
   onOpenEspionage,
+  onDispatchSupplyConvoy,
   onClose,
 }) => {
   const currentPlanet = planets.find((p) => p.id === activePlanetId) || planets[0];
@@ -360,6 +362,33 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
               );
             })}
           </div>
+
+          {/* Logistics Supply Convoy (Colonies only) */}
+          {!currentPlanet.isHomeworld && onDispatchSupplyConvoy && (
+            <div className="pt-2">
+              <button
+                onClick={() => {
+                  sound.playLaunch();
+                  onDispatchSupplyConvoy(currentPlanet.id);
+                }}
+                disabled={(currentPlanet.garrison.transport || 0) <= 0}
+                className={`w-full py-1.5 px-2.5 rounded-sm font-mono text-[10.5px] font-bold flex items-center justify-between transition-all border ${
+                  (currentPlanet.garrison.transport || 0) > 0
+                    ? 'bg-amber-950/40 hover:bg-amber-900/50 border-amber-500/50 text-amber-200 cursor-pointer shadow-sm'
+                    : 'bg-slate-900/40 border-slate-800 text-slate-500 cursor-not-allowed opacity-60'
+                }`}
+                title="Kolonideki güvenlik rezervi (300C, 200K, 100Y) üzerindeki fazlalık kaynakları Ağır Nakliye gemileriyle tek tıkla Ana Üsse sevk eder."
+              >
+                <span className="flex items-center gap-1.5">
+                  <span>📦</span>
+                  <span>Ana Üsse İkmal Sevkiyatı</span>
+                </span>
+                <span className="text-[9.5px] text-amber-300">
+                  {currentPlanet.garrison.transport || 0} Nakliye Hazır
+                </span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -540,6 +569,14 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
               </span>
             )}
           </div>
+
+          {currentPlanet.specialization === 'military_bastion' && (
+            <div className="mb-2 text-[9.5px] font-mono bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 px-2 py-1 rounded-sm flex items-center gap-1.5 shadow-sm">
+              <span>🛡️</span>
+              <span><strong>Askeri Hisar:</strong> Taret Ateş Gücü +%25, Garnizon Koruması %60, Dayanıklılık +%25</span>
+            </div>
+          )}
+
           <div className="grid grid-cols-3 gap-1.5">
             <div className="stellaris-item-card rounded-sm p-2 flex flex-col items-center text-center">
               <span className="text-base mb-0.5">🚀</span>

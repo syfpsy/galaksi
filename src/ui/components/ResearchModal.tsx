@@ -13,6 +13,7 @@ interface ResearchModalProps {
   onClose: () => void;
   onStartResearch: (type: ResearchType) => void;
   currentTimeMs: number;
+  hasTechHaven?: boolean;
 }
 
 const ResearchModalComponent: React.FC<ResearchModalProps> = ({
@@ -23,6 +24,7 @@ const ResearchModalComponent: React.FC<ResearchModalProps> = ({
   onClose,
   onStartResearch,
   currentTimeMs,
+  hasTechHaven,
 }) => {
   if (!isOpen || !player || !homeworld) return null;
 
@@ -52,11 +54,18 @@ const ResearchModalComponent: React.FC<ResearchModalProps> = ({
             <h2 className="text-sm font-bold stellaris-gold font-display uppercase tracking-wider">
               İmparatorluk Araştırma Merkezi
             </h2>
-            <span className="text-[11px] text-amber-300 font-mono">
-              {isLabMissing
-                ? '⚠️ Araştırma Merkezi (Seviye 1+) İnşa Edilmelidir'
-                : `Laboratuvar Seviyesi: ${labLevel} (+${labLevel * 15}% Hız)`}
-            </span>
+            <div className="flex items-center gap-2 mt-0.5">
+              <span className="text-[11px] text-amber-300 font-mono">
+                {isLabMissing
+                  ? '⚠️ Araştırma Merkezi (Seviye 1+) İnşa Edilmelidir'
+                  : `Laboratuvar Seviyesi: ${labLevel} (+${labLevel * 15}% Hız)`}
+              </span>
+              {hasTechHaven && (
+                <span className="text-[9.5px] text-cyan-300 bg-cyan-950/70 border border-cyan-500/40 px-1.5 py-0.5 rounded font-mono font-bold">
+                  🔬 Bilim Cenneti (%20 Hızlı)
+                </span>
+              )}
+            </div>
           </div>
         </div>
         <button

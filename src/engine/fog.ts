@@ -6,6 +6,7 @@ import {
   EspionageOp,
   EspionageReport,
   Fleet,
+  FleetDoctrine,
   GameState,
   IntelLevel,
   MarketState,
@@ -33,6 +34,7 @@ export interface MaskedFleet {
   arrivalTime: number;
   isReturning: boolean;
   status: Fleet['status'];
+  doctrine?: FleetDoctrine;
 }
 
 export interface PlayerVisibleState {
@@ -255,6 +257,7 @@ export function filterGameStateForPlayer(
         arrivalTime: fleet.arrivalTime,
         isReturning: fleet.isReturning,
         status: fleet.status,
+        doctrine: fleet.doctrine || 'balanced',
       });
       continue;
     }
@@ -290,6 +293,7 @@ export function filterGameStateForPlayer(
         arrivalTime: fleet.arrivalTime,
         isReturning: fleet.isReturning,
         status: fleet.status,
+        doctrine: hasDeepIntel ? fleet.doctrine : undefined,
       });
     }
   }
