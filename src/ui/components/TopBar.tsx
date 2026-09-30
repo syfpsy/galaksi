@@ -57,6 +57,8 @@ interface TopBarProps {
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
   onReset: () => void;
+  isMuted?: boolean;
+  onToggleMute?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -83,8 +85,15 @@ export const TopBar: React.FC<TopBarProps> = ({
   onOpenOrientation,
   onToggleVacationMode,
   onReset,
+  isMuted: propIsMuted,
+  onToggleMute: propOnToggleMute,
 }) => {
-  const [isAudioMuted, setIsAudioMuted] = useState<boolean>(sound.isMuted);
+  const [internalMuted, setInternalMuted] = useState<boolean>(sound.isMuted);
+  const isAudioMuted = propIsMuted !== undefined ? propIsMuted : internalMuted;
+  const handleToggleMute = propOnToggleMute || (() => {
+    const next = sound.toggleMute();
+    setInternalMuted(next);
+  });
 
   // Active player info
   const activePlayer = state.players[activePlayerId];
@@ -603,10 +612,7 @@ export const TopBar: React.FC<TopBarProps> = ({
 
         {/* Utility Toggles: Sound, God Mode, Guide, Reset */}
         <button
-          onClick={() => {
-            const nextMuted = sound.toggleMute();
-            setIsAudioMuted(nextMuted);
-          }}
+          onClick={handleToggleMute}
           className={`stellaris-btn-metallic p-1.5 rounded-sm border transition-all ${
             !isAudioMuted
               ? 'border-cyan-500/40 text-cyan-400'

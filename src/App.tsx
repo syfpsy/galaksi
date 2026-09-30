@@ -470,6 +470,11 @@ export function App() {
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
         onReset={() => initGame(Date.now())}
+        isMuted={isAudioMuted}
+        onToggleMute={() => {
+          const nextMuted = sound.toggleMute();
+          setIsAudioMuted(nextMuted);
+        }}
       />
 
       {/* Main Game Interface (Stellaris Left Rail, Wide Center Galaxy Map, Stellaris Outliner, Sliding Drawers) */}
