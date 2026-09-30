@@ -293,7 +293,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                           {planet.name}
                         </span>
                         {planet.isHomeworld && (
-                          <span className="text-[8px] px-1 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
+                          <span className="text-[8px] px-1 py-0.5 rounded-sm bg-amber-500/20 text-amber-300 border border-amber-500/40 font-mono">
                             ANA
                           </span>
                         )}

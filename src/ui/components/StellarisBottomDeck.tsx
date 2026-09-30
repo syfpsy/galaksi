@@ -407,7 +407,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                                 sound.playClick();
                                 onRecallFleet(fleet.id);
                               }}
-                              className="px-2 py-0.5 rounded bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-300 font-bold text-[10px] transition-all cursor-pointer"
+                              className="px-2 py-0.5 rounded-sm bg-rose-950/60 hover:bg-rose-900 border border-rose-500/50 text-rose-300 font-bold text-[10px] transition-all cursor-pointer"
                               title="İlk %50 rota dolmadan filoyu üsse geri çağır"
                             >
                               Geri Çağır
@@ -433,7 +433,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                           <span className="font-bold text-slate-100 group-hover:text-amber-300 transition-colors">
                             🚀 {item.nameTr}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold">
                             {item.completed + 1} / {item.count} İmalat
                           </span>
                         </div>
@@ -474,7 +474,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                           <span className="font-bold text-slate-100 group-hover:text-emerald-300 transition-colors">
                             🏗️ {item.nameTr}
                           </span>
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                          <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
                             Seviye {item.targetLevel}
                           </span>
                         </div>
@@ -510,7 +510,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                         <span className="font-bold text-slate-100 group-hover:text-cyan-300 transition-colors">
                           🔬 {activeResearch.nameTr}
                         </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold">
                           Seviye {activeResearch.targetLevel}
                         </span>
                       </div>
@@ -668,7 +668,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
             >
               <Crown className="w-3.5 h-3.5 text-amber-400" />
               <span className="hidden md:inline font-bold">Başkent</span>
-              <kbd className="text-[9px] px-1 py-0.2 rounded bg-amber-950/70 border border-amber-500/40 text-amber-300">H</kbd>
+              <kbd className="text-[9px] px-1 py-0.2 rounded-sm bg-amber-950/70 border border-amber-500/40 text-amber-300">H</kbd>
             </button>
           )}
 
@@ -683,7 +683,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
             >
               <Zap className="w-3.5 h-3.5 text-purple-400" />
               <span className="hidden md:inline font-bold">Nexus</span>
-              <kbd className="text-[9px] px-1 py-0.2 rounded bg-purple-950/70 border border-purple-500/40 text-purple-300">R</kbd>
+              <kbd className="text-[9px] px-1 py-0.2 rounded-sm bg-purple-950/70 border border-purple-500/40 text-purple-300">R</kbd>
             </button>
           )}
 
@@ -698,7 +698,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
             >
               <Globe className="w-3.5 h-3.5 text-emerald-400" />
               <span className="hidden md:inline font-bold">Koloniler</span>
-              <kbd className="text-[9px] px-1 py-0.2 rounded bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">Tab</kbd>
+              <kbd className="text-[9px] px-1 py-0.2 rounded-sm bg-emerald-950/70 border border-emerald-500/40 text-emerald-300">Tab</kbd>
             </button>
           )}
         </div>

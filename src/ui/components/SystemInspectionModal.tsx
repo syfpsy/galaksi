@@ -466,7 +466,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                       </div>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-rose-950/60 border border-rose-500/40 text-rose-300 shrink-0">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-rose-950/60 border border-rose-500/40 text-rose-300 shrink-0">
                     Nakliye ile Toplanabilir
                   </span>
                 </div>

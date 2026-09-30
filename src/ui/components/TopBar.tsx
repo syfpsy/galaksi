@@ -178,7 +178,7 @@ export const TopBar: React.FC<TopBarProps> = ({
             sound.playClick();
             if (onOpenPlanetPanel) onOpenPlanetPanel();
           }}
-          className="w-8 h-8 rounded stellaris-crest flex items-center justify-center cursor-pointer transition-transform hover:scale-105 shrink-0 shadow-lg"
+          className="w-8 h-8 rounded-sm stellaris-crest flex items-center justify-center cursor-pointer transition-transform hover:scale-105 shrink-0 shadow-lg"
           style={{
             borderColor: '#c5a059',
             backgroundColor: `${activePlayer?.color || '#00f3ff'}20`,

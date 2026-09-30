@@ -90,7 +90,7 @@ export const IncomingThreatBanner: React.FC<IncomingThreatBannerProps> = ({
 
   return (
     <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 select-none max-w-3xl w-full px-4 animate-bounce-subtle">
-      <div className="bg-rose-950/95 border border-rose-500/80 rounded p-3 backdrop-blur-md shadow-2xl shadow-rose-950/60 flex items-center justify-between">
+      <div className="bg-rose-950/95 border border-rose-500/80 rounded-sm p-3 backdrop-blur-md shadow-2xl shadow-rose-950/60 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-sm bg-rose-600/30 border border-rose-500 flex items-center justify-center text-rose-400 shrink-0 animate-pulse">
             <ShieldAlert className="w-6 h-6" />
