@@ -26,6 +26,7 @@ import {
   ShieldAlert,
   Sparkles,
   Swords,
+  Trophy,
   Volume2,
   VolumeX,
   Zap,
@@ -57,6 +58,7 @@ interface TopBarProps {
   onOpenBattles?: () => void;
   onOpenRelay?: () => void;
   onOpenAlliance?: () => void;
+  onOpenVictory?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -87,6 +89,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenBattles,
   onOpenRelay,
   onOpenAlliance,
+  onOpenVictory,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -178,6 +181,29 @@ const TopBarComponent: React.FC<TopBarProps> = ({
 
   // Relay weekly score
   const myRelayPoints = state.relay.weeklyPoints?.[activePlayerId] || 0;
+
+  // Galactic Victory Leader & Metrics (Phase 4)
+  const colonizedPlanets = Object.values(state.planets).filter((p) => !!p.ownerId);
+  const totalColonizedCount = colonizedPlanets.length;
+
+  let hegemonyLeader = { id: '', name: 'Yok', points: 0 };
+  let colonyLeader = { id: '', name: 'Yok', count: 0, ratio: 0 };
+
+  for (const p of Object.values(state.players)) {
+    const pts = state.relay?.weeklyPoints?.[p.id] || 0;
+    if (pts > hegemonyLeader.points) {
+      hegemonyLeader = { id: p.id, name: p.name, points: pts };
+    }
+    const myColCount = colonizedPlanets.filter((pl) => pl.ownerId === p.id).length;
+    if (myColCount > colonyLeader.count) {
+      colonyLeader = {
+        id: p.id,
+        name: p.name,
+        count: myColCount,
+        ratio: totalColonizedCount > 0 ? myColCount / totalColonizedCount : 0,
+      };
+    }
+  }
 
   // Format date in classic Stellaris format: YYYY.MM.DD
   const baseYear = 2240;
@@ -656,20 +682,90 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {/* Nexus Relay Points (If any) */}
-        {myRelayPoints > 0 && (
-          <div
+        {/* 8. GALACTIC VICTORY & HEGEMONY STATUS CHIP */}
+        <div className="relative group">
+          <button
             onClick={() => {
               sound.playClick();
-              if (onOpenRelay) onOpenRelay();
+              if (onOpenVictory) onOpenVictory();
+              else if (onOpenRelay) onOpenRelay();
             }}
-            className="hidden 2xl:flex items-center gap-1.5 px-2.5 py-1.5 rounded-sm stellaris-resource-pod text-purple-300 font-mono text-xs cursor-pointer hover:border-purple-400"
-            title="Nexus Röle Haftalık Zafer Puanı"
+            className={`stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+              state.victory
+                ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-md shadow-amber-500/30 animate-pulse'
+                : 'text-amber-300 hover:border-amber-400'
+            }`}
+            title="Galaktik Zafer ve Sezon Liderliği (Tıklayarak Raporu Aç)"
           >
-            <Crown className="w-4 h-4 text-purple-400" />
-            <span className="font-bold text-white text-xs">{myRelayPoints} Puan</span>
+            {state.victory ? (
+              <>
+                <Crown className="w-4 h-4 text-amber-300 animate-bounce" />
+                <span className="font-bold text-amber-200 text-xs">
+                  🏆 ZAFER: {state.victory.winnerName}
+                </span>
+              </>
+            ) : (
+              <>
+                <Trophy className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span className="font-bold text-white text-xs">Zafer:</span>
+                <span className="text-[11px] text-amber-300 font-bold">
+                  {hegemonyLeader.points > 0 ? `${hegemonyLeader.points}/500` : `%${Math.round(colonyLeader.ratio * 100)}/60%`}
+                </span>
+              </>
+            )}
+          </button>
+
+          {/* Victory Tooltip */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
+              <span className="text-xs font-bold text-amber-300 font-display flex items-center gap-1.5">
+                <Trophy className="w-3.5 h-3.5 text-amber-400" />
+                <span>Galaktik Sezon Zafer Koşulları</span>
+              </span>
+              <span className="text-[10px] text-cyan-400 font-mono">
+                {state.victory ? 'Sezon Bitti' : 'Sezon Aktif'}
+              </span>
+            </div>
+
+            <div className="space-y-2 text-xs font-mono">
+              <div className="p-1.5 rounded-sm bg-[#061420] border border-[#163042]">
+                <div className="flex items-center justify-between text-[11px] text-amber-300 font-bold mb-0.5">
+                  <span>1. Nexus Hegemonyası</span>
+                  <span>500 Puan</span>
+                </div>
+                <p className="text-[10px] text-slate-300 leading-snug">
+                  Nexus Rölesini elinde tutarak veya Kadim Titanı mağlup ederek kazanılır.
+                </p>
+                <div className="mt-1 text-[10.5px] text-slate-200 flex justify-between">
+                  <span>Mevcut Lider:</span>
+                  <span className="text-amber-400 font-bold">
+                    {hegemonyLeader.name} ({hegemonyLeader.points} / 500)
+                  </span>
+                </div>
+              </div>
+
+              <div className="p-1.5 rounded-sm bg-[#061420] border border-[#163042]">
+                <div className="flex items-center justify-between text-[11px] text-emerald-300 font-bold mb-0.5">
+                  <span>2. Koloni Dominasyonu</span>
+                  <span>%60 Koloni</span>
+                </div>
+                <p className="text-[10px] text-slate-300 leading-snug">
+                  Sektördeki tüm kolonilerin (min. 6) %60'ını kontrol altına alarak kazanılır.
+                </p>
+                <div className="mt-1 text-[10.5px] text-slate-200 flex justify-between">
+                  <span>Mevcut Lider:</span>
+                  <span className="text-emerald-400 font-bold">
+                    {colonyLeader.name} (%{Math.round(colonyLeader.ratio * 100)} - {colonyLeader.count}/{totalColonizedCount})
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-cyan-400 font-mono text-center">
+              Zafer ve Şöhretler Salonu raporunu açmak için tıklayın
+            </div>
           </div>
-        )}
+        </div>
       </div>
 
       {/* ========================================================================= */}

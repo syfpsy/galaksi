@@ -43,6 +43,7 @@ import { SituationLogModal } from './ui/components/SituationLogModal';
 import { OrientationGuideModal } from './ui/components/OrientationGuideModal';
 import { TradeModal } from './ui/components/TradeModal';
 import { EspionageModal } from './ui/components/EspionageModal';
+import { VictoryModal } from './ui/components/VictoryModal';
 import { TacticalBottomDock } from './ui/components/TacticalBottomDock';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
@@ -123,9 +124,17 @@ export function App() {
   const [anomalyModalSystemId, setAnomalyModalSystemId] = useState<string | null>(null);
   const [espionageTargetPlanetId, setEspionageTargetPlanetId] = useState<string | null>(null);
   const [allianceInitialTab, setAllianceInitialTab] = useState<AllianceTab>('members');
+  const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
   const [isOrientationOpen, setIsOrientationOpen] = useState<boolean>(() => {
     return !localStorage.getItem('galaksi_orientation_seen');
   });
+
+  // Automatically prompt victory modal when victory conditions are achieved
+  useEffect(() => {
+    if (engineState.victory) {
+      setIsVictoryModalOpen(true);
+    }
+  }, [engineState.victory]);
 
   const activePlanetIdRef = useRef(activePlanetId);
   activePlanetIdRef.current = activePlanetId;
@@ -694,6 +703,17 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleResetSeason = () => {
+    if (!engineRef.current) return;
+    const newSeed = Date.now();
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RESET_SEASON',
+      seed: newSeed,
+    });
+    initGame(newSeed);
+    setIsVictoryModalOpen(false);
+  };
+
   const handleMarketTrade = (
     sellResource: ResourceType,
     buyResource: ResourceType,
@@ -802,6 +822,7 @@ export function App() {
         onOpenBattles={() => setActiveLeftPanel((prev) => (prev === 'battles' ? null : 'battles'))}
         onOpenRelay={() => setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'))}
         onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
+        onOpenVictory={() => setIsVictoryModalOpen(true)}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -1235,6 +1256,16 @@ export function App() {
       <OrientationGuideModal
         isOpen={isOrientationOpen}
         onClose={() => setIsOrientationOpen(false)}
+      />
+
+      {/* Galactic Victory & Endgame Season Recap Modal */}
+      <VictoryModal
+        isOpen={isVictoryModalOpen}
+        onClose={() => setIsVictoryModalOpen(false)}
+        victory={engineState.victory}
+        seasonHistory={engineState.seasonHistory}
+        activePlayerId={activePlayerId}
+        onResetSeason={handleResetSeason}
       />
     </div>
   );

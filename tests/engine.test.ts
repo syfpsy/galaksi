@@ -1038,4 +1038,129 @@ describe('GameEngine Headless Rules (Phase A)', () => {
       expect(guardCmds[0].truceDurationMs).toBeGreaterThan(0);
     }
   });
+
+  it('declares Hegemony victory when an empire reaches 500 Hegemony points', () => {
+    const engine = new GameEngine(777);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Solar Ascendancy', '#38bdf8');
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Orion Dominion', '#ef4444');
+
+    expect(engine.state.victory).toBeNull();
+
+    // Accumulate 500 Hegemony points
+    engine.state.relay.weeklyPoints['p1'] = 500;
+    const victory = engine.evaluateVictoryConditions();
+
+    expect(victory).not.toBeNull();
+    expect(victory?.winnerId).toBe('p1');
+    expect(victory?.victoryType).toBe('hegemony');
+    expect(victory?.stats.hegemonyPoints).toBe(500);
+    expect(engine.state.victory).toEqual(victory);
+    expect(engine.state.seasonHistory?.length).toBe(1);
+
+    // Verify offensive fleet dispatch is blocked after galactic victory
+    hw1.garrison.fighter = 10;
+    hw1.resources.fuel = 2000;
+    const attackRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw1.id,
+      targetSystemId: hw2.systemId,
+      targetPlanetId: hw2.id,
+      ships: { scout: 0, transport: 0, fighter: 5, battleship: 0 },
+      mission: 'attack',
+    });
+    expect(attackRes.success).toBe(false);
+    expect(attackRes.error).toContain('Galaktik zafer ilan edildi');
+  });
+
+  it('declares Colony Domination victory when an empire controls >= 60% of at least 6 colonized planets', () => {
+    const engine = new GameEngine(888);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Terran Hegemony', '#10b981');
+    engine.addPlayer('p2', 'Centauri Republic', '#f59e0b');
+
+    // Create 6 colonized planets in total (4 owned by p1, 2 owned by p2 -> 4/6 = 66.7% >= 60%)
+    for (let i = 1; i <= 3; i++) {
+      engine.state.planets[`p1_colony_${i}`] = {
+        ...hw1,
+        id: `p1_colony_${i}`,
+        name: `Colony P1-${i}`,
+        ownerId: 'p1',
+        isHomeworld: false,
+      };
+    }
+    engine.state.planets[`p2_colony_1`] = {
+      ...hw1,
+      id: `p2_colony_1`,
+      name: `Colony P2-1`,
+      ownerId: 'p2',
+      isHomeworld: false,
+    };
+
+    const colonizedCount = Object.values(engine.state.planets).filter((p) => !!p.ownerId).length;
+    expect(colonizedCount).toBe(6);
+
+    const victory = engine.evaluateVictoryConditions();
+    expect(victory).not.toBeNull();
+    expect(victory?.winnerId).toBe('p1');
+    expect(victory?.victoryType).toBe('domination');
+    expect(victory?.stats.ownedPlanetsCount).toBe(4);
+    expect(victory?.stats.totalPlanetsCount).toBe(6);
+    expect(victory?.stats.colonyRatio).toBeCloseTo(4 / 6, 2);
+  });
+
+  it('declares Alliance Hegemony and Domination victories when combined member stats exceed threshold', () => {
+    const engine = new GameEngine(999);
+    engine.addPlayer('m1', 'Member Alpha', '#38bdf8');
+    engine.addPlayer('m2', 'Member Beta', '#818cf8');
+    engine.addPlayer('rival', 'Rival Empire', '#ef4444');
+
+    // Create alliance between m1 and m2
+    engine.dispatchCommand('m1', {
+      type: 'CREATE_ALLIANCE',
+      name: 'United Star League',
+      tag: 'USL',
+    });
+    const playerM1 = engine.state.players['m1'];
+    expect(playerM1.allianceId).toBeDefined();
+    engine.dispatchCommand('m2', {
+      type: 'JOIN_ALLIANCE',
+      allianceId: playerM1.allianceId!,
+    });
+
+    // Neither individual has 500, but together: 260 + 250 = 510 >= 500
+    engine.state.relay.weeklyPoints['m1'] = 260;
+    engine.state.relay.weeklyPoints['m2'] = 250;
+
+    const victory = engine.evaluateVictoryConditions();
+    expect(victory).not.toBeNull();
+    expect(victory?.isAlliance).toBe(true);
+    expect(victory?.winnerId).toBe(playerM1.allianceId);
+    expect(victory?.victoryType).toBe('alliance_hegemony');
+    expect(victory?.stats.hegemonyPoints).toBe(510);
+  });
+
+  it('resets season cleanly with RESET_SEASON command while preserving seasonHistory', () => {
+    const engine = new GameEngine(1234);
+    engine.addPlayer('p_victor', 'Victor Empire', '#c084fc');
+    engine.state.relay.weeklyPoints['p_victor'] = 500;
+    engine.evaluateVictoryConditions();
+
+    expect(engine.state.victory).not.toBeNull();
+    expect(engine.state.seasonHistory?.length).toBe(1);
+
+    // Reset season with a new seed
+    const resetRes = engine.dispatchCommand('p_victor', {
+      type: 'RESET_SEASON',
+      seed: 5678,
+    });
+    expect(resetRes.success).toBe(true);
+
+    // State should be freshly initialized
+    expect(engine.state.victory).toBeNull();
+    expect(engine.state.seed).toBe(5678);
+    expect(engine.state.timeMs).toBe(0);
+
+    // Crucially: seasonHistory must be preserved!
+    expect(engine.state.seasonHistory?.length).toBe(1);
+    expect(engine.state.seasonHistory?.[0].winnerId).toBe('p_victor');
+  });
 });

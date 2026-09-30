@@ -54,6 +54,11 @@ export const GAME_CONSTANTS = {
 
   // Anti-bash repeated raid protection ceiling (Max 6 attacks on same target per 24h)
   ANTI_BASH_MAX_ATTACKS_PER_24H: 6,
+
+  // Victory Conditions & Season Loop (Phase 4)
+  VICTORY_HEGEMONY_POINTS_THRESHOLD: 500, // 500 Hegemony/Relay points to win by Hegemony
+  VICTORY_DOMINATION_COLONY_PERCENT: 0.60, // 60% of all colonized planets to win by Domination
+  VICTORY_MIN_TOTAL_COLONIES_FOR_DOMINATION: 6, // Minimum 6 colonized planets in sector for domination to trigger
 };
 
 export const SHIP_STATS: Record<ShipType, ShipStats> = {

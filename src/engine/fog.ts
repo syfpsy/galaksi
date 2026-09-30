@@ -13,6 +13,7 @@ import {
   SectorMap,
   ShipType,
   StarSystem,
+  VictoryRecord,
 } from './types';
 
 export interface MaskedFleet {
@@ -61,6 +62,8 @@ export interface PlayerVisibleState {
   activeSectorEvents?: SectorEvent[];
   myTransmissions?: RadioTransmission[];
   myActiveTruces?: { withPlayerId: string; expiresAtMs: number }[];
+  victory?: VictoryRecord | null;
+  seasonHistory?: VictoryRecord[];
 }
 
 /**
@@ -335,5 +338,7 @@ export function filterGameStateForPlayer(
       }
       return list;
     })(),
+    victory: state.victory || null,
+    seasonHistory: state.seasonHistory || [],
   };
 }

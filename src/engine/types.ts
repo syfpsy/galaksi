@@ -454,6 +454,30 @@ export interface RadioTransmission {
   truceDurationMs?: number;
 }
 
+export type VictoryType =
+  | 'hegemony'
+  | 'domination'
+  | 'alliance_hegemony'
+  | 'alliance_domination';
+
+export interface VictoryRecord {
+  winnerId: string; // playerId or allianceId
+  winnerName: string;
+  winnerColor: string;
+  isAlliance: boolean;
+  victoryType: VictoryType;
+  timestampMs: number;
+  stats: {
+    hegemonyPoints: number;
+    ownedPlanetsCount: number;
+    totalPlanetsCount: number;
+    colonyRatio: number;
+    totalBattlesFought: number;
+    shipsDestroyed: number;
+    matchDurationMs: number;
+  };
+}
+
 export interface GameState {
   timeMs: number;
   seed: number;
@@ -471,6 +495,8 @@ export interface GameState {
   espionageOps?: EspionageOp[];
   battleReports: BattleReport[];
   eventLog: GameEventRecord[];
+  victory?: VictoryRecord | null;
+  seasonHistory?: VictoryRecord[];
   nextId: number;
 }
 
@@ -573,6 +599,10 @@ export type GameCommand =
       type: 'RESPOND_TRANSMISSION';
       transmissionId: string;
       action: 'accept' | 'reject' | 'dismiss';
+    }
+  | {
+      type: 'RESET_SEASON';
+      seed?: number;
     };
 
 export interface CommandReceipt {

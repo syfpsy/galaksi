@@ -42,6 +42,8 @@ import {
   SectorEventType,
   ShipType,
   TransmissionType,
+  VictoryRecord,
+  VictoryType,
 } from './types';
 import { createHomeworldPlanet, generateSectorMap } from './universe';
 import {
@@ -92,6 +94,8 @@ export class GameEngine {
       espionageOps: [],
       battleReports: [],
       eventLog: [],
+      victory: null,
+      seasonHistory: [],
       nextId: 100,
     };
 
@@ -240,6 +244,7 @@ export class GameEngine {
 
     this.state.timeMs = targetTime;
     this.updatePassiveProduction(targetTime);
+    this.evaluateVictoryConditions();
   }
 
   public advanceTo(targetTime: number): void {
@@ -463,6 +468,7 @@ export class GameEngine {
             (this.state.relay.weeklyPoints[pid] || 0) + GAME_CONSTANTS.RELAY_POINTS_PER_TICK;
         }
         this.scheduleEvent(GAME_CONSTANTS.RELAY_POINT_INTERVAL_MS, 'relay_point_tick', {});
+        this.evaluateVictoryConditions();
         break;
       }
 
@@ -639,6 +645,8 @@ export class GameEngine {
             `${fleet.name} ${targetSystem.name} sisteminde yeni bir koloni kurdu!`,
             fleet.ownerId
           );
+
+          this.evaluateVictoryConditions();
 
           fleet.status = 'destroyed';
           delete this.state.fleets[fleet.id];
@@ -892,12 +900,18 @@ export class GameEngine {
               }
             }
 
+            // Award +75 Hegemony points for defeating the Ancient Titan
+            this.state.relay.weeklyPoints[fleet.ownerId] =
+              (this.state.relay.weeklyPoints[fleet.ownerId] || 0) + 75;
+
             this.logEvent(
               'ancient_titan_slain',
-              `👑 TİTAN DÜŞTÜ: ${player?.name || 'Komutan'} ${targetSystem.name} sistemindeki Kadim Muhafız Titanı'nı mağlup etti! Yağma: ${Math.round(combatResult.lootedResources.ore)}C, ${Math.round(combatResult.lootedResources.crystal)}K, ${Math.round(combatResult.lootedResources.fuel)}Y.`,
+              `👑 TİTAN DÜŞTÜ: ${player?.name || 'Komutan'} ${targetSystem.name} sistemindeki Kadim Muhafız Titanı'nı mağlup etti! Yağma: ${Math.round(combatResult.lootedResources.ore)}C, ${Math.round(combatResult.lootedResources.crystal)}K, ${Math.round(combatResult.lootedResources.fuel)}Y (+75 Hegemonya Puanı).`,
               undefined,
               { systemId: targetSystem.id, victorPlayerId: fleet.ownerId }
             );
+
+            this.evaluateVictoryConditions();
           } else {
             this.logEvent(
               'battle_finished',
@@ -1687,6 +1701,15 @@ export class GameEngine {
       }
 
       case 'DISPATCH_FLEET': {
+        if (this.state.victory && (cmd.mission === 'attack' || cmd.mission === 'intercept')) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Galaktik zafer ilan edildi. Mevcut sezon tamamlandı, saldırı görevleri donduruldu.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
         if (player.vacationMode) {
           return { success: false, commandType: cmd.type, error: 'Tatil modundayken filo sevk edilemez.', timeMs: this.state.timeMs };
         }
@@ -2631,7 +2654,257 @@ export class GameEngine {
         trans.status = 'accepted';
         return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
       }
+
+      case 'RESET_SEASON': {
+        const newSeed = cmd.seed || (this.state.seed + 100);
+        this.resetGalaxySeason(newSeed);
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { newSeed },
+        };
+      }
     }
+  }
+
+  /**
+   * Calculates total ships destroyed across all recorded battles
+   */
+  public calculateTotalShipsDestroyed(): number {
+    let total = 0;
+    for (const report of this.state.battleReports) {
+      if (report.initialAttacker && report.survivingAttacker) {
+        for (const [ship, count] of Object.entries(report.initialAttacker)) {
+          const surviving = report.survivingAttacker[ship as ShipType] || 0;
+          total += Math.max(0, count - surviving);
+        }
+      }
+      if (report.initialDefender && report.survivingDefender) {
+        for (const [ship, count] of Object.entries(report.initialDefender)) {
+          const surviving = report.survivingDefender[ship as ShipType] || 0;
+          total += Math.max(0, count - surviving);
+        }
+      }
+    }
+    return total;
+  }
+
+  /**
+   * Declares victory, archives to seasonHistory, and logs galactic fanfare event
+   */
+  private declareVictory(record: VictoryRecord): VictoryRecord {
+    this.state.victory = record;
+    if (!this.state.seasonHistory) {
+      this.state.seasonHistory = [];
+    }
+    if (!this.state.seasonHistory.some((h) => h.timestampMs === record.timestampMs && h.winnerId === record.winnerId)) {
+      this.state.seasonHistory.unshift(record);
+    }
+
+    const typeDesc =
+      record.victoryType === 'hegemony' || record.victoryType === 'alliance_hegemony'
+        ? '500 Hegemonya Puanına Ulaşarak (Nexus Rölesi & Kadim Miras)'
+        : '%60 Gezegensel Koloni Dominasyonu Sağlayarak';
+
+    this.logEvent(
+      'galactic_victory_achieved',
+      `🏆 GALAKTİK ZAFER İLAN EDİLDİ! ${record.winnerName}, ${typeDesc} bu sezonun mutlak galibi oldu!`,
+      record.winnerId,
+      { victoryType: record.victoryType, stats: record.stats }
+    );
+
+    return record;
+  }
+
+  /**
+   * Evaluates Endgame Victory Conditions:
+   * 1. Hegemony Victory: Reaching 500 Hegemony/Relay Points (Solo or Alliance)
+   * 2. Colony Domination Victory: Controlling >= 60% of all colonized planets (Min 6 colonized planets)
+   */
+  public evaluateVictoryConditions(): VictoryRecord | null {
+    if (this.state.victory) return this.state.victory;
+
+    const colonizedPlanets = Object.values(this.state.planets).filter((p) => !!p.ownerId);
+    const totalColonized = colonizedPlanets.length;
+
+    // Check individual player metrics
+    for (const player of Object.values(this.state.players)) {
+      const pId = player.id;
+      const relayPts = this.state.relay.weeklyPoints[pId] || 0;
+      const ownedPlanets = colonizedPlanets.filter((p) => p.ownerId === pId);
+      const ownedCount = ownedPlanets.length;
+      const colonyRatio = totalColonized > 0 ? ownedCount / totalColonized : 0;
+
+      // 1. Hegemony Victory (500 pts)
+      if (relayPts >= GAME_CONSTANTS.VICTORY_HEGEMONY_POINTS_THRESHOLD) {
+        return this.declareVictory({
+          winnerId: pId,
+          winnerName: player.name,
+          winnerColor: player.color,
+          isAlliance: false,
+          victoryType: 'hegemony',
+          timestampMs: this.state.timeMs,
+          stats: {
+            hegemonyPoints: relayPts,
+            ownedPlanetsCount: ownedCount,
+            totalPlanetsCount: totalColonized,
+            colonyRatio,
+            totalBattlesFought: this.state.battleReports.length,
+            shipsDestroyed: this.calculateTotalShipsDestroyed(),
+            matchDurationMs: this.state.timeMs,
+          },
+        });
+      }
+
+      // 2. Colony Domination Victory (60% of at least 6 colonies)
+      if (
+        totalColonized >= GAME_CONSTANTS.VICTORY_MIN_TOTAL_COLONIES_FOR_DOMINATION &&
+        colonyRatio >= GAME_CONSTANTS.VICTORY_DOMINATION_COLONY_PERCENT
+      ) {
+        return this.declareVictory({
+          winnerId: pId,
+          winnerName: player.name,
+          winnerColor: player.color,
+          isAlliance: false,
+          victoryType: 'domination',
+          timestampMs: this.state.timeMs,
+          stats: {
+            hegemonyPoints: relayPts,
+            ownedPlanetsCount: ownedCount,
+            totalPlanetsCount: totalColonized,
+            colonyRatio,
+            totalBattlesFought: this.state.battleReports.length,
+            shipsDestroyed: this.calculateTotalShipsDestroyed(),
+            matchDurationMs: this.state.timeMs,
+          },
+        });
+      }
+    }
+
+    // Check Alliance metrics
+    for (const alliance of Object.values(this.state.alliances)) {
+      const aId = alliance.id;
+      let totalAllianceRelayPts = 0;
+      let totalAllianceColonies = 0;
+
+      for (const mId of alliance.memberIds) {
+        totalAllianceRelayPts += this.state.relay.weeklyPoints[mId] || 0;
+        totalAllianceColonies += colonizedPlanets.filter((p) => p.ownerId === mId).length;
+      }
+
+      const colonyRatio = totalColonized > 0 ? totalAllianceColonies / totalColonized : 0;
+
+      // Alliance Hegemony
+      if (totalAllianceRelayPts >= GAME_CONSTANTS.VICTORY_HEGEMONY_POINTS_THRESHOLD) {
+        return this.declareVictory({
+          winnerId: aId,
+          winnerName: `[${alliance.tag}] ${alliance.name}`,
+          winnerColor: '#38bdf8',
+          isAlliance: true,
+          victoryType: 'alliance_hegemony',
+          timestampMs: this.state.timeMs,
+          stats: {
+            hegemonyPoints: totalAllianceRelayPts,
+            ownedPlanetsCount: totalAllianceColonies,
+            totalPlanetsCount: totalColonized,
+            colonyRatio,
+            totalBattlesFought: this.state.battleReports.length,
+            shipsDestroyed: this.calculateTotalShipsDestroyed(),
+            matchDurationMs: this.state.timeMs,
+          },
+        });
+      }
+
+      // Alliance Domination
+      if (
+        totalColonized >= GAME_CONSTANTS.VICTORY_MIN_TOTAL_COLONIES_FOR_DOMINATION &&
+        colonyRatio >= GAME_CONSTANTS.VICTORY_DOMINATION_COLONY_PERCENT
+      ) {
+        return this.declareVictory({
+          winnerId: aId,
+          winnerName: `[${alliance.tag}] ${alliance.name}`,
+          winnerColor: '#38bdf8',
+          isAlliance: true,
+          victoryType: 'alliance_domination',
+          timestampMs: this.state.timeMs,
+          stats: {
+            hegemonyPoints: totalAllianceRelayPts,
+            ownedPlanetsCount: totalAllianceColonies,
+            totalPlanetsCount: totalColonized,
+            colonyRatio,
+            totalBattlesFought: this.state.battleReports.length,
+            shipsDestroyed: this.calculateTotalShipsDestroyed(),
+            matchDurationMs: this.state.timeMs,
+          },
+        });
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * Resets the galaxy for a new season while preserving seasonHistory.
+   */
+  public resetGalaxySeason(newSeed: number): void {
+    const previousHistory = [...(this.state.seasonHistory || [])];
+    const previousVictory = this.state.victory;
+    if (previousVictory && !previousHistory.some((h) => h.timestampMs === previousVictory.timestampMs)) {
+      previousHistory.unshift(previousVictory);
+    }
+
+    this.prng = new PRNG(newSeed);
+    const map = generateSectorMap({ seed: newSeed });
+
+    this.state = {
+      timeMs: 0,
+      seed: newSeed,
+      map,
+      players: {},
+      planets: {},
+      fleets: {},
+      admirals: {},
+      sectorEvents: {},
+      transmissions: {},
+      truces: {},
+      relay: {
+        systemId: map.relaySystemId,
+        controllingPlayerId: null,
+        garrison: { scout: 2, transport: 0, fighter: 4, battleship: 1 },
+        capturedAtTime: 0,
+        weeklyPoints: {},
+        sensorRadiusBonus: GAME_CONSTANTS.RELAY_SENSOR_RADIUS_BONUS,
+      },
+      alliances: {},
+      market: {
+        rates: { ore: 1.0, crystal: 1.6, fuel: 2.4 },
+        baseRates: { ore: 1.0, crystal: 1.6, fuel: 2.4 },
+        volume24h: { ore: 0, crystal: 0, fuel: 0 },
+        baseFeeRate: 0.15,
+        transactionHistory: [],
+      },
+      espionageOps: [],
+      battleReports: [],
+      eventLog: [],
+      victory: null,
+      seasonHistory: previousHistory,
+      nextId: 100,
+    };
+
+    this.scheduledEvents = [];
+    this.lastMarketUpdateMs = 0;
+    this.lastSectorEventSpawnMs = 0;
+
+    // Schedule initial relay point tick
+    this.scheduleEvent(GAME_CONSTANTS.RELAY_POINT_INTERVAL_MS, 'relay_point_tick', {});
+
+    this.logEvent(
+      'season_reset',
+      `✨ YENİ GALAKTİK SEZON BAŞLADI (Tohum: ${newSeed}). Tüm filolar ve koloniler sıfırlandı.`,
+      undefined,
+      { seed: newSeed }
+    );
   }
 
   /**
