@@ -166,6 +166,7 @@ export class GameEngine {
     );
 
     emptySlot.ownerId = id;
+    emptySlot.planetId = planetId;
     this.state.players[id] = player;
     this.state.planets[planetId] = homeworld;
 
@@ -592,8 +593,11 @@ export class GameEngine {
       }
 
       case 'colonize': {
-        // Find empty slot
-        const emptySlot = targetSystem.slots.find(s => s.ownerId === null);
+        // Find targeted empty slot or any empty slot in targetSystem
+        const emptySlot =
+          (fleet.targetPlanetId
+            ? targetSystem.slots.find(s => s.planetId === fleet.targetPlanetId && s.ownerId === null)
+            : undefined) || targetSystem.slots.find(s => s.ownerId === null);
         const existingColonies = Object.values(this.state.planets).filter(p => p.ownerId === fleet.ownerId);
 
         if (emptySlot && existingColonies.length < GAME_CONSTANTS.MAX_COLONIES_PER_PLAYER) {
@@ -634,6 +638,7 @@ export class GameEngine {
           };
 
           emptySlot.ownerId = fleet.ownerId;
+          emptySlot.planetId = newPlanetId;
           this.state.planets[newPlanetId] = newPlanet;
 
           if (player) {
@@ -1859,11 +1864,6 @@ export class GameEngine {
           effectiveFuelCost = Math.round(effectiveFuelCost * crisisMod.fuelCostMultiplier);
         }
 
-        // Check fuel
-        if (originPlanet.resources.fuel < effectiveFuelCost) {
-          return { success: false, commandType: cmd.type, error: `Yetersiz yakıt (${effectiveFuelCost} birim gerekli).`, timeMs: this.state.timeMs };
-        }
-
         // Cargo validation
         const cargo: Resources = {
           ore: cmd.cargo?.ore || 0,
@@ -1873,6 +1873,20 @@ export class GameEngine {
         const totalCargoWeight = cargo.ore + cargo.crystal + cargo.fuel;
         if (totalCargoWeight > totalCargoCap) {
           return { success: false, commandType: cmd.type, error: 'Yük filo taşıma kapasitesini aşıyor.', timeMs: this.state.timeMs };
+        }
+
+        // Check fuel & cargo resource availability on planet
+        if (
+          originPlanet.resources.fuel < effectiveFuelCost + cargo.fuel ||
+          originPlanet.resources.ore < cargo.ore ||
+          originPlanet.resources.crystal < cargo.crystal
+        ) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Gezegende yetersiz kaynak (Gerekli: ${effectiveFuelCost + cargo.fuel} Yakıt, ${cargo.ore} Cevher, ${cargo.crystal} Kristal).`,
+            timeMs: this.state.timeMs,
+          };
         }
 
         // Mission specific checks

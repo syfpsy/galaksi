@@ -218,7 +218,7 @@ export function filterGameStateForPlayer(
           return {
             id: s.planetId,
             name: s.name,
-            ownerId: planet ? planet.ownerId : null,
+            ownerId: planet ? planet.ownerId : (s.ownerId || null),
             isHomeworld: planet ? planet.isHomeworld : false,
           };
         }),

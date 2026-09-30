@@ -1476,14 +1476,25 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           light.intensity = isVisible ? 2.5 : 0.6;
           corona.material.opacity = isVisible ? 0.88 : 0.3;
 
-          // Crisis Hazard Ring pulsing & rotation
+          // Recent Battle or Crisis Hazard Ring pulsing & rotation
+          const isRecentBattle = (stateRef.current.battleReports || []).some(
+            (b) => b.systemId === sysId && b.timestamp >= stateRef.current.timeMs - 45000
+          );
           const crisis = stateRef.current.sectorEvents
             ? Object.values(stateRef.current.sectorEvents).find(
                 (ev) => ev.systemId === sysId && !ev.resolved && stateRef.current.timeMs < ev.expiresAtMs
               )
             : null;
 
-          if (crisis && isVisible) {
+          if (isRecentBattle && isVisible) {
+            // Intense tactical flashing crimson combat engagement ring
+            const pulse = (Math.sin(stateRef.current.timeMs * 0.015) + 1) * 0.45 + 0.35;
+            const hMat = hazardRing.material as THREE.LineDashedMaterial;
+            hMat.opacity = pulse;
+            hMat.color.setHex(0xff1744);
+            hazardRing.rotation.z -= delta * 1.2;
+            hazardRing.scale.setScalar(1.05 + Math.sin(stateRef.current.timeMs * 0.008) * 0.08);
+          } else if (crisis && isVisible) {
             const pulse = (Math.sin(stateRef.current.timeMs * 0.005) + 1) * 0.35 + 0.25;
             const hMat = hazardRing.material as THREE.LineDashedMaterial;
             hMat.opacity = pulse;
@@ -1497,8 +1508,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               hMat.color.setHex(0x38bdf8);
             }
             hazardRing.rotation.z += delta * 0.4;
+            hazardRing.scale.setScalar(1.0);
           } else {
             (hazardRing.material as THREE.LineDashedMaterial).opacity = 0;
+            hazardRing.scale.setScalar(1.0);
           }
         });
 

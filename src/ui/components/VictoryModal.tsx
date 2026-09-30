@@ -37,6 +37,12 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
 }) => {
   const [showHistory, setShowHistory] = useState(false);
 
+  React.useEffect(() => {
+    if (isOpen && victory) {
+      sound.playVictoryFanfare();
+    }
+  }, [isOpen, victory]);
+
   if (!isOpen) return null;
 
   const isMeWinner = victory?.winnerId === activePlayerId;

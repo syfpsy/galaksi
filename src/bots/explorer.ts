@@ -37,25 +37,45 @@ export class ExplorerBot implements IBotAgent {
     }
 
     // 2. Colonization attempt if we have transport and colony materials
-    const colonySlots = Object.values(view.discoveredSystems).flatMap(s =>
-      s.visiblePlanets.filter(p => p.ownerId === null).map(p => ({ systemId: s.system.id, planet: p }))
-    );
+    const candidateSlots: { systemId: string; planet: { id: string; name: string } }[] = [];
+    const homeSysView = view.discoveredSystems[homeworld.systemId];
+    if (homeSysView) {
+      for (const p of homeSysView.visiblePlanets) {
+        if (p.ownerId === null) {
+          candidateSlots.push({ systemId: homeworld.systemId, planet: p });
+        }
+      }
+    }
+    for (const s of Object.values(view.discoveredSystems)) {
+      if (s.system.id === homeworld.systemId || s.hasRelay) continue;
+      if (s.intelLevel === 'unexplored') continue;
+      for (const p of s.visiblePlanets) {
+        if (p.ownerId === null) {
+          candidateSlots.push({ systemId: s.system.id, planet: p });
+        }
+      }
+    }
 
     if (
       view.myPlanets.length < GAME_CONSTANTS.MAX_COLONIES_PER_PLAYER &&
       homeworld.garrison.transport >= 1 &&
-      colonySlots.length > 0 &&
+      candidateSlots.length > 0 &&
       homeworld.resources.ore >= GAME_CONSTANTS.COLONY_COST.ore &&
       homeworld.resources.crystal >= GAME_CONSTANTS.COLONY_COST.crystal &&
-      homeworld.resources.fuel >= GAME_CONSTANTS.COLONY_COST.fuel + 60
+      homeworld.resources.fuel >= GAME_CONSTANTS.COLONY_COST.fuel + 50
     ) {
-      const targetSlot = colonySlots[0];
+      const targetSlot = candidateSlots[0];
       const cmd: GameCommand = {
         type: 'DISPATCH_FLEET',
         originPlanetId: homeworld.id,
         targetSystemId: targetSlot.systemId,
         targetPlanetId: targetSlot.planet.id,
-        ships: { scout: 0, transport: 1, fighter: 1, battleship: 0 },
+        ships: {
+          scout: 0,
+          transport: 1,
+          fighter: homeworld.garrison.fighter > 0 ? 1 : 0,
+          battleship: 0,
+        },
         cargo: { ...GAME_CONSTANTS.COLONY_COST },
         mission: 'colonize',
       };
@@ -65,20 +85,24 @@ export class ExplorerBot implements IBotAgent {
 
     // 3. Build Scouts and Transports in shipyard
     if (homeworld.buildings.shipyard >= 1 && homeworld.shipyardQueue.length === 0) {
-      if (homeworld.garrison.scout < 2 && homeworld.resources.ore >= 200) {
-        const cmd: GameCommand = {
-          type: 'BUILD_SHIPS',
-          planetId: homeworld.id,
-          shipType: 'scout',
-          count: 1,
-        };
-        const receipt = engine.dispatchCommand(this.playerId, cmd);
-        if (receipt.success) executedCommands.push(cmd);
-      } else if (homeworld.garrison.transport < 2 && homeworld.resources.ore >= 450) {
+      const needsTransport =
+        view.myPlanets.length < GAME_CONSTANTS.MAX_COLONIES_PER_PLAYER &&
+        homeworld.garrison.transport === 0;
+
+      if (needsTransport && homeworld.resources.ore >= 380 && homeworld.resources.crystal >= 160) {
         const cmd: GameCommand = {
           type: 'BUILD_SHIPS',
           planetId: homeworld.id,
           shipType: 'transport',
+          count: 1,
+        };
+        const receipt = engine.dispatchCommand(this.playerId, cmd);
+        if (receipt.success) executedCommands.push(cmd);
+      } else if (homeworld.garrison.scout < 2 && homeworld.resources.ore >= 200) {
+        const cmd: GameCommand = {
+          type: 'BUILD_SHIPS',
+          planetId: homeworld.id,
+          shipType: 'scout',
           count: 1,
         };
         const receipt = engine.dispatchCommand(this.playerId, cmd);

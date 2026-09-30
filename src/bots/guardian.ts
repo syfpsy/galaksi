@@ -1,4 +1,4 @@
-import { SHIP_STATS } from '../engine/constants';
+import { GAME_CONSTANTS, SHIP_STATS } from '../engine/constants';
 import { GameEngine } from '../engine/engine';
 import { GameCommand } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
@@ -43,6 +43,44 @@ export class GuardianBot implements IBotAgent {
           executedCommands.push(cmd);
           return executedCommands;
         }
+      }
+    }
+
+    // 2. Outpost Colonization: Secure a defensive secondary bastion
+    if (view.myPlanets.length < 2) {
+      const candidateSlots: { systemId: string; planet: { id: string; name: string } }[] = [];
+      const homeSysView = view.discoveredSystems[homeworld.systemId];
+      if (homeSysView) {
+        for (const p of homeSysView.visiblePlanets) {
+          if (p.ownerId === null) {
+            candidateSlots.push({ systemId: homeworld.systemId, planet: p });
+          }
+        }
+      }
+      if (
+        homeworld.garrison.transport >= 1 &&
+        candidateSlots.length > 0 &&
+        homeworld.resources.ore >= GAME_CONSTANTS.COLONY_COST.ore &&
+        homeworld.resources.crystal >= GAME_CONSTANTS.COLONY_COST.crystal &&
+        homeworld.resources.fuel >= GAME_CONSTANTS.COLONY_COST.fuel + 50
+      ) {
+        const targetSlot = candidateSlots[0];
+        const cmd: GameCommand = {
+          type: 'DISPATCH_FLEET',
+          originPlanetId: homeworld.id,
+          targetSystemId: targetSlot.systemId,
+          targetPlanetId: targetSlot.planet.id,
+          ships: {
+            scout: 0,
+            transport: 1,
+            fighter: homeworld.garrison.fighter > 1 ? 1 : 0,
+            battleship: 0,
+          },
+          cargo: { ...GAME_CONSTANTS.COLONY_COST },
+          mission: 'colonize',
+        };
+        const receipt = engine.dispatchCommand(this.playerId, cmd);
+        if (receipt.success) executedCommands.push(cmd);
       }
     }
 

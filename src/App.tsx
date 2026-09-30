@@ -294,12 +294,20 @@ export function App() {
     botsRef.current = bots;
     lastBotUpdateMsRef.current = 0;
 
+    lastThreatsCountRef.current = 0;
+    lastTransmissionsCountRef.current = 0;
+    lastCrisesCountRef.current = 0;
+    lastVictoryAnnouncedRef.current = false;
+
     setActivePlanetId(humanHw.id);
     setSelectedTarget({ type: 'system', systemId: humanHw.systemId });
     setEngineState({ ...engine.state });
   }, []);
 
   const lastThreatsCountRef = useRef(0);
+  const lastTransmissionsCountRef = useRef(0);
+  const lastCrisesCountRef = useRef(0);
+  const lastVictoryAnnouncedRef = useRef(false);
 
   // Main simulation tick loop
   useEffect(() => {
@@ -366,6 +374,32 @@ export function App() {
         sound.playAlert();
       }
       lastThreatsCountRef.current = curThreatsCount;
+
+      // 6. Incoming Diplomatic Radio Transmission SFX
+      const curTransmissions = Object.values(engine.state.transmissions || {}).filter(
+        (t) => t.recipientId === 'all' || t.recipientId === curPlayerId
+      ).length;
+      if (curTransmissions > lastTransmissionsCountRef.current) {
+        sound.playTransmission();
+      }
+      lastTransmissionsCountRef.current = curTransmissions;
+
+      // 7. Dynamic Crisis Alert SFX
+      const curActiveCrises = Object.values(engine.state.sectorEvents || {}).filter(
+        (e) => !e.resolved && engine.state.timeMs < e.expiresAtMs
+      ).length;
+      if (curActiveCrises > lastCrisesCountRef.current) {
+        sound.playCrisisAlert();
+      }
+      lastCrisesCountRef.current = curActiveCrises;
+
+      // 8. Galactic Victory Fanfare SFX
+      if (!lastVictoryAnnouncedRef.current && engine.state.victory) {
+        sound.playVictoryFanfare();
+        lastVictoryAnnouncedRef.current = true;
+      } else if (!engine.state.victory) {
+        lastVictoryAnnouncedRef.current = false;
+      }
 
       // In slow strategy, bots evaluate every 60 seconds of game time
       if (engine.state.timeMs - lastBotUpdateMsRef.current >= 60 * 1000) {

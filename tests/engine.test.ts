@@ -3,6 +3,9 @@ import { GameEngine } from '../src/engine/engine';
 import { resolveCombat } from '../src/engine/combat';
 import { calculateRouteInfo, checkInterceptionFeasibility } from '../src/engine/flight';
 import { evaluateBotDiplomacy, resetBotDiplomacyCooldowns } from '../src/bots/diplomacy';
+import { ExplorerBot } from '../src/bots/explorer';
+import { IndustrialistBot } from '../src/bots/industrialist';
+import { GAME_CONSTANTS } from '../src/engine/constants';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -1162,5 +1165,81 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     // Crucially: seasonHistory must be preserved!
     expect(engine.state.seasonHistory?.length).toBe(1);
     expect(engine.state.seasonHistory?.[0].winnerId).toBe('p_victor');
+  });
+
+  it('dispatches a colonization fleet and establishes a new colony on arrival, updating fog and slot state', () => {
+    const engine = new GameEngine(2025);
+    const { player, homeworld } = engine.addPlayer('col_p1', 'Pioneer Command', '#38bdf8');
+
+    // Verify homeworld slot assignment
+    const homeSys = engine.state.map.systems[homeworld.systemId];
+    const hwSlot = homeSys.slots.find((s) => s.ownerId === player.id);
+    expect(hwSlot).toBeDefined();
+    expect(hwSlot?.planetId).toBe(homeworld.id);
+
+    // Provide materials and transport for colony
+    homeworld.resources.ore = 1200;
+    homeworld.resources.crystal = 800;
+    homeworld.resources.fuel = 600;
+    homeworld.garrison.transport = 1;
+
+    // Pick an empty slot in home system
+    const emptySlot = homeSys.slots.find((s) => s.ownerId === null)!;
+    expect(emptySlot).toBeDefined();
+
+    const dispatchRes = engine.dispatchCommand(player.id, {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: homeworld.id,
+      targetSystemId: homeSys.id,
+      targetPlanetId: emptySlot.planetId,
+      ships: { scout: 0, transport: 1, fighter: 0, battleship: 0 },
+      cargo: { ...GAME_CONSTANTS.COLONY_COST },
+      mission: 'colonize',
+    });
+    expect(dispatchRes.success).toBe(true);
+
+    // Initial colony flight duration is 30s for intra-system
+    engine.tick(35000);
+
+    // Verify colony was founded
+    const playerPlanets = Object.values(engine.state.planets).filter((p) => p.ownerId === player.id);
+    expect(playerPlanets.length).toBe(2);
+
+    const newColony = playerPlanets.find((p) => !p.isHomeworld);
+    expect(newColony).toBeDefined();
+    expect(emptySlot.ownerId).toBe(player.id);
+    expect(emptySlot.planetId).toBe(newColony?.id);
+
+    // Verify fog of war visibility
+    const view = engine.getPlayerView(player.id);
+    const visibleSlot = view.discoveredSystems[homeSys.id].visiblePlanets.find((p) => p.id === newColony?.id);
+    expect(visibleSlot).toBeDefined();
+    expect(visibleSlot?.ownerId).toBe(player.id);
+  });
+
+  it('allows Explorer and Industrialist bots to autonomously build transports and colonize nearby slots', () => {
+    const engine = new GameEngine(1042);
+    engine.addPlayer('bot_exp', 'Explorer Society', '#ffaa00', true, 'explorer');
+    engine.addPlayer('bot_ind', 'Industrial Union', '#10b981', true, 'industrialist');
+
+    const expBot = new ExplorerBot('bot_exp');
+    const indBot = new IndustrialistBot('bot_ind');
+
+    // Simulate 4 hours of game time with bot decision cycles
+    const totalSimMs = 4 * 3600 * 1000;
+    let simMs = 0;
+    while (simMs < totalSimMs) {
+      engine.tick(30000);
+      simMs += 30000;
+      expBot.update(engine);
+      indBot.update(engine);
+    }
+
+    const expPlanets = Object.values(engine.state.planets).filter((p) => p.ownerId === 'bot_exp');
+    const indPlanets = Object.values(engine.state.planets).filter((p) => p.ownerId === 'bot_ind');
+
+    // Both bots should have expanded and established additional colonies
+    expect(expPlanets.length).toBeGreaterThan(1);
+    expect(indPlanets.length).toBeGreaterThan(1);
   });
 });
