@@ -118,25 +118,25 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
           >
             <Globe className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
             {planetsCount > 0 && (
-              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-[#0e2130] border border-cyan-500/50 text-cyan-300 text-[8.5px] font-mono rounded-sm flex items-center justify-center font-bold">
+              <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 bg-[#0e2130] border border-cyan-500/60 text-cyan-300 text-[9.5px] font-mono rounded-sm flex items-center justify-center font-bold">
                 {planetsCount}
               </span>
             )}
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F1
             </span>
           </button>
 
           {/* Tactical Stellaris Hover Tooltip */}
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">GEZEGENLER VE SEKTÖRLER</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F1</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F1</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Madenler, enerji santralleri, laboratuvarlar ve garnizon yönetimi.
             </p>
-            <div className="mt-1.5 pt-1.5 border-t border-[#18374b] text-[9.5px] text-emerald-400 font-mono">
+            <div className="mt-2 pt-1.5 border-t border-[#18374b] text-[10.5px] text-emerald-400 font-mono font-bold">
               {planetsCount} Aktif Koloni
             </div>
           </div>
@@ -154,17 +154,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Wrench className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F2
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">TERSANE & GEMİ İNŞASI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F2</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F2</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Avcı, kruvazör, keşif ve taşıma gemisi imalatı.
             </p>
           </div>
@@ -182,17 +182,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Activity className="w-5 h-5 text-cyan-300 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F3
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">TEKNOLOJİ & AR-GE AĞACI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F3</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F3</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               İtki motorları, lazer & kalkan silahları ve sensör dizinleri.
             </p>
           </div>
@@ -215,29 +215,29 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
           >
             <Radio className={`w-5 h-5 ${threatsCount > 0 ? 'text-rose-400' : 'text-cyan-400'} group-hover:scale-110 transition-transform`} />
             {threatsCount > 0 ? (
-              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-rose-600 text-white text-[8.5px] font-mono rounded-sm flex items-center justify-center font-bold animate-ping">
+              <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 bg-rose-600 text-white text-[9.5px] font-mono rounded-sm flex items-center justify-center font-bold animate-ping">
                 !
               </span>
             ) : movingFleetsCount > 0 ? (
-              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-[#0e2130] border border-cyan-500/50 text-cyan-300 text-[8.5px] font-mono rounded-sm flex items-center justify-center font-bold">
+              <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 bg-[#0e2130] border border-cyan-500/60 text-cyan-300 text-[9.5px] font-mono rounded-sm flex items-center justify-center font-bold">
                 {movingFleetsCount}
               </span>
             ) : null}
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F4
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">TAKTİK İNTİKAL RADARI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F4</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F4</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Hareket halindeki dost filolar, düşman intikalleri ve tehdit takibi.
             </p>
             {threatsCount > 0 && (
-              <div className="mt-1.5 pt-1.5 border-t border-rose-900/80 text-[9px] text-rose-400 font-mono font-bold">
+              <div className="mt-2 pt-1.5 border-t border-rose-900/80 text-[10.5px] text-rose-300 font-mono font-bold">
                 🚨 {threatsCount} Düşman Baskını Yolda!
               </div>
             )}
@@ -256,17 +256,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Send className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F5
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">FİLO SEVK & SEFER EMRİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F5</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F5</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Taarruz, önleme, ikmal ve keşif seferlerinin sevk idaresi.
             </p>
           </div>
@@ -284,17 +284,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <LineChart className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F6
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">GALAKTİK PAZAR & BORSA</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F6</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F6</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Dinamik kur fiyatları ile Cevher, Kristal ve Yakıt anında takası.
             </p>
           </div>
@@ -312,17 +312,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Eye className="w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F7
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">GİZLİ OPERASYONLAR & CASUSLUK</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F7</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F7</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Keşif sondaları ile düşman tersane sabotajı, teknoloji hırsızlığı ve istihbarat.
             </p>
           </div>
@@ -340,17 +340,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Compass className="w-5 h-5 text-teal-400 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F8
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">DURUM KÜTÜĞÜ & ANOMALİLER</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F8</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F8</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Keşfedilmemiş uzay anomalileri, korsan ödül avcılığı ve galaksi puan durumu.
             </p>
           </div>
@@ -368,26 +368,26 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Swords className="w-5 h-5 text-rose-400 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F9
             </span>
             {unreadBattlesCount > 0 && (
-              <span className="absolute -top-1 -right-1 px-1 min-w-[14px] h-3.5 bg-rose-600 text-white text-[8.5px] font-mono rounded-sm flex items-center justify-center font-bold animate-pulse">
+              <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 bg-rose-600 text-white text-[9.5px] font-mono rounded-sm flex items-center justify-center font-bold animate-pulse">
                 {unreadBattlesCount}
               </span>
             )}
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">MUHAREBE KAYITLARI</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F9</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F9</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Geçmiş çatışmalar, hasar dağılımı ve tur bazlı savaş tekrarı.
             </p>
             {unreadBattlesCount > 0 && (
-              <div className="mt-1.5 pt-1.5 border-t border-[#18374b] text-[9.5px] text-rose-400 font-mono">
+              <div className="mt-2 pt-1.5 border-t border-[#18374b] text-[10.5px] text-rose-300 font-mono font-bold">
                 {unreadBattlesCount} Çatışma Raporu
               </div>
             )}
@@ -406,17 +406,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Award className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F10
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">FİLO AMİRALLERİ & AKADEMİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F10</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F10</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Komutan atamaları, seviye/XP gelişimi ve kritik vuruş/kaçınma doktrinleri.
             </p>
           </div>
@@ -437,17 +437,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Crown className="w-5 h-5 text-purple-400 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F11
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">NEXUS RÖLESİ HAKİMİYETİ</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F11</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F11</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Merkezi rölenin kontrolü, sensör güçlendirmesi ve haftalık zafer puanı.
             </p>
           </div>
@@ -465,17 +465,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             }`}
           >
             <Users className="w-5 h-5 text-blue-400 group-hover:scale-110 transition-transform" />
-            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-500 group-hover:text-[#e5c578]">
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
               F12
             </span>
           </button>
 
-          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[230px] stellaris-tooltip rounded-sm p-2.5 text-left">
-            <div className="flex items-center justify-between text-[11px] font-bold">
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
               <span className="stellaris-gold tracking-wide">GALAKTİK İTTİFAKLAR</span>
-              <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1 py-0.5 rounded-sm">F12</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">F12</span>
             </div>
-            <p className="text-[10px] text-slate-400 mt-1 leading-snug">
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Diplomatik paktlar, ortak sensör görüşü ve askeri müttefik savunması.
             </p>
           </div>
