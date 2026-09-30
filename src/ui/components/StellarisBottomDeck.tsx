@@ -56,7 +56,7 @@ interface StellarisBottomDeckProps {
   onCycleColonies?: () => void;
 }
 
-export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
+const StellarisBottomDeckComponent: React.FC<StellarisBottomDeckProps> = ({
   state,
   activePlayerId,
   currentTimeMs,
@@ -733,3 +733,5 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
     </div>
   );
 };
+
+export const StellarisBottomDeck = React.memo(StellarisBottomDeckComponent);

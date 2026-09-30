@@ -40,7 +40,7 @@ interface StellarisNotificationStripProps {
   onOpenTransitRadar?: () => void;
 }
 
-export const StellarisNotificationStrip: React.FC<StellarisNotificationStripProps> = ({
+const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripProps> = ({
   state,
   activePlayerId,
   onFocusSystem,
@@ -122,7 +122,7 @@ export const StellarisNotificationStrip: React.FC<StellarisNotificationStripProp
     });
 
     setNotifications(notifs);
-  }, [state.eventLog, state.fleets, state.timeMs, activePlayerId]);
+  }, [state.eventLog.length, state.fleets, activePlayerId]);
 
   if (notifications.length === 0) return null;
 
@@ -267,3 +267,5 @@ export const StellarisNotificationStrip: React.FC<StellarisNotificationStripProp
     </div>
   );
 };
+
+export const StellarisNotificationStrip = React.memo(StellarisNotificationStripComponent);

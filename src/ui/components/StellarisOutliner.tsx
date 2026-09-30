@@ -39,7 +39,7 @@ interface StellarisOutlinerProps {
   onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
 }
 
-export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
+const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
   state,
   activePlayerId,
   activePlanetId,
@@ -698,3 +698,5 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
     </aside>
   );
 };
+
+export const StellarisOutliner = React.memo(StellarisOutlinerComponent);

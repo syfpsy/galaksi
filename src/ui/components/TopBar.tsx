@@ -61,7 +61,7 @@ interface TopBarProps {
   onToggleMute?: () => void;
 }
 
-export const TopBar: React.FC<TopBarProps> = ({
+const TopBarComponent: React.FC<TopBarProps> = ({
   state,
   activePlayerId,
   activePlanet,
@@ -666,3 +666,5 @@ export const TopBar: React.FC<TopBarProps> = ({
     </header>
   );
 };
+
+export const TopBar = React.memo(TopBarComponent);

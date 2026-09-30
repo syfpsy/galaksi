@@ -56,7 +56,7 @@ interface CommandPanelProps {
   onClose?: () => void;
 }
 
-export const CommandPanel: React.FC<CommandPanelProps> = ({
+const CommandPanelComponent: React.FC<CommandPanelProps> = ({
   state,
   activePlayerId,
   activePlanet,
@@ -1099,3 +1099,5 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
     </aside>
   );
 };
+
+export const CommandPanel = React.memo(CommandPanelComponent);

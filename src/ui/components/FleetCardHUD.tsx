@@ -36,7 +36,7 @@ interface FleetCardHUDProps {
   onFocusFleetPosition?: () => void;
 }
 
-export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
+const FleetCardHUDComponent: React.FC<FleetCardHUDProps> = ({
   state,
   fleetId,
   activePlayerId,
@@ -542,3 +542,5 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
     </div>
   );
 };
+
+export const FleetCardHUD = React.memo(FleetCardHUDComponent);

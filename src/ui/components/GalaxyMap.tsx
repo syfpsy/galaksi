@@ -87,6 +87,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
 
   // Real-time planetary orbits for focused system (for telemetry HUD card)
   const systemPlanetOrbits = useMemo(() => {
+    if (viewMode !== 'system') return [];
     return activeSystem.slots.map((slot) => {
       const orbit = calculatePlanetOrbit(
         activeSystem.id,
@@ -103,7 +104,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         owner,
       };
     });
-  }, [activeSystem, state.timeMs, state.planets, state.players]);
+  }, [viewMode, activeSystem, state.timeMs, state.planets, state.players]);
 
   // Handle switching into system view
   const enterSystemView = (systemId: string) => {

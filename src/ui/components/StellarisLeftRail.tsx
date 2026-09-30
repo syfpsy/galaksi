@@ -48,7 +48,7 @@ interface StellarisLeftRailProps {
   onToggleVacationMode?: () => void;
 }
 
-export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
+const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   activePlayerColor,
   isPlanetPanelOpen,
   onTogglePlanetPanel,
@@ -520,3 +520,5 @@ export const StellarisLeftRail: React.FC<StellarisLeftRailProps> = ({
     </aside>
   );
 };
+
+export const StellarisLeftRail = React.memo(StellarisLeftRailComponent);

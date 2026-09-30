@@ -21,7 +21,7 @@ interface IncomingThreatBannerProps {
   onOpenRadar?: () => void;
 }
 
-export const IncomingThreatBanner: React.FC<IncomingThreatBannerProps> = ({
+const IncomingThreatBannerComponent: React.FC<IncomingThreatBannerProps> = ({
   state,
   activePlayerId,
   onTargetThreat,
@@ -181,3 +181,5 @@ export const IncomingThreatBanner: React.FC<IncomingThreatBannerProps> = ({
     </div>
   );
 };
+
+export const IncomingThreatBanner = React.memo(IncomingThreatBannerComponent);

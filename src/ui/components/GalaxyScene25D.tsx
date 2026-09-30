@@ -1397,6 +1397,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     let clock = new THREE.Clock();
     let frameCounter = 0;
     const tempProjVec = new THREE.Vector3();
+    const tempBuoyVec = new THREE.Vector3();
 
     const animate = () => {
       animationFrameId = requestAnimationFrame(animate);
@@ -1852,9 +1853,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   const b = currentOrrery?.warpBuoys.find((wb) => wb.targetSystemId === otherSysId);
                   if (b) return b.position;
                   const otherSys = stateRef.current.map.systems[otherSysId];
-                  if (!otherSys) return new THREE.Vector3(500, 100, 4);
+                  if (!otherSys) return tempBuoyVec.set(500, 100, 4);
                   const angle = Math.atan2(otherSys.y - currentSystem.y, otherSys.x - currentSystem.x);
-                  return new THREE.Vector3(
+                  return tempBuoyVec.set(
                     500 + Math.cos(angle) * 410,
                     400 + Math.sin(angle) * 410 * 0.85,
                     4
@@ -2020,8 +2021,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         warpTunnel.visible = false;
       }
 
-      // 6.7 Project 3D Coordinates to 2D Screen for HTML Billboard Labels
-      if (frameCounter % 2 === 0) {
+      // 6.7 Project 3D Coordinates to 2D Screen for HTML Billboard Labels (20Hz, in sync with 50ms engine tick)
+      if (frameCounter % 3 === 0) {
         const labels: ScreenLabel[] = [];
 
         if (!isSystemMode) {
