@@ -1,0 +1,886 @@
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import * as THREE from 'three';
+import { BattleReport, CombatRound, ShipType } from '../../engine/types';
+import { SHIP_STATS } from '../../engine/constants';
+import { sound } from '../sound';
+import { Camera, Eye, Flame, Maximize2, Pause, Play, RotateCcw, Shield, Sparkles, Swords, Zap } from 'lucide-react';
+
+export type CameraPreset = 'cinematic' | 'tactical' | 'attacker' | 'defender';
+
+export interface TacticalCombat3DArenaProps {
+  report: BattleReport;
+  currentRoundIdx: number;
+  isPlaying: boolean;
+  onTogglePlay?: () => void;
+  onSelectRound?: (roundIdx: number) => void;
+}
+
+interface Particle {
+  mesh: THREE.Mesh;
+  velocity: THREE.Vector3;
+  life: number;
+  maxLife: number;
+}
+
+interface LaserBeam {
+  mesh: THREE.Mesh;
+  light?: THREE.PointLight;
+  duration: number;
+  elapsed: number;
+}
+
+interface TorpedoProjectile {
+  mesh: THREE.Mesh;
+  startPos: THREE.Vector3;
+  targetPos: THREE.Vector3;
+  progress: number;
+  speed: number;
+  trailPoints: THREE.Vector3[];
+}
+
+export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
+  report,
+  currentRoundIdx,
+  isPlaying,
+  onTogglePlay,
+  onSelectRound,
+}) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  const [cameraPreset, setCameraPreset] = useState<CameraPreset>('cinematic');
+  const [showGrid, setShowGrid] = useState(true);
+
+  // References for Three.js instance
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const animFrameIdRef = useRef<number | null>(null);
+
+  // Dynamic combat entity groups
+  const attackerShipsGroupRef = useRef<THREE.Group | null>(null);
+  const defenderShipsGroupRef = useRef<THREE.Group | null>(null);
+  const fxGroupRef = useRef<THREE.Group | null>(null);
+
+  // Live particle and projectile arrays
+  const activeParticlesRef = useRef<Particle[]>([]);
+  const activeLasersRef = useRef<LaserBeam[]>([]);
+  const activeTorpedoesRef = useRef<TorpedoProjectile[]>([]);
+
+  // Camera animation target & orbit state
+  const cameraTargetRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 0, 0));
+  const cameraDesiredPosRef = useRef<THREE.Vector3>(new THREE.Vector3(0, 16, 52));
+  const isDraggingRef = useRef(false);
+  const previousMousePositionRef = useRef({ x: 0, y: 0 });
+  const orbitRotationRef = useRef({ theta: 0, phi: 0.28 });
+  const orbitDistanceRef = useRef(52);
+
+  const currentRound: CombatRound | undefined = report.rounds[currentRoundIdx];
+  const totalRounds = report.rounds.length;
+
+  // Camera presets coordinates
+  const applyCameraPreset = useCallback((preset: CameraPreset) => {
+    setCameraPreset(preset);
+    if (preset === 'cinematic') {
+      cameraDesiredPosRef.current.set(0, 14, 50);
+      cameraTargetRef.current.set(0, 0, 0);
+      orbitDistanceRef.current = 50;
+      orbitRotationRef.current = { theta: 0, phi: 0.28 };
+    } else if (preset === 'tactical') {
+      cameraDesiredPosRef.current.set(0, 48, 22);
+      cameraTargetRef.current.set(0, 0, 0);
+      orbitDistanceRef.current = 55;
+      orbitRotationRef.current = { theta: 0, phi: 1.15 };
+    } else if (preset === 'attacker') {
+      cameraDesiredPosRef.current.set(-42, 10, 8);
+      cameraTargetRef.current.set(15, 0, 0);
+      orbitDistanceRef.current = 45;
+      orbitRotationRef.current = { theta: -1.4, phi: 0.2 };
+    } else if (preset === 'defender') {
+      cameraDesiredPosRef.current.set(42, 10, -8);
+      cameraTargetRef.current.set(-15, 0, 0);
+      orbitDistanceRef.current = 45;
+      orbitRotationRef.current = { theta: 1.4, phi: 0.2 };
+    }
+  }, []);
+
+  // --- Procedural Low-Poly Sci-Fi Ship Builders ---
+  const createScoutMesh = useCallback((isAttacker: boolean) => {
+    const group = new THREE.Group();
+    const primaryColor = isAttacker ? 0xf43f5e : 0x00f3ff;
+    const accentColor = isAttacker ? 0xffa500 : 0x38bdf8;
+
+    // Needle fuselage
+    const bodyGeo = new THREE.ConeGeometry(0.7, 3.2, 5);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: primaryColor,
+      metalness: 0.85,
+      roughness: 0.3,
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.rotation.z = isAttacker ? -Math.PI / 2 : Math.PI / 2;
+    group.add(body);
+
+    // Twin swept wings
+    const wingGeo = new THREE.BoxGeometry(0.1, 0.25, 2.6);
+    const wingMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.7, roughness: 0.4 });
+    const wing = new THREE.Mesh(wingGeo, wingMat);
+    wing.position.set(isAttacker ? -0.4 : 0.4, 0, 0);
+    group.add(wing);
+
+    // Glowing thruster
+    const thrusterGeo = new THREE.CylinderGeometry(0.2, 0.4, 0.5, 6);
+    const thrusterMat = new THREE.MeshBasicMaterial({
+      color: accentColor,
+      blending: THREE.AdditiveBlending,
+    });
+    const thruster = new THREE.Mesh(thrusterGeo, thrusterMat);
+    thruster.rotation.z = isAttacker ? -Math.PI / 2 : Math.PI / 2;
+    thruster.position.set(isAttacker ? -1.7 : 1.7, 0, 0);
+    group.add(thruster);
+
+    return group;
+  }, []);
+
+  const createFighterMesh = useCallback((isAttacker: boolean) => {
+    const group = new THREE.Group();
+    const primaryColor = isAttacker ? 0xe11d48 : 0x0284c7;
+    const accentColor = isAttacker ? 0xf59e0b : 0x38bdf8;
+
+    // Delta fuselage
+    const bodyGeo = new THREE.ConeGeometry(1.1, 4.2, 4);
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: primaryColor,
+      metalness: 0.88,
+      roughness: 0.28,
+    });
+    const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.rotation.z = isAttacker ? -Math.PI / 2 : Math.PI / 2;
+    group.add(body);
+
+    // Dual swept wings with wingtip fins
+    const wingGeo = new THREE.BoxGeometry(0.15, 0.35, 4.4);
+    const wingMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.8, roughness: 0.35 });
+    const wing = new THREE.Mesh(wingGeo, wingMat);
+    wing.position.set(isAttacker ? -0.8 : 0.8, 0, 0);
+    group.add(wing);
+
+    // Dual engines
+    [-0.9, 0.9].forEach((zOffset) => {
+      const engGeo = new THREE.CylinderGeometry(0.25, 0.35, 1.0, 6);
+      const engMat = new THREE.MeshBasicMaterial({ color: accentColor, blending: THREE.AdditiveBlending });
+      const eng = new THREE.Mesh(engGeo, engMat);
+      eng.rotation.z = isAttacker ? -Math.PI / 2 : Math.PI / 2;
+      eng.position.set(isAttacker ? -2.0 : 2.0, 0, zOffset);
+      group.add(eng);
+    });
+
+    return group;
+  }, []);
+
+  const createTransportMesh = useCallback((isAttacker: boolean) => {
+    const group = new THREE.Group();
+    const primaryColor = isAttacker ? 0xb45309 : 0x0d9488;
+
+    // Heavy cargo hull
+    const hullGeo = new THREE.BoxGeometry(4.0, 1.8, 2.2);
+    const hullMat = new THREE.MeshStandardMaterial({
+      color: primaryColor,
+      metalness: 0.75,
+      roughness: 0.45,
+    });
+    const hull = new THREE.Mesh(hullGeo, hullMat);
+    group.add(hull);
+
+    // Forward cockpit
+    const bridgeGeo = new THREE.BoxGeometry(1.2, 1.0, 1.4);
+    const bridgeMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.9, roughness: 0.2 });
+    const bridge = new THREE.Mesh(bridgeGeo, bridgeMat);
+    bridge.position.set(isAttacker ? 2.2 : -2.2, 0.3, 0);
+    group.add(bridge);
+
+    // 4 corner engine pods
+    [-0.7, 0.7].forEach((y) => {
+      [-1.2, 1.2].forEach((z) => {
+        const podGeo = new THREE.CylinderGeometry(0.25, 0.3, 1.2, 6);
+        const podMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, blending: THREE.AdditiveBlending });
+        const pod = new THREE.Mesh(podGeo, podMat);
+        pod.rotation.z = isAttacker ? -Math.PI / 2 : Math.PI / 2;
+        pod.position.set(isAttacker ? -2.2 : 2.2, y, z);
+        group.add(pod);
+      });
+    });
+
+    return group;
+  }, []);
+
+  const createBattleshipMesh = useCallback((isAttacker: boolean) => {
+    const group = new THREE.Group();
+    const primaryColor = isAttacker ? 0x991b1b : 0x1e3a8a;
+    const accentColor = isAttacker ? 0xf59e0b : 0x00f3ff;
+
+    // Segmented capital hull
+    const mainHullGeo = new THREE.BoxGeometry(7.5, 2.2, 3.2);
+    const mainHullMat = new THREE.MeshStandardMaterial({
+      color: primaryColor,
+      metalness: 0.9,
+      roughness: 0.25,
+    });
+    const mainHull = new THREE.Mesh(mainHullGeo, mainHullMat);
+    group.add(mainHull);
+
+    // Armored Prow Cone
+    const prowGeo = new THREE.ConeGeometry(2.0, 3.5, 4);
+    const prowMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.95, roughness: 0.2 });
+    const prow = new THREE.Mesh(prowGeo, prowMat);
+    prow.rotation.z = isAttacker ? -Math.PI / 2 : Math.PI / 2;
+    prow.position.set(isAttacker ? 4.5 : -4.5, 0, 0);
+    group.add(prow);
+
+    // Superstructure Tower
+    const towerGeo = new THREE.BoxGeometry(1.8, 1.5, 1.4);
+    const towerMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.85, roughness: 0.3 });
+    const tower = new THREE.Mesh(towerGeo, towerMat);
+    tower.position.set(isAttacker ? -0.8 : 0.8, 1.6, 0);
+    group.add(tower);
+
+    // Dorsal Heavy Turret Batteries
+    [-1.8, 1.8].forEach((xOffset) => {
+      const turretBaseGeo = new THREE.CylinderGeometry(0.6, 0.7, 0.4, 8);
+      const turretBaseMat = new THREE.MeshStandardMaterial({ color: 0x374151, metalness: 0.9, roughness: 0.2 });
+      const turret = new THREE.Mesh(turretBaseGeo, turretBaseMat);
+      turret.position.set(xOffset, 1.2, 0);
+
+      // Gun Barrels
+      const barrelGeo = new THREE.CylinderGeometry(0.1, 0.1, 1.4, 6);
+      const barrelMat = new THREE.MeshStandardMaterial({ color: 0x111827, metalness: 0.95, roughness: 0.15 });
+      const barrel1 = new THREE.Mesh(barrelGeo, barrelMat);
+      barrel1.rotation.z = isAttacker ? -Math.PI / 2 : Math.PI / 2;
+      barrel1.position.set(isAttacker ? 0.8 : -0.8, 0.1, -0.2);
+      const barrel2 = barrel1.clone();
+      barrel2.position.z = 0.2;
+
+      turret.add(barrel1);
+      turret.add(barrel2);
+      group.add(turret);
+    });
+
+    // Massive Quad Thrusters
+    [-0.6, 0.6].forEach((y) => {
+      [-0.8, 0.8].forEach((z) => {
+        const engGeo = new THREE.CylinderGeometry(0.4, 0.6, 1.4, 8);
+        const engMat = new THREE.MeshBasicMaterial({ color: accentColor, blending: THREE.AdditiveBlending });
+        const eng = new THREE.Mesh(engGeo, engMat);
+        eng.rotation.z = isAttacker ? -Math.PI / 2 : Math.PI / 2;
+        eng.position.set(isAttacker ? -4.0 : 4.0, y, z);
+        group.add(eng);
+      });
+    });
+
+    return group;
+  }, []);
+
+  // Spawn visual ship models for a fleet according to current counts
+  const populateFleetGroup = useCallback(
+    (group: THREE.Group, shipCounts: Record<ShipType, number>, isAttacker: boolean) => {
+      // Clear previous models
+      while (group.children.length > 0) {
+        const obj = group.children[0];
+        group.remove(obj);
+      }
+
+      const baseX = isAttacker ? -24 : 24;
+
+      // Class layout positions
+      const layoutSlots: Record<ShipType, { x: number; y: number; z: number }[]> = {
+        battleship: [
+          { x: isAttacker ? -28 : 28, y: 0, z: 0 },
+          { x: isAttacker ? -32 : 32, y: 2.5, z: -8 },
+          { x: isAttacker ? -32 : 32, y: -2.5, z: 8 },
+        ],
+        fighter: [
+          { x: isAttacker ? -18 : 18, y: 3.5, z: -10 },
+          { x: isAttacker ? -16 : 16, y: 1.5, z: -5 },
+          { x: isAttacker ? -15 : 15, y: -1.5, z: 5 },
+          { x: isAttacker ? -18 : 18, y: -3.5, z: 10 },
+          { x: isAttacker ? -19 : 19, y: 0, z: -14 },
+          { x: isAttacker ? -19 : 19, y: 0, z: 14 },
+        ],
+        scout: [
+          { x: isAttacker ? -14 : 14, y: 4.5, z: -16 },
+          { x: isAttacker ? -13 : 13, y: -4.5, z: 16 },
+          { x: isAttacker ? -12 : 12, y: 0, z: -20 },
+          { x: isAttacker ? -12 : 12, y: 0, z: 20 },
+        ],
+        transport: [
+          { x: isAttacker ? -34 : 34, y: 1.0, z: -5 },
+          { x: isAttacker ? -34 : 34, y: -1.0, z: 5 },
+        ],
+      };
+
+      (['battleship', 'fighter', 'scout', 'transport'] as ShipType[]).forEach((st) => {
+        const count = shipCounts[st] || 0;
+        if (count <= 0) return;
+
+        const slots = layoutSlots[st];
+        const numToRender = Math.min(slots.length, Math.max(1, count));
+
+        for (let i = 0; i < numToRender; i++) {
+          let mesh: THREE.Group;
+          if (st === 'battleship') mesh = createBattleshipMesh(isAttacker);
+          else if (st === 'fighter') mesh = createFighterMesh(isAttacker);
+          else if (st === 'scout') mesh = createScoutMesh(isAttacker);
+          else mesh = createTransportMesh(isAttacker);
+
+          const slot = slots[i % slots.length];
+          mesh.position.set(slot.x, slot.y, slot.z);
+
+          // Store ship type & side in user data
+          mesh.userData = { shipType: st, isAttacker, initialCount: count };
+          group.add(mesh);
+        }
+      });
+    },
+    [createBattleshipMesh, createFighterMesh, createScoutMesh, createTransportMesh]
+  );
+
+  // Trigger weapon fire VFX for this round
+  const triggerRoundFireEffects = useCallback(
+    (round: CombatRound) => {
+      if (!fxGroupRef.current || !attackerShipsGroupRef.current || !defenderShipsGroupRef.current) return;
+
+      const fxGroup = fxGroupRef.current;
+      const attShips = attackerShipsGroupRef.current.children;
+      const defShips = defenderShipsGroupRef.current.children;
+
+      if (attShips.length === 0 || defShips.length === 0) return;
+
+      // 1. Attacker Laser / Railgun Fire
+      if (round.attackerDamageDealt > 0) {
+        sound.playLaser();
+        const numBeams = Math.min(attShips.length, 4);
+
+        for (let i = 0; i < numBeams; i++) {
+          const shooter = attShips[i % attShips.length];
+          const target = defShips[Math.floor(Math.random() * defShips.length)];
+
+          const start = shooter.position.clone();
+          const end = target.position.clone();
+
+          // Laser beam cylinder
+          const distance = start.distanceTo(end);
+          const beamGeo = new THREE.CylinderGeometry(0.18, 0.18, distance, 6);
+          const beamMat = new THREE.MeshBasicMaterial({
+            color: 0xf43f5e,
+            blending: THREE.AdditiveBlending,
+            transparent: true,
+            opacity: 0.95,
+          });
+          const beam = new THREE.Mesh(beamGeo, beamMat);
+
+          // Position & orient beam
+          const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+          beam.position.copy(midPoint);
+          beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.clone().sub(start).normalize());
+
+          fxGroup.add(beam);
+          activeLasersRef.current.push({
+            mesh: beam,
+            duration: 0.35,
+            elapsed: 0,
+          });
+
+          // Deflector shield flare at impact target
+          const shieldGeo = new THREE.SphereGeometry(2.5, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+          const shieldMat = new THREE.MeshBasicMaterial({
+            color: 0x00f3ff,
+            transparent: true,
+            opacity: 0.7,
+            blending: THREE.AdditiveBlending,
+            side: THREE.DoubleSide,
+          });
+          const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+          shieldMesh.position.copy(end);
+          shieldMesh.rotation.y = Math.PI / 2;
+          fxGroup.add(shieldMesh);
+          activeLasersRef.current.push({
+            mesh: shieldMesh,
+            duration: 0.28,
+            elapsed: 0,
+          });
+        }
+      }
+
+      // 2. Defender Return Fire (Cyan Lasers)
+      if (round.defenderDamageDealt > 0) {
+        setTimeout(() => {
+          sound.playLaser();
+          const numBeams = Math.min(defShips.length, 3);
+
+          for (let i = 0; i < numBeams; i++) {
+            const shooter = defShips[i % defShips.length];
+            const target = attShips[Math.floor(Math.random() * attShips.length)];
+
+            const start = shooter.position.clone();
+            const end = target.position.clone();
+
+            const distance = start.distanceTo(end);
+            const beamGeo = new THREE.CylinderGeometry(0.18, 0.18, distance, 6);
+            const beamMat = new THREE.MeshBasicMaterial({
+              color: 0x00f3ff,
+              blending: THREE.AdditiveBlending,
+              transparent: true,
+              opacity: 0.95,
+            });
+            const beam = new THREE.Mesh(beamGeo, beamMat);
+
+            const midPoint = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+            beam.position.copy(midPoint);
+            beam.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), end.clone().sub(start).normalize());
+
+            fxGroup.add(beam);
+            activeLasersRef.current.push({
+              mesh: beam,
+              duration: 0.35,
+              elapsed: 0,
+            });
+
+            // Shield flare on attacker
+            const shieldGeo = new THREE.SphereGeometry(2.5, 12, 12, 0, Math.PI * 2, 0, Math.PI / 2);
+            const shieldMat = new THREE.MeshBasicMaterial({
+              color: 0xf59e0b,
+              transparent: true,
+              opacity: 0.65,
+              blending: THREE.AdditiveBlending,
+              side: THREE.DoubleSide,
+            });
+            const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+            shieldMesh.position.copy(end);
+            shieldMesh.rotation.y = -Math.PI / 2;
+            fxGroup.add(shieldMesh);
+            activeLasersRef.current.push({
+              mesh: shieldMesh,
+              duration: 0.28,
+              elapsed: 0,
+            });
+          }
+        }, 120);
+      }
+
+      // 3. Casualties & Explosions
+      const hasAttackerLosses = Object.values(round.attackerLosses).some((cnt) => cnt > 0);
+      const hasDefenderLosses = Object.values(round.defenderLosses).some((cnt) => cnt > 0);
+
+      if (hasAttackerLosses || hasDefenderLosses) {
+        setTimeout(() => {
+          sound.playExplosion();
+
+          // Spawn explosion debris particles
+          const originPos = hasDefenderLosses
+            ? defShips[Math.floor(Math.random() * defShips.length)].position.clone()
+            : attShips[Math.floor(Math.random() * attShips.length)].position.clone();
+
+          for (let p = 0; p < 25; p++) {
+            const partGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+            const partMat = new THREE.MeshBasicMaterial({
+              color: p % 2 === 0 ? 0xff4500 : 0xffd700,
+              blending: THREE.AdditiveBlending,
+            });
+            const partMesh = new THREE.Mesh(partGeo, partMat);
+            partMesh.position.copy(originPos);
+
+            const velocity = new THREE.Vector3(
+              (Math.random() - 0.5) * 18,
+              (Math.random() - 0.5) * 18,
+              (Math.random() - 0.5) * 18
+            );
+
+            fxGroup.add(partMesh);
+            activeParticlesRef.current.push({
+              mesh: partMesh,
+              velocity,
+              life: 0,
+              maxLife: 0.65 + Math.random() * 0.35,
+            });
+          }
+        }, 220);
+      }
+    },
+    []
+  );
+
+  // Initialize Scene, Camera, Lights, Grid, Starfield
+  useEffect(() => {
+    if (!containerRef.current || !canvasRef.current) return;
+
+    const width = containerRef.current.clientWidth || 640;
+    const height = containerRef.current.clientHeight || 340;
+
+    // 1. Scene
+    const scene = new THREE.Scene();
+    scene.fog = new THREE.FogExp2(0x030712, 0.007);
+    sceneRef.current = scene;
+
+    // 2. Camera
+    const camera = new THREE.PerspectiveCamera(46, width / height, 0.5, 600);
+    camera.position.set(0, 14, 50);
+    cameraRef.current = camera;
+
+    // 3. Renderer
+    const renderer = new THREE.WebGLRenderer({
+      canvas: canvasRef.current,
+      antialias: true,
+      powerPreference: 'high-performance',
+      alpha: true,
+    });
+    renderer.setSize(width, height);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.15;
+    rendererRef.current = renderer;
+
+    // 4. Lighting
+    const ambientLight = new THREE.AmbientLight(0x38bdf8, 0.45);
+    scene.add(ambientLight);
+
+    const dirLight1 = new THREE.DirectionalLight(0xffffff, 1.2);
+    dirLight1.position.set(20, 40, 30);
+    scene.add(dirLight1);
+
+    const dirLight2 = new THREE.DirectionalLight(0xf43f5e, 0.6);
+    dirLight2.position.set(-30, -20, -20);
+    scene.add(dirLight2);
+
+    // 5. Starfield Background (1,000 deep space stars)
+    const starCount = 1000;
+    const starGeo = new THREE.BufferGeometry();
+    const starPositions = new Float32Array(starCount * 3);
+    const starColors = new Float32Array(starCount * 3);
+
+    for (let i = 0; i < starCount; i++) {
+      const idx = i * 3;
+      starPositions[idx] = (Math.random() - 0.5) * 360;
+      starPositions[idx + 1] = (Math.random() - 0.5) * 260;
+      starPositions[idx + 2] = (Math.random() - 0.5) * 360;
+
+      const isCyan = Math.random() > 0.6;
+      starColors[idx] = isCyan ? 0.3 : 1.0;
+      starColors[idx + 1] = isCyan ? 0.9 : 0.95;
+      starColors[idx + 2] = isCyan ? 1.0 : 0.85;
+    }
+
+    starGeo.setAttribute('position', new THREE.BufferAttribute(starPositions, 3));
+    starGeo.setAttribute('color', new THREE.BufferAttribute(starColors, 3));
+    const starMat = new THREE.PointsMaterial({
+      size: 1.3,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.8,
+    });
+    const starField = new THREE.Points(starGeo, starMat);
+    scene.add(starField);
+
+    // 6. Tactical Holographic Floor Grid
+    const gridHelper = new THREE.GridHelper(80, 40, 0x00f3ff, 0x133852);
+    gridHelper.position.y = -7;
+    (gridHelper.material as THREE.Material).transparent = true;
+    (gridHelper.material as THREE.Material).opacity = 0.35;
+    scene.add(gridHelper);
+
+    // 7. Fleets & VFX Groups
+    const attackerGroup = new THREE.Group();
+    attackerShipsGroupRef.current = attackerGroup;
+    scene.add(attackerGroup);
+
+    const defenderGroup = new THREE.Group();
+    defenderShipsGroupRef.current = defenderGroup;
+    scene.add(defenderGroup);
+
+    const fxGroup = new THREE.Group();
+    fxGroupRef.current = fxGroup;
+    scene.add(fxGroup);
+
+    // Resize observer
+    const resizeObserver = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width: w, height: h } = entry.contentRect;
+        if (w > 0 && h > 0) {
+          camera.aspect = w / h;
+          camera.updateProjectionMatrix();
+          renderer.setSize(w, h);
+        }
+      }
+    });
+    resizeObserver.observe(containerRef.current);
+
+    // Render loop
+    let lastTime = performance.now();
+    const animate = () => {
+      animFrameIdRef.current = requestAnimationFrame(animate);
+
+      const now = performance.now();
+      const delta = Math.min(0.1, (now - lastTime) / 1000);
+      lastTime = now;
+
+      // Gentle continuous star twinkling / rotation
+      starField.rotation.y += delta * 0.015;
+
+      // Smooth camera interpolation towards target
+      if (cameraPreset === 'cinematic') {
+        // Slow majestic drift
+        const t = now * 0.00035;
+        const radius = orbitDistanceRef.current;
+        camera.position.x = Math.sin(t) * (radius * 0.35);
+        camera.position.z = Math.cos(t) * radius;
+        camera.position.y = 12 + Math.sin(t * 1.5) * 4;
+        camera.lookAt(0, 0, 0);
+      } else {
+        camera.position.lerp(cameraDesiredPosRef.current, delta * 4.5);
+        camera.lookAt(cameraTargetRef.current);
+      }
+
+      // Update active laser beams
+      for (let i = activeLasersRef.current.length - 1; i >= 0; i--) {
+        const laser = activeLasersRef.current[i];
+        laser.elapsed += delta;
+        const progress = laser.elapsed / laser.duration;
+
+        if (progress >= 1) {
+          fxGroup.remove(laser.mesh);
+          if (laser.mesh.geometry) laser.mesh.geometry.dispose();
+          activeLasersRef.current.splice(i, 1);
+        } else {
+          // Fade beam
+          (laser.mesh.material as THREE.MeshBasicMaterial).opacity = 1 - progress;
+        }
+      }
+
+      // Update active explosion particles
+      for (let i = activeParticlesRef.current.length - 1; i >= 0; i--) {
+        const p = activeParticlesRef.current[i];
+        p.life += delta;
+        p.mesh.position.addScaledVector(p.velocity, delta);
+        p.velocity.multiplyScalar(0.96); // drag
+
+        const progress = p.life / p.maxLife;
+        if (progress >= 1) {
+          fxGroup.remove(p.mesh);
+          if (p.mesh.geometry) p.mesh.geometry.dispose();
+          activeParticlesRef.current.splice(i, 1);
+        } else {
+          p.mesh.scale.setScalar(1 - progress * 0.7);
+          (p.mesh.material as THREE.MeshBasicMaterial).opacity = 1 - progress;
+        }
+      }
+
+      renderer.render(scene, camera);
+    };
+
+    animFrameIdRef.current = requestAnimationFrame(animate);
+
+    // Cleanup on unmount
+    return () => {
+      resizeObserver.disconnect();
+      if (animFrameIdRef.current) cancelAnimationFrame(animFrameIdRef.current);
+      renderer.dispose();
+    };
+  }, [cameraPreset]);
+
+  // Update fleet formations when currentRound changes
+  useEffect(() => {
+    if (!attackerShipsGroupRef.current || !defenderShipsGroupRef.current) return;
+
+    const round = currentRound || report.rounds[0];
+    const attRemaining = round ? round.attackerRemaining : report.survivingAttacker;
+    const defRemaining = round ? round.defenderRemaining : report.survivingDefender;
+
+    populateFleetGroup(attackerShipsGroupRef.current, attRemaining, true);
+    populateFleetGroup(defenderShipsGroupRef.current, defRemaining, false);
+
+    if (round) {
+      triggerRoundFireEffects(round);
+    }
+  }, [currentRoundIdx, report, populateFleetGroup, triggerRoundFireEffects]);
+
+  // Mouse drag & zoom controls
+  const handleMouseDown = (e: React.MouseEvent) => {
+    isDraggingRef.current = true;
+    previousMousePositionRef.current = { x: e.clientX, y: e.clientY };
+  };
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!isDraggingRef.current || cameraPreset === 'cinematic') return;
+
+    const deltaX = e.clientX - previousMousePositionRef.current.x;
+    const deltaY = e.clientY - previousMousePositionRef.current.y;
+    previousMousePositionRef.current = { x: e.clientX, y: e.clientY };
+
+    orbitRotationRef.current.theta -= deltaX * 0.01;
+    orbitRotationRef.current.phi = Math.max(0.05, Math.min(Math.PI / 2.2, orbitRotationRef.current.phi + deltaY * 0.01));
+
+    const dist = orbitDistanceRef.current;
+    cameraDesiredPosRef.current.set(
+      Math.sin(orbitRotationRef.current.theta) * Math.cos(orbitRotationRef.current.phi) * dist,
+      Math.sin(orbitRotationRef.current.phi) * dist,
+      Math.cos(orbitRotationRef.current.theta) * Math.cos(orbitRotationRef.current.phi) * dist
+    );
+  };
+
+  const handleMouseUp = () => {
+    isDraggingRef.current = false;
+  };
+
+  const handleWheel = (e: React.WheelEvent) => {
+    e.stopPropagation();
+    orbitDistanceRef.current = Math.max(20, Math.min(100, orbitDistanceRef.current + e.deltaY * 0.05));
+    if (cameraPreset !== 'cinematic') {
+      const dist = orbitDistanceRef.current;
+      cameraDesiredPosRef.current.set(
+        Math.sin(orbitRotationRef.current.theta) * Math.cos(orbitRotationRef.current.phi) * dist,
+        Math.sin(orbitRotationRef.current.phi) * dist,
+        Math.cos(orbitRotationRef.current.theta) * Math.cos(orbitRotationRef.current.phi) * dist
+      );
+    }
+  };
+
+  return (
+    <div
+      ref={containerRef}
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+      onWheel={handleWheel}
+      className="relative w-full h-[280px] bg-[#020611] rounded-sm overflow-hidden border border-[#1b3d54] select-none shadow-2xl group"
+    >
+      <canvas ref={canvasRef} className="w-full h-full block cursor-grab active:cursor-grabbing" />
+
+      {/* Top HUD: Title, Round Indicator, Live Fire Score */}
+      <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10 font-mono text-[10px]">
+        {/* Attacker Flank Badge */}
+        <div className="bg-[#0b141e]/90 border border-rose-500/50 backdrop-blur-md px-2.5 py-1 rounded-sm text-rose-300 flex items-center gap-1.5 shadow-[0_0_8px_rgba(244,63,94,0.2)]">
+          <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+          <span className="font-bold uppercase tracking-wider">{report.attackerName}</span>
+          {currentRound && (
+            <span className="font-bold text-rose-400 bg-rose-950/80 px-1 py-0.2 rounded-xs border border-rose-500/30">
+              ⚡ -{currentRound.attackerDamageDealt}
+            </span>
+          )}
+        </div>
+
+        {/* Center Round Indicator */}
+        <div className="bg-[#08131e]/95 border border-cyan-400/40 backdrop-blur-md px-3 py-1 rounded-sm text-cyan-300 font-bold uppercase tracking-widest flex items-center gap-1.5 shadow-[0_0_10px_rgba(0,243,255,0.2)]">
+          <Swords className="w-3.5 h-3.5 text-amber-400" />
+          <span>TUR {currentRoundIdx + 1} / {totalRounds}</span>
+        </div>
+
+        {/* Defender Flank Badge */}
+        <div className="bg-[#0b141e]/90 border border-cyan-500/50 backdrop-blur-md px-2.5 py-1 rounded-sm text-cyan-300 flex items-center gap-1.5 shadow-[0_0_8px_rgba(6,182,212,0.2)]">
+          {currentRound && (
+            <span className="font-bold text-cyan-300 bg-cyan-950/80 px-1 py-0.2 rounded-xs border border-cyan-500/30">
+              ⚡ -{currentRound.defenderDamageDealt}
+            </span>
+          )}
+          <span className="font-bold uppercase tracking-wider">{report.defenderName}</span>
+          <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+        </div>
+      </div>
+
+      {/* Bottom Floating Control Bar */}
+      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-auto">
+        {/* Camera Preset Switcher */}
+        <div className="flex items-center gap-1 bg-[#091522]/90 border border-[#1b3d52] backdrop-blur-md p-1 rounded-sm">
+          <button
+            type="button"
+            onClick={() => applyCameraPreset('cinematic')}
+            className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+              cameraPreset === 'cinematic'
+                ? 'stellaris-rail-btn active text-cyan-300 font-bold'
+                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+            }`}
+            title="Sinematik kamera süzülmesi"
+          >
+            🎥 Sinematik
+          </button>
+          <button
+            type="button"
+            onClick={() => applyCameraPreset('tactical')}
+            className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+              cameraPreset === 'tactical'
+                ? 'stellaris-rail-btn active text-cyan-300 font-bold'
+                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+            }`}
+            title="Taktik üstten izometrik görünüm"
+          >
+            📐 Taktik Izgara
+          </button>
+          <button
+            type="button"
+            onClick={() => applyCameraPreset('attacker')}
+            className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+              cameraPreset === 'attacker'
+                ? 'stellaris-rail-btn active text-rose-300 font-bold'
+                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+            }`}
+            title="Saldırgan filosu arkası açısı"
+          >
+            🔴 Saldırgan
+          </button>
+          <button
+            type="button"
+            onClick={() => applyCameraPreset('defender')}
+            className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+              cameraPreset === 'defender'
+                ? 'stellaris-rail-btn active text-cyan-300 font-bold'
+                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+            }`}
+            title="Savunucu filosu arkası açısı"
+          >
+            🔵 Savunucu
+          </button>
+        </div>
+
+        {/* Round Playback Controls */}
+        <div className="flex items-center gap-1.5 bg-[#091522]/90 border border-[#1b3d52] backdrop-blur-md px-2 py-1 rounded-sm">
+          {onTogglePlay && (
+            <button
+              type="button"
+              onClick={onTogglePlay}
+              className={`px-2.5 py-0.5 rounded-sm text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all ${
+                isPlaying
+                  ? 'border border-amber-500/70 text-amber-300 bg-amber-950/40 animate-pulse'
+                  : 'stellaris-btn-metallic text-cyan-300'
+              }`}
+            >
+              {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+              <span>{isPlaying ? 'DURAKLAT' : 'OYNAT'}</span>
+            </button>
+          )}
+
+          {onSelectRound && (
+            <>
+              <button
+                type="button"
+                disabled={currentRoundIdx === 0}
+                onClick={() => onSelectRound(Math.max(0, currentRoundIdx - 1))}
+                className="px-1.5 py-0.5 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 text-[10px] font-mono cursor-pointer"
+                title="Önceki Tur"
+              >
+                ◀
+              </button>
+              <button
+                type="button"
+                disabled={currentRoundIdx >= totalRounds - 1}
+                onClick={() => onSelectRound(Math.min(totalRounds - 1, currentRoundIdx + 1))}
+                className="px-1.5 py-0.5 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 text-[10px] font-mono cursor-pointer"
+                title="Sonraki Tur"
+              >
+                ▶
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};

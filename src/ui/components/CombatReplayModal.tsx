@@ -17,10 +17,13 @@ import {
   TrendingUp,
   X,
   Zap,
+  Box,
+  Layers,
 } from 'lucide-react';
 import { BattleReport, PlanetStance, ShipType } from '../../engine/types';
 import { SHIP_STATS } from '../../engine/constants';
 import { getFleetCombatRating, resolveCombat } from '../../engine/combat';
+import { TacticalCombat3DArena } from './TacticalCombat3DArena';
 import {
   loadSavedLoadouts,
   getModifiedShipStats,
@@ -73,6 +76,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [currentRoundIdx, setCurrentRoundIdx] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [combatViewMode, setCombatViewMode] = useState<'3d' | 'schematic'>('3d');
 
   // Simulator State
   const [attShips, setAttShips] = useState<Record<ShipType, number>>({
@@ -527,83 +531,147 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                   {/* Round Player Controls & Dynamic Combat Corridor */}
                   {totalRounds > 0 && (
                     <div className="stellaris-item-card border border-[#1c3647] rounded-sm p-3 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold font-display text-slate-200">
-                            TUR {currentRoundIdx + 1} / {totalRounds}
-                          </span>
+                      {/* View Switcher: 3D Arena vs Schematic Corridor */}
+                      <div className="flex items-center justify-between border-b border-[#18374b] pb-2">
+                        <div className="flex items-center gap-1.5">
                           <button
+                            type="button"
                             onClick={() => {
-                              if (isPlaying) {
-                                setIsPlaying(false);
-                              } else {
-                                if (currentRoundIdx >= totalRounds - 1) {
-                                  setCurrentRoundIdx(0);
-                                }
-                                sound.playLaser();
-                                setIsPlaying(true);
-                              }
+                              sound.playClick();
+                              setCombatViewMode('3d');
                             }}
-                            className={`px-2.5 py-1 rounded-sm text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all stellaris-btn-metallic cursor-pointer ${
-                              isPlaying
-                                ? '!border-amber-500/60 text-amber-300 animate-pulse'
-                                : '!border-rose-500/60 text-rose-300'
+                            className={`px-2 py-0.5 rounded-sm text-[10.5px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                              combatViewMode === '3d'
+                                ? 'stellaris-rail-btn active text-cyan-300 font-bold'
+                                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
                             }`}
                           >
-                            {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-                            {isPlaying ? 'DURAKLAT' : 'OTOMATİK OYNAT'}
+                            <Box className="w-3.5 h-3.5 text-cyan-400" />
+                            <span>3D Taktik Arena</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              sound.playClick();
+                              setCombatViewMode('schematic');
+                            }}
+                            className={`px-2 py-0.5 rounded-sm text-[10.5px] font-mono flex items-center gap-1.5 transition-all cursor-pointer ${
+                              combatViewMode === 'schematic'
+                                ? 'stellaris-rail-btn active text-cyan-300 font-bold'
+                                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+                            }`}
+                          >
+                            <Layers className="w-3.5 h-3.5 text-amber-400" />
+                            <span>Şematik Koridor</span>
                           </button>
                         </div>
 
                         <div className="flex items-center gap-1.5">
-                          <button
-                            disabled={currentRoundIdx === 0}
-                            onClick={() => {
-                              setIsPlaying(false);
-                              setCurrentRoundIdx((prev) => Math.max(0, prev - 1));
-                              sound.playLaser();
-                            }}
-                            className="p-1 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 cursor-pointer"
-                            title="Önceki Tur"
-                          >
-                            <ChevronLeft className="w-4 h-4" />
-                          </button>
-                          <button
-                            disabled={currentRoundIdx >= totalRounds - 1}
-                            onClick={() => {
-                              setIsPlaying(false);
-                              setCurrentRoundIdx((prev) => Math.min(totalRounds - 1, prev + 1));
-                              sound.playLaser();
-                            }}
-                            className="p-1 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 cursor-pointer"
-                            title="Sonraki Tur"
-                          >
-                            <ChevronRight className="w-4 h-4" />
-                          </button>
+                          <span className="text-xs font-bold font-display text-slate-200">
+                            TUR {currentRoundIdx + 1} / {totalRounds}
+                          </span>
                         </div>
                       </div>
 
-                      {/* Dynamic Laser Fire Corridor */}
-                      <div className="relative h-14 bg-[#050f18] rounded-sm border border-[#1c3647] p-2 flex items-center justify-between overflow-hidden">
-                        <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:12px_12px]" />
+                      {/* 3D Tactical Arena View */}
+                      {combatViewMode === '3d' ? (
+                        <TacticalCombat3DArena
+                          report={currentReport}
+                          currentRoundIdx={currentRoundIdx}
+                          isPlaying={isPlaying}
+                          onTogglePlay={() => {
+                            if (isPlaying) {
+                              setIsPlaying(false);
+                            } else {
+                              if (currentRoundIdx >= totalRounds - 1) {
+                                setCurrentRoundIdx(0);
+                              }
+                              sound.playLaser();
+                              setIsPlaying(true);
+                            }
+                          }}
+                          onSelectRound={(idx) => {
+                            setIsPlaying(false);
+                            setCurrentRoundIdx(idx);
+                            sound.playLaser();
+                          }}
+                        />
+                      ) : (
+                        <>
+                          <div className="flex items-center justify-between">
+                            <button
+                              onClick={() => {
+                                if (isPlaying) {
+                                  setIsPlaying(false);
+                                } else {
+                                  if (currentRoundIdx >= totalRounds - 1) {
+                                    setCurrentRoundIdx(0);
+                                  }
+                                  sound.playLaser();
+                                  setIsPlaying(true);
+                                }
+                              }}
+                              className={`px-2.5 py-1 rounded-sm text-[11px] font-mono font-bold flex items-center gap-1.5 transition-all stellaris-btn-metallic cursor-pointer ${
+                                isPlaying
+                                  ? '!border-amber-500/60 text-amber-300 animate-pulse'
+                                  : '!border-rose-500/60 text-rose-300'
+                              }`}
+                            >
+                              {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                              {isPlaying ? 'DURAKLAT' : 'OTOMATİK OYNAT'}
+                            </button>
 
-                        {/* Attacker plasma stream (Left to Right) */}
-                        <div className="absolute left-3 right-1/2 h-1 bg-gradient-to-r from-rose-500 via-rose-400 to-amber-300 shadow-md shadow-rose-500/60 rounded-full animate-pulse" />
-                        <div className="absolute left-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-rose-300 bg-rose-950/90 px-1.5 py-0.5 rounded-sm border border-rose-500/40 z-10">
-                          ⚡ -{currentRound ? currentRound.attackerDamageDealt : 0} Hasar
-                        </div>
+                            <div className="flex items-center gap-1.5">
+                              <button
+                                disabled={currentRoundIdx === 0}
+                                onClick={() => {
+                                  setIsPlaying(false);
+                                  setCurrentRoundIdx((prev) => Math.max(0, prev - 1));
+                                  sound.playLaser();
+                                }}
+                                className="p-1 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 cursor-pointer"
+                                title="Önceki Tur"
+                              >
+                                <ChevronLeft className="w-4 h-4" />
+                              </button>
+                              <button
+                                disabled={currentRoundIdx >= totalRounds - 1}
+                                onClick={() => {
+                                  setIsPlaying(false);
+                                  setCurrentRoundIdx((prev) => Math.min(totalRounds - 1, prev + 1));
+                                  sound.playLaser();
+                                }}
+                                className="p-1 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 cursor-pointer"
+                                title="Sonraki Tur"
+                              >
+                                <ChevronRight className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
 
-                        {/* Clash Sparks Core */}
-                        <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-amber-400/20 blur-[2px] flex items-center justify-center z-10">
-                          <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
-                        </div>
+                          {/* Dynamic Laser Fire Corridor */}
+                          <div className="relative h-14 bg-[#050f18] rounded-sm border border-[#1c3647] p-2 flex items-center justify-between overflow-hidden">
+                            <div className="absolute inset-0 opacity-15 bg-[radial-gradient(#38bdf8_1px,transparent_1px)] [background-size:12px_12px]" />
 
-                        {/* Defender laser stream (Right to Left) */}
-                        <div className="absolute right-3 left-1/2 h-1 bg-gradient-to-l from-blue-500 via-cyan-400 to-emerald-300 shadow-md shadow-cyan-400/60 rounded-full animate-pulse" />
-                        <div className="absolute right-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/90 px-1.5 py-0.5 rounded-sm border border-cyan-500/40 z-10">
-                          ⚡ -{currentRound ? currentRound.defenderDamageDealt : 0} Hasar
-                        </div>
-                      </div>
+                            {/* Attacker plasma stream (Left to Right) */}
+                            <div className="absolute left-3 right-1/2 h-1 bg-gradient-to-r from-rose-500 via-rose-400 to-amber-300 shadow-md shadow-rose-500/60 rounded-full animate-pulse" />
+                            <div className="absolute left-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-rose-300 bg-rose-950/90 px-1.5 py-0.5 rounded-sm border border-rose-500/40 z-10">
+                              ⚡ -{currentRound ? currentRound.attackerDamageDealt : 0} Hasar
+                            </div>
+
+                            {/* Clash Sparks Core */}
+                            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-7 h-7 rounded-full bg-amber-400/20 blur-[2px] flex items-center justify-center z-10">
+                              <Sparkles className="w-4 h-4 text-amber-300 animate-spin" />
+                            </div>
+
+                            {/* Defender laser stream (Right to Left) */}
+                            <div className="absolute right-3 left-1/2 h-1 bg-gradient-to-l from-blue-500 via-cyan-400 to-emerald-300 shadow-md shadow-cyan-400/60 rounded-full animate-pulse" />
+                            <div className="absolute right-1/4 top-1/2 -translate-y-1/2 text-[10px] font-mono font-bold text-cyan-300 bg-cyan-950/90 px-1.5 py-0.5 rounded-sm border border-cyan-500/40 z-10">
+                              ⚡ -{currentRound ? currentRound.defenderDamageDealt : 0} Hasar
+                            </div>
+                          </div>
+                        </>
+                      )}
 
                       {/* Damage summary cards */}
                       {currentRound && (
