@@ -224,60 +224,61 @@
    ======================================================== */
 
 .stellaris-topbar {
-  background: linear-gradient(180deg, #0f1922 0%, #09121a 70%, #060c12 100%);
-  border-bottom: 1px solid #1c3d52;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  background: linear-gradient(180deg, #0d141e 0%, #080d14 65%, #05080d 100%);
+  border-bottom: 1px solid #2e2617;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(212, 175, 55, 0.15);
 }
 
 .stellaris-rail {
-  background: linear-gradient(90deg, #09121a 0%, #070d14 100%);
-  border-right: 1px solid #163244;
-  box-shadow: 4px 0 16px rgba(0, 0, 0, 0.6), inset -1px 0 0 rgba(0, 240, 255, 0.05);
+  background: linear-gradient(90deg, #0a1017 0%, #06090e 100%);
+  border-right: 1px solid #1f1b13;
+  box-shadow: 4px 0 18px rgba(0, 0, 0, 0.7), inset -1px 0 0 rgba(212, 175, 55, 0.08);
 }
 
 .stellaris-outliner {
-  background: linear-gradient(270deg, rgba(8, 16, 24, 0.94) 0%, rgba(6, 12, 19, 0.97) 100%);
-  border-left: 1px solid #18374b;
-  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.65), inset 1px 0 0 rgba(255, 255, 255, 0.04);
+  background: linear-gradient(270deg, rgba(9, 14, 21, 0.96) 0%, rgba(6, 9, 14, 0.98) 100%);
+  border-left: 1px solid #241e13;
+  box-shadow: -4px 0 28px rgba(0, 0, 0, 0.75), inset 1px 0 0 rgba(212, 175, 55, 0.08);
 }
 
 .stellaris-outliner-header {
-  background: linear-gradient(180deg, #13222e 0%, #0c1822 100%);
-  border-bottom: 1px solid #1c3d52;
-  border-top: 1px solid #285470;
+  background: linear-gradient(180deg, #131c26 0%, #0a0f15 100%);
+  border-bottom: 1px solid #2a2215;
+  border-top: 1px solid #3d311c;
 }
 
 .stellaris-section-header {
-  background: linear-gradient(90deg, #12212d 0%, #0a151e 100%);
-  border-top: 1px solid #1b3d52;
-  border-bottom: 1px solid #102431;
+  background: linear-gradient(90deg, #121921 0%, #090d12 100%);
+  border-top: 1px solid #221c12;
+  border-bottom: 1px solid #14110b;
 }
 
 .stellaris-item-card {
-  background: linear-gradient(180deg, rgba(14, 26, 37, 0.8) 0%, rgba(9, 17, 25, 0.9) 100%);
-  border: 1px solid #153245;
+  background: linear-gradient(180deg, rgba(13, 20, 29, 0.85) 0%, rgba(8, 12, 18, 0.92) 100%);
+  border: 1px solid #18222e;
   transition: all 0.15s ease-in-out;
 }
 .stellaris-item-card:hover {
-  background: linear-gradient(180deg, rgba(19, 36, 51, 0.95) 0%, rgba(12, 24, 34, 0.95) 100%);
-  border-color: #276284;
-  box-shadow: 0 0 10px rgba(0, 230, 255, 0.15);
+  background: linear-gradient(180deg, rgba(18, 28, 41, 0.95) 0%, rgba(11, 17, 25, 0.95) 100%);
+  border-color: #c5a059;
+  box-shadow: 0 0 12px rgba(197, 160, 89, 0.2);
 }
 
 .stellaris-resource-pod {
-  background: linear-gradient(180deg, #0b151f 0%, #070e15 100%);
-  border: 1px solid #18374a;
-  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.6), 0 1px 0 rgba(255, 255, 255, 0.05);
+  background: linear-gradient(180deg, #0a1017 0%, #06090e 100%);
+  border: 1px solid #18212c;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 1px 0 rgba(212, 175, 55, 0.08);
 }
 .stellaris-resource-pod:hover {
-  border-color: #2b5f7e;
-  background: linear-gradient(180deg, #0e1b27 0%, #09131d 100%);
+  border-color: #c5a059;
+  background: linear-gradient(180deg, #0f1823 0%, #090e15 100%);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.8), 0 0 8px rgba(197, 160, 89, 0.25);
 }
 
 .stellaris-crest {
-  background: radial-gradient(circle at 35% 35%, #182e3f 0%, #0b151e 75%, #050a0f 100%);
+  background: radial-gradient(circle at 35% 35%, #1f1b11 0%, #0e1218 75%, #05070a 100%);
   border: 2px solid #c5a059;
-  box-shadow: 0 0 12px rgba(197, 160, 89, 0.35), inset 0 0 8px rgba(0, 0, 0, 0.8);
+  box-shadow: 0 0 14px rgba(197, 160, 89, 0.4), inset 0 0 8px rgba(0, 0, 0, 0.8);
 }
 
 .stellaris-gold {
@@ -289,21 +290,45 @@
 }
 
 .stellaris-btn-metallic {
-  background: linear-gradient(180deg, #1b3345 0%, #0f1f2b 60%, #0a1620 100%);
-  border: 1px solid #295570;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 2px 4px rgba(0, 0, 0, 0.5);
+  background: linear-gradient(180deg, #182330 0%, #0e1620 60%, #090e15 100%);
+  border: 1px solid #233242;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.12), 0 2px 4px rgba(0, 0, 0, 0.5);
   color: #cbd5e1;
   transition: all 0.15s ease-in-out;
 }
 .stellaris-btn-metallic:hover {
-  background: linear-gradient(180deg, #24465e 0%, #152d3e 60%, #0e1f2b 100%);
-  border-color: #3d80a6;
+  background: linear-gradient(180deg, #203042 0%, #131e2c 60%, #0c141d 100%);
+  border-color: #c5a059;
   color: #ffffff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 0 8px rgba(0, 220, 255, 0.3);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2), 0 0 8px rgba(197, 160, 89, 0.3);
 }
 .stellaris-btn-metallic:active {
-  background: linear-gradient(180deg, #0c1822 0%, #112230 100%);
+  background: linear-gradient(180deg, #090e15 0%, #0e1620 100%);
   box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.7);
+}
+
+.stellaris-btn-gold {
+  background: linear-gradient(180deg, #2b2313 0%, #1a1409 60%, #100c05 100%);
+  border: 1px solid #c5a059;
+  color: #f7e0a3;
+  box-shadow: inset 0 1px 0 rgba(255, 230, 160, 0.25), 0 2px 6px rgba(0, 0, 0, 0.6);
+  transition: all 0.15s ease-in-out;
+}
+.stellaris-btn-gold:hover {
+  background: linear-gradient(180deg, #3d311b 0%, #251c0d 60%, #181208 100%);
+  border-color: #f0c56c;
+  color: #ffffff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3), 0 0 12px rgba(240, 197, 108, 0.45);
+}
+.stellaris-btn-gold:active {
+  background: linear-gradient(180deg, #100c05 0%, #1f170b 100%);
+  box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.8);
+}
+
+.stellaris-dock-card {
+  background: linear-gradient(180deg, rgba(12, 18, 26, 0.96) 0%, rgba(7, 11, 16, 0.98) 100%);
+  border: 1px solid #2a2215;
+  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.85), inset 0 1px 0 rgba(212, 175, 55, 0.2);
 }
 
 .stellaris-date-badge {
@@ -406,9 +431,9 @@
   top: 20%;
   bottom: 20%;
   width: 2px;
-  background: #4df3c5;
+  background: #d4af37;
   border-radius: 0 2px 2px 0;
-  box-shadow: 0 0 6px #4df3c5;
+  box-shadow: 0 0 8px #d4af37;
 }
 
 /* Fade-in animation used across modals and cards */

@@ -42,6 +42,7 @@ import { SituationLogModal } from './ui/components/SituationLogModal';
 import { OrientationGuideModal } from './ui/components/OrientationGuideModal';
 import { TradeModal } from './ui/components/TradeModal';
 import { EspionageModal } from './ui/components/EspionageModal';
+import { TacticalBottomDock } from './ui/components/TacticalBottomDock';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
 
@@ -1035,6 +1036,25 @@ export function App() {
               }}
             />
           )}
+
+          {/* Konsept B: Compact Tactical Bottom Dock (Fleet & Quick Orders) */}
+          <TacticalBottomDock
+            state={engineState}
+            activePlayerId={activePlayerId}
+            selectedTarget={selectedTarget}
+            activePlanetId={activePlanetId}
+            onOpenCommandPanel={() => setIsCommandPanelOpen(true)}
+            onRecallFleet={handleRecallFleet}
+            onOpenShipyard={() => setActiveLeftPanel('shipyard')}
+            onOpenMarket={() => setActiveLeftPanel('market')}
+            onFocusPlanet={(pId) => {
+              setActivePlanetId(pId);
+              const p = engineState.planets[pId];
+              if (p) setSelectedTarget({ type: 'planet', systemId: p.systemId, planetId: p.id });
+            }}
+            onFocusRelay={handleFocusRelay}
+            onSetStance={handleSetStance}
+          />
 
           {/* Sector Real-Time Communications & Alerts Ticker */}
           <EventFeed events={engineState.eventLog} />

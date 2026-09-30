@@ -132,14 +132,14 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
   return (
     <aside className="w-72 h-full stellaris-outliner flex flex-col z-20 select-none overflow-hidden relative">
       {/* Outliner Header */}
-      <div className="h-9 px-3 stellaris-outliner-header flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-cyan-400 shadow-[0_0_8px_#00f0ff]" />
-          <span className="text-[11px] font-display font-bold uppercase tracking-widest text-[#e6f4f8]">
-            OUTLINER
+      <div className="h-8 px-3 stellaris-outliner-header flex items-center justify-between border-b border-[#2a2215]">
+        <div className="flex items-center gap-1.5">
+          <span className="w-1.5 h-1.5 rounded-full bg-[#f5d77f] shadow-[0_0_6px_#f5d77f]" />
+          <span className="text-[10px] font-display font-bold uppercase tracking-widest text-[#f5d77f]">
+            INFORMATION OUTLINER
           </span>
-          <span className="stellaris-badge text-[#e5c578] border-[#1b3b50]">
-            {myPlanets.length} Gezegen • {totalEmpireShips} Gemi
+          <span className="stellaris-badge text-[#e5c578] border-[#3d311c]">
+            {myPlanets.length}P • {totalEmpireShips}G
           </span>
         </div>
         <button
@@ -223,17 +223,17 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
         )}
 
         {/* 2. Colonies & Planets */}
-        <div className="border border-[#18374a] bg-[#070e17]/80 rounded-sm overflow-hidden">
+        <div className="border border-[#241e13] bg-[#070b12]/90 rounded-sm overflow-hidden">
           <button
             onClick={() => toggleSection('planets')}
-            className="stellaris-section-header w-full px-2.5 py-1 flex items-center justify-between text-[10px] uppercase font-bold text-slate-300 tracking-wider hover:text-cyan-300 transition-colors"
+            className="stellaris-section-header w-full px-2.5 py-1 flex items-center justify-between text-[10px] uppercase font-bold text-[#e5c578] tracking-wider hover:text-white transition-colors"
           >
             <div className="flex items-center gap-1.5">
-              <Globe className="w-3 h-3 text-cyan-400" />
-              <span>GEZEGENLER VE SEKTÖRLER ({myPlanets.length})</span>
+              <Globe className="w-3 h-3 text-emerald-400" />
+              <span>[KOLONİLER] ({myPlanets.length})</span>
             </div>
             <ChevronDown
-              className={`w-3.5 h-3.5 transition-transform ${
+              className={`w-3.5 h-3.5 text-[#c5a059] transition-transform ${
                 sectionsOpen.planets ? '' : '-rotate-90'
               }`}
             />
@@ -397,14 +397,14 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
         </div>
 
         {/* 3. Military Fleets */}
-        <div className="border border-[#18374b] bg-[#070e17]/80 rounded-sm overflow-hidden shadow-sm">
+        <div className="border border-[#241e13] bg-[#070b12]/90 rounded-sm overflow-hidden shadow-sm">
           <button
             onClick={() => toggleSection('military')}
-            className="w-full px-2.5 py-1.5 stellaris-section-header flex items-center justify-between text-[10px] uppercase font-bold text-[#e6f4f8] tracking-wider hover:text-rose-300 transition-colors"
+            className="w-full px-2.5 py-1.5 stellaris-section-header flex items-center justify-between text-[10px] uppercase font-bold text-[#e5c578] tracking-wider hover:text-white transition-colors"
           >
             <div className="flex items-center gap-1.5">
               <Swords className="w-3.5 h-3.5 text-rose-400" />
-              <span>MUHARİP FİLOLAR ({militaryFleets.length})</span>
+              <span>[FİLOLAR / MUHARİP] ({militaryFleets.length})</span>
             </div>
             <ChevronDown
               className={`w-3.5 h-3.5 text-[#c5a059] transition-transform ${
@@ -537,14 +537,14 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
         </div>
 
         {/* 4. Civilian & Transport Fleets */}
-        <div className="border border-[#18374b] bg-[#070e17]/80 rounded-sm overflow-hidden shadow-sm">
+        <div className="border border-[#241e13] bg-[#070b12]/90 rounded-sm overflow-hidden shadow-sm">
           <button
             onClick={() => toggleSection('civilian')}
-            className="w-full px-2.5 py-1.5 stellaris-section-header flex items-center justify-between text-[10px] uppercase font-bold text-[#e6f4f8] tracking-wider hover:text-amber-300 transition-colors"
+            className="w-full px-2.5 py-1.5 stellaris-section-header flex items-center justify-between text-[10px] uppercase font-bold text-[#e5c578] tracking-wider hover:text-white transition-colors"
           >
             <div className="flex items-center gap-1.5">
               <Rocket className="w-3.5 h-3.5 text-amber-400" />
-              <span>SİVİL & GÖREV FİLOLARI ({civilianFleets.length})</span>
+              <span>[FİLOLAR / SİVİL & LOJİSTİK] ({civilianFleets.length})</span>
             </div>
             <ChevronDown
               className={`w-3.5 h-3.5 text-[#c5a059] transition-transform ${
@@ -655,14 +655,14 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
         </div>
 
         {/* 5. Central Nexus Relay Status */}
-        <div className="border border-[#18374b] bg-[#070e17]/80 rounded-sm overflow-hidden shadow-sm">
+        <div className="border border-[#241e13] bg-[#070b12]/90 rounded-sm overflow-hidden shadow-sm">
           <button
             onClick={() => toggleSection('relay')}
-            className="w-full px-2.5 py-1.5 stellaris-section-header flex items-center justify-between text-[10px] uppercase font-bold text-[#e6f4f8] tracking-wider hover:text-purple-300 transition-colors"
+            className="w-full px-2.5 py-1.5 stellaris-section-header flex items-center justify-between text-[10px] uppercase font-bold text-[#e5c578] tracking-wider hover:text-white transition-colors"
           >
             <div className="flex items-center gap-1.5">
               <Crown className="w-3.5 h-3.5 text-purple-400" />
-              <span>NEXUS MEGASTRÜKTÜRÜ</span>
+              <span>[NEXUS RÖLESİ HÂKİMİYETİ]</span>
             </div>
             <ChevronDown
               className={`w-3.5 h-3.5 text-[#c5a059] transition-transform ${

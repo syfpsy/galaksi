@@ -159,6 +159,23 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   const crystalRate = activePlanet ? calculateHourlyProduction('crystal', activePlanet.buildings.crystal_synth) : 0;
   const fuelRate = activePlanet ? calculateHourlyProduction('fuel', activePlanet.buildings.fuel_refinery) : 0;
 
+  // Empire Naval Fleet Power calculation matching Konsept B
+  const totalFleetPower =
+    shipCounts.battleship * 1400 +
+    shipCounts.fighter * 380 +
+    shipCounts.transport * 60 +
+    shipCounts.scout * 90;
+  const formattedFleetPower =
+    totalFleetPower >= 1000
+      ? `${(totalFleetPower / 1000).toFixed(1)}k`
+      : `${totalFleetPower}`;
+
+  const formatCompactResource = (val: number) => {
+    if (val >= 1000000) return `${(val / 1000000).toFixed(1)}M`;
+    if (val >= 10000) return `${(val / 1000).toFixed(1)}k`;
+    return Math.floor(val).toLocaleString();
+  };
+
   // Relay weekly score
   const myRelayPoints = state.relay.weeklyPoints?.[activePlayerId] || 0;
 
@@ -171,33 +188,33 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   const stellarisDate = `${year}.${month < 10 ? '0' : ''}${month}.${day < 10 ? '0' : ''}${day}`;
 
   return (
-    <header className="h-13 stellaris-topbar px-3 flex items-center justify-between z-30 select-none relative">
+    <header className="h-11 stellaris-topbar px-3 flex items-center justify-between z-30 select-none relative">
       {/* Top Subtle Metallic Specular Line */}
-      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-cyan-500/40 to-transparent" />
+      <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-[#d4af37]/40 to-transparent" />
 
       {/* ========================================================================= */}
       {/* LEFT: Empire Crest, Name & Player Switcher                                */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-2.5 shrink-0">
+      <div className="flex items-center gap-2 shrink-0">
         <div
           onClick={() => {
             sound.playClick();
             if (onOpenPlanetPanel) onOpenPlanetPanel();
           }}
-          className="w-8 h-8 rounded-sm stellaris-crest flex items-center justify-center cursor-pointer transition-transform hover:scale-105 shrink-0 shadow-lg"
+          className="w-7 h-7 rounded-sm stellaris-crest flex items-center justify-center cursor-pointer transition-transform hover:scale-105 shrink-0 shadow-md"
           style={{
             borderColor: '#c5a059',
-            backgroundColor: `${activePlayer?.color || '#00f3ff'}20`,
-            boxShadow: `0 0 10px ${activePlayer?.color || '#00f3ff'}50, inset 0 0 6px rgba(0,0,0,0.8)`,
+            backgroundColor: `${activePlayer?.color || '#00f3ff'}25`,
+            boxShadow: `0 0 10px ${activePlayer?.color || '#00f3ff'}40, inset 0 0 6px rgba(0,0,0,0.8)`,
           }}
-          title={`${activePlayer?.name || 'İmparatorluk'} — Yönetim & Gezegenler`}
+          title={`${activePlayer?.name || 'İmparatorluk'} — Yönetim & Gezegenler (F1)`}
         >
-          <Crown className="w-4 h-4 text-[#e5c578]" />
+          <Crown className="w-3.5 h-3.5 text-[#e5c578]" />
         </div>
 
         <div className="flex flex-col">
           <div className="flex items-center gap-1.5">
-            <span className="text-[12px] font-bold text-slate-100 font-display uppercase tracking-wider leading-none">
+            <span className="text-[11px] font-bold text-slate-100 font-display uppercase tracking-wider leading-none">
               {activePlayer?.name || 'Galaksi İmparatorluğu'}
             </span>
             <select
@@ -206,7 +223,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 sound.playClick();
                 onSelectPlayer(e.target.value);
               }}
-              className="bg-[#060c14] border border-[#1a384d] hover:border-cyan-400 text-[9px] font-mono rounded-sm px-1.5 py-0.5 text-cyan-300 focus:outline-none cursor-pointer"
+              className="bg-[#05090f] border border-[#241e13] hover:border-[#c5a059] text-[8.5px] font-mono rounded-sm px-1 py-0 text-[#f5d77f] focus:outline-none cursor-pointer"
               title="Diplomatik Perspektif Değiştir"
             >
               {Object.values(state.players).map((p) => (
@@ -216,8 +233,8 @@ const TopBarComponent: React.FC<TopBarProps> = ({
               ))}
             </select>
           </div>
-          <span className="text-[8.5px] font-mono text-[#c5a059] uppercase tracking-wider mt-0.5">
-            YILDIZLARARASI HÜKÜMET
+          <span className="text-[7.5px] font-mono text-[#c5a059] uppercase tracking-wider">
+            TERRAN ALLIANCE • SEKTÖR 01
           </span>
         </div>
       </div>
@@ -225,7 +242,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
       {/* ========================================================================= */}
       {/* CENTER: Empire Core Vitals (Planets, Fleet, Radar, Resources)             */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-1 bg-[#060c14]/90 p-1 rounded-sm border border-[#142e40] shadow-inner">
+      <div className="flex items-center gap-1 bg-[#060c14]/90 p-0.5 rounded-sm border border-[#241e13] shadow-inner">
         {/* 1. EMPIRE COLONIES CHIP (With Rich Hover Tooltip & Click Action) */}
         <div className="relative group">
           <button
@@ -233,12 +250,17 @@ const TopBarComponent: React.FC<TopBarProps> = ({
               sound.playClick();
               if (onOpenPlanetPanel) onOpenPlanetPanel();
             }}
-            className="stellaris-resource-pod px-2.5 py-1 rounded-sm text-emerald-300 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            className="stellaris-resource-pod px-2 py-0.5 rounded-sm text-emerald-300 font-mono text-xs flex flex-col justify-center transition-all cursor-pointer"
             title="İmparatorluk Kolonileri Paneli (F1)"
           >
-            <Globe className="w-3.5 h-3.5 text-emerald-400 group-hover:scale-110 transition-transform" />
-            <span className="font-bold">{myPlanets.length}</span>
-            <span className="text-slate-400 text-[10px]">/ 3 Koloni</span>
+            <div className="flex items-center justify-between gap-1 text-[8px] font-bold text-[#c5a059] uppercase tracking-wider">
+              <span>KOLONİLER</span>
+              <span className="text-emerald-400 font-mono">{myPlanets.length}/3</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <Globe className="w-2.5 h-2.5 text-emerald-400 shrink-0" />
+              <span className="font-bold text-slate-100 text-[11px]">{myPlanets.length} Koloni</span>
+            </div>
           </button>
 
           {/* Rich Tooltip Card */}
@@ -294,12 +316,23 @@ const TopBarComponent: React.FC<TopBarProps> = ({
               sound.playClick();
               if (onOpenShipyard) onOpenShipyard();
             }}
-            className="stellaris-resource-pod px-2.5 py-1 rounded-sm text-blue-300 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            className="stellaris-resource-pod px-2 py-0.5 rounded-sm text-blue-300 font-mono text-xs flex flex-col justify-center transition-all cursor-pointer"
             title="İmparatorluk Donanma Gücü & Tersane (F2)"
           >
-            <Shield className="w-3.5 h-3.5 text-blue-400 group-hover:scale-110 transition-transform" />
-            <span className="font-bold">{totalEmpireShips}</span>
-            <span className="text-slate-400 text-[10px]">/ 30 Gemi</span>
+            <div className="flex items-center justify-between gap-1 text-[8px] font-bold text-[#c5a059] uppercase tracking-wider">
+              <span>DONANMA</span>
+              <span className="text-[#f5d77f] font-mono">{formattedFleetPower}</span>
+            </div>
+            <div className="flex items-center gap-1 font-mono">
+              <Shield className="w-2.5 h-2.5 text-blue-400 shrink-0" />
+              <span className="font-bold text-slate-100 text-[11px]">{totalEmpireShips}/30</span>
+              <div className="w-6 h-1.5 bg-[#0a1420] border border-blue-900/60 rounded-none overflow-hidden shrink-0">
+                <div
+                  className="h-full bg-blue-500 transition-all duration-300"
+                  style={{ width: `${Math.min(100, (totalEmpireShips / 30) * 100)}%` }}
+                />
+              </div>
+            </div>
           </button>
 
           {/* Rich Tooltip Card */}
@@ -422,48 +455,27 @@ const TopBarComponent: React.FC<TopBarProps> = ({
 
         <div className="h-5 w-px bg-[#18374a] mx-0.5 hidden lg:block" />
 
-        {/* 4. STRATEGIC RESOURCES RIBBON (Compact Numbers + Rich Hover Tooltips) */}
+        {/* 4. STRATEGIC RESOURCES RIBBON WITH SPARKLINES (Konsept B) */}
         {activePlanet && (
-          <div className="hidden lg:flex items-center gap-1.5 text-xs font-mono">
-            {/* Energy / Fuel */}
-            <div className="stellaris-resource-pod px-2 py-0.5 rounded-sm relative group flex items-center gap-1.5 cursor-pointer">
-              <div className="w-3.5 h-3.5 rounded-sm bg-amber-950/60 flex items-center justify-center text-amber-400 border border-amber-500/30">
-                <Zap className="w-2.5 h-2.5" />
-              </div>
-              <span className="font-bold text-slate-100">
-                {Math.floor(activePlanet.resources.fuel).toLocaleString()}
-              </span>
-              <span className="text-[10px] text-emerald-400">+{fuelRate}</span>
-
-              {/* Resource Tooltip */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl ">
-                <span className="font-bold text-amber-300 text-xs block mb-1">⚡ Enerji / Yakıt</span>
-                <p className="text-[10px] text-slate-400 leading-snug">
-                  Filo seferleri ve sistem operasyonları için tüketilir.
-                </p>
-                <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-slate-300 flex justify-between">
-                  <span>Saatlik Gelir:</span>
-                  <span className="text-emerald-400">+{fuelRate} / saat</span>
-                </div>
-                <div className="text-[10px] text-slate-400 flex justify-between">
-                  <span>Depo Sınırı:</span>
-                  <span>{activePlanet.storageCap.toLocaleString()}</span>
-                </div>
-              </div>
-            </div>
-
+          <div className="hidden lg:flex items-center gap-1 text-xs font-mono">
             {/* Ore / Minerals */}
-            <div className="stellaris-resource-pod px-2 py-0.5 rounded-sm relative group flex items-center gap-1.5 cursor-pointer">
-              <div className="w-3.5 h-3.5 rounded-sm bg-orange-950/60 flex items-center justify-center text-orange-400 border border-orange-500/30">
-                <Pickaxe className="w-2.5 h-2.5" />
+            <div className="stellaris-resource-pod px-2 py-0.5 rounded-sm relative group flex flex-col justify-center cursor-pointer">
+              <div className="flex items-center justify-between gap-1 text-[8px] font-bold text-[#c5a059] uppercase tracking-wider">
+                <span>CEVHER</span>
+                <span className="text-emerald-400 font-mono">+{oreRate}</span>
               </div>
-              <span className="font-bold text-slate-100">
-                {Math.floor(activePlanet.resources.ore).toLocaleString()}
-              </span>
-              <span className="text-[10px] text-emerald-400">+{oreRate}</span>
+              <div className="flex items-center gap-1 font-mono">
+                <Pickaxe className="w-2.5 h-2.5 text-orange-400 shrink-0" />
+                <span className="font-bold text-slate-100 text-[11px]">
+                  {formatCompactResource(activePlanet.resources.ore)}
+                </span>
+                <svg className="w-6 h-2 shrink-0 opacity-80" viewBox="0 0 24 8" fill="none">
+                  <path d="M0 6 L4 5 L8 7 L12 4 L16 5 L20 2 L24 3" stroke="#f97316" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
 
               {/* Resource Tooltip */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl ">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl text-left">
                 <span className="font-bold text-orange-300 text-xs block mb-1">⛏️ Ham Maden / Cevher</span>
                 <p className="text-[10px] text-slate-400 leading-snug">
                   Bina yükseltmeleri ve gövde inşasında kullanılır.
@@ -480,17 +492,23 @@ const TopBarComponent: React.FC<TopBarProps> = ({
             </div>
 
             {/* Rare Crystals */}
-            <div className="stellaris-resource-pod px-2 py-0.5 rounded-sm relative group flex items-center gap-1.5 cursor-pointer">
-              <div className="w-3.5 h-3.5 rounded-sm bg-cyan-950/60 flex items-center justify-center text-cyan-400 border border-cyan-500/30">
-                <Gem className="w-2.5 h-2.5" />
+            <div className="stellaris-resource-pod px-2 py-0.5 rounded-sm relative group flex flex-col justify-center cursor-pointer">
+              <div className="flex items-center justify-between gap-1 text-[8px] font-bold text-[#c5a059] uppercase tracking-wider">
+                <span>KRİSTAL</span>
+                <span className="text-cyan-400 font-mono">+{crystalRate}</span>
               </div>
-              <span className="font-bold text-slate-100">
-                {Math.floor(activePlanet.resources.crystal).toLocaleString()}
-              </span>
-              <span className="text-[10px] text-emerald-400">+{crystalRate}</span>
+              <div className="flex items-center gap-1 font-mono">
+                <Gem className="w-2.5 h-2.5 text-cyan-400 shrink-0" />
+                <span className="font-bold text-slate-100 text-[11px]">
+                  {formatCompactResource(activePlanet.resources.crystal)}
+                </span>
+                <svg className="w-6 h-2 shrink-0 opacity-80" viewBox="0 0 24 8" fill="none">
+                  <path d="M0 7 L4 6 L8 4 L12 5 L16 3 L20 4 L24 1" stroke="#00f3ff" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
 
               {/* Resource Tooltip */}
-              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl ">
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl text-left">
                 <span className="font-bold text-cyan-300 text-xs block mb-1">💎 Nadir Kristaller</span>
                 <p className="text-[10px] text-slate-400 leading-snug">
                   Gelişmiş kalkan, teknoloji ve avcı üretimi gerektirir.
@@ -498,6 +516,39 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-slate-300 flex justify-between">
                   <span>Saatlik Gelir:</span>
                   <span className="text-emerald-400">+{crystalRate} / saat</span>
+                </div>
+                <div className="text-[10px] text-slate-400 flex justify-between">
+                  <span>Depo Sınırı:</span>
+                  <span>{activePlanet.storageCap.toLocaleString()}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Energy / Fuel */}
+            <div className="stellaris-resource-pod px-2 py-0.5 rounded-sm relative group flex flex-col justify-center cursor-pointer">
+              <div className="flex items-center justify-between gap-1 text-[8px] font-bold text-[#c5a059] uppercase tracking-wider">
+                <span>YAKIT</span>
+                <span className="text-amber-400 font-mono">+{fuelRate}</span>
+              </div>
+              <div className="flex items-center gap-1 font-mono">
+                <Zap className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                <span className="font-bold text-slate-100 text-[11px]">
+                  {formatCompactResource(activePlanet.resources.fuel)}
+                </span>
+                <svg className="w-6 h-2 shrink-0 opacity-80" viewBox="0 0 24 8" fill="none">
+                  <path d="M0 5 L4 7 L8 5 L12 3 L16 4 L20 2 L24 1" stroke="#e5c578" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+
+              {/* Resource Tooltip */}
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 shadow-2xl text-left">
+                <span className="font-bold text-amber-300 text-xs block mb-1">⚡ Enerji / Yakıt</span>
+                <p className="text-[10px] text-slate-400 leading-snug">
+                  Filo seferleri ve sistem operasyonları için tüketilir.
+                </p>
+                <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-slate-300 flex justify-between">
+                  <span>Saatlik Gelir:</span>
+                  <span className="text-emerald-400">+{fuelRate} / saat</span>
                 </div>
                 <div className="text-[10px] text-slate-400 flex justify-between">
                   <span>Depo Sınırı:</span>
@@ -667,7 +718,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
               }}
               className={`px-1.5 sm:px-2 py-0.5 rounded-sm transition-all font-bold ${
                 timeScale === s.scale
-                  ? 'bg-amber-500/25 text-[#e5c578] border border-amber-500/60 shadow-sm'
+                  ? 'stellaris-btn-gold font-bold shadow-md'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
               title={`${s.scale}x Hızlandırma`}
