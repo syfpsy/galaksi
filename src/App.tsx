@@ -439,6 +439,17 @@ export function App() {
     setInspectedSystemId(null);
   };
 
+  const handleContextMenuTarget = useCallback((target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => {
+    sound.playClick();
+    setSelectedTarget({
+      type: target.type,
+      systemId: target.systemId,
+      planetId: target.planetId,
+      fleetId: target.fleetId,
+    });
+    setIsCommandPanelOpen(true);
+  }, []);
+
   return (
     <div className="flex flex-col w-screen h-screen overflow-hidden bg-space-950 font-sans">
       {/* Top Bar Navigation & Resources */}
@@ -680,15 +691,7 @@ export function App() {
             onSelectSystem={(systemId) => {
               setSelectedTarget({ type: 'system', systemId });
             }}
-            onContextMenuTarget={(target) => {
-              sound.playClick();
-              setSelectedTarget({
-                type: target.type,
-                systemId: target.systemId,
-                planetId: target.planetId,
-              });
-              setIsCommandPanelOpen(true);
-            }}
+            onContextMenuTarget={handleContextMenuTarget}
             onSelectFleet={(fleetId) => {
               const fl = engineState.fleets[fleetId];
               if (fl) {
@@ -785,6 +788,7 @@ export function App() {
             setSelectedTarget({ type: 'system', systemId });
           }}
           currentTimeMs={engineState.timeMs}
+          onContextMenuTarget={handleContextMenuTarget}
         />
       </div>
 

@@ -31,7 +31,7 @@ interface GalaxyMapProps {
   onOpenShipyard?: () => void;
   onOpenResearch?: () => void;
   onOpenTransitRadar?: () => void;
-  onContextMenuTarget?: (target: { type: 'system' | 'planet'; systemId: string; planetId?: string }) => void;
+  onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
 }
 
 export const GalaxyMap: React.FC<GalaxyMapProps> = ({

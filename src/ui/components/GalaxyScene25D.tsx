@@ -68,7 +68,7 @@ interface GalaxyScene25DProps {
   onSelectPlanet?: (systemId: string, planetId: string) => void;
   onSelectFleet: (fleetId: string) => void;
   onHoverPlanet?: (planetId: string | null) => void;
-  onContextMenuTarget?: (target: { type: 'system' | 'planet'; systemId: string; planetId?: string }) => void;
+  onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
 }
 
 interface ScreenLabel {
@@ -1297,6 +1297,18 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       for (const hit of intersects) {
         const udata = (hit.object as any).userData;
         if (udata) {
+          if (udata.type === 'fleet' && udata.fleetId) {
+            const fl = stateRef.current.fleets[udata.fleetId];
+            sound.playClick();
+            if (onContextMenuTargetRef.current) {
+              onContextMenuTargetRef.current({
+                type: 'fleet',
+                systemId: fl?.targetSystemId || fl?.originSystemId || 'sys_relay',
+                fleetId: udata.fleetId,
+              });
+            }
+            return;
+          }
           if (udata.type === 'system' || udata.type === 'star') {
             sound.playClick();
             if (onContextMenuTargetRef.current) {
@@ -2294,6 +2306,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               } else if (lbl.type === 'planet' && lbl.planetId) {
                 if (onContextMenuTargetRef.current) {
                   onContextMenuTargetRef.current({ type: 'planet', systemId: lbl.systemId, planetId: lbl.planetId });
+                }
+              } else if (lbl.type === 'fleet' && lbl.fleetId) {
+                if (onContextMenuTargetRef.current) {
+                  onContextMenuTargetRef.current({ type: 'fleet', systemId: lbl.systemId, fleetId: lbl.fleetId });
                 }
               }
             }}

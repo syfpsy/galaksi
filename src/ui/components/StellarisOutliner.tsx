@@ -36,6 +36,7 @@ interface StellarisOutlinerProps {
   currentTimeMs: number;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
 }
 
 export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
@@ -49,6 +50,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
   currentTimeMs,
   isCollapsed: propIsCollapsed,
   onToggleCollapse,
+  onContextMenuTarget,
 }) => {
   const [internalCollapsed, setInternalCollapsed] = useState(false);
   const isCollapsed = propIsCollapsed !== undefined ? propIsCollapsed : internalCollapsed;
@@ -184,6 +186,18 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                         sound.playAlert();
                         onSelectFleet(threat.id);
                       }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        sound.playClick();
+                        if (onContextMenuTarget) {
+                          onContextMenuTarget({
+                            type: 'fleet',
+                            systemId: threat.targetSystemId,
+                            fleetId: threat.id,
+                          });
+                        }
+                      }}
                       className="p-1.5 rounded-sm bg-rose-950/50 border border-rose-500/40 hover:border-rose-400 cursor-pointer transition-all"
                     >
                       <div className="flex items-center justify-between text-[11px] font-bold text-rose-200">
@@ -242,6 +256,18 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                     onClick={() => {
                       sound.playClick();
                       onSelectPlanet(planet.id);
+                    }}
+                    onContextMenu={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      sound.playClick();
+                      if (onContextMenuTarget) {
+                        onContextMenuTarget({
+                          type: 'planet',
+                          systemId: planet.systemId,
+                          planetId: planet.id,
+                        });
+                      }
                     }}
                     className={`p-2 rounded-sm cursor-pointer stellaris-item-card transition-all ${
                       isActive || isSelected
@@ -373,6 +399,18 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                         sound.playClick();
                         onSelectFleet(fleet.id);
                       }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        sound.playClick();
+                        if (onContextMenuTarget) {
+                          onContextMenuTarget({
+                            type: 'fleet',
+                            systemId: fleet.targetSystemId || fleet.originSystemId,
+                            fleetId: fleet.id,
+                          });
+                        }
+                      }}
                       className={`p-2 rounded-sm cursor-pointer stellaris-item-card ${
                         isSelected
                           ? '!border-rose-500/80 !bg-rose-950/40 shadow-sm shadow-rose-950/50'
@@ -479,6 +517,18 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                       onClick={() => {
                         sound.playClick();
                         onSelectFleet(fleet.id);
+                      }}
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        sound.playClick();
+                        if (onContextMenuTarget) {
+                          onContextMenuTarget({
+                            type: 'fleet',
+                            systemId: fleet.targetSystemId || fleet.originSystemId,
+                            fleetId: fleet.id,
+                          });
+                        }
                       }}
                       className={`p-2 rounded-sm cursor-pointer stellaris-item-card ${
                         isSelected
