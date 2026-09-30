@@ -15,7 +15,7 @@ interface AllianceModalProps {
   onSupportAlly: (targetSystemId: string, planetId: string) => void;
 }
 
-export const AllianceModal: React.FC<AllianceModalProps> = ({
+const AllianceModalComponent: React.FC<AllianceModalProps> = ({
   state,
   activePlayerId,
   isOpen,
@@ -298,3 +298,5 @@ export const AllianceModal: React.FC<AllianceModalProps> = ({
     </div>
   );
 };
+
+export const AllianceModal = React.memo(AllianceModalComponent);

@@ -39,7 +39,7 @@ interface FleetTransitRadarModalProps {
   onOpenCommandPanel?: () => void;
 }
 
-export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
+const FleetTransitRadarModalComponent: React.FC<FleetTransitRadarModalProps> = ({
   state,
   activePlayerId,
   isOpen,
@@ -566,3 +566,5 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
     </aside>
   );
 };
+
+export const FleetTransitRadarModal = React.memo(FleetTransitRadarModalComponent);

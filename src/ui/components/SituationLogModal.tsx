@@ -36,7 +36,7 @@ interface SituationLogModalProps {
   onAssaultRelay: () => void;
 }
 
-export const SituationLogModal: React.FC<SituationLogModalProps> = ({
+const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
   isOpen,
   isDocked = false,
   onClose,
@@ -436,3 +436,5 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
     </div>
   );
 };
+
+export const SituationLogModal = React.memo(SituationLogModalComponent);

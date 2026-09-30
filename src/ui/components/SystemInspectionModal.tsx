@@ -25,7 +25,7 @@ interface SystemInspectionModalProps {
   onOpenAnomaly?: (system: StarSystem) => void;
 }
 
-export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
+const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
   system,
   state,
   activePlayerId,
@@ -594,3 +594,5 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
     </div>
   );
 };
+
+export const SystemInspectionModal = React.memo(SystemInspectionModalComponent);

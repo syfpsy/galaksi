@@ -724,6 +724,10 @@ export function App() {
                 isOpen={true}
                 isDocked={true}
                 onClose={() => setActiveLeftPanel(null)}
+                onSelectSystem={(sysId) => {
+                  sound.playClick();
+                  setSelectedTarget({ type: 'system', systemId: sysId });
+                }}
               />
             )}
 

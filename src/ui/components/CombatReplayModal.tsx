@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Flame,
   Gem,
+  Navigation,
   Pause,
   Pickaxe,
   Play,
@@ -23,13 +24,15 @@ interface CombatReplayModalProps {
   isOpen: boolean;
   isDocked?: boolean;
   onClose: () => void;
+  onSelectSystem?: (systemId: string) => void;
 }
 
-export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
+const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
   reports,
   isOpen,
   isDocked = false,
   onClose,
+  onSelectSystem,
 }) => {
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
   const [currentRoundIdx, setCurrentRoundIdx] = useState<number>(0);
@@ -142,8 +145,24 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
                 {/* Battle Metadata Banner */}
                 <div className="stellaris-item-card border-[#1c3647] p-3 flex items-center justify-between">
                   <div>
-                    <div className="text-xs font-mono text-rose-400 font-bold uppercase tracking-wider">
-                      {contextTitles[currentReport.context]} • {currentReport.systemName}
+                    <div className="flex items-center gap-2 text-xs font-mono text-rose-400 font-bold uppercase tracking-wider">
+                      <span>{contextTitles[currentReport.context]}</span>
+                      <span>•</span>
+                      {onSelectSystem ? (
+                        <button
+                          onClick={() => {
+                            sound.playClick();
+                            onSelectSystem(currentReport.systemId);
+                          }}
+                          className="px-2 py-0.5 rounded-sm bg-[#081b28] border border-cyan-500/40 text-cyan-300 hover:text-white hover:border-cyan-300 flex items-center gap-1 transition-all cursor-pointer"
+                          title="Muharebe Sistemine Odaklan"
+                        >
+                          <Navigation className="w-2.5 h-2.5" />
+                          <span>{currentReport.systemName}</span>
+                        </button>
+                      ) : (
+                        <span>{currentReport.systemName}</span>
+                      )}
                     </div>
                     <div className="text-base font-bold text-slate-100 font-display mt-0.5">
                       {currentReport.attackerName} &nbsp;⚔️&nbsp; {currentReport.defenderName}
@@ -344,3 +363,5 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
     </div>
   );
 };
+
+export const CombatReplayModal = React.memo(CombatReplayModalComponent);

@@ -15,7 +15,7 @@ interface ResearchModalProps {
   currentTimeMs: number;
 }
 
-export const ResearchModal: React.FC<ResearchModalProps> = ({
+const ResearchModalComponent: React.FC<ResearchModalProps> = ({
   player,
   homeworld,
   isOpen,
@@ -72,22 +72,39 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
       </div>
 
       {/* Active Research Progress */}
-      {player.researchQueue && (
-        <div className="stellaris-section-header p-3">
-          <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1">
-            DEVAM EDEN TEKNOLOJİ GELİŞTİRMESİ
+      {player.researchQueue && (() => {
+        const rq = player.researchQueue;
+        const totalDuration = Math.max(1, rq.finishTime - rq.startTime);
+        const elapsed = Math.max(0, currentTimeMs - rq.startTime);
+        const progress = Math.min(100, Math.max(0, Math.round((elapsed / totalDuration) * 100)));
+        const remaining = Math.max(0, rq.finishTime - currentTimeMs);
+
+        return (
+          <div className="stellaris-section-header p-3">
+            <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1 flex items-center justify-between">
+              <span>DEVAM EDEN TEKNOLOJİ GELİŞTİRMESİ</span>
+              <span className="text-cyan-400 font-mono">%{progress}</span>
+            </div>
+            <div className="flex flex-col gap-1.5 stellaris-item-card px-3 py-2 rounded-sm">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <span className="text-amber-300 font-bold">
+                  {RESEARCH_STATS[rq.type].nameTr} (Seviye {rq.targetLevel})
+                </span>
+                <span className="text-slate-200 flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
+                  {formatDuration(remaining)} kaldı
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-[#08121a] rounded-none overflow-hidden border border-[#1b3b50]">
+                <div
+                  className="h-full bg-gradient-to-r from-amber-600 via-amber-400 to-yellow-300 transition-all duration-300"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
           </div>
-          <div className="flex items-center justify-between text-xs font-mono stellaris-item-card px-3 py-1.5 rounded-sm">
-            <span className="text-amber-300 font-bold">
-              {RESEARCH_STATS[player.researchQueue.type].nameTr} (Seviye {player.researchQueue.targetLevel})
-            </span>
-            <span className="text-slate-200 flex items-center gap-1.5">
-              <Clock className="w-3.5 h-3.5 animate-spin text-amber-400" />
-              {formatDuration(Math.max(0, player.researchQueue.finishTime - currentTimeMs))} kaldı
-            </span>
-          </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* Tech Tree List */}
       <div className="flex-1 overflow-y-auto p-3.5 pb-6 space-y-2.5 scrollbar-none text-xs font-mono">
@@ -185,3 +202,5 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
     </div>
   );
 };
+
+export const ResearchModal = React.memo(ResearchModalComponent);

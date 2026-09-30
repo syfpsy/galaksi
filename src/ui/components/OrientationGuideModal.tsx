@@ -31,7 +31,7 @@ interface OrientationGuideModalProps {
   onClose: () => void;
 }
 
-export const OrientationGuideModal: React.FC<OrientationGuideModalProps> = ({
+const OrientationGuideModalComponent: React.FC<OrientationGuideModalProps> = ({
   isOpen,
   onClose,
 }) => {
@@ -392,6 +392,8 @@ export const OrientationGuideModal: React.FC<OrientationGuideModalProps> = ({
     </div>
   );
 };
+
+export const OrientationGuideModal = React.memo(OrientationGuideModalComponent);
 
 function SendIcon(props: React.SVGProps<SVGSVGElement>) {
   return (

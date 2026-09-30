@@ -21,7 +21,7 @@ const SHIP_ART: Record<ShipType, string> = {
   battleship: '/assets/art/battleship.png',
 };
 
-export const ShipyardModal: React.FC<ShipyardModalProps> = ({
+const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
   planet,
   isOpen,
   isDocked = false,
@@ -77,24 +77,40 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
       {/* Shipyard Queue (if active) */}
       {planet.shipyardQueue.length > 0 && (
         <div className="stellaris-section-header p-3">
-          <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1.5">
-            DEVAM EDEN ÜRETİM KUYRUĞU
+          <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1.5 flex items-center justify-between">
+            <span>DEVAM EDEN ÜRETİM KUYRUĞU</span>
+            <span className="text-cyan-400 font-mono">
+              {planet.shipyardQueue.reduce((acc, q) => acc + (q.count - q.completed), 0)} Gemi Sırada
+            </span>
           </div>
           <div className="space-y-1.5">
             {planet.shipyardQueue.map((item, idx) => {
               const remainingMs = Math.max(0, item.nextUnitFinishTime - currentTimeMs);
+              const unitDuration = Math.max(1, item.unitBuildTimeMs);
+              const unitElapsed = Math.max(0, unitDuration - remainingMs);
+              const unitProgress = Math.min(100, Math.max(0, Math.round((unitElapsed / unitDuration) * 100)));
+
               return (
                 <div
                   key={idx}
-                  className="flex items-center justify-between stellaris-item-card px-3 py-1.5 rounded-sm text-xs font-mono"
+                  className="flex flex-col gap-1.5 stellaris-item-card px-3 py-2 rounded-sm text-xs font-mono"
                 >
-                  <span className="text-slate-200">
-                    {item.count - item.completed}x {SHIP_STATS[item.shipType].nameTr}
-                  </span>
-                  <span className="text-cyan-300 flex items-center gap-1">
-                    <Clock className="w-3.5 h-3.5 animate-spin" />
-                    {formatDuration(remainingMs)}
-                  </span>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-200 font-bold">
+                      {item.count - item.completed}x {SHIP_STATS[item.shipType].nameTr}
+                      {item.completed > 0 && ` (${item.completed} Tamamlandı)`}
+                    </span>
+                    <span className="text-cyan-300 flex items-center gap-1.5 font-bold">
+                      <Clock className="w-3.5 h-3.5 animate-spin text-cyan-400" />
+                      {formatDuration(remainingMs)}
+                    </span>
+                  </div>
+                  <div className="w-full h-1.5 bg-[#08121a] rounded-none overflow-hidden border border-[#1b3b50]">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-300"
+                      style={{ width: `${unitProgress}%` }}
+                    />
+                  </div>
                 </div>
               );
             })}
@@ -294,3 +310,5 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
     </div>
   );
 };
+
+export const ShipyardModal = React.memo(ShipyardModalComponent);

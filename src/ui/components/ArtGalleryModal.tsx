@@ -140,7 +140,7 @@ interface ArtGalleryModalProps {
   onClose: () => void;
 }
 
-export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDocked = false, onClose }) => {
+const ArtGalleryModalComponent: React.FC<ArtGalleryModalProps> = ({ isOpen, isDocked = false, onClose }) => {
   const [selectedCategory, setSelectedCategory] = useState<'all' | 'ships' | 'planets' | 'structures'>('all');
   const [activeAsset, setActiveAsset] = useState<GalleryAsset>(GALLERY_ASSETS[0]);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -414,3 +414,5 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
     </>
   );
 };
+
+export const ArtGalleryModal = React.memo(ArtGalleryModalComponent);

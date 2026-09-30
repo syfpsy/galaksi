@@ -39,7 +39,7 @@ interface PlanetPanelProps {
   onClose?: () => void;
 }
 
-export const PlanetPanel: React.FC<PlanetPanelProps> = ({
+const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
   planets,
   activePlanetId,
   state,
@@ -426,3 +426,5 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
     </aside>
   );
 };
+
+export const PlanetPanel = React.memo(PlanetPanelComponent);

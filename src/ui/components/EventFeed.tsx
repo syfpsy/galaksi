@@ -6,7 +6,7 @@ interface EventFeedProps {
   events: GameEventRecord[];
 }
 
-export const EventFeed: React.FC<EventFeedProps> = ({ events }) => {
+const EventFeedComponent: React.FC<EventFeedProps> = ({ events }) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const recentEvents = [...events].reverse().slice(0, isExpanded ? 30 : 1);
@@ -54,3 +54,5 @@ export const EventFeed: React.FC<EventFeedProps> = ({ events }) => {
     </div>
   );
 };
+
+export const EventFeed = React.memo(EventFeedComponent);

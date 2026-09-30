@@ -22,7 +22,7 @@ interface AnomalyEventModalProps {
   isDocked?: boolean;
 }
 
-export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
+const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
   isOpen,
   onClose,
   system,
@@ -219,3 +219,5 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
     </div>
   );
 };
+
+export const AnomalyEventModal = React.memo(AnomalyEventModalComponent);

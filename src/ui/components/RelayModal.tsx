@@ -13,7 +13,7 @@ interface RelayModalProps {
   onAssaultRelay: () => void;
 }
 
-export const RelayModal: React.FC<RelayModalProps> = ({
+const RelayModalComponent: React.FC<RelayModalProps> = ({
   state,
   isOpen,
   isDocked = false,
@@ -217,3 +217,5 @@ export const RelayModal: React.FC<RelayModalProps> = ({
     </div>
   );
 };
+
+export const RelayModal = React.memo(RelayModalComponent);
