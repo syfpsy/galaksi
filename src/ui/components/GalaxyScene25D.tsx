@@ -100,6 +100,7 @@ interface ScreenLabel {
   hasHostileThreat?: boolean;
   isRelay?: boolean;
   isHomeworld?: boolean;
+  transitProgress?: number;
 }
 
 export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
@@ -556,6 +557,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       fleetId: string;
       routeLine?: THREE.Line;
       targetMarker?: THREE.Sprite;
+      pulseSprite?: THREE.Sprite;
     }
     const fleetVisuals = new Map<string, FleetVisual>();
 
@@ -626,9 +628,23 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       targetMarker.visible = false;
       macroFleetsGroup.add(targetMarker);
 
+      // Pulse Conduit Sprite (travels forward towards destination along hyperlane)
+      const pulseMat = new THREE.SpriteMaterial({
+        map: getShipEngineGlowTexture(isOwn ? '#00f3ff' : '#f43f5e'),
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const pulseSprite = new THREE.Sprite(pulseMat);
+      pulseSprite.scale.set(6, 6, 1);
+      pulseSprite.raycast = () => {};
+      pulseSprite.visible = false;
+      macroFleetsGroup.add(pulseSprite);
+
       macroFleetsGroup.add(group);
 
-      const fv: FleetVisual = { group, hullMesh, thrusterMesh, glowSprite, fleetId: fleet.id, routeLine, targetMarker };
+      const fv: FleetVisual = { group, hullMesh, thrusterMesh, glowSprite, fleetId: fleet.id, routeLine, targetMarker, pulseSprite };
       fleetVisuals.set(fleet.id, fv);
       return fv;
     };
@@ -1619,6 +1635,18 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 visual.targetMarker.visible = true;
                 const markerScale = isSelectedFleet ? 16 : 10;
                 visual.targetMarker.scale.set(markerScale, markerScale, 1);
+                visual.targetMarker.material.rotation += delta * 1.5;
+              }
+              if (visual.pulseSprite) {
+                const pulsePhase = (currentTimeMs * 0.0018) % 1.0;
+                const forwardX = THREE.MathUtils.lerp(pos.x, targetSys.x, pulsePhase);
+                const forwardY = THREE.MathUtils.lerp(pos.y, targetSys.y, pulsePhase);
+                visual.pulseSprite.position.set(forwardX, forwardY, 6);
+                const pulseAlpha = Math.sin(pulsePhase * Math.PI) * (isSelectedFleet ? 0.9 : 0.65);
+                visual.pulseSprite.material.opacity = pulseAlpha;
+                const pulseSz = (isSelectedFleet ? 8 : 5.5) * (0.8 + 0.4 * Math.sin(pulsePhase * Math.PI));
+                visual.pulseSprite.scale.set(pulseSz, pulseSz, 1);
+                visual.pulseSprite.visible = true;
               }
             }
             const pulseScale = (1.0 + Math.sin(currentTimeMs * 0.015) * 0.25) * (isSelectedFleet ? 1.35 : 1.0);
@@ -1629,6 +1657,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             visual.thrusterMesh.scale.set(0.6, 0.6, 0.6);
             if (visual.routeLine) visual.routeLine.visible = false;
             if (visual.targetMarker) visual.targetMarker.visible = false;
+            if (visual.pulseSprite) visual.pulseSprite.visible = false;
           }
         });
 
@@ -1637,6 +1666,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             macroFleetsGroup.remove(visual.group);
             if (visual.routeLine) macroFleetsGroup.remove(visual.routeLine);
             if (visual.targetMarker) macroFleetsGroup.remove(visual.targetMarker);
+            if (visual.pulseSprite) macroFleetsGroup.remove(visual.pulseSprite);
             fleetVisuals.delete(fleetId);
           }
         });
@@ -2100,6 +2130,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 const owner = stateRef.current.players[fleet.ownerId];
                 const totalShips = Object.values(fleet.ships).reduce<number>((a, b) => a + ((b as number) || 0), 0);
                 const remainingMs = Math.max(0, fleet.arrivalTime - currentTimeMs);
+                const totalDuration = Math.max(1, fleet.arrivalTime - fleet.departureTime);
+                const elapsed = Math.max(0, currentTimeMs - fleet.departureTime);
+                const transitProgress = Math.min(100, Math.max(0, Math.round((elapsed / totalDuration) * 100)));
                 const power = getFleetCombatPower(fleet);
                 labels.push({
                   id: `macro_fleet_${fleet.id}`,
@@ -2110,6 +2143,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   systemId: fleet.targetSystemId,
                   fleetId: fleet.id,
                   fleetPower: power,
+                  transitProgress,
                   x: screenX,
                   y: screenY,
                   visible: true,
@@ -2194,6 +2228,12 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 const owner = stateRef.current.players[fl.ownerId];
                 const totalShips = Object.values(fl.ships).reduce<number>((a, b) => a + ((b as number) || 0), 0);
                 const remainingMs = Math.max(0, fl.arrivalTime - currentTimeMs);
+                const totalDuration = Math.max(1, fl.arrivalTime - fl.departureTime);
+                const elapsed = Math.max(0, currentTimeMs - fl.departureTime);
+                const isMoving = fl.status === 'in_transit' || fl.status === 'returning' || fl.status === 'intercepting';
+                const transitProgress = isMoving
+                  ? Math.min(100, Math.max(0, Math.round((elapsed / totalDuration) * 100)))
+                  : undefined;
                 const power = getFleetCombatPower(fl);
                 labels.push({
                   id: `fleet_${fl.id}`,
@@ -2207,6 +2247,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   systemId: activeSys?.id || '',
                   fleetId: fl.id,
                   fleetPower: power,
+                  transitProgress,
                   x: ((tempProjVec.x + 1) * width) / 2,
                   y: ((-tempProjVec.y + 1) * height) / 2,
                   visible: true,
@@ -2479,7 +2520,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               </div>
             ) : lbl.type === 'fleet' ? (
               <div
-                className={`px-2 py-0.5 rounded-sm bg-[#091322]/95 border shadow-lg backdrop-blur-md flex items-center gap-1.5 transition-all hover:scale-105 ${
+                className={`px-2 py-1 rounded-sm bg-[#091322]/95 border shadow-lg backdrop-blur-md flex flex-col gap-1 transition-all hover:scale-105 ${
                   selectedTarget?.type === 'fleet' && selectedTarget.fleetId === lbl.fleetId
                     ? 'ring-1 ring-cyber-cyan border-cyber-cyan shadow-cyan-950/80'
                     : ''
@@ -2489,28 +2530,46 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   boxShadow: `0 0 10px ${lbl.color}35`,
                 }}
               >
-                <span
-                  className="w-1.5 h-3 rounded-none inline-block shrink-0"
-                  style={{ backgroundColor: lbl.color }}
-                />
-                <span className="text-[10px]">🛸</span>
-                <span className="text-[9.5px] font-mono font-bold text-white tracking-tight">{lbl.title}</span>
-                {lbl.fleetPower !== undefined && (
-                  <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-950/60 px-1 py-0.5 rounded-sm border border-amber-500/40">
-                    ⚡{lbl.fleetPower}
-                  </span>
-                )}
-                {lbl.subtitle && (
+                <div className="flex items-center gap-1.5">
                   <span
-                    className="text-[8.5px] font-mono font-bold px-1 py-0.5 rounded-sm border"
-                    style={{
-                      backgroundColor: `${lbl.color}20`,
-                      borderColor: `${lbl.color}50`,
-                      color: lbl.color,
-                    }}
-                  >
-                    {lbl.subtitle}
-                  </span>
+                    className="w-1.5 h-3 rounded-none inline-block shrink-0"
+                    style={{ backgroundColor: lbl.color }}
+                  />
+                  <span className="text-[10px]">🛸</span>
+                  <span className="text-[9.5px] font-mono font-bold text-white tracking-tight">{lbl.title}</span>
+                  {lbl.fleetPower !== undefined && (
+                    <span className="text-[9px] font-mono font-bold text-amber-400 bg-amber-950/60 px-1 py-0.5 rounded-sm border border-amber-500/40">
+                      ⚡{lbl.fleetPower}
+                    </span>
+                  )}
+                  {lbl.subtitle && (
+                    <span
+                      className="text-[8.5px] font-mono font-bold px-1 py-0.5 rounded-sm border"
+                      style={{
+                        backgroundColor: `${lbl.color}20`,
+                        borderColor: `${lbl.color}50`,
+                        color: lbl.color,
+                      }}
+                    >
+                      {lbl.subtitle}
+                    </span>
+                  )}
+                </div>
+                {lbl.transitProgress !== undefined && (
+                  <div className="flex items-center gap-1.5 pt-0.5 border-t border-slate-800/80">
+                    <div className="flex-1 h-1 bg-slate-900 rounded-none overflow-hidden border border-slate-700/50">
+                      <div
+                        className="h-full transition-all duration-300"
+                        style={{
+                          width: `${lbl.transitProgress}%`,
+                          backgroundColor: lbl.color,
+                        }}
+                      />
+                    </div>
+                    <span className="text-[8px] font-mono text-slate-300 font-bold shrink-0">
+                      %{lbl.transitProgress}
+                    </span>
+                  </div>
                 )}
               </div>
             ) : (

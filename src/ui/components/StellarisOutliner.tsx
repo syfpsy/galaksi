@@ -269,7 +269,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                         });
                       }
                     }}
-                    className={`p-2 rounded-sm cursor-pointer stellaris-item-card transition-all ${
+                    className={`p-2 rounded-sm cursor-pointer stellaris-item-card transition-all group ${
                       isActive || isSelected
                         ? '!border-cyan-500/80 !bg-cyan-950/40 shadow-sm shadow-cyan-950/50'
                         : ''
@@ -299,7 +299,18 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                         )}
                       </div>
 
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sound.playClick();
+                            onSelectSystem(planet.systemId);
+                          }}
+                          className="p-1 rounded-sm text-slate-500 hover:text-cyan-300 hover:bg-cyan-950/60 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
+                          title="Sisteme Odaklan"
+                        >
+                          <Navigation className="w-2.5 h-2.5" />
+                        </button>
                         <span title={planet.stance === 'evade_safeguard' ? 'Filoyu Koru: Ağır baskında hafif gemiler kaçınır' : 'Konumu Tut: Garnizon sonuna kadar savunur'}>
                           {planet.stance === 'evade_safeguard' ? (
                             <ShieldAlert className="w-3 h-3 text-amber-400" />
@@ -313,35 +324,69 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                       </div>
                     </div>
 
-                    {/* Active Construction Indicator */}
-                    {isBuilding && planet.buildingQueue && (
-                      <div className="mt-1 pt-1 border-t border-slate-800 flex items-center justify-between text-[10px] text-cyan-400">
-                        <span className="flex items-center gap-1 truncate max-w-[150px]">
-                          <Wrench className="w-2.5 h-2.5 animate-spin" />
-                          {BUILDING_STATS[planet.buildingQueue.type].nameTr}
-                        </span>
-                        <span>
-                          {formatDuration(
-                            Math.max(0, planet.buildingQueue.finishTime - currentTimeMs)
-                          )}
-                        </span>
-                      </div>
-                    )}
+                    {/* Active Construction Indicator with Progress Bar */}
+                    {isBuilding && planet.buildingQueue && (() => {
+                      const bldg = planet.buildingQueue;
+                      const bldgDuration = Math.max(1, bldg.finishTime - bldg.startTime);
+                      const bldgElapsed = Math.max(0, currentTimeMs - bldg.startTime);
+                      const bldgProgress = Math.min(100, Math.max(0, Math.round((bldgElapsed / bldgDuration) * 100)));
+                      const remaining = Math.max(0, bldg.finishTime - currentTimeMs);
+                      const bldgDef = BUILDING_STATS[bldg.type];
 
-                    {/* Shipyard Queue Indicator */}
-                    {planet.shipyardQueue && planet.shipyardQueue.length > 0 && (
-                      <div className="mt-1 pt-1 border-t border-slate-800/60 flex items-center justify-between text-[10px] text-amber-400">
-                        <span className="flex items-center gap-1 truncate max-w-[150px]">
-                          <Rocket className="w-2.5 h-2.5" />
-                          {planet.shipyardQueue[0].count}x {SHIP_STATS[planet.shipyardQueue[0].shipType]?.nameTr || 'Gemi'}
-                        </span>
-                        <span>
-                          {formatDuration(
-                            Math.max(0, planet.shipyardQueue[0].nextUnitFinishTime - currentTimeMs)
-                          )}
-                        </span>
-                      </div>
-                    )}
+                      return (
+                        <div className="mt-1.5 pt-1 border-t border-slate-800/70">
+                          <div className="flex items-center justify-between text-[10px] text-cyan-400">
+                            <span className="flex items-center gap-1 truncate max-w-[150px]">
+                              <Wrench className="w-2.5 h-2.5 animate-spin text-cyan-400 shrink-0" />
+                              <span className="truncate">{bldgDef?.nameTr || bldg.type} (S{bldg.targetLevel})</span>
+                            </span>
+                            <span className="font-mono text-[9px] text-cyan-300 shrink-0">
+                              {formatDuration(remaining)}
+                            </span>
+                          </div>
+                          <div className="w-full h-1 bg-[#0a141e] rounded-none mt-1 overflow-hidden border border-cyan-900/50">
+                            <div
+                              className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-300"
+                              style={{ width: `${bldgProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Shipyard Queue Indicator with Progress Bar */}
+                    {planet.shipyardQueue && planet.shipyardQueue.length > 0 && (() => {
+                      const queueItem = planet.shipyardQueue[0];
+                      const unitDuration = Math.max(1, queueItem.unitBuildTimeMs || 10000);
+                      const unitStart = queueItem.nextUnitFinishTime - unitDuration;
+                      const unitElapsed = Math.max(0, currentTimeMs - unitStart);
+                      const unitProgress = Math.min(100, Math.max(0, Math.round((unitElapsed / unitDuration) * 100)));
+                      const remaining = Math.max(0, queueItem.nextUnitFinishTime - currentTimeMs);
+                      const shipDef = SHIP_STATS[queueItem.shipType];
+
+                      return (
+                        <div className="mt-1.5 pt-1 border-t border-slate-800/70">
+                          <div className="flex items-center justify-between text-[10px] text-amber-400">
+                            <span className="flex items-center gap-1 truncate max-w-[150px]">
+                              <Rocket className="w-2.5 h-2.5 text-amber-400 shrink-0" />
+                              <span className="truncate">
+                                {queueItem.count}x {shipDef?.nameTr || 'Gemi'}
+                                {queueItem.completed > 0 && ` (${queueItem.completed}/${queueItem.count})`}
+                              </span>
+                            </span>
+                            <span className="font-mono text-[9px] text-amber-300 shrink-0">
+                              {formatDuration(remaining)}
+                            </span>
+                          </div>
+                          <div className="w-full h-1 bg-[#0a141e] rounded-none mt-1 overflow-hidden border border-amber-900/50">
+                            <div
+                              className="h-full bg-gradient-to-r from-amber-600 to-yellow-400 transition-all duration-300"
+                              style={{ width: `${unitProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -411,7 +456,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                           });
                         }
                       }}
-                      className={`p-2 rounded-sm cursor-pointer stellaris-item-card ${
+                      className={`p-2 rounded-sm cursor-pointer stellaris-item-card group ${
                         isSelected
                           ? '!border-rose-500/80 !bg-rose-950/40 shadow-sm shadow-rose-950/50'
                           : ''
@@ -446,11 +491,24 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                           <span>➔</span>
                           <span>{targetSys?.name || 'Sistem'}</span>
                         </span>
-                        {isMoving && (
-                          <span className="text-cyan-300 font-mono text-[9.5px]">
-                            {formatDuration(remainingMs)}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sound.playClick();
+                              onSelectSystem(fleet.targetSystemId || fleet.originSystemId);
+                            }}
+                            className="p-0.5 rounded-sm text-slate-500 hover:text-rose-300 hover:bg-rose-950/60 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
+                            title="Hedef Sisteme Odaklan"
+                          >
+                            <Navigation className="w-2.5 h-2.5" />
+                          </button>
+                          {isMoving && (
+                            <span className="text-cyan-300 font-mono text-[9.5px]">
+                              {formatDuration(remainingMs)}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Transit Progress Bar */}
@@ -530,7 +588,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                           });
                         }
                       }}
-                      className={`p-2 rounded-sm cursor-pointer stellaris-item-card ${
+                      className={`p-2 rounded-sm cursor-pointer stellaris-item-card group ${
                         isSelected
                           ? '!border-amber-500/80 !bg-amber-950/40 shadow-sm shadow-amber-950/50'
                           : ''
@@ -557,11 +615,24 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                           <span>➔</span>
                           <span>{targetSys?.name}</span>
                         </span>
-                        {isMoving && (
-                          <span className="text-cyan-300 font-mono text-[9.5px]">
-                            {formatDuration(remainingMs)}
-                          </span>
-                        )}
+                        <div className="flex items-center gap-1.5">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sound.playClick();
+                              onSelectSystem(fleet.targetSystemId || fleet.originSystemId);
+                            }}
+                            className="p-0.5 rounded-sm text-slate-500 hover:text-amber-300 hover:bg-amber-950/60 transition-colors opacity-70 group-hover:opacity-100 cursor-pointer"
+                            title="Hedef Sisteme Odaklan"
+                          >
+                            <Navigation className="w-2.5 h-2.5" />
+                          </button>
+                          {isMoving && (
+                            <span className="text-cyan-300 font-mono text-[9.5px]">
+                              {formatDuration(remainingMs)}
+                            </span>
+                          )}
+                        </div>
                       </div>
 
                       {/* Transit Progress Bar */}
