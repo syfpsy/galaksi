@@ -707,6 +707,17 @@ export function App() {
               onClose={() => setSelectedTarget(null)}
               onRecallFleet={handleRecallFleet}
               onOpenCommandPanel={() => setIsCommandPanelOpen(true)}
+              onFocusFleetPosition={() => {
+                if (selectedTarget.fleetId) {
+                  const fl = engineState.fleets[selectedTarget.fleetId];
+                  if (fl) {
+                    const sysId = fl.targetSystemId || fl.originSystemId;
+                    if (sysId) {
+                      setSelectedTarget({ type: 'system', systemId: sysId });
+                    }
+                  }
+                }
+              }}
             />
           )}
 

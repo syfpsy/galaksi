@@ -380,15 +380,18 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
                       }`}
                     >
                       <div className="flex items-center justify-between">
-                        <span className="font-semibold text-slate-100 text-[11px] truncate flex items-center gap-1.5">
-                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
-                          {fleet.status === 'in_transit'
-                            ? 'Rotada'
-                            : fleet.status === 'returning'
-                            ? 'Geri Dönüş'
-                            : fleet.status === 'intercepting'
-                            ? 'Önleme'
-                            : 'Yörüngede'}
+                        <span className="font-semibold text-slate-100 text-[11px] truncate flex items-center gap-1.5 min-w-0">
+                          <span className="w-1.5 h-1.5 rounded-full bg-rose-400 shrink-0" />
+                          <span className="truncate">{fleet.name || 'Vurucu Filo'}</span>
+                          <span className="text-[8.5px] px-1 py-0.5 rounded-sm bg-slate-900 border border-slate-700/60 text-slate-300 font-mono shrink-0">
+                            {fleet.status === 'in_transit'
+                              ? 'Rotada'
+                              : fleet.status === 'returning'
+                              ? 'Dönüş'
+                              : fleet.status === 'intercepting'
+                              ? 'Önleme'
+                              : 'Yörünge'}
+                          </span>
                         </span>
                         <div className="flex items-center gap-1.5">
                           <span className="stellaris-power text-[10.5px] font-mono">

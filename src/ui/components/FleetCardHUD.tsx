@@ -316,17 +316,32 @@ export const FleetCardHUD: React.FC<FleetCardHUDProps> = ({
 
             {/* Size Mode Toggle (Compact vs Wide) */}
             {!isCollapsed && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  sound.playClick();
-                  setSizeMode((prev) => (prev === 'compact' ? 'wide' : 'compact'));
-                }}
-                className="p-1 rounded-sm text-slate-400 hover:text-slate-200 hover:bg-[#1a384f] transition-colors cursor-pointer"
-                title={sizeMode === 'compact' ? 'Genişletilmiş Detay Görünümü' : 'Kompakt Görünüm'}
-              >
-                {sizeMode === 'compact' ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
-              </button>
+              <>
+                {onFocusFleetPosition && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      sound.playClick();
+                      onFocusFleetPosition();
+                    }}
+                    className="p-1 rounded-sm text-slate-400 hover:text-cyan-300 hover:bg-[#1a384f] transition-colors cursor-pointer"
+                    title="Haritada Filoyu Odakla (Kamera Hizala)"
+                  >
+                    <Crosshair className="w-3.5 h-3.5" />
+                  </button>
+                )}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    sound.playClick();
+                    setSizeMode((prev) => (prev === 'compact' ? 'wide' : 'compact'));
+                  }}
+                  className="p-1 rounded-sm text-slate-400 hover:text-slate-200 hover:bg-[#1a384f] transition-colors cursor-pointer"
+                  title={sizeMode === 'compact' ? 'Genişletilmiş Detay Görünümü' : 'Kompakt Görünüm'}
+                >
+                  {sizeMode === 'compact' ? <Maximize2 className="w-3.5 h-3.5" /> : <Minimize2 className="w-3.5 h-3.5" />}
+                </button>
+              </>
             )}
 
             {/* Collapse / Expand Toggle */}
