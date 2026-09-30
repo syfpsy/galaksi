@@ -106,14 +106,14 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-xs font-bold text-slate-100 font-mono tracking-wider">
+                <h2 className="text-sm font-bold text-white font-display uppercase tracking-wide">
                   {system.name.toUpperCase()} SİSTEMİ
                 </h2>
-                <span className="stellaris-badge text-[#3ca8d1] border-[#1c445c]">
+                <span className="stellaris-badge text-cyan-300 border-[#1c445c] font-medium">
                   {system.slots.length} Gezegen Yörüngesi
                 </span>
               </div>
-              <span className="text-[10px] text-slate-400 font-mono">
+              <span className="text-[10px] text-slate-300 font-mono">
                 Sektörel Koordinat ({system.x}, {system.y}) • Taktik Yörünge Şematiği
               </span>
             </div>
@@ -123,7 +123,7 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
               sound.playClick();
               onClose();
             }}
-            className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#152e40] transition-colors cursor-pointer"
+            className="p-1.5 rounded-sm text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all cursor-pointer"
             title="Kapat"
           >
             <X className="w-4 h-4" />
@@ -268,9 +268,10 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
                       x={cx}
                       y="16"
                       textAnchor="middle"
-                      fill="#64748b"
+                      fill="#94a3b8"
                       fontSize="9"
                       fontFamily="monospace"
+                      fontWeight="bold"
                     >
                       {idx + 1}. Yuva • {(0.4 + idx * 0.7).toFixed(1)} AU
                     </text>
@@ -432,7 +433,7 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
                           ? 'Yabancı Subspace Radyo Sinyali'
                           : 'Nadir Cevher Asteroit Kuşağı'}
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
+                      <div className="text-[10px] text-slate-300 font-mono">
                         {system.poi.explored ? '✓ Keşfedildi (Kaynaklar Toplandı)' : '● Keşfedilmedi — Analiz Bekleniyor'}
                       </div>
                     </div>
@@ -443,7 +444,7 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
                         sound.playClick();
                         onOpenAnomaly(system);
                       }}
-                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 rounded-sm text-xs font-mono font-bold transition-all shrink-0"
+                      className="px-2.5 py-1 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 rounded-sm text-xs font-mono font-bold transition-all shrink-0"
                     >
                       İncele
                     </button>
@@ -461,12 +462,12 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
                       <div className="text-xs font-bold text-rose-300 font-mono">
                         Savaş Enkazı Sahası
                       </div>
-                      <div className="text-[10px] text-slate-400 font-mono">
+                      <div className="text-[10px] text-slate-300 font-mono">
                         +{Math.round(system.hasDebris.ore || 0)} Cevher • +{Math.round(system.hasDebris.crystal || 0)} Kristal
                       </div>
                     </div>
                   </div>
-                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-rose-950/60 border border-rose-500/40 text-rose-300 shrink-0">
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded-sm bg-rose-950/60 border border-rose-500/40 text-rose-300 shrink-0 font-medium">
                     Nakliye ile Toplanabilir
                   </span>
                 </div>
@@ -476,9 +477,9 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
 
           {/* Planet Slots Detailed Breakdown Cards */}
           <div className="space-y-3">
-            <div className="text-[11px] font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
+            <div className="text-[11px] font-mono text-slate-300 font-bold uppercase tracking-wider flex items-center justify-between">
               <span>Yörünge Yuvaları ve Biyom Raporu</span>
-              <span className="text-slate-500">Seçmek için karta veya görsele tıklayın</span>
+              <span className="text-slate-400 font-normal">Seçmek için karta veya görsele tıklayın</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -537,7 +538,7 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
 
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-slate-100 font-display">
+                          <span className="text-sm font-bold text-white font-display">
                             {slot.name}
                           </span>
                           <span
@@ -550,12 +551,12 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
                           >
                             {asset.nameTr}
                           </span>
-                          <span className="stellaris-badge text-emerald-400 border-emerald-500/40">
+                          <span className="stellaris-badge text-emerald-300 border-emerald-500/40 font-bold">
                             {asset.habitability}
                           </span>
                         </div>
 
-                        <div className="text-xs text-slate-400 font-mono mt-1">
+                        <div className="text-xs text-slate-300 font-mono mt-1">
                           {owner ? (
                             <span style={{ color: owner.color }} className="font-semibold">
                               Hakimiyet: {owner.name} {isMine && '(Siz)'}
@@ -565,10 +566,10 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
                               ✓ Boş Yuva (Koloniye Uygun)
                             </span>
                           )}
-                          <span className="text-slate-500"> • Boyut: {slot.size}</span>
+                          <span className="text-slate-400"> • Boyut: {slot.size}</span>
                         </div>
 
-                        <div className="text-[10px] text-amber-400 font-mono mt-0.5 flex items-center gap-1">
+                        <div className="text-[10.5px] text-amber-300 font-mono mt-0.5 flex items-center gap-1 font-medium">
                           <Sparkles className="w-3 h-3" />
                           <span>{config.bonus}</span>
                         </div>

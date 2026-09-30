@@ -111,7 +111,7 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
                 {system.name} Sistemi
               </span>
             </div>
-            <h2 className="text-sm font-bold font-display text-slate-100 tracking-wide mt-0.5">
+            <h2 className="text-sm font-bold font-display text-white tracking-wide mt-0.5">
               {currentDetail.title}
             </h2>
           </div>
@@ -122,7 +122,7 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
             sound.playClick();
             onClose();
           }}
-          className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#152e40] transition-colors cursor-pointer"
+          className="p-1.5 rounded-sm text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all cursor-pointer"
           title="Kapat"
         >
           <X className="w-4 h-4" />
@@ -136,10 +136,10 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
           <div className="absolute top-0 right-0 p-2 text-slate-700 pointer-events-none">
             <Compass className="w-16 h-16 opacity-10" />
           </div>
-          <p className="text-slate-200 text-xs font-sans relative z-10">
+          <p className="text-slate-100 text-xs font-sans relative z-10 leading-relaxed">
             {currentDetail.lore}
           </p>
-          <p className="text-cyan-300/80 text-[11px] font-sans mt-2 relative z-10 italic">
+          <p className="text-cyan-300 text-xs font-sans mt-2 relative z-10 italic">
             {currentDetail.analysis}
           </p>
         </div>
@@ -147,9 +147,9 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
         {/* Reward Projection */}
         {poi.reward && (
           <div className="space-y-1.5">
-            <div className="text-[10px] font-mono uppercase text-slate-400 font-bold tracking-wider flex items-center justify-between">
+            <div className="text-[10px] font-mono uppercase text-slate-300 font-bold tracking-wider flex items-center justify-between">
               <span>Tahmini Keşif Geri Kazanımı</span>
-              <span className={poi.explored ? 'text-emerald-400' : 'text-amber-400'}>
+              <span className={poi.explored ? 'text-emerald-400 font-bold' : 'text-amber-300 font-bold'}>
                 {poi.explored ? '✓ Toplandı' : '● Toplanmaya Hazır'}
               </span>
             </div>
@@ -157,22 +157,22 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
               <div className="stellaris-item-card p-2 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_6px_#f59e0b]" />
                 <div>
-                  <span className="text-[9px] text-slate-400 uppercase block">Cevher</span>
-                  <span className="font-bold text-slate-100">+{poi.reward.ore}</span>
+                  <span className="text-[9px] text-slate-400 uppercase block font-medium">Cevher</span>
+                  <span className="font-bold text-white">+{poi.reward.ore}</span>
                 </div>
               </div>
               <div className="stellaris-item-card p-2 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-cyan-400 shadow-[0_0_6px_#06b6d4]" />
                 <div>
-                  <span className="text-[9px] text-slate-400 uppercase block">Kristal</span>
-                  <span className="font-bold text-slate-100">+{poi.reward.crystal}</span>
+                  <span className="text-[9px] text-slate-400 uppercase block font-medium">Kristal</span>
+                  <span className="font-bold text-white">+{poi.reward.crystal}</span>
                 </div>
               </div>
               <div className="stellaris-item-card p-2 flex items-center gap-2">
                 <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_6px_#10b981]" />
                 <div>
-                  <span className="text-[9px] text-slate-400 uppercase block">Yakıt</span>
-                  <span className="font-bold text-slate-100">+{poi.reward.fuel}</span>
+                  <span className="text-[9px] text-slate-400 uppercase block font-medium">Yakıt</span>
+                  <span className="font-bold text-white">+{poi.reward.fuel}</span>
                 </div>
               </div>
             </div>
@@ -187,7 +187,7 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
             sound.playClick();
             onClose();
           }}
-          className="stellaris-btn-metallic px-3 py-1.5 rounded-sm text-xs text-slate-300 cursor-pointer"
+          className="stellaris-btn-metallic px-3 py-1.5 rounded-sm text-xs text-slate-200 hover:text-white cursor-pointer font-medium"
         >
           Gözlem Kaydını Kapat
         </button>
@@ -199,9 +199,9 @@ const AnomalyEventModalComponent: React.FC<AnomalyEventModalProps> = ({
               onDispatchScout(system.id);
               onClose();
             }}
-            className="stellaris-btn-metallic !border-cyan-500/70 text-cyan-300 px-3.5 py-1.5 rounded-sm font-mono font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/50 transition-all cursor-pointer"
+            className="stellaris-btn-metallic !border-cyan-500/70 text-cyan-200 px-3.5 py-1.5 rounded-sm font-mono font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/50 transition-all cursor-pointer"
           >
-            <Rocket className="w-3.5 h-3.5" />
+            <Rocket className="w-3.5 h-3.5 text-cyan-300" />
             <span>Keşif Seferi Düzenle</span>
           </button>
         )}

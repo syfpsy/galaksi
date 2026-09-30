@@ -214,9 +214,9 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                   <span className="text-xs font-mono font-bold bg-[#0b2438] text-cyan-300 px-2 py-0.5 rounded-sm border border-[#1c445c]">
                     [{myAlliance.tag}]
                   </span>
-                  <h3 className="text-sm font-bold text-slate-100 font-display">{myAlliance.name}</h3>
+                  <h3 className="text-sm font-bold text-white font-display">{myAlliance.name}</h3>
                 </div>
-                <div className="flex items-center gap-3 text-xs text-slate-400 font-mono mt-1.5">
+                <div className="flex items-center gap-3 text-xs text-slate-300 font-mono mt-1.5">
                   <span>{myAlliance.memberIds.length} Üye İmparatorluk</span>
                   <span>•</span>
                   <span className="text-emerald-400 flex items-center gap-1 font-semibold">
@@ -258,15 +258,15 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                         <div className="flex items-center gap-3">
                           <span className="w-3 h-3 rounded-full" style={{ backgroundColor: member.color }} />
                           <div>
-                            <div className="text-xs font-bold text-slate-100 flex items-center gap-2 font-mono">
+                            <div className="text-xs font-bold text-white flex items-center gap-2 font-mono">
                               {member.name}
                               {isMe && (
-                                <span className="text-[9.5px] bg-[#0c2438] text-cyan-300 px-1.5 py-0.5 rounded-sm border border-[#1b3e54] font-mono">
+                                <span className="text-[9.5px] bg-[#0c2438] text-cyan-300 px-1.5 py-0.5 rounded-sm border border-[#1b3e54] font-mono font-bold">
                                   Siz
                                 </span>
                               )}
                               {memberId === myAlliance.founderId && (
-                                <span className="text-[9.5px] bg-amber-950/60 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded-sm font-mono">
+                                <span className="text-[9.5px] bg-amber-950/60 text-amber-300 border border-amber-500/40 px-1.5 py-0.5 rounded-sm font-mono font-bold">
                                   Kurucu
                                 </span>
                               )}
@@ -312,19 +312,19 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                   </div>
 
                   <div className="grid grid-cols-3 gap-2 text-center">
-                    <div className="bg-[#040e1a] border border-[#1b3d54] p-2 rounded-xs">
+                    <div className="bg-[#040e1a] border border-[#1b3d54] p-2 rounded-sm">
                       <span className="text-[10px] text-slate-400 block font-mono">Cevher</span>
                       <span className="text-sm font-bold font-mono text-cyan-300">
                         {treasury.ore.toLocaleString()}
                       </span>
                     </div>
-                    <div className="bg-[#040e1a] border border-[#1b3d54] p-2 rounded-xs">
+                    <div className="bg-[#040e1a] border border-[#1b3d54] p-2 rounded-sm">
                       <span className="text-[10px] text-slate-400 block font-mono">Kristal</span>
                       <span className="text-sm font-bold font-mono text-emerald-300">
                         {treasury.crystal.toLocaleString()}
                       </span>
                     </div>
-                    <div className="bg-[#040e1a] border border-[#1b3d54] p-2 rounded-xs">
+                    <div className="bg-[#040e1a] border border-[#1b3d54] p-2 rounded-sm">
                       <span className="text-[10px] text-slate-400 block font-mono">Yakıt</span>
                       <span className="text-sm font-bold font-mono text-amber-300">
                         {treasury.fuel.toLocaleString()}
@@ -616,7 +616,7 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                       {defenseEvents.map((evt) => (
                         <div
                           key={evt.id}
-                          className="bg-[#05111d] border border-[#1b3e54] p-2 rounded-xs flex items-center justify-between text-xs font-mono"
+                          className="bg-[#05111d] border border-[#1b3e54] p-2 rounded-sm flex items-center justify-between text-xs font-mono"
                         >
                           <div className="flex items-center gap-2">
                             {evt.type === 'alliance_defense_alert' ? (

@@ -49,10 +49,10 @@ const RelayModalComponent: React.FC<RelayModalProps> = ({
             <Crown className="w-4 h-4 animate-pulse" />
           </div>
           <div>
-            <h2 className="text-xs font-bold text-slate-100 font-mono uppercase tracking-wider">
+            <h2 className="text-sm font-bold text-white font-display uppercase tracking-wide">
               Nexus Rölesi & Haftalık Sektör Hakimiyeti
             </h2>
-            <span className="text-[10px] text-purple-400 font-mono">
+            <span className="text-[10px] text-purple-300 font-mono font-medium">
               {relaySys?.name || 'Merkezi Röle'} • Stratejik Görüş ve Sıralama Noktası
             </span>
           </div>
@@ -82,7 +82,7 @@ const RelayModalComponent: React.FC<RelayModalProps> = ({
 
           <div className="absolute bottom-3 left-3 right-3 flex items-end justify-between">
             <div>
-              <span className="text-[10px] font-mono text-purple-300 uppercase tracking-widest bg-purple-950/80 px-2 py-0.5 rounded-sm border border-purple-500/30 inline-block font-bold">
+              <span className="text-[10px] font-mono text-purple-200 uppercase tracking-widest bg-purple-950/80 px-2 py-0.5 rounded-sm border border-purple-500/40 inline-block font-bold">
                 Kadim Öncü Megastrüktürü
               </span>
               <div className="flex items-center gap-2 mt-1">
@@ -90,11 +90,11 @@ const RelayModalComponent: React.FC<RelayModalProps> = ({
                   className="w-3 h-3 rounded-full"
                   style={{ backgroundColor: controller?.color || '#a855f7' }}
                 />
-                <span className="text-sm font-bold text-slate-100 font-display drop-shadow">
+                <span className="text-sm font-bold text-white font-display drop-shadow">
                   {controller ? controller.name : 'Tarafsız Savunma Garnizonu'}
                 </span>
                 {controller && (
-                  <span className="text-xs text-purple-300 font-mono">
+                  <span className="text-xs text-purple-300 font-mono font-medium">
                     ({formatDuration(durationHeldMs)})
                   </span>
                 )}
@@ -109,7 +109,7 @@ const RelayModalComponent: React.FC<RelayModalProps> = ({
               }}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-sm stellaris-btn-metallic text-cyan-200 font-mono font-bold text-xs uppercase tracking-wider transition-all shadow-md active:scale-95"
             >
-              <Swords className="w-4 h-4 text-[#3ca8d1]" />
+              <Swords className="w-4 h-4 text-cyan-300" />
               <span>Röleye Sefer Düzenle</span>
             </button>
           </div>
@@ -118,22 +118,22 @@ const RelayModalComponent: React.FC<RelayModalProps> = ({
         {/* Strategic Bonuses */}
         <div className="grid grid-cols-2 gap-3 text-xs font-mono">
           <div className="stellaris-item-card p-3 border-[#1c3647]">
-            <div className="flex items-center gap-2 text-purple-400 font-bold mb-1">
+            <div className="flex items-center gap-2 text-purple-300 font-bold mb-1">
               <Radio className="w-4 h-4" />
               <span>Gelişmiş Taktik Görüş</span>
             </div>
-            <p className="text-slate-400 text-[11px] leading-relaxed">
+            <p className="text-slate-300 text-[11px] leading-relaxed">
               Röleyi elinde tutan güç, çevredeki tüm bağlantı hatlarını (+2 atlama menzili) sis
               olmadan tarar.
             </p>
           </div>
 
           <div className="stellaris-item-card p-3 border-[#1c3647]">
-            <div className="flex items-center gap-2 text-amber-400 font-bold mb-1">
+            <div className="flex items-center gap-2 text-amber-300 font-bold mb-1">
               <Award className="w-4 h-4" />
               <span>Haftalık Sıralama Puanı</span>
             </div>
-            <p className="text-slate-400 text-[11px] leading-relaxed">
+            <p className="text-slate-300 text-[11px] leading-relaxed">
               Her 10 dakikalık kontrol için +10 Hakimiyet Puanı kazanılır. Hafta sonunda arşivlenir.
             </p>
           </div>
@@ -143,14 +143,14 @@ const RelayModalComponent: React.FC<RelayModalProps> = ({
         <div className="stellaris-item-card border-[#1c3647] p-3">
           <div className="stellaris-section-header px-1.5 py-0.5 text-[10px] font-mono uppercase tracking-wider mb-2 flex items-center justify-between">
             <span>Röle Savunma Garnizonu</span>
-            <span className="text-slate-400">Mevcut İstasyon Gücü</span>
+            <span className="text-slate-300 font-medium">Mevcut İstasyon Gücü</span>
           </div>
 
           <div className="grid grid-cols-4 gap-2 font-mono text-xs text-center">
             {(['scout', 'transport', 'fighter', 'battleship'] as ShipType[]).map((st) => (
               <div key={st} className="bg-[#07131e] p-2 rounded-sm border border-[#18374b]">
-                <span className="text-[10px] text-slate-400 block">{SHIP_STATS[st].nameTr}</span>
-                <span className="text-xs font-bold text-[#3ca8d1]">{relay.garrison[st] || 0}</span>
+                <span className="text-[10px] text-slate-300 block">{SHIP_STATS[st].nameTr}</span>
+                <span className="text-xs font-bold text-cyan-300">{relay.garrison[st] || 0}</span>
               </div>
             ))}
           </div>
@@ -163,7 +163,7 @@ const RelayModalComponent: React.FC<RelayModalProps> = ({
           </div>
 
           {leaderboard.length === 0 ? (
-            <div className="text-xs text-slate-500 italic py-6 text-center font-mono stellaris-item-card border-dashed border-[#1c3647]">
+            <div className="text-xs text-slate-400 italic py-6 text-center font-mono stellaris-item-card border-dashed border-[#1c3647]">
               Henüz röle kontrol puanı toplanmadı.
             </div>
           ) : (
@@ -176,22 +176,22 @@ const RelayModalComponent: React.FC<RelayModalProps> = ({
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
-                    <span className="w-5 text-center font-bold text-slate-500">#{idx + 1}</span>
+                    <span className="w-5 text-center font-bold text-slate-400">#{idx + 1}</span>
                     <span
                       className="w-2.5 h-2.5 rounded-full"
                       style={{ backgroundColor: item.player.color }}
                     />
-                    <span className="font-semibold text-slate-200">
+                    <span className="font-semibold text-white">
                       {item.player.name}
                       {item.isController && (
-                        <span className="ml-2 text-[10px] text-purple-400 font-normal">
+                        <span className="ml-2 text-[10px] text-purple-300 font-normal">
                           (Mevcut Hâkim)
                         </span>
                       )}
                     </span>
                   </div>
 
-                  <div className="text-amber-400 font-bold">{item.points} Puan</div>
+                  <div className="text-amber-300 font-bold">{item.points} Puan</div>
                 </div>
               ))}
             </div>

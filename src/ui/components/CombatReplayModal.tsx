@@ -429,7 +429,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                           <span>{currentReport.systemName}</span>
                         )}
                       </div>
-                      <div className="text-base font-bold text-slate-100 font-display mt-0.5">
+                      <div className="text-base font-bold text-white font-display mt-0.5">
                         {currentReport.attackerName} &nbsp;⚔️&nbsp; {currentReport.defenderName}
                       </div>
                     </div>
@@ -461,7 +461,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
 
                           return (
                             <div key={st} className="space-y-0.5">
-                              <div className="flex justify-between text-slate-300 text-[11px]">
+                              <div className="flex justify-between text-slate-200 text-xs font-medium">
                                 <span className="flex items-center gap-1.5">
                                   <span>{SHIP_ICONS[st]}</span>
                                   <span>{SHIP_STATS[st].nameTr}</span>
@@ -504,7 +504,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
 
                           return (
                             <div key={st} className="space-y-0.5">
-                              <div className="flex justify-between text-slate-300 text-[11px]">
+                              <div className="flex justify-between text-slate-200 text-xs font-medium">
                                 <span className="flex items-center gap-1.5">
                                   <span>{SHIP_ICONS[st]}</span>
                                   <span>{SHIP_STATS[st].nameTr}</span>

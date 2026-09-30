@@ -111,13 +111,13 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
             }}
             className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all ${
               activeTab === 'anomalies'
-                ? 'border-[#3ca8d1] text-cyan-300 bg-[#0a2336]'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-[#3ca8d1] text-cyan-200 bg-[#0a2336]'
+                : 'border-transparent text-slate-300 hover:text-white'
             }`}
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             <span>Sektör Anomalileri & Enkazlar</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#0d2638] border border-[#1b3d54] text-slate-300">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#0d2638] border border-[#1b3d54] text-slate-200 font-bold">
               {systemsWithPoi.length + systemsWithDebris.length}
             </span>
           </button>
@@ -129,14 +129,14 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
             }}
             className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all ${
               activeTab === 'relay'
-                ? 'border-purple-400 text-purple-300 bg-purple-950/30'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-purple-400 text-purple-200 bg-purple-950/40'
+                : 'border-transparent text-slate-300 hover:text-white'
             }`}
           >
             <Crown className="w-3.5 h-3.5 text-purple-400" />
             <span>Nexus Rölesi Megastrüktürü</span>
             {isRelayMine && (
-              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/60 text-purple-300 font-bold border border-purple-500/40">
+              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-purple-900/60 text-purple-200 font-bold border border-purple-500/50">
                 Kontrol Sizde
               </span>
             )}
@@ -149,13 +149,13 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
             }}
             className={`px-4 py-2.5 text-xs font-mono font-bold flex items-center gap-2 border-b-2 transition-all ${
               activeTab === 'missions'
-                ? 'border-emerald-400 text-emerald-300 bg-emerald-950/20'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-emerald-400 text-emerald-200 bg-emerald-950/30'
+                : 'border-transparent text-slate-300 hover:text-white'
             }`}
           >
             <Rocket className="w-4 h-4 text-emerald-400" />
             <span>Aktif Seferler & İntikaller</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-300">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-800 text-slate-200 font-bold">
               {myFleets.length}
             </span>
           </button>
@@ -167,13 +167,13 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
             }}
             className={`px-3 py-2 text-xs font-mono font-bold flex items-center gap-1.5 border-b-2 transition-all ${
               activeTab === 'bounties'
-                ? 'border-rose-400 text-rose-300 bg-rose-950/30'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-rose-400 text-rose-200 bg-rose-950/40'
+                : 'border-transparent text-slate-300 hover:text-white'
             }`}
           >
             <Swords className="w-3.5 h-3.5 text-rose-400" />
             <span>Korsan Sözleşmeleri & Ödül Avcılığı</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/40 text-rose-300 font-bold">
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-rose-950/80 border border-rose-500/50 text-rose-200 font-bold">
               {systemsWithPirates.length}
             </span>
           </button>
@@ -222,20 +222,20 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold font-mono text-slate-100">
+                            <span className="text-xs font-bold font-mono text-white">
                               {poiNames[poi.type] || 'Bilinmeyen Anomali'}
                             </span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-[#0a1826] border border-[#1b3449] text-[#3ca8d1]">
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-[#0a1826] border border-[#1b3449] text-cyan-300 font-medium">
                               {sys.name}
                             </span>
                           </div>
-                          <div className="text-[11px] font-mono text-slate-400 mt-0.5">
+                          <div className="text-[11px] font-mono text-slate-300 mt-0.5">
                             {isExplored ? (
                               <span className="text-emerald-400 font-semibold">
                                 ✓ Keşfedildi — Kaynaklar Toplandı
                               </span>
                             ) : (
-                              <span className="text-amber-400">
+                              <span className="text-amber-300 font-medium">
                                 ● İncelenmedi — +{poi.reward?.ore || 0}C, +{poi.reward?.crystal || 0}K, +{poi.reward?.fuel || 0}Y
                               </span>
                             )}
@@ -250,9 +250,9 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                             onSelectSystem(sys.id);
                             onClose();
                           }}
-                          className="px-2.5 py-1 rounded-sm stellaris-btn-metallic text-slate-200 text-xs font-mono transition-all flex items-center gap-1"
+                          className="px-2.5 py-1 rounded-sm stellaris-btn-metallic text-slate-200 hover:text-white text-xs font-mono transition-all flex items-center gap-1"
                         >
-                          <Target className="w-3.5 h-3.5 text-[#3ca8d1]" />
+                          <Target className="w-3.5 h-3.5 text-cyan-300" />
                           <span>Haritada Bul</span>
                         </button>
 
@@ -261,7 +261,7 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                             sound.playClick();
                             onOpenAnomaly(sys);
                           }}
-                          className="px-3 py-1 rounded-sm bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 text-xs font-mono font-bold transition-all flex items-center gap-1 shadow-sm"
+                          className="px-3 py-1 rounded-sm bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-200 text-xs font-mono font-bold transition-all flex items-center gap-1 shadow-sm"
                         >
                           <span>Raporu Aç</span>
                         </button>
@@ -284,14 +284,14 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                         </div>
                         <div>
                           <div className="flex items-center gap-2">
-                            <span className="text-xs font-bold font-mono text-slate-100">
+                            <span className="text-xs font-bold font-mono text-white">
                               Savaş Enkazı Sahası (Kurtarılabilir Hurda)
                             </span>
-                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-[#0a1826] border border-[#1b3449] text-[#3ca8d1]">
+                            <span className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm bg-[#0a1826] border border-[#1b3449] text-cyan-300 font-medium">
                               {sys.name}
                             </span>
                           </div>
-                          <div className="text-[11px] font-mono text-amber-300 mt-0.5">
+                          <div className="text-[11px] font-mono text-amber-300 font-bold mt-0.5">
                             +{Math.round(deb.ore || 0)} Cevher • +{Math.round(deb.crystal || 0)} Kristal
                           </div>
                         </div>
@@ -303,7 +303,7 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                           onSelectSystem(sys.id);
                           onClose();
                         }}
-                        className="px-2.5 py-1 rounded-sm stellaris-btn-metallic text-amber-300 text-xs font-mono transition-all flex items-center gap-1"
+                        className="px-2.5 py-1 rounded-sm stellaris-btn-metallic text-amber-300 hover:text-white text-xs font-mono transition-all flex items-center gap-1"
                       >
                         <Target className="w-3.5 h-3.5 text-amber-400" />
                         <span>Sisteme Git</span>
@@ -327,7 +327,7 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                     <h3 className="text-sm font-bold font-display text-white">
                       Merkezi Nexus Rölesi — Sektör Egemenlik Noktası
                     </h3>
-                    <div className="text-xs font-mono text-slate-400 mt-1">
+                    <div className="text-xs font-mono text-slate-300 mt-1">
                       Mevcut Hakimiyet:{' '}
                       {relayController ? (
                         <span style={{ color: relayController.color }} className="font-bold">
@@ -355,9 +355,9 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
 
               {/* Weekly Point Distribution */}
               <div className="stellaris-item-card border border-[#1c3647] rounded-sm p-4 space-y-3">
-                <div className="text-xs font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
+                <div className="text-xs font-mono text-slate-300 font-bold uppercase tracking-wider flex items-center justify-between">
                   <span>Haftalık Röle Skor Tablosu</span>
-                  <span className="text-slate-500">10 dakikada bir kontrol puanı dağıtılır</span>
+                  <span className="text-slate-400 font-normal">10 dakikada bir kontrol puanı dağıtılır</span>
                 </div>
 
                 <div className="space-y-2">
@@ -375,9 +375,9 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                               className="w-2.5 h-2.5 rounded-full inline-block"
                               style={{ backgroundColor: p?.color || '#00f3ff' }}
                             />
-                            <span className="text-slate-200">{p?.name || playerId}</span>
+                            <span className="text-white font-medium">{p?.name || playerId}</span>
                           </div>
-                          <span className="text-amber-400 font-bold">{pts} Puan</span>
+                          <span className="text-amber-300 font-bold">{pts} Puan</span>
                         </div>
                       );
                     })}
@@ -395,7 +395,7 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
               </div>
 
               {myFleets.length === 0 ? (
-                <div className="p-8 text-center text-slate-500 font-mono text-xs stellaris-item-card border border-[#1c3647] rounded-sm">
+                <div className="p-8 text-center text-slate-400 font-mono text-xs stellaris-item-card border border-[#1c3647] rounded-sm">
                   Şu anda uzayda seyreden aktif bir filonuz bulunmuyor. Tersaneden gemi inşa edip sefer sevk edebilirsiniz.
                 </div>
               ) : (
@@ -410,17 +410,17 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                         className="p-3 stellaris-item-card border-[#1c3647] rounded-sm flex items-center justify-between text-xs font-mono"
                       >
                         <div className="flex items-center gap-3">
-                          <Navigation className="w-4 h-4 text-[#3ca8d1]" />
+                          <Navigation className="w-4 h-4 text-cyan-300" />
                           <div>
-                            <span className="text-slate-100 font-bold block">{fl.name}</span>
-                            <span className="text-slate-400 text-[11px]">
-                              Hedef: {targetSys?.name || fl.targetSystemId} • {fl.mission.toUpperCase()}
+                            <span className="text-white font-bold block">{fl.name}</span>
+                            <span className="text-slate-300 text-[11px]">
+                              Hedef: <span className="text-cyan-300 font-medium">{targetSys?.name || fl.targetSystemId}</span> • {fl.mission.toUpperCase()}
                             </span>
                           </div>
                         </div>
 
                         <div className="flex items-center gap-3">
-                          <span className="text-amber-400 font-bold flex items-center gap-1">
+                          <span className="text-amber-300 font-bold flex items-center gap-1 font-mono">
                             <Clock className="w-3.5 h-3.5" />
                             {formatDuration(remainingMs)}
                           </span>
@@ -431,7 +431,7 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                               onSelectSystem(fl.targetSystemId);
                               onClose();
                             }}
-                            className="px-2.5 py-1 rounded-sm stellaris-btn-metallic text-slate-200 text-[11px] transition-all"
+                            className="px-2.5 py-1 rounded-sm stellaris-btn-metallic text-slate-200 hover:text-white text-[11px] transition-all font-medium"
                           >
                             Odaklan
                           </button>
@@ -477,10 +477,10 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                     const threatLevel = bounty?.threatLevel || 'medium';
 
                     const threatBadges: Record<string, { label: string; color: string; border: string }> = {
-                      low: { label: 'DÜŞÜK TEHDİT', color: 'text-emerald-400', border: 'border-emerald-500/40 bg-emerald-950/40' },
-                      medium: { label: 'ORTA TEHDİT', color: 'text-cyan-400', border: 'border-cyan-500/40 bg-cyan-950/40' },
-                      high: { label: 'YÜKSEK TEHDİT', color: 'text-amber-400', border: 'border-amber-500/40 bg-amber-950/40' },
-                      deadly: { label: 'ÖLÜMCÜL TEHDİT', color: 'text-rose-400', border: 'border-rose-500/50 bg-rose-950/60 animate-pulse' },
+                      low: { label: 'DÜŞÜK TEHDİT', color: 'text-emerald-300', border: 'border-emerald-500/40 bg-emerald-950/40' },
+                      medium: { label: 'ORTA TEHDİT', color: 'text-cyan-300', border: 'border-cyan-500/40 bg-cyan-950/40' },
+                      high: { label: 'YÜKSEK TEHDİT', color: 'text-amber-300', border: 'border-amber-500/40 bg-amber-950/40' },
+                      deadly: { label: 'ÖLÜMCÜL TEHDİT', color: 'text-rose-300', border: 'border-rose-500/50 bg-rose-950/60 animate-pulse' },
                     };
 
                     const badge = threatBadges[threatLevel] || threatBadges.medium;
@@ -502,14 +502,14 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
 
                             <div>
                               <div className="flex items-center gap-2">
-                                <h3 className="font-bold text-slate-100 text-sm font-display">
+                                <h3 className="font-bold text-white text-sm font-display">
                                   {bounty?.titleTr || 'Uzay Korsanları'} — {sys.name}
                                 </h3>
                                 <span className={`text-[9px] font-mono px-2 py-0.5 rounded-sm border font-bold ${badge.border} ${badge.color}`}>
                                   {badge.label}
                                 </span>
                                 {isClaimed && (
-                                  <span className="stellaris-badge text-[9px] text-emerald-400 border-emerald-500/40 bg-emerald-950/40">
+                                  <span className="stellaris-badge text-[9px] text-emerald-300 border-emerald-500/40 bg-emerald-950/40 font-bold">
                                     İMHA EDİLDİ
                                   </span>
                                 )}
@@ -537,14 +537,14 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
 
                               {/* Bounty Reward breakdown */}
                               {reward && (
-                                <div className="flex items-center gap-3 mt-2 text-[11px] font-mono">
+                                <div className="flex items-center gap-2.5 mt-2 text-[11px] font-mono">
                                   <span className="text-slate-400">Galaktik Ödül:</span>
-                                  <span className="text-slate-200 font-bold">{reward.ore} Cevher</span>
-                                  <span>•</span>
+                                  <span className="text-white font-bold">{reward.ore} Cevher</span>
+                                  <span className="text-slate-500">•</span>
                                   <span className="text-cyan-300 font-bold">{reward.crystal} Kristal</span>
-                                  <span>•</span>
-                                  <span className="text-amber-400 font-bold">{reward.fuel} Yakıt</span>
-                                  <span>•</span>
+                                  <span className="text-slate-500">•</span>
+                                  <span className="text-amber-300 font-bold">{reward.fuel} Yakıt</span>
+                                  <span className="text-slate-500">•</span>
                                   <span className="text-purple-300 font-bold">+{bounty?.rewardXP || 150} DP</span>
                                 </div>
                               )}
@@ -558,9 +558,9 @@ const SituationLogModalComponent: React.FC<SituationLogModalProps> = ({
                                 onSelectSystem(sys.id);
                                 onClose();
                               }}
-                              className="px-3 py-1.5 rounded-sm stellaris-btn-metallic text-slate-200 text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer"
+                              className="px-3 py-1.5 rounded-sm stellaris-btn-metallic text-slate-200 hover:text-white text-xs font-mono flex items-center gap-1.5 transition-all cursor-pointer font-medium"
                             >
-                              <Navigation className="w-3.5 h-3.5 text-cyan-400" />
+                              <Navigation className="w-3.5 h-3.5 text-cyan-300" />
                               <span>Sisteme Git</span>
                             </button>
 

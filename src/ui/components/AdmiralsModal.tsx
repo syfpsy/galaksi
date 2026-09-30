@@ -247,19 +247,19 @@ export const AdmiralsModal: React.FC<AdmiralsModalProps> = ({
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold font-display text-slate-100">
+                          <span className="text-sm font-bold font-display text-white">
                             {admiral.name}
                           </span>
-                          <span className="stellaris-badge text-amber-300 border-amber-500/40">
+                          <span className="stellaris-badge text-amber-300 font-bold border-amber-500/50">
                             Sv. {admiral.level}
                           </span>
-                          <span className="text-[10px] text-slate-400">{admiral.title}</span>
+                          <span className="text-[11px] text-slate-300 font-medium">{admiral.title}</span>
                         </div>
 
                         {/* Trait Badge */}
                         <div className="flex items-center gap-1.5 mt-1">
                           <span
-                            className="px-1.5 py-0.5 rounded-xs border text-[9.5px] font-bold flex items-center gap-1"
+                            className="px-1.5 py-0.5 rounded-sm border text-[10px] font-bold flex items-center gap-1"
                             style={{
                               borderColor: `${trait.badgeColor}60`,
                               backgroundColor: `${trait.badgeColor}15`,
@@ -269,7 +269,7 @@ export const AdmiralsModal: React.FC<AdmiralsModalProps> = ({
                             <span>{trait.icon}</span>
                             <span>{trait.nameTr}</span>
                           </span>
-                          <span className="text-[10px] text-slate-400">
+                          <span className="text-[10.5px] font-mono text-slate-300">
                             ({admiral.battlesWon}G / {admiral.battlesLost}M)
                           </span>
                         </div>
@@ -279,7 +279,7 @@ export const AdmiralsModal: React.FC<AdmiralsModalProps> = ({
                     <button
                       type="button"
                       onClick={() => handleDismissAdmiral(admiral.id)}
-                      className="text-[10px] text-slate-500 hover:text-rose-400 transition-colors p-1"
+                      className="text-[10px] font-mono text-slate-400 hover:text-rose-400 transition-colors p-1 cursor-pointer"
                       title="Komutanı Terhis Et"
                     >
                       Terhis
@@ -287,19 +287,19 @@ export const AdmiralsModal: React.FC<AdmiralsModalProps> = ({
                   </div>
 
                   {/* Trait Combat Effect Description */}
-                  <div className="p-2 rounded-sm bg-[#061019] border border-[#132a3b] text-[10.5px] text-slate-300">
+                  <div className="p-2 rounded-sm bg-[#061019] border border-[#132a3b] text-[11px] text-slate-200">
                     <div className="flex items-center gap-1 text-amber-400 font-bold mb-0.5">
                       <Sparkles className="w-3 h-3" />
                       <span>{trait.combatBonusDescriptionTr}</span>
                     </div>
-                    <p className="text-[10px] text-slate-400 leading-tight">{trait.descriptionTr}</p>
+                    <p className="text-[10.5px] text-slate-300 leading-tight">{trait.descriptionTr}</p>
                   </div>
 
                   {/* Level Progress Bar */}
                   <div>
-                    <div className="flex items-center justify-between text-[10px] text-slate-400 mb-1">
+                    <div className="flex items-center justify-between text-[11px] font-mono text-slate-300 mb-1">
                       <span>Rütbe Tecrübesi (XP)</span>
-                      <span className="text-cyan-300 font-bold">
+                      <span className="text-cyan-300 font-bold font-mono">
                         {admiral.xp} / {admiral.xpToNextLevel} XP
                       </span>
                     </div>
@@ -386,15 +386,15 @@ export const AdmiralsModal: React.FC<AdmiralsModalProps> = ({
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold font-display text-slate-100">
+                          <span className="text-sm font-bold font-display text-white">
                             {cand.name}
                           </span>
-                          <span className="stellaris-badge text-cyan-300 border-cyan-500/40">
+                          <span className="stellaris-badge text-cyan-300 font-bold border-cyan-500/40">
                             {cand.title}
                           </span>
                         </div>
                         <span
-                          className="inline-flex items-center gap-1 text-[10px] font-bold mt-1"
+                          className="inline-flex items-center gap-1 text-[11px] font-bold mt-1"
                           style={{ color: trait.badgeColor }}
                         >
                           <span>{trait.icon}</span>
@@ -407,27 +407,27 @@ export const AdmiralsModal: React.FC<AdmiralsModalProps> = ({
                       type="button"
                       disabled={!canAfford}
                       onClick={() => handleHireAdmiral(cand)}
-                      className="px-3 py-1.5 rounded-sm stellaris-btn-metallic text-amber-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
+                      className="px-3.5 py-1.5 rounded-sm stellaris-btn-metallic text-amber-300 font-bold text-xs flex items-center gap-1.5 cursor-pointer disabled:opacity-40"
                     >
                       <UserPlus className="w-3.5 h-3.5" />
                       <span>İşe Al</span>
                     </button>
                   </div>
 
-                  <div className="p-2 rounded-sm bg-[#061019] border border-[#132a3b] text-[10.5px]">
+                  <div className="p-2 rounded-sm bg-[#061019] border border-[#132a3b] text-[11px] text-slate-200">
                     <div className="text-amber-400 font-bold mb-0.5">{trait.combatBonusDescriptionTr}</div>
-                    <div className="text-slate-400 text-[10px] leading-tight">{trait.descriptionTr}</div>
+                    <div className="text-slate-300 text-[10.5px] leading-tight">{trait.descriptionTr}</div>
                   </div>
 
                   {/* Cost Footer */}
-                  <div className="pt-2 border-t border-[#18374b] flex items-center justify-between text-[10px] text-slate-400">
+                  <div className="pt-2 border-t border-[#18374b] flex items-center justify-between text-[11px] font-mono text-slate-300">
                     <span>Atama Bedeli:</span>
-                    <div className="flex items-center gap-2 font-mono">
+                    <div className="flex items-center gap-2 font-mono font-medium">
                       <span className={homeworld && homeworld.resources.crystal >= RECRUIT_COST.crystal ? 'text-cyan-300 font-bold' : 'text-rose-400 font-bold'}>
                         {RECRUIT_COST.crystal} Kristal
                       </span>
-                      <span>•</span>
-                      <span className={homeworld && homeworld.resources.fuel >= RECRUIT_COST.fuel ? 'text-amber-400 font-bold' : 'text-rose-400 font-bold'}>
+                      <span className="text-slate-600">•</span>
+                      <span className={homeworld && homeworld.resources.fuel >= RECRUIT_COST.fuel ? 'text-amber-300 font-bold' : 'text-rose-400 font-bold'}>
                         {RECRUIT_COST.fuel} Yakıt
                       </span>
                     </div>
