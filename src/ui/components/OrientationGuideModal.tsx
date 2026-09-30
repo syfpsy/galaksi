@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import {
   Activity,
   ArrowRight,
+  Award,
   BookOpen,
   CheckCircle,
   ChevronLeft,
   ChevronRight,
+  Command,
   Compass,
   Crown,
   Eye,
@@ -16,8 +18,10 @@ import {
   Pickaxe,
   Rocket,
   Shield,
+  Sliders,
   Sparkles,
   Swords,
+  Target,
   Timer,
   Volume2,
   Wrench,
@@ -232,10 +236,142 @@ const OrientationGuideModalComponent: React.FC<OrientationGuideModalProps> = ({
           </div>
 
           <div className="p-3 rounded-sm bg-emerald-950/30 border border-emerald-500/40 text-emerald-200">
-            <strong className="text-emerald-400 block mb-1">Tebrikler Komutan, Göreve Hazırsınız!</strong>
+            <strong className="text-emerald-400 block mb-1">Galaksi Hakimiyetine İlk Adım</strong>
             <p className="text-[11px] text-slate-300">
               Arayüzdeki pencereler haritayı asla kapatmaz. Soldaki raydan dilediğiniz paneli açıp inceleyebilir, sağdaki çizelgeden tüm gezegen ve filolarınızı anlık yönetebilirsiniz.
             </p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      step: 5,
+      title: 'İmparatorluk Direktifleri & Vali Politikaları',
+      subtitle: 'Hedefler, Gelişim Ödülleri & Gezegensel Uzmanlaşma',
+      icon: <Target className="w-6 h-6 text-amber-400" />,
+      accentColor: '#fbbf24',
+      content: (
+        <div className="space-y-4 text-xs font-mono text-slate-300">
+          <div className="p-3.5 rounded-sm bg-amber-950/30 border border-amber-500/40 text-amber-200 leading-relaxed">
+            <span className="font-bold text-amber-400 block text-sm mb-1">
+              🎯 Ne Yapacağınızı Asla Şaşırmayın: İmparatorluk Direktifleri
+            </span>
+            Sektör keşfinden ilk donanmaya, koloni kurmaktan kadim Nexus hakimiyetine kadar 10 aşamalı rehber hedefler size yol gösterir. Tamamlanan her hedef devasa kaynak, amiral tecrübesi ve Hegemonya Zafer Puanı kazandırır.
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div className="p-3 rounded-sm stellaris-item-card">
+              <span className="text-amber-300 font-bold block mb-1 flex items-center gap-1.5">
+                <Award className="w-4 h-4 text-amber-400" />
+                <span>Direktif Ödüllerini Toplayın</span>
+              </span>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Sol raydaki <strong className="text-cyan-300">[F8] Durum Kütüğü</strong> veya üst bardaki direktif çipine tıklayarak tamamlanan görevlerin ödüllerini tek tıkla ambarlarınıza aktarın.
+              </p>
+            </div>
+
+            <div className="p-3 rounded-sm stellaris-item-card">
+              <span className="text-emerald-300 font-bold block mb-1 flex items-center gap-1.5">
+                <Sliders className="w-4 h-4 text-emerald-400" />
+                <span>Vali Politikaları (Uzmanlaşma)</span>
+              </span>
+              <p className="text-slate-400 text-[11px] leading-relaxed">
+                Her koloniniz için <strong className="text-slate-200">[F1] Gezegen Paneli</strong> üzerinden bir vali politikası seçin:
+                <br /><strong className="text-amber-300">Madencilik:</strong> +%20 hammadde üretimi.
+                <br /><strong className="text-cyan-300">Ar-Ge:</strong> Hızlı teknoloji araştırması.
+                <br /><strong className="text-rose-300">Hisar:</strong> Güçlü yörünge savunması.
+              </p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      step: 6,
+      title: 'Taktik Kısayollar & Komuta Tuşları',
+      subtitle: 'Tüm Oyun İçi Kısayol Tuşları Başvuru Matrisi',
+      icon: <Command className="w-6 h-6 text-cyan-400" />,
+      accentColor: '#38bdf8',
+      content: (
+        <div className="space-y-3 text-xs font-mono text-slate-300">
+          <div className="p-2.5 rounded-sm bg-cyan-950/30 border border-cyan-500/40 text-cyan-200 flex items-center justify-between">
+            <strong className="text-cyan-300">⌨️ Profesyonel Komuta Kısayolları</strong>
+            <span className="text-[10.5px] text-slate-400">Herhangi bir an '?' tuşuna basarak bu kılavuzu açabilirsiniz</span>
+          </div>
+
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-[11px]">
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">Space</span>
+              <span className="text-amber-300">Duraklat / Başlat</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">1, 2, 3, 4</span>
+              <span className="text-cyan-300">Hız (1x - 60x)</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">Tab / Shift+Tab</span>
+              <span className="text-emerald-300">Kolonileri Gez</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">H / Home</span>
+              <span className="text-amber-300">Ana Dünyaya Git</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">R</span>
+              <span className="text-purple-300">Nexus Rölesi</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">?</span>
+              <span className="text-cyan-300">Rehberi Aç</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F1</span>
+              <span className="text-slate-400">Koloniler & Vali</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F2</span>
+              <span className="text-slate-400">Tersane & Gemi</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F3</span>
+              <span className="text-slate-400">Ar-Ge Teknoloji</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F4</span>
+              <span className="text-slate-400">Radar & İntikal</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F5</span>
+              <span className="text-slate-400">Filo Sefer Emri</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F6</span>
+              <span className="text-slate-400">Pazar & Borsa</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F7</span>
+              <span className="text-slate-400">Casusluk Şebekesi</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F8</span>
+              <span className="text-slate-400">Direktifler & Durum</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F9</span>
+              <span className="text-slate-400">Muharebe Tekrarları</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F10</span>
+              <span className="text-slate-400">Filo Amiralleri</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">F11 / F12</span>
+              <span className="text-slate-400">Röle / İttifak</span>
+            </div>
+            <div className="p-2 rounded-sm stellaris-item-card flex items-center justify-between">
+              <span className="text-slate-300 font-bold">Esc</span>
+              <span className="text-rose-400">Panelleri Kapat</span>
+            </div>
           </div>
         </div>
       ),

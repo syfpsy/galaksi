@@ -260,6 +260,10 @@ export function App() {
         e.preventDefault();
         sound.playClick();
         setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'));
+      } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        sound.playClick();
+        setIsOrientationOpen((prev) => !prev);
       } else if (e.key === 'Escape') {
         if (isOrientationOpen) {
           setIsOrientationOpen(false);
