@@ -64,7 +64,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
             sound.playClick();
             onClose();
           }}
-          className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#163345] transition-colors cursor-pointer"
+          className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#152e40] transition-colors cursor-pointer"
           title="Paneli Kapat"
         >
           <X className="w-4 h-4" />
@@ -73,7 +73,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
 
       {/* Active Research Progress */}
       {player.researchQueue && (
-        <div className="p-3 bg-[#070e17]/90 border-b border-[#18374b]">
+        <div className="stellaris-section-header p-3">
           <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1">
             DEVAM EDEN TEKNOLOJİ GELİŞTİRMESİ
           </div>
@@ -125,11 +125,11 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                       <span className="text-xs font-bold text-slate-100 font-display">
                         {stats.nameTr}
                       </span>
-                      <span className="text-[10px] font-mono font-bold bg-[#0c1a24] px-1.5 py-0.5 rounded-sm text-amber-300 border border-[#1b3b50]">
+                      <span className="stellaris-badge text-amber-300 border-amber-500/40">
                         Seviye {currentLevel}
                       </span>
                     </div>
-                    <p className="text-[11px] text-slate-400 mt-1 max-w-sm leading-snug">
+                    <p className="text-[11px] text-slate-400 mt-1 max-w-[280px] leading-snug">
                       {stats.descriptionTr}
                     </p>
                   </div>
@@ -145,9 +145,7 @@ export const ResearchModal: React.FC<ResearchModalProps> = ({
                   className={`px-3 py-1.5 rounded-sm text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
                     isResearchingThis
                       ? 'stellaris-rail-btn active text-amber-300'
-                      : canAfford && !isAnyActive && !isLabMissing
-                      ? 'stellaris-btn-metallic !border-amber-500/70 text-[#e5c578] font-bold'
-                      : 'bg-[#09121a] border border-[#142637] text-slate-600 cursor-not-allowed'
+                      : 'stellaris-btn-metallic text-[#e5c578] font-bold'
                   }`}
                 >
                   <Sparkles className="w-3.5 h-3.5" />

@@ -379,13 +379,13 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
     <aside className="w-[390px] min-w-[390px] max-w-[390px] shrink-0 h-full border-l border-[#1c3647] stellaris-outliner flex flex-col z-20 select-none overflow-hidden shadow-2xl">
       {/* Top Tabs: Dispatch vs Active Fleets & Close Button */}
       <div className="p-2 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
-        <div className="flex flex-1 gap-1.5 bg-[#091522]/80 p-1 rounded border border-[#142d3d]">
+        <div className="flex flex-1 gap-1.5 bg-[#091522]/80 p-1 rounded-sm border border-[#142d3d]">
           <button
             onClick={() => {
               sound.playClick();
               setActiveTab('dispatch');
             }}
-            className={`flex-1 py-1 px-2 text-[11px] font-mono tracking-wider uppercase rounded transition-all flex items-center justify-center gap-1.5 ${
+            className={`flex-1 py-1 px-2 text-[11px] font-mono tracking-wider uppercase rounded-sm transition-all flex items-center justify-center gap-1.5 cursor-pointer ${
               activeTab === 'dispatch'
                 ? 'stellaris-switcher-btn active font-bold shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-[#12283a]'
@@ -399,7 +399,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               sound.playClick();
               setActiveTab('active_fleets');
             }}
-            className={`flex-1 py-1 px-2 text-[11px] font-mono tracking-wider uppercase rounded transition-all flex items-center justify-center gap-1.5 relative ${
+            className={`flex-1 py-1 px-2 text-[11px] font-mono tracking-wider uppercase rounded-sm transition-all flex items-center justify-center gap-1.5 relative cursor-pointer ${
               activeTab === 'active_fleets'
                 ? 'stellaris-switcher-btn active font-bold shadow-sm'
                 : 'text-slate-400 hover:text-slate-200 hover:bg-[#12283a]'
@@ -416,7 +416,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               sound.playClick();
               onClose();
             }}
-            className="p-1.5 rounded ml-2 text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
+            className="p-1.5 rounded-sm ml-2 text-slate-400 hover:text-white hover:bg-[#152e40] transition-colors cursor-pointer"
             title="Paneli Kapat"
           >
             <X className="w-4 h-4" />
@@ -462,7 +462,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                     <span className="text-xs font-semibold text-slate-100 font-display">
                       {fleet.name}
                     </span>
-                    <span className="text-[10px] font-mono text-[#3ca8d1] bg-[#07131e] px-2 py-0.5 rounded border border-[#1c3647] uppercase font-bold">
+                    <span className="text-[10px] font-mono text-[#3ca8d1] bg-[#07131e] px-2 py-0.5 rounded-sm border border-[#1c3647] uppercase font-bold">
                       {fleet.isReturning ? 'Dönüşte' : fleet.mission}
                     </span>
                   </div>
@@ -490,7 +490,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                           sound.playClick();
                           onRecallFleet(fleet.id);
                         }}
-                        className="flex items-center gap-1 px-2.5 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-950/60 text-rose-300 border border-rose-500/50 hover:bg-rose-900/60 transition-all shadow-sm"
+                        className="flex items-center gap-1 px-2.5 py-0.5 rounded-sm text-[10px] font-mono font-bold bg-rose-950/60 text-rose-300 border border-rose-500/50 hover:bg-rose-900/60 transition-all shadow-sm"
                         title="Filoyu geri çağır"
                       >
                         <RotateCcw className="w-3 h-3" />
@@ -528,7 +528,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                   {targetSystem.name} SİSTEMİ
                 </span>
                 {targetSystem.hasRelay && (
-                  <span className="text-[9px] bg-purple-950/80 text-purple-300 border border-purple-500/50 px-2 py-0.5 rounded font-mono font-bold">
+                  <span className="text-[9px] bg-purple-950/80 text-purple-300 border border-purple-500/50 px-2 py-0.5 rounded-sm font-mono font-bold">
                     NEXUS RÖLESİ
                   </span>
                 )}
@@ -548,7 +548,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
               {/* Target Planet & Orbital Rendezvous Telemetry */}
               {targetSlot && targetPlanetOrbit && (
-                <div className="mt-2 p-2 bg-[#06121c] border border-[#1b3e54] rounded space-y-1.5 font-mono text-[11px]">
+                <div className="mt-2 p-2 bg-[#06121c] border border-[#1b3e54] rounded-sm space-y-1.5 font-mono text-[11px]">
                   <div className="flex items-center justify-between border-b border-[#18374b] pb-1">
                     <span className="font-bold text-slate-100 flex items-center gap-1.5">
                       <span
@@ -557,7 +557,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                       />
                       {targetSlot.name}
                     </span>
-                    <span className="text-[9.5px] text-[#3ca8d1] uppercase px-1.5 py-0.5 rounded bg-[#0b2233] border border-[#1c445c]">
+                    <span className="text-[9.5px] text-[#3ca8d1] uppercase px-1.5 py-0.5 rounded-sm bg-[#0b2233] border border-[#1c445c]">
                       {targetSlot.type}
                     </span>
                   </div>
@@ -606,7 +606,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
               {/* Debris Quick Salvage Action */}
               {targetSystem.hasDebris && (targetSystem.hasDebris.ore > 0 || targetSystem.hasDebris.crystal > 0) && (
-                <div className="mt-2 p-2.5 bg-amber-950/30 border border-amber-500/40 rounded flex items-center justify-between">
+                <div className="mt-2 p-2.5 bg-amber-950/30 border border-amber-500/40 rounded-sm flex items-center justify-between">
                   <div>
                     <span className="text-[10px] text-amber-300 font-mono font-bold block">
                       ⚙️ Enkaz: {targetSystem.hasDebris.ore} Cevher, {targetSystem.hasDebris.crystal} Kristal
@@ -638,7 +638,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                         battleship: 0,
                       });
                     }}
-                    className="px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 rounded text-[10px] font-mono font-bold transition-all shadow-sm active:scale-95"
+                    className="px-2.5 py-1.5 bg-amber-500/20 hover:bg-amber-500/30 border border-amber-500/50 text-amber-300 rounded-sm text-[10px] font-mono font-bold transition-all shadow-sm active:scale-95"
                   >
                     Enkazı Topla
                   </button>
@@ -647,7 +647,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
 
               {/* Target Protection / Vacation Mode Alert Banner */}
               {targetProtectionStatus?.isBlocked && (
-                <div className="mt-2 p-2 bg-rose-950/40 border border-rose-500/50 rounded flex items-center gap-2 text-rose-300 text-xs">
+                <div className="mt-2 p-2 bg-rose-950/40 border border-rose-500/50 rounded-sm flex items-center gap-2 text-rose-300 text-xs">
                   <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
                   <span>{targetProtectionStatus.reason}</span>
                 </div>
@@ -685,7 +685,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                         sound.playClick();
                         handleSelectMission(id as MissionType);
                       }}
-                      className={`p-2 rounded text-[11px] font-mono font-medium flex items-center justify-center gap-1.5 transition-all ${
+                      className={`p-2 rounded-sm text-[11px] font-mono font-medium flex items-center justify-center gap-1.5 transition-all ${
                         isCurrent
                           ? 'bg-[#153448] border border-[#3ca8d1] text-cyan-300 font-bold shadow-[0_0_10px_rgba(60,168,209,0.3)]'
                           : isEligible
@@ -744,13 +744,13 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                         onChange={(e) =>
                           setShips((prev) => ({ ...prev, [st]: parseInt(e.target.value) || 0 }))
                         }
-                        className="flex-1 accent-[#3ca8d1] h-1.5 bg-[#081521] rounded cursor-pointer disabled:cursor-not-allowed"
+                        className="flex-1 accent-[#3ca8d1] h-1.5 bg-[#081521] rounded-sm cursor-pointer disabled:cursor-not-allowed"
                       />
                       <button
                         type="button"
                         disabled={available === 0}
                         onClick={() => setShips((prev) => ({ ...prev, [st]: available }))}
-                        className="px-1.5 py-0.5 rounded text-[9px] font-mono border border-[#1c3d52] bg-[#0d2232] text-slate-300 hover:text-white disabled:opacity-30"
+                        className="px-1.5 py-0.5 rounded-sm text-[9px] font-mono border border-[#1c3d52] bg-[#0d2232] text-slate-300 hover:text-white disabled:opacity-30"
                       >
                         Tümü
                       </button>
@@ -793,13 +793,13 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               </div>
 
               {selectedMission === 'transport' && targetSystem?.hasDebris && (!targetPlanet || targetPlanet.ownerId !== activePlayerId) && (
-                <div className="text-[10px] text-amber-300/90 font-mono bg-amber-950/30 p-2 rounded border border-amber-500/30">
+                <div className="text-[10px] text-amber-300/90 font-mono bg-amber-950/30 p-2 rounded-sm border border-amber-500/30">
                   ℹ️ Enkaz alanına sevk edilen nakliye filoları boş hareket eder ve sistemdeki sahipsiz cevher/kristalleri toplayarak otomatik üsse getirir.
                 </div>
               )}
 
               <div className="grid grid-cols-3 gap-2 text-xs font-mono">
-                <div className="bg-[#081521] p-2 rounded border border-[#18374b]">
+                <div className="bg-[#081521] p-2 rounded-sm border border-[#18374b]">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-amber-400 text-[10px] font-bold">Cevher</span>
                     <span className="text-[9px] text-slate-400">{Math.floor(activePlanet?.resources.ore || 0)}</span>
@@ -818,7 +818,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                     className="w-full bg-transparent text-slate-100 border-b border-[#1c3d52] focus:border-amber-400 focus:outline-none text-xs"
                   />
                 </div>
-                <div className="bg-[#081521] p-2 rounded border border-[#18374b]">
+                <div className="bg-[#081521] p-2 rounded-sm border border-[#18374b]">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-[#3ca8d1] text-[10px] font-bold">Kristal</span>
                     <span className="text-[9px] text-slate-400">{Math.floor(activePlanet?.resources.crystal || 0)}</span>
@@ -837,7 +837,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                     className="w-full bg-transparent text-slate-100 border-b border-[#1c3d52] focus:border-[#3ca8d1] focus:outline-none text-xs"
                   />
                 </div>
-                <div className="bg-[#081521] p-2 rounded border border-[#18374b]">
+                <div className="bg-[#081521] p-2 rounded-sm border border-[#18374b]">
                   <div className="flex items-center justify-between mb-1">
                     <span className="text-rose-400 text-[10px] font-bold">Yakıt</span>
                     <span className="text-[9px] text-slate-400">{Math.floor(activePlanet?.resources.fuel || 0)}</span>
@@ -872,14 +872,14 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                     setCargo({ ore, crystal: cry, fuel: 0 });
                   }}
                   disabled={totalCargoCap === 0}
-                  className="px-2 py-0.5 rounded text-[10px] font-mono border border-[#234b66] bg-[#0c2233] text-cyan-300 hover:bg-[#123149] disabled:opacity-40 transition-colors"
+                  className="px-2 py-0.5 rounded-sm text-[10px] font-mono border border-[#234b66] bg-[#0c2233] text-cyan-300 hover:bg-[#123149] disabled:opacity-40 transition-colors"
                 >
                   Oto Doldur (Cevher+Kristal)
                 </button>
                 <button
                   type="button"
                   onClick={() => setCargo({ ore: 0, crystal: 0, fuel: 0 })}
-                  className="px-2 py-0.5 rounded text-[10px] font-mono border border-[#18374b] bg-[#091522] text-slate-400 hover:text-slate-200 transition-colors"
+                  className="px-2 py-0.5 rounded-sm text-[10px] font-mono border border-[#18374b] bg-[#091522] text-slate-400 hover:text-slate-200 transition-colors"
                 >
                   Sıfırla
                 </button>
@@ -925,7 +925,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
               {/* Interception Feasibility Warning / Notice */}
               {selectedMission === 'intercept' && interceptCheck && (
                 <div
-                  className={`mt-2 p-2 rounded text-[11px] border ${
+                  className={`mt-2 p-2 rounded-sm text-[11px] border ${
                     interceptCheck.canIntercept
                       ? 'bg-emerald-950/40 border-emerald-500/40 text-emerald-300'
                       : 'bg-rose-950/40 border-rose-500/40 text-rose-300'
@@ -959,7 +959,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                   <span>Taktik Muharebe Simülasyonu</span>
                 </div>
                 <span
-                  className={`text-[10px] font-mono px-2 py-0.5 rounded font-bold ${
+                  className={`text-[10px] font-mono px-2 py-0.5 rounded-sm font-bold ${
                     combatPrediction.winRate >= 70
                       ? 'bg-emerald-950/70 text-emerald-300 border border-emerald-500/50'
                       : combatPrediction.winRate >= 45
@@ -1022,7 +1022,7 @@ export const CommandPanel: React.FC<CommandPanelProps> = ({
                 );
               }
             }}
-            className="w-full py-2.5 px-4 rounded stellaris-btn-metallic text-cyan-200 font-bold font-mono tracking-wider text-xs uppercase flex items-center justify-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed transition-all shadow-lg active:scale-98"
+            className="w-full py-2.5 px-4 rounded-sm stellaris-btn-metallic text-cyan-200 font-bold font-mono tracking-wider text-xs uppercase flex items-center justify-center gap-2 transition-all shadow-lg active:scale-98 cursor-pointer"
           >
             <Send className="w-4 h-4 text-[#3ca8d1]" />
             <span>Filoyu Sevk Et (⚡ {selectedFleetPower})</span>

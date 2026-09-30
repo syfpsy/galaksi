@@ -54,7 +54,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
   const currentPlanet = planets.find((p) => p.id === activePlanetId) || planets[0];
   if (!currentPlanet) {
     return (
-      <aside className="w-80 h-full border-r border-[#18374b] stellaris-outliner p-4 text-slate-400 text-sm">
+      <aside className="w-[390px] min-w-[390px] max-w-[390px] shrink-0 h-full border-r border-[#18374b] stellaris-outliner p-4 text-slate-400 text-sm">
         Gezegen bulunamadı.
       </aside>
     );
@@ -85,7 +85,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
             İMPARATORLUK KOLONİLERİ
           </span>
           <div className="flex items-center gap-1.5">
-            <span className="text-[10px] font-mono bg-[#0c1a24] text-cyan-300 px-2 py-0.5 rounded-sm border border-[#1b3b50]">
+            <span className="stellaris-badge text-cyan-300 border-cyan-500/40">
               {planets.length} / 3 Koloni
             </span>
             {onClose && (
@@ -94,7 +94,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
                   sound.playClick();
                   onClose();
                 }}
-                className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#163345] transition-colors cursor-pointer"
+                className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#152e40] transition-colors cursor-pointer"
                 title="Paneli Kapat"
               >
                 <X className="w-3.5 h-3.5" />
@@ -165,12 +165,12 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
             >
               {planetAsset.nameTr}
             </span>
-            <span className="text-[10px] font-mono bg-slate-900/85 backdrop-blur-md text-emerald-400 px-2 py-0.5 rounded-sm border border-emerald-500/30">
+            <span className="stellaris-badge text-emerald-400 border-emerald-500/40 backdrop-blur-md">
               {planetAsset.habitability}
             </span>
           </div>
           {slot && (
-            <span className="text-[10px] font-mono text-slate-300 bg-black/70 backdrop-blur-sm px-1.5 py-0.5 rounded-sm border border-[#18374b]">
+            <span className="stellaris-badge text-slate-300 backdrop-blur-md border-[#18374b]">
               Boyut {slot.size}
             </span>
           )}
@@ -352,11 +352,7 @@ export const PlanetPanel: React.FC<PlanetPanelProps> = ({
                         sound.playClick();
                         onUpgradeBuilding(currentPlanet.id, type);
                       }}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-sm text-[11px] font-medium transition-all ${
-                        canAfford && !isAnyUpgrading
-                          ? 'stellaris-btn-metallic text-cyan-300 cursor-pointer'
-                          : 'bg-[#09121a] border border-[#142637] text-slate-600 cursor-not-allowed'
-                      }`}
+                      className="stellaris-btn-metallic flex items-center gap-1 px-2.5 py-1 rounded-sm text-[11px] font-medium text-cyan-300 transition-all cursor-pointer"
                     >
                       <ArrowUpCircle className="w-3 h-3" />
                       <span>Yükselt</span>

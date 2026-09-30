@@ -222,10 +222,10 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
   };
 
   return (
-    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-25 flex flex-col items-center select-none pointer-events-auto transition-all duration-300">
+    <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-[25] flex flex-col items-center select-none pointer-events-auto transition-all duration-300">
       {/* EXPANDED FULL OPERATIONS DASHBOARD */}
       {isExpanded && (
-        <div className="w-[94vw] max-w-5xl h-64 bg-[#070e1c]/98 border border-[#1b3454] rounded-t-sm stellaris-outliner shadow-2xl backdrop-blur-xl flex flex-col overflow-hidden mb-1 animate-fade-in">
+        <div className="w-[94vw] max-w-5xl h-64 stellaris-deck-container rounded-t-sm shadow-2xl flex flex-col overflow-hidden mb-1 animate-fade-in">
           {/* Dashboard Header Bar */}
           <div className="px-4 py-2 stellaris-outliner-header flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -234,7 +234,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                 <span className="text-xs font-bold stellaris-gold font-display uppercase tracking-widest">
                   Galaktik Üretim & Operasyon Konsolu
                 </span>
-                <span className="px-1.5 py-0.5 rounded-sm bg-cyan-950/60 text-cyan-300 border border-cyan-500/40 text-[10px] font-mono font-bold">
+                <span className="stellaris-badge text-cyan-300 border-cyan-500/40">
                   {totalActiveOperations} Aktif
                 </span>
               </div>
@@ -246,7 +246,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                     sound.playClick();
                     setActiveTab('all');
                   }}
-                  className={`px-2.5 py-0.5 rounded-sm transition-all ${
+                  className={`px-2.5 py-0.5 rounded-sm transition-all cursor-pointer ${
                     activeTab === 'all'
                       ? 'bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/50'
                       : 'text-slate-400 hover:text-slate-200'
@@ -259,7 +259,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                     sound.playClick();
                     setActiveTab('fleets');
                   }}
-                  className={`px-2.5 py-1 rounded transition-all ${
+                  className={`px-2.5 py-0.5 rounded-sm transition-all cursor-pointer ${
                     activeTab === 'fleets'
                       ? 'bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/50'
                       : 'text-slate-400 hover:text-slate-200'
@@ -272,7 +272,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                     sound.playClick();
                     setActiveTab('shipyard');
                   }}
-                  className={`px-2.5 py-1 rounded transition-all ${
+                  className={`px-2.5 py-0.5 rounded-sm transition-all cursor-pointer ${
                     activeTab === 'shipyard'
                       ? 'bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/50'
                       : 'text-slate-400 hover:text-slate-200'
@@ -285,7 +285,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                     sound.playClick();
                     setActiveTab('buildings');
                   }}
-                  className={`px-2.5 py-1 rounded transition-all ${
+                  className={`px-2.5 py-0.5 rounded-sm transition-all cursor-pointer ${
                     activeTab === 'buildings'
                       ? 'bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/50'
                       : 'text-slate-400 hover:text-slate-200'
@@ -298,7 +298,7 @@ export const StellarisBottomDeck: React.FC<StellarisBottomDeckProps> = ({
                     sound.playClick();
                     setActiveTab('research');
                   }}
-                  className={`px-2.5 py-1 rounded transition-all ${
+                  className={`px-2.5 py-0.5 rounded-sm transition-all cursor-pointer ${
                     activeTab === 'research'
                       ? 'bg-cyan-500/25 text-cyan-300 font-bold border border-cyan-500/50'
                       : 'text-slate-400 hover:text-slate-200'

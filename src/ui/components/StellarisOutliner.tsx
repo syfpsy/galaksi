@@ -110,7 +110,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
             sound.playClick();
             handleToggleCollapse();
           }}
-          className="pointer-events-auto mt-4 bg-[#0a1120]/95 hover:bg-[#121e36] text-cyan-400 border-l border-y border-cyan-500/40 px-2 py-3 rounded-l-lg shadow-xl backdrop-blur-md flex flex-col items-center gap-2 group transition-all"
+          className="pointer-events-auto mt-4 bg-[#0a1120]/95 hover:bg-[#121e36] text-cyan-400 border-l border-y border-cyan-500/40 px-2 py-3 rounded-l-sm shadow-xl backdrop-blur-md flex flex-col items-center gap-2 group transition-all cursor-pointer"
           title="Çizelgeyi Aç (Outliner)"
         >
           <ChevronLeft className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" />
@@ -134,7 +134,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
           <span className="text-[11px] font-display font-bold uppercase tracking-widest text-[#e6f4f8]">
             OUTLINER
           </span>
-          <span className="text-[9px] font-mono text-[#e5c578] bg-[#0c1a24] px-1.5 py-0.5 rounded border border-[#1b3b50]">
+          <span className="stellaris-badge text-[#e5c578] border-[#1b3b50]">
             {myPlanets.length} Gezegen • {totalEmpireShips} Gemi
           </span>
         </div>
@@ -143,7 +143,7 @@ export const StellarisOutliner: React.FC<StellarisOutlinerProps> = ({
             sound.playClick();
             handleToggleCollapse();
           }}
-          className="p-1 rounded text-slate-400 hover:text-white hover:bg-[#163345] transition-colors"
+          className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#152e40] transition-colors cursor-pointer"
           title="Çizelgeyi Gizle"
         >
           <ChevronRight className="w-3.5 h-3.5" />

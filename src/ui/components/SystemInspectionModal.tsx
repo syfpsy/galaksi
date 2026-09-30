@@ -95,13 +95,13 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
           onClose();
         }
       }}
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 select-none animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 select-none animate-fade-in"
     >
-      <div className="stellaris-outliner border border-[#1c3647] rounded-xl w-full max-w-4xl max-h-[88vh] flex flex-col shadow-2xl shadow-black/80 overflow-hidden">
+      <div className="stellaris-modal rounded-sm border border-[#1c3647] w-full max-w-4xl max-h-[88vh] flex flex-col shadow-2xl overflow-hidden">
         {/* Header */}
         <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
           <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded bg-[#092233] border border-[#204963] flex items-center justify-center text-[#3ca8d1] shadow-inner">
+            <div className="w-8 h-8 rounded-sm bg-[#092233] border border-[#204963] flex items-center justify-center text-[#3ca8d1] shadow-inner">
               <Globe className="w-4 h-4 animate-pulse" />
             </div>
             <div>
@@ -109,7 +109,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                 <h2 className="text-xs font-bold text-slate-100 font-mono tracking-wider">
                   {system.name.toUpperCase()} SİSTEMİ
                 </h2>
-                <span className="text-[10px] bg-[#0b2336] text-[#3ca8d1] px-2 py-0.5 rounded border border-[#1c445c] font-mono font-bold">
+                <span className="stellaris-badge text-[#3ca8d1] border-[#1c445c]">
                   {system.slots.length} Gezegen Yörüngesi
                 </span>
               </div>
@@ -123,7 +123,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
               sound.playClick();
               onClose();
             }}
-            className="p-1.5 rounded text-slate-400 hover:text-white hover:bg-rose-950/60 hover:border-rose-500/40 border border-transparent transition-all"
+            className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#152e40] transition-colors cursor-pointer"
             title="Kapat"
           >
             <X className="w-4 h-4" />
@@ -133,7 +133,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-5 space-y-5">
           {/* Dynamic 2D Solar System Orrery View */}
-          <div className="relative bg-space-950 rounded-xl border border-slate-800 p-4 overflow-hidden h-64 flex items-center justify-center shadow-inner shadow-black">
+          <div className="relative stellaris-item-card rounded-sm p-4 overflow-hidden h-64 flex items-center justify-center shadow-inner shadow-black">
             {/* Ambient Starfield & Grid */}
             <div className="absolute inset-0 bg-[radial-gradient(#1c2b53_1px,transparent_1px)] [background-size:24px_24px] opacity-20 pointer-events-none" />
 
@@ -419,7 +419,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
           {(system.poi || (system.hasDebris && ((system.hasDebris.ore || 0) > 0 || (system.hasDebris.crystal || 0) > 0))) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {system.poi && (
-                <div className="p-3 rounded-xl bg-amber-950/30 border border-amber-500/40 flex items-center justify-between shadow-sm">
+                <div className="p-3 rounded-sm bg-amber-950/30 border border-amber-500/40 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 font-bold text-sm">
                       ★
@@ -452,7 +452,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
               )}
 
               {system.hasDebris && ((system.hasDebris.ore || 0) > 0 || (system.hasDebris.crystal || 0) > 0) && (
-                <div className="p-3 rounded-xl bg-rose-950/30 border border-rose-500/40 flex items-center justify-between shadow-sm">
+                <div className="p-3 rounded-sm bg-rose-950/30 border border-rose-500/40 flex items-center justify-between shadow-sm">
                   <div className="flex items-center gap-2.5">
                     <div className="w-8 h-8 rounded-lg bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400 text-sm">
                       ⚙️
@@ -500,10 +500,10 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                       onSelectSlot(system.id, slot.planetId);
                       onClose();
                     }}
-                    className={`relative p-3.5 rounded-xl border cursor-pointer transition-all flex items-center justify-between group overflow-hidden ${
+                    className={`relative p-3.5 rounded-sm cursor-pointer transition-all flex items-center justify-between group overflow-hidden stellaris-item-card ${
                       isHovered
-                        ? 'bg-space-800/95 border-cyber-cyan shadow-lg shadow-cyan-950/40'
-                        : 'bg-space-850/70 border-slate-800 hover:border-slate-700'
+                        ? '!border-cyan-400/80 shadow-md shadow-cyan-950/40'
+                        : ''
                     }`}
                   >
                     {/* Atmospheric Surface Landscape Ambient Background on Hover */}
@@ -519,7 +519,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                     <div className="flex items-center gap-3.5 relative z-10">
                       {/* Biome Planet Space View Thumbnail Orb */}
                       <div
-                        className="w-13 h-13 w-[52px] h-[52px] rounded-xl flex items-center justify-center shrink-0 border relative overflow-hidden shadow-md group-hover:scale-105 transition-transform"
+                        className="w-13 h-13 w-[52px] h-[52px] rounded-sm flex items-center justify-center shrink-0 border relative overflow-hidden shadow-md group-hover:scale-105 transition-transform"
                         style={{
                           backgroundColor: `${asset.themeColor}20`,
                           borderColor: isHovered ? asset.glowColor : `${asset.glowColor}50`,
@@ -541,7 +541,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                             {slot.name}
                           </span>
                           <span
-                            className="text-[9px] font-mono px-1.5 py-0.5 rounded font-semibold border"
+                            className="stellaris-badge"
                             style={{
                               backgroundColor: `${asset.themeColor}25`,
                               color: asset.glowColor,
@@ -550,7 +550,7 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                           >
                             {asset.nameTr}
                           </span>
-                          <span className="text-[9px] font-mono text-emerald-400 bg-emerald-950/60 px-1.5 py-0.5 rounded border border-emerald-500/30">
+                          <span className="stellaris-badge text-emerald-400 border-emerald-500/40">
                             {asset.habitability}
                           </span>
                         </div>
@@ -576,10 +576,10 @@ export const SystemInspectionModal: React.FC<SystemInspectionModalProps> = ({
                     </div>
 
                     <button
-                      className={`relative z-10 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all shrink-0 ${
+                      className={`relative z-10 px-3 py-1.5 rounded-sm text-xs font-mono font-bold transition-all shrink-0 cursor-pointer ${
                         owner
-                          ? 'bg-space-800 border border-slate-700 text-slate-300 group-hover:text-white group-hover:border-slate-500'
-                          : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm shadow-emerald-950'
+                          ? 'stellaris-btn-metallic text-slate-300'
+                          : 'stellaris-btn-metallic !border-emerald-500/60 text-emerald-300 shadow-sm shadow-emerald-950'
                       }`}
                     >
                       {owner ? 'İncele' : 'Hedef Seç'}

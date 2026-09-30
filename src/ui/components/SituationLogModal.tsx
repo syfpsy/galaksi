@@ -70,7 +70,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
   const isRelayMine = state.relay.controllingPlayerId === activePlayerId;
 
   const content = (
-    <div className={isDocked ? "w-[660px] min-w-[660px] max-w-[660px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none relative" : "stellaris-outliner border border-[#1c3647] rounded-xl shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col text-slate-100 overflow-hidden relative"}>
+    <div className={isDocked ? "w-[660px] min-w-[660px] max-w-[660px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none relative" : "stellaris-outliner border border-[#1c3647] rounded-sm shadow-2xl max-w-3xl w-full max-h-[85vh] flex flex-col text-slate-100 overflow-hidden relative"}>
         {/* Header */}
         <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -299,9 +299,9 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
           {/* TAB 2: NEXUS RELAY */}
           {activeTab === 'relay' && (
             <div className="space-y-4">
-              <div className="bg-purple-950/30 border border-purple-500/40 rounded-xl p-4 flex flex-col md:flex-row items-center justify-between gap-4">
+              <div className="bg-purple-950/30 border border-purple-500/40 rounded-sm p-4 flex flex-col md:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-xl bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0">
+                  <div className="w-12 h-12 rounded-sm bg-purple-500/20 border border-purple-500/40 flex items-center justify-center text-purple-400 shrink-0">
                     <Crown className="w-6 h-6 animate-pulse" />
                   </div>
                   <div>
@@ -335,7 +335,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
               </div>
 
               {/* Weekly Point Distribution */}
-              <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-4 space-y-3">
+              <div className="bg-slate-900/60 border border-slate-800 rounded-sm p-4 space-y-3">
                 <div className="text-xs font-mono text-slate-400 uppercase tracking-wider flex items-center justify-between">
                   <span>Haftalık Röle Skor Tablosu</span>
                   <span className="text-slate-500">10 dakikada bir kontrol puanı dağıtılır</span>
@@ -376,7 +376,7 @@ export const SituationLogModal: React.FC<SituationLogModalProps> = ({
               </div>
 
               {myFleets.length === 0 ? (
-                <div className="p-8 text-center text-slate-500 font-mono text-xs bg-slate-900/30 border border-slate-800 rounded-xl">
+                <div className="p-8 text-center text-slate-500 font-mono text-xs bg-slate-900/30 border border-slate-800 rounded-sm">
                   Şu anda uzayda seyreden aktif bir filonuz bulunmuyor. Tersaneden gemi inşa edip sefer sevk edebilirsiniz.
                 </div>
               ) : (

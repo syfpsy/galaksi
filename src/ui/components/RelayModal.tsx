@@ -41,7 +41,7 @@ export const RelayModal: React.FC<RelayModalProps> = ({
     : 0;
 
   const content = (
-    <div className={isDocked ? "w-[540px] min-w-[540px] max-w-[540px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none" : "stellaris-outliner border border-[#1c3647] rounded-xl w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"}>
+    <div className={isDocked ? "w-[540px] min-w-[540px] max-w-[540px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none" : "stellaris-outliner border border-[#1c3647] rounded-sm w-full max-w-2xl max-h-[85vh] flex flex-col shadow-2xl overflow-hidden"}>
       {/* Header */}
       <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
         <div className="flex items-center gap-2.5">

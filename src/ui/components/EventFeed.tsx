@@ -15,7 +15,7 @@ export const EventFeed: React.FC<EventFeedProps> = ({ events }) => {
 
   return (
     <div className="absolute bottom-16 left-6 z-20 select-none max-w-sm w-full">
-      <div className="stellaris-outliner border border-[#1c3647] rounded shadow-xl overflow-hidden">
+      <div className="stellaris-outliner border border-[#1c3647] rounded-sm shadow-xl overflow-hidden">
         {/* Toggle Bar */}
         <div
           onClick={() => setIsExpanded(!isExpanded)}

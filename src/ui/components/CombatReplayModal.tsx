@@ -66,7 +66,7 @@ export const CombatReplayModal: React.FC<CombatReplayModalProps> = ({
   };
 
   const content = (
-    <div className={isDocked ? "w-[820px] min-w-[820px] max-w-[820px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none" : "stellaris-outliner border border-[#1c3647] rounded-xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"}>
+    <div className={isDocked ? "w-[820px] min-w-[820px] max-w-[820px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none" : "stellaris-outliner border border-[#1c3647] rounded-sm w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden"}>
         {/* Header */}
         <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
           <div className="flex items-center gap-2.5">

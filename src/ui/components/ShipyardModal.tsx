@@ -67,7 +67,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
             sound.playClick();
             onClose();
           }}
-          className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#163345] transition-colors cursor-pointer"
+          className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#152e40] transition-colors cursor-pointer"
           title="Tersaneyi Kapat"
         >
           <X className="w-4 h-4" />
@@ -76,7 +76,7 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
 
       {/* Shipyard Queue (if active) */}
       {planet.shipyardQueue.length > 0 && (
-        <div className="p-3 bg-[#070e17]/90 border-b border-[#18374b]">
+        <div className="stellaris-section-header p-3">
           <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1.5">
             DEVAM EDEN ÜRETİM KUYRUĞU
           </div>
@@ -146,29 +146,27 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
                 isLocked ? 'opacity-50 !border-slate-800' : ''
               }`}
             >
-              <div className="flex items-start justify-between gap-3">
+              {/* Top Tier: Concept Art, Title & Build Action Button */}
+              <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3">
-                  {/* Ship Concept Thumbnail */}
-                  <div className="w-16 h-16 rounded-sm overflow-hidden border border-[#1b3b50] bg-black shrink-0 relative group/thumb shadow-sm">
+                  <div className="w-13 h-13 w-[52px] h-[52px] rounded-sm overflow-hidden border border-[#1b3b50] bg-black shrink-0 relative group/thumb shadow-sm">
                     <img
                       src={SHIP_ART[st]}
                       alt={stats.nameTr}
                       className="w-full h-full object-cover transition-transform duration-300 group-hover/thumb:scale-110"
                     />
                   </div>
-
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold text-slate-100 font-display">
                         {stats.nameTr}
                       </span>
-                      <span className="text-[10px] font-mono bg-[#0c1a24] px-1.5 py-0.5 rounded-sm text-cyan-300 border border-[#1b3b50]">
+                      <span className="stellaris-badge text-cyan-300 border-cyan-500/40">
                         {stats.roleTr}
                       </span>
                     </div>
-
-                    {/* Stats Specs */}
-                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 mt-1 text-[11px] text-slate-400 font-mono">
+                    {/* Stats Specs Inline */}
+                    <div className="flex flex-wrap items-center gap-x-2.5 gap-y-0.5 mt-1 text-[10.5px] text-slate-400 font-mono">
                       <span>Saldırı: <strong className="text-rose-400">{stats.attack}</strong></span>
                       <span>Kalkan: <strong className="text-emerald-400">{stats.hull + stats.shield}</strong></span>
                       <span>Hız: <strong className="text-cyan-300">{stats.speed}</strong></span>
@@ -177,78 +175,73 @@ export const ShipyardModal: React.FC<ShipyardModalProps> = ({
                   </div>
                 </div>
 
-                {/* Quantity & Build Controls */}
-                <div className="flex flex-col items-end gap-1.5">
-                  <div className="flex items-center gap-1.5">
-                    {/* Multiplier Presets */}
-                    <div className="flex items-center gap-1">
-                      {[1, 5, 10].map((preset) => (
-                        <button
-                          key={preset}
-                          type="button"
-                          disabled={isLocked}
-                          onClick={() => {
-                            sound.playClick();
-                            setCounts((prev) => ({ ...prev, [st]: preset }));
-                          }}
-                          className={`px-1.5 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
-                            buildCount === preset
-                              ? 'stellaris-rail-btn active text-cyan-300 font-bold'
-                              : 'stellaris-btn-metallic text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {preset}x
-                        </button>
-                      ))}
-                      {maxAffordable > 0 && (
-                        <button
-                          type="button"
-                          disabled={isLocked}
-                          onClick={() => {
-                            sound.playClick();
-                            setCounts((prev) => ({ ...prev, [st]: Math.min(50, maxAffordable) }));
-                          }}
-                          className="px-1.5 py-0.5 rounded-sm text-[10px] font-mono border border-emerald-500/50 bg-emerald-950/40 text-emerald-300 hover:bg-emerald-900/60 transition-all font-bold cursor-pointer"
-                          title="Mevcut kaynaklarla üretilebilecek maksimum adet"
-                        >
-                          Maks ({Math.min(50, maxAffordable)})
-                        </button>
-                      )}
-                    </div>
+                {/* Primary Action Button */}
+                <button
+                  disabled={isLocked || !canAfford}
+                  onClick={() => {
+                    sound.playClick();
+                    onBuildShip(planet.id, st, buildCount);
+                  }}
+                  className="px-3.5 py-1.5 rounded-sm text-xs font-semibold flex items-center gap-1.5 transition-all stellaris-btn-metallic text-cyan-300 font-bold shrink-0 cursor-pointer"
+                >
+                  <Hammer className="w-3.5 h-3.5" />
+                  <span>{isLocked ? 'Sv. 3 Gerekli' : 'İnşa Et'}</span>
+                </button>
+              </div>
 
-                    <input
-                      type="number"
-                      min="1"
-                      max="50"
-                      disabled={isLocked}
-                      value={buildCount}
-                      onChange={(e) =>
-                        setCounts((prev) => ({
-                          ...prev,
-                          [st]: Math.max(1, parseInt(e.target.value) || 1),
-                        }))
-                      }
-                      className="w-12 bg-[#07101a] border border-[#1a384f] rounded-sm px-1.5 py-1 text-center font-mono text-xs text-[#e5c578] focus:outline-none focus:border-cyan-400"
-                    />
-
+              {/* Lower Tier: Presets & Quantity Controls */}
+              <div className="flex items-center justify-between gap-2 mt-2 pt-2 border-t border-[#18374b]">
+                <div className="flex items-center gap-1">
+                  {[1, 5, 10].map((preset) => (
                     <button
-                      disabled={isLocked || !canAfford}
+                      key={preset}
+                      type="button"
+                      disabled={isLocked}
                       onClick={() => {
                         sound.playClick();
-                        onBuildShip(planet.id, st, buildCount);
+                        setCounts((prev) => ({ ...prev, [st]: preset }));
                       }}
-                      className={`px-3 py-1.5 rounded-sm text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-                        isLocked
-                          ? 'bg-[#09121a] border border-[#142637] text-slate-600 cursor-not-allowed'
-                          : canAfford
-                          ? 'stellaris-btn-metallic !border-cyan-500/70 text-cyan-300 font-bold'
-                          : 'bg-[#09121a] border border-[#142637] text-slate-600 cursor-not-allowed'
+                      className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+                        buildCount === preset
+                          ? 'stellaris-rail-btn active text-cyan-300 font-bold'
+                          : 'stellaris-btn-metallic text-slate-400 hover:text-white'
                       }`}
                     >
-                      <Hammer className="w-3.5 h-3.5" />
-                      <span>{isLocked ? 'Sv. 3 Gerekli' : 'İnşa Et'}</span>
+                      {preset}x
                     </button>
-                  </div>
+                  ))}
+                  {maxAffordable > 0 && (
+                    <button
+                      type="button"
+                      disabled={isLocked}
+                      onClick={() => {
+                        sound.playClick();
+                        setCounts((prev) => ({ ...prev, [st]: Math.min(50, maxAffordable) }));
+                      }}
+                      className="px-2 py-0.5 rounded-sm text-[10px] font-mono stellaris-btn-metallic text-emerald-300 !border-emerald-500/50 hover:text-white font-bold cursor-pointer"
+                      title="Mevcut kaynaklarla üretilebilecek maksimum adet"
+                    >
+                      Maks ({Math.min(50, maxAffordable)})
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] text-slate-500 font-mono">Adet:</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="50"
+                    disabled={isLocked}
+                    value={buildCount}
+                    onChange={(e) =>
+                      setCounts((prev) => ({
+                        ...prev,
+                        [st]: Math.max(1, parseInt(e.target.value) || 1),
+                      }))
+                    }
+                    className="w-12 bg-[#07101a] border border-[#1a384f] rounded-sm px-1.5 py-0.5 text-center font-mono text-xs text-[#e5c578] focus:outline-none focus:border-cyan-400"
+                  />
                 </div>
               </div>
 

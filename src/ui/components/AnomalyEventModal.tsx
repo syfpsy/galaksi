@@ -80,7 +80,7 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
   };
 
   const content = (
-    <div className={`stellaris-outliner border border-[#1c3647] ${isDocked ? 'w-[440px] md:w-[480px] h-full flex flex-col shadow-2xl' : 'rounded-lg shadow-2xl max-w-xl w-full'} text-slate-100 overflow-hidden relative`}>
+    <div className={`border border-[#1c3647] ${isDocked ? 'stellaris-outliner w-[440px] md:w-[480px] h-full flex flex-col shadow-2xl' : 'stellaris-modal rounded-sm shadow-2xl max-w-xl w-full'} text-slate-100 overflow-hidden relative`}>
       {/* Stellaris Holographic Top Line */}
       <div
         className="h-1 w-full shrink-0"
@@ -94,7 +94,7 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
       <div className="p-3.5 border-b border-[#1c3647] flex items-center justify-between stellaris-outliner-header">
         <div className="flex items-center gap-3">
           <div
-            className="w-9 h-9 rounded flex items-center justify-center border shadow-inner"
+            className="w-9 h-9 rounded-sm flex items-center justify-center border shadow-inner"
             style={{
               backgroundColor: `${currentDetail.color}18`,
               borderColor: `${currentDetail.color}60`,
@@ -107,7 +107,7 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
               <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-amber-400">
                 {currentDetail.category}
               </span>
-              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/60 border border-[#1c3647] text-cyan-300">
+              <span className="stellaris-badge text-cyan-300 border-[#1c3647]">
                 {system.name} Sistemi
               </span>
             </div>
@@ -122,7 +122,7 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
             sound.playClick();
             onClose();
           }}
-          className="p-1 rounded text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+          className="p-1 rounded-sm text-slate-400 hover:text-white hover:bg-[#152e40] transition-colors cursor-pointer"
           title="Kapat"
         >
           <X className="w-4 h-4" />
@@ -187,7 +187,7 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
             sound.playClick();
             onClose();
           }}
-          className="stellaris-btn-metallic px-3 py-1.5 text-xs text-slate-300"
+          className="stellaris-btn-metallic px-3 py-1.5 rounded-sm text-xs text-slate-300 cursor-pointer"
         >
           Gözlem Kaydını Kapat
         </button>
@@ -199,7 +199,7 @@ export const AnomalyEventModal: React.FC<AnomalyEventModalProps> = ({
               onDispatchScout(system.id);
               onClose();
             }}
-            className="px-3 py-1.5 rounded bg-cyan-600 hover:bg-cyan-500 text-slate-950 font-mono font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/50 transition-all cursor-pointer"
+            className="stellaris-btn-metallic !border-cyan-500/70 text-cyan-300 px-3.5 py-1.5 rounded-sm font-mono font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-950/50 transition-all cursor-pointer"
           >
             <Rocket className="w-3.5 h-3.5" />
             <span>Keşif Seferi Düzenle</span>

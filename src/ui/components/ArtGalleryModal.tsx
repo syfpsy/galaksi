@@ -153,7 +153,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
       : GALLERY_ASSETS.filter((a) => a.category === selectedCategory);
 
   const content = (
-    <div className={isDocked ? "w-[860px] min-w-[860px] max-w-[860px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none" : "stellaris-outliner border border-[#1c3647] rounded-xl w-full max-w-5xl h-[88vh] flex flex-col shadow-2xl overflow-hidden"}>
+    <div className={isDocked ? "w-[860px] min-w-[860px] max-w-[860px] shrink-0 h-full stellaris-outliner border-r border-[#1c3647] flex flex-col shadow-2xl overflow-hidden select-none" : "stellaris-outliner border border-[#1c3647] rounded-sm w-full max-w-5xl h-[88vh] flex flex-col shadow-2xl overflow-hidden"}>
         {/* Header */}
         <div className="p-3.5 border-b border-[#1c3d52] stellaris-outliner-header flex items-center justify-between">
           <div className="flex items-center gap-2.5">
@@ -401,7 +401,7 @@ export const ArtGalleryModal: React.FC<ArtGalleryModalProps> = ({ isOpen, isDock
           <img
             src={activeAsset.imageSrc}
             alt={activeAsset.title}
-            className="max-w-[90vw] max-h-[90vh] object-contain rounded-xl shadow-2xl border border-slate-700"
+            className="max-w-[90vw] max-h-[90vh] object-contain rounded-sm shadow-2xl border border-slate-700"
           />
           <button
             onClick={() => setIsLightboxOpen(false)}

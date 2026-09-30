@@ -317,7 +317,7 @@ export const FleetTransitRadarModal: React.FC<FleetTransitRadarModalProps> = ({
       {/* Fleets List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3 scrollbar-none">
         {displayedFleets.length === 0 ? (
-          <div className="h-64 flex flex-col items-center justify-center text-center p-6 border border-dashed border-slate-800 rounded-xl bg-space-900/30">
+          <div className="h-64 flex flex-col items-center justify-center text-center p-6 border border-dashed border-slate-800 rounded-sm bg-space-900/30">
             <Radio className="w-10 h-10 text-slate-600 mb-2 animate-pulse" />
             <span className="text-xs font-bold text-slate-300 font-mono">
               İntikal Halinde Filo Bulunmuyor
