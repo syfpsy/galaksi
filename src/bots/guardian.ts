@@ -17,6 +17,7 @@ import { evaluateBotFederations } from './federations';
 import { evaluateBotEspionage } from './espionage';
 import { evaluateBotMegacorp } from './megacorp';
 import { evaluateBotColossus } from './colossus';
+import { evaluateBotSynthetics } from './synthetics';
 import { IBotAgent } from './types';
 
 export class GuardianBot implements IBotAgent {
@@ -220,6 +221,9 @@ export class GuardianBot implements IBotAgent {
 
     // 19. Colossus Superweapons & World Killers (Phase 25)
     evaluateBotColossus(engine, this.playerId, this.archetype, executedCommands);
+
+    // 20. Synthetic Dawn, Cybernetic Ascension & Machine Consciousness (Phase 26)
+    evaluateBotSynthetics(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

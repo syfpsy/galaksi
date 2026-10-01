@@ -7,6 +7,7 @@ import {
   Briefcase,
   CircleDollarSign,
   Compass,
+  Cpu,
   Crown,
   Eye,
   EyeOff,
@@ -62,9 +63,12 @@ interface StellarisLeftRailProps {
   onOpenMegacorp?: () => void;
   onOpenCrisis?: () => void;
   onOpenColossus?: () => void;
+  onOpenSynthetics?: () => void;
   onOpenGallery: () => void;
   isColossusActive?: boolean;
   isColossusCharging?: boolean;
+  syntheticPopsCount?: number;
+  syntheticUprisingRisk?: number;
   activeTerraformingCount?: number;
   activeBranchOfficesCount?: number;
   readyFuturesCount?: number;
@@ -125,9 +129,12 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenMegacorp,
   onOpenCrisis,
   onOpenColossus,
+  onOpenSynthetics,
   onOpenGallery,
   isColossusActive = false,
   isColossusCharging = false,
+  syntheticPopsCount = 0,
+  syntheticUprisingRisk = 0,
   activeTerraformingCount = 0,
   activeBranchOfficesCount = 0,
   readyFuturesCount = 0,
@@ -1085,6 +1092,59 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             {!isColossusCharging && isColossusActive && (
               <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-emerald-400 font-mono">
                 ⚓ 1 Aktif Kolossus Gemisi Hazır
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Synthetic Dawn & Cybernetic Ascension (Phase 26) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenSynthetics) onOpenSynthetics();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'synthetics'
+                ? 'active'
+                : (syntheticUprisingRisk || 0) >= 50
+                ? '!border-amber-500 !bg-amber-950/80 animate-pulse text-amber-300'
+                : (syntheticPopsCount || 0) > 0
+                ? 'text-cyan-400 hover:text-cyan-200 border-cyan-900/50'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Cpu
+              className={`w-5 h-5 transition-transform group-hover:scale-110 ${
+                (syntheticUprisingRisk || 0) >= 50
+                  ? 'text-amber-400 animate-pulse'
+                  : 'text-cyan-400'
+              }`}
+            />
+            {(syntheticUprisingRisk || 0) >= 50 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-600 text-white text-[9px] font-bold flex items-center justify-center border border-amber-400 shadow-md">
+                !
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-400 group-hover:text-cyan-300">
+              ROB
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-cyan-400 tracking-wide">SENTETİK ŞAFAK</span>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 26
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Robotik pop imalatı, Sibernetik & Sentetik Yükseliş, Yapay Zekâ hakları ve Makine Dünyaları.
+            </p>
+            {(syntheticPopsCount || 0) > 0 && (
+              <div className="mt-2 pt-1.5 border-t border-cyan-900/60 text-[10px] font-mono text-cyan-300 flex items-center justify-between">
+                <span>Aktif Sentetik Nüfus:</span>
+                <span className="font-bold">{syntheticPopsCount} Pop</span>
               </div>
             )}
           </div>

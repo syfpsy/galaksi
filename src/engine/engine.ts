@@ -240,6 +240,17 @@ import {
   refitColossusWeapon,
   dismantleColossus,
 } from './colossus';
+import {
+  SYNTHETIC_CONSTANTS,
+  assembleSyntheticPop,
+  dismantleSyntheticPop,
+  setAIPolicy,
+  initiateSyntheticAscension,
+  suppressSyntheticUprising,
+  convertToMachineWorld,
+  updateSynthetics,
+  getPlanetSyntheticBoosts,
+} from './synthetics';
 
 
 export class GameEngine {
@@ -256,6 +267,7 @@ export class GameEngine {
   private lastEspionageTickMs: number = 0;
   private lastMegacorpTickMs: number = 0;
   private lastColossusTickMs: number = 0;
+  private lastSyntheticsTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -309,6 +321,7 @@ export class GameEngine {
       branchOffices: {},
       commodityFutures: {},
       colossi: {},
+      synthetics: {},
       battleReports: [],
       eventLog: [],
       victory: null,
@@ -648,6 +661,13 @@ export class GameEngine {
       crystalProd *= ecology.crystalMultiplier;
       fuelProd *= ecology.fuelMultiplier;
 
+      // 5. Apply Synthetic Pops & Ascension multipliers (Phase 26)
+      const synthState = this.state.synthetics?.[planet.ownerId];
+      const synthBoosts = getPlanetSyntheticBoosts(planet, synthState);
+      oreProd *= synthBoosts.oreMultiplier;
+      crystalProd *= synthBoosts.crystalMultiplier;
+      fuelProd *= synthBoosts.fuelMultiplier;
+
       const traditionStorageCapMult = getTraditionStorageCapMultiplier(this.state, planet.ownerId);
       const effectiveCap = Math.round(planet.storageCap * traditionStorageCapMult);
 
@@ -802,6 +822,13 @@ export class GameEngine {
     this.lastColossusTickMs = nowMs;
     if (colossusElapsedMs > 0) {
       updateColossi(this.state, colossusElapsedMs);
+    }
+
+    // Synthetic Dawn, Cybernetic Ascension & Machine Uprisings tick (Phase 26)
+    const syntheticsElapsedMs = Math.max(0, nowMs - this.lastSyntheticsTickMs);
+    this.lastSyntheticsTickMs = nowMs;
+    if (syntheticsElapsedMs > 0) {
+      updateSynthetics(this.state, syntheticsElapsedMs);
     }
   }
 
@@ -5854,6 +5881,84 @@ export class GameEngine {
           data: { colossusId: cmd.colossusId },
         };
       }
+
+      case 'ASSEMBLE_SYNTHETIC_POP': {
+        const res = assembleSyntheticPop(this.state, playerId, cmd.planetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId },
+        };
+      }
+
+      case 'DISMANTLE_SYNTHETIC_POP': {
+        const res = dismantleSyntheticPop(this.state, playerId, cmd.planetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId },
+        };
+      }
+
+      case 'SET_AI_POLICY': {
+        const res = setAIPolicy(this.state, playerId, cmd.policy);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { policy: cmd.policy },
+        };
+      }
+
+      case 'INITIATE_SYNTHETIC_ASCENSION': {
+        const res = initiateSyntheticAscension(this.state, playerId, cmd.ascensionType);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { ascensionType: cmd.ascensionType },
+        };
+      }
+
+      case 'SUPPRESS_SYNTHETIC_UPRISING': {
+        const res = suppressSyntheticUprising(this.state, playerId, cmd.planetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId },
+        };
+      }
+
+      case 'CONVERT_TO_MACHINE_WORLD': {
+        const res = convertToMachineWorld(this.state, playerId, cmd.planetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId },
+        };
+      }
     }
   }
 
@@ -6094,6 +6199,7 @@ export class GameEngine {
       branchOffices: {},
       commodityFutures: {},
       colossi: {},
+      synthetics: {},
       battleReports: [],
       eventLog: [],
       victory: null,
@@ -6122,6 +6228,7 @@ export class GameEngine {
     // Schedule initial relay point tick
     this.scheduleEvent(GAME_CONSTANTS.RELAY_POINT_INTERVAL_MS, 'relay_point_tick', {});
     this.lastArchaeologyTickMs = 0;
+    this.lastSyntheticsTickMs = 0;
 
     this.logEvent(
       'season_reset',

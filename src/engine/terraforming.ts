@@ -134,6 +134,16 @@ export const BIOME_CONFIGS: Record<PlanetBiome, BiomeConfig> = {
     fuelMultiplier: 0.5,
     researchMultiplier: 1.3,
   },
+  machine_world: {
+    biome: 'machine_world',
+    nameTr: 'Makine Dünyası',
+    descriptionTr: 'Yüzeyi tamamen sibernetik kovan sunucuları ve robotik montaj hatlarıyla kaplanmış mekanik dünya. Organikler için zorlayıcı, sentetik üretimde zirve.',
+    habitability: 0.1,
+    oreMultiplier: 1.5,
+    crystalMultiplier: 1.3,
+    fuelMultiplier: 1.5,
+    researchMultiplier: 1.3,
+  },
 };
 
 export interface TerraformRecipeDef {

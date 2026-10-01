@@ -142,7 +142,8 @@ export type PlanetBiome =
   | 'tomb'
   | 'shattered'
   | 'shield_world'
-  | 'nanite_world';
+  | 'nanite_world'
+  | 'machine_world';
 
 export interface TerraformQueue {
   targetBiome: PlanetBiome;
@@ -399,6 +400,11 @@ export interface Planet {
     executedAtMs: number;
     destroyerPlayerId: string;
   };
+  syntheticPops?: number;
+  maxSyntheticPops?: number;
+  assemblyProgress?: number; // 0 to 100 percentage
+  isAssemblyActive?: boolean;
+  hasMachineMatrix?: boolean;
 }
 
 export type StarbaseTier = 'outpost' | 'starbase' | 'citadel';
@@ -1130,6 +1136,31 @@ export interface ColossusShip {
   builtAtMs: number;
 }
 
+// ==========================================
+// Phase 26: Synthetic Dawn, Cybernetic Ascension & Machine Consciousness
+// ==========================================
+export type AIPolicyType = 'citizen_rights' | 'servitude' | 'outlawed';
+
+export type SyntheticAscensionType = 'none' | 'cybernetic' | 'synthetic';
+
+export type MachineUprisingStage =
+  | 'none'
+  | 'anomalies_detected'
+  | 'rogue_units'
+  | 'critical_rebellion';
+
+export interface SyntheticEmpireState {
+  playerId: string;
+  ascensionStage: SyntheticAscensionType;
+  aiPolicy: AIPolicyType;
+  machineUprisingRisk: number; // 0 to 100 percentage
+  uprisingStage: MachineUprisingStage;
+  totalSyntheticPops: number;
+  syntheticProductionBonus: number; // multiplier e.g. 0.15 for cybernetic, 0.30 for synthetic
+  assembledPopsHistory: number;
+  lastUprisingTick?: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -1164,6 +1195,9 @@ export interface Player {
   branchOfficesCount?: number; // Phase 24: Active branch offices on foreign worlds
   colossusId?: string | null; // Phase 25: Active Colossus Superweapon ship ID
   hasColossusProject?: boolean; // Phase 25: Unlocked capability to build Colossus
+  syntheticAscensionStage?: SyntheticAscensionType; // Phase 26: Ascension doctrine
+  aiPolicy?: AIPolicyType; // Phase 26: AI & Synthetic rights policy
+  machineUprisingRisk?: number; // Phase 26: 0 to 100 rebellion risk
 }
 
 export type EmpireDirectiveId =
@@ -1315,6 +1349,7 @@ export interface GameState {
   branchOffices?: Record<string, CorporateBranchOffice>; // key: `${corporationId}_${targetPlanetId}` (Phase 24)
   commodityFutures?: Record<string, CommodityFuturesContract>; // key: contractId (Phase 24)
   colossi?: Record<string, ColossusShip>; // key: colossusId (Phase 25)
+  synthetics?: Record<string, SyntheticEmpireState>; // key: playerId (Phase 26)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1804,6 +1839,30 @@ export type GameCommand =
   | {
       type: 'DISMANTLE_COLOSSUS';
       colossusId: string;
+    }
+  | {
+      type: 'ASSEMBLE_SYNTHETIC_POP';
+      planetId: string;
+    }
+  | {
+      type: 'DISMANTLE_SYNTHETIC_POP';
+      planetId: string;
+    }
+  | {
+      type: 'SET_AI_POLICY';
+      policy: AIPolicyType;
+    }
+  | {
+      type: 'INITIATE_SYNTHETIC_ASCENSION';
+      ascensionType: 'cybernetic' | 'synthetic';
+    }
+  | {
+      type: 'SUPPRESS_SYNTHETIC_UPRISING';
+      planetId: string;
+    }
+  | {
+      type: 'CONVERT_TO_MACHINE_WORLD';
+      planetId: string;
     };
 
 export interface CommandReceipt {

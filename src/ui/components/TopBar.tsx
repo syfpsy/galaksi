@@ -9,6 +9,7 @@ import {
   CircleDot,
   Coins,
   Compass,
+  Cpu,
   Crown,
   Eye,
   EyeOff,
@@ -74,6 +75,7 @@ interface TopBarProps {
   onOpenFederation?: () => void;
   onOpenMegacorp?: () => void;
   onOpenColossus?: () => void;
+  onOpenSynthetics?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -114,6 +116,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenFederation,
   onOpenMegacorp,
   onOpenColossus,
+  onOpenSynthetics,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -1007,6 +1010,67 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 </p>
                 <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-red-400 font-mono text-center">
                   Süper silah konsolunu açmak için tıklayın
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* SYNTHETIC DAWN QUICK CHIP (Phase 26) */}
+        {(() => {
+          const synthState = state.synthetics?.[activePlayerId];
+          const totalPops = synthState?.totalSyntheticPops || 0;
+          const risk = synthState?.machineUprisingRisk || 0;
+          const isSynthetic = synthState?.ascensionStage === 'synthetic';
+          const isCybernetic = synthState?.ascensionStage === 'cybernetic';
+
+          if (totalPops === 0 && !isCybernetic && !isSynthetic) return null;
+
+          const isThreat = risk >= 50;
+
+          return (
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenSynthetics) onOpenSynthetics();
+                }}
+                className={`stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isThreat
+                    ? 'border-amber-500 bg-amber-950/60 text-amber-300 animate-pulse hover:border-amber-400'
+                    : 'border-cyan-900/50 text-cyan-400 hover:border-cyan-500'
+                }`}
+                title="Sentetik Şafak & Siber Bilinç Paneli"
+              >
+                <Cpu className={`w-4 h-4 text-cyan-400 ${isThreat ? 'text-amber-400 animate-pulse' : ''} group-hover:scale-110 transition-transform`} />
+                <span className="font-bold text-white text-xs truncate max-w-[95px]">
+                  {isSynthetic ? 'SENTETİK' : isCybernetic ? 'SİBERNETİK' : 'ROBOT'}
+                </span>
+                {isThreat ? (
+                  <span className="text-[10px] text-amber-400 font-bold animate-ping">
+                    !%{Math.round(risk)}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-cyan-400 font-mono font-bold">
+                    {totalPops}P
+                  </span>
+                )}
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[260px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+                <div className="flex items-center justify-between text-xs font-bold mb-1">
+                  <span className="text-cyan-400 tracking-wide">SENTETİK ŞAFAK & BİLİNÇ</span>
+                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                    FAZ 26
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  {isThreat
+                    ? `⚠️ Sentetik işçiler arasında disiplinsizlik ve isyan riski yükseliyor (%${Math.round(risk)})!`
+                    : `${totalPops} Sentetik işçi kolonilerde üretim verimini artırıyor.`}
+                </p>
+                <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-cyan-400 font-mono text-center">
+                  Mekanik imalat ve yükseliş doktrini için tıklayın
                 </div>
               </div>
             </div>

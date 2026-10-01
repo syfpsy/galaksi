@@ -170,9 +170,24 @@ import {
   resolveColossusFiring,
   refitColossusWeapon,
   dismantleColossus,
-  updateColossi,
 } from '../src/engine/colossus';
 import { evaluateBotColossus } from '../src/bots/colossus';
+import {
+  SYNTHETIC_CONSTANTS,
+  SYNTHETIC_ASCENSION_CONFIGS,
+  AI_POLICY_CONFIGS,
+  getOrCreateSyntheticState,
+  getPlanetSyntheticBoosts,
+  canAssembleSyntheticPop,
+  assembleSyntheticPop,
+  dismantleSyntheticPop,
+  setAIPolicy,
+  initiateSyntheticAscension,
+  suppressSyntheticUprising,
+  convertToMachineWorld,
+  updateSynthetics,
+} from '../src/engine/synthetics';
+import { evaluateBotSynthetics } from '../src/bots/synthetics';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -5097,6 +5112,218 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(botBuildCmd).toBeDefined();
     expect(botBuildCmd.weaponType).toBe('neutron_sweep'); // Admiral archetype selects neutron_sweep
   });
+
+  it('Test 56: Phase 26 - Sentetik Şafak, Siber Genetik Yükseliş & Makine Bilinci (Synthetic Dawn, Cybernetic Ascension & Machine Consciousness)', () => {
+    const engine = new GameEngine(777);
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p1', 'Siber Komutan', '#06b6d4');
+
+    // 1. Initial State Verification
+    const empire = getOrCreateSyntheticState(engine.state, 'p1');
+    expect(empire).toBeDefined();
+    expect(empire.ascensionStage).toBe('none');
+    expect(empire.aiPolicy).toBe('citizen_rights');
+    expect(empire.machineUprisingRisk).toBe(0);
+    expect(empire.totalSyntheticPops).toBe(0);
+
+    // 2. Synthetic Pop Assembly (ASSEMBLE_SYNTHETIC_POP)
+    hw1.resources.ore = 1000;
+    hw1.resources.crystal = 1000;
+    hw1.resources.fuel = 1000;
+
+    const assembleRes = engine.dispatchCommand('p1', {
+      type: 'ASSEMBLE_SYNTHETIC_POP',
+      planetId: hw1.id,
+    });
+    expect(assembleRes.success).toBe(true);
+    expect(hw1.isAssemblyActive).toBe(true);
+    expect(hw1.assemblyProgress).toBe(0);
+    expect(hw1.resources.ore).toBe(1000 - SYNTHETIC_CONSTANTS.BASE_ASSEMBLY_COST.ore);
+    expect(hw1.resources.crystal).toBe(1000 - SYNTHETIC_CONSTANTS.BASE_ASSEMBLY_COST.crystal);
+    expect(hw1.resources.fuel).toBe(1000 - SYNTHETIC_CONSTANTS.BASE_ASSEMBLY_COST.fuel);
+
+    // Cannot start another assembly while one is active
+    const doubleAssembleRes = engine.dispatchCommand('p1', {
+      type: 'ASSEMBLE_SYNTHETIC_POP',
+      planetId: hw1.id,
+    });
+    expect(doubleAssembleRes.success).toBe(false);
+
+    // Advance simulation tick: 30 seconds to finish assembly
+    engine.tick(30000);
+    expect(hw1.syntheticPops).toBe(1);
+    expect(hw1.isAssemblyActive).toBe(false);
+    expect(empire.totalSyntheticPops).toBe(1);
+
+    // 3. Pop Production Multipliers under Citizen Rights
+    let boosts = getPlanetSyntheticBoosts(hw1, empire);
+    expect(boosts.oreMultiplier).toBeCloseTo(1.05, 2);
+    expect(boosts.crystalMultiplier).toBeCloseTo(1.05, 2);
+    expect(boosts.researchMultiplier).toBeCloseTo(1.05, 2);
+
+    // 4. AI Policy Switching (SET_AI_POLICY) to Servitude
+    const setPolicyRes = engine.dispatchCommand('p1', {
+      type: 'SET_AI_POLICY',
+      policy: 'servitude',
+    });
+    expect(setPolicyRes.success).toBe(true);
+    expect(empire.aiPolicy).toBe('servitude');
+    expect(p1.aiPolicy).toBe('servitude');
+
+    // Yields updated under servitude (+8% Ore, +8% Crystal, +5% Fuel)
+    boosts = getPlanetSyntheticBoosts(hw1, empire);
+    expect(boosts.oreMultiplier).toBeCloseTo(1.08, 2);
+    expect(boosts.crystalMultiplier).toBeCloseTo(1.08, 2);
+    expect(boosts.fuelMultiplier).toBeCloseTo(1.05, 2);
+
+    // 5. Machine Uprising Drift & Stages Progression
+    // Under servitude, risk climbs over time
+    engine.tick(20000); // 20s
+    expect(empire.machineUprisingRisk).toBeGreaterThan(0);
+
+    // Set risk manually to test stage thresholds
+    empire.machineUprisingRisk = 30;
+    engine.tick(1000);
+    expect(empire.uprisingStage).toBe('anomalies_detected');
+
+    empire.machineUprisingRisk = 60;
+    engine.tick(1000);
+    expect(empire.uprisingStage).toBe('rogue_units');
+
+    empire.machineUprisingRisk = 80;
+    engine.tick(1000);
+    expect(empire.uprisingStage).toBe('critical_rebellion');
+
+    // 6. Uprising Suppression Operation (SUPPRESS_SYNTHETIC_UPRISING)
+    hw1.resources.crystal = 500;
+    hw1.resources.fuel = 500;
+    const suppressRes = engine.dispatchCommand('p1', {
+      type: 'SUPPRESS_SYNTHETIC_UPRISING',
+      planetId: hw1.id,
+    });
+    expect(suppressRes.success).toBe(true);
+    expect(empire.machineUprisingRisk).toBeLessThanOrEqual(35); // Was 80+, reduced by 50
+    expect(empire.uprisingStage).toBe('anomalies_detected');
+
+    // 7. Machine Uprising Climax Eruption at 100% Risk
+    empire.machineUprisingRisk = 100;
+    hw1.resources.fuel = 800;
+    engine.tick(1000);
+    // Outbreak happens: fuel damaged, 1 pop lost, risk resets to 40
+    expect(empire.machineUprisingRisk).toBe(40);
+    expect(hw1.resources.fuel).toBeLessThanOrEqual(405);
+    expect(hw1.syntheticPops).toBe(0);
+
+    // 8. Re-assemble and test Pop Dismantling (DISMANTLE_SYNTHETIC_POP)
+    hw1.resources.ore = 500;
+    hw1.resources.crystal = 500;
+    hw1.resources.fuel = 500;
+    engine.dispatchCommand('p1', { type: 'ASSEMBLE_SYNTHETIC_POP', planetId: hw1.id });
+    engine.tick(30000);
+    expect(hw1.syntheticPops).toBe(1);
+
+    const oreBeforeScrap = hw1.resources.ore;
+    const scrapRes = engine.dispatchCommand('p1', {
+      type: 'DISMANTLE_SYNTHETIC_POP',
+      planetId: hw1.id,
+    });
+    expect(scrapRes.success).toBe(true);
+    expect(hw1.syntheticPops).toBe(0);
+    expect(hw1.resources.ore).toBe(oreBeforeScrap + SYNTHETIC_CONSTANTS.DISMANTLE_SCRAP_REWARD.ore);
+
+    // 9. Cybernetic Ascension (INITIATE_SYNTHETIC_ASCENSION -> 'cybernetic')
+    hw1.resources.ore = 2000;
+    hw1.resources.crystal = 2000;
+    hw1.resources.fuel = 2000;
+
+    const cyberRes = engine.dispatchCommand('p1', {
+      type: 'INITIATE_SYNTHETIC_ASCENSION',
+      ascensionType: 'cybernetic',
+    });
+    expect(cyberRes.success).toBe(true);
+    expect(empire.ascensionStage).toBe('cybernetic');
+    expect(p1.syntheticAscensionStage).toBe('cybernetic');
+    expect(empire.syntheticProductionBonus).toBe(SYNTHETIC_CONSTANTS.CYBERNETIC_PRODUCTION_BONUS);
+
+    // Assembly speed is 25% faster under cybernetic (30s / 1.25 = 24s)
+    engine.dispatchCommand('p1', { type: 'ASSEMBLE_SYNTHETIC_POP', planetId: hw1.id });
+    engine.tick(24000);
+    expect(hw1.syntheticPops).toBe(1);
+
+    // 10. Synthetic Ascension (INITIATE_SYNTHETIC_ASCENSION -> 'synthetic')
+    hw1.resources.ore = 3000;
+    hw1.resources.crystal = 3000;
+    hw1.resources.fuel = 3000;
+
+    const synthRes = engine.dispatchCommand('p1', {
+      type: 'INITIATE_SYNTHETIC_ASCENSION',
+      ascensionType: 'synthetic',
+    });
+    expect(synthRes.success).toBe(true);
+    expect(empire.ascensionStage).toBe('synthetic');
+    expect(p1.syntheticAscensionStage).toBe('synthetic');
+    expect(empire.syntheticProductionBonus).toBe(SYNTHETIC_CONSTANTS.SYNTHETIC_PRODUCTION_BONUS);
+    expect(empire.aiPolicy).toBe('citizen_rights');
+    expect(empire.machineUprisingRisk).toBe(0);
+
+    // Setting servitude is now rejected because synthetics are unified equal citizens
+    const rejectServitude = engine.dispatchCommand('p1', {
+      type: 'SET_AI_POLICY',
+      policy: 'servitude',
+    });
+    expect(rejectServitude.success).toBe(false);
+
+    // 11. Machine World Conversion (CONVERT_TO_MACHINE_WORLD)
+    // Add a second planet to convert
+    const secondPlanetId = 'planet_cyber_colony';
+    const secondPlanet: any = {
+      id: secondPlanetId,
+      name: 'Sibernetik Üs',
+      systemId: hw1.systemId,
+      slotIndex: 2,
+      ownerId: 'p1',
+      isHomeworld: false,
+      resources: { ore: 2000, crystal: 1500, fuel: 1500 },
+      lastResourceUpdate: engine.state.timeMs,
+      storageCap: 5000,
+      protectedCapacity: 1000,
+      buildings: { ore_mine: 3, crystal_synth: 2, fuel_refinery: 2, research_lab: 1, shipyard: 1 },
+      buildingQueue: null,
+      shipyardQueue: [],
+      garrison: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+      stance: 'balanced',
+      biome: 'desert',
+    };
+    engine.state.planets[secondPlanetId] = secondPlanet;
+
+    const convertRes = engine.dispatchCommand('p1', {
+      type: 'CONVERT_TO_MACHINE_WORLD',
+      planetId: secondPlanetId,
+    });
+    expect(convertRes.success).toBe(true);
+    expect(secondPlanet.biome).toBe('machine_world');
+    expect(secondPlanet.hasMachineMatrix).toBe(true);
+    expect(secondPlanet.maxSyntheticPops).toBe(10);
+
+    // Machine World provides massive mechanical multipliers
+    const machineBoosts = getPlanetSyntheticBoosts(secondPlanet, empire);
+    expect(machineBoosts.shipyardMultiplier).toBeGreaterThanOrEqual(1.5); // +20% synthetic + 30% machine world
+
+    // 12. Autonomous Bot AI Evaluation (evaluateBotSynthetics)
+    const { player: botInd, homeworld: botHw } = engine.addPlayer('bot_ind_synth', 'Aethel AI', '#10b981', true, 'industrialist');
+    botHw.resources.ore = 5000;
+    botHw.resources.crystal = 4000;
+    botHw.resources.fuel = 3000;
+
+    const botCmds: any[] = [];
+    evaluateBotSynthetics(engine, botInd.id, 'industrialist', botCmds);
+    expect(botCmds.length).toBeGreaterThan(0);
+    // Bot should initiate ascension or policy
+    const ascensionOrPop = botCmds.find(
+      (c) => c.type === 'INITIATE_SYNTHETIC_ASCENSION' || c.type === 'ASSEMBLE_SYNTHETIC_POP' || c.type === 'SET_AI_POLICY'
+    );
+    expect(ascensionOrPop).toBeDefined();
+  });
 });
+
 
 

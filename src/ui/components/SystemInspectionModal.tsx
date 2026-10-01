@@ -131,6 +131,13 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
       label: 'Nanit Dünyası',
       bonus: 'Moleküler Kristal Rezervi +120%',
     },
+    machine_world: {
+      fill: '#0f172a',
+      stroke: '#06b6d4',
+      glow: '#00f3ff',
+      label: 'Makine Dünyası (Sentetik Bilgi-Ağı)',
+      bonus: 'Mekanik Üretim: Cevher/Yakıt +50%, Tersane +30%',
+    },
   };
 
   return (

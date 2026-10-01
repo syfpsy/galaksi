@@ -44,6 +44,8 @@ import {
   CorporateCivicId,
   CorporateHoldingType,
   ColossusWeaponType,
+  AIPolicyType,
+  SyntheticAscensionType,
 } from './engine/types';
 import { evaluatePlayerDirectives } from './engine/directives';
 import { AllianceModal, AllianceTab } from './ui/components/AllianceModal';
@@ -64,6 +66,7 @@ import { WarfareModal } from './ui/components/WarfareModal';
 import { FederationModal } from './ui/components/FederationModal';
 import { MegacorpModal } from './ui/components/MegacorpModal';
 import { ColossusModal } from './ui/components/ColossusModal';
+import { SyntheticDawnModal } from './ui/components/SyntheticDawnModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -112,6 +115,7 @@ type LeftPanelType =
   | 'megacorp'
   | 'crisis'
   | 'colossus'
+  | 'synthetics'
   | 'relay'
   | 'gallery'
   | null;
@@ -1648,6 +1652,90 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleAssembleSyntheticPop = (planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ASSEMBLE_SYNTHETIC_POP',
+      planetId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismantleSyntheticPop = (planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMANTLE_SYNTHETIC_POP',
+      planetId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSetAIPolicy = (policy: AIPolicyType) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SET_AI_POLICY',
+      policy,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleInitiateSyntheticAscension = (ascensionType: 'cybernetic' | 'synthetic') => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'INITIATE_SYNTHETIC_ASCENSION',
+      ascensionType,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSuppressSyntheticUprising = (planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SUPPRESS_SYNTHETIC_UPRISING',
+      planetId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleConvertToMachineWorld = (planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CONVERT_TO_MACHINE_WORLD',
+      planetId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -2050,6 +2138,7 @@ export function App() {
         onOpenFederation={() => setActiveLeftPanel((prev) => (prev === 'federation' ? null : 'federation'))}
         onOpenMegacorp={() => setActiveLeftPanel((prev) => (prev === 'megacorp' ? null : 'megacorp'))}
         onOpenColossus={() => setActiveLeftPanel((prev) => (prev === 'colossus' ? null : 'colossus'))}
+        onOpenSynthetics={() => setActiveLeftPanel((prev) => (prev === 'synthetics' ? null : 'synthetics'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -2093,8 +2182,11 @@ export function App() {
           onOpenFederation={() => setActiveLeftPanel((prev) => (prev === 'federation' ? null : 'federation'))}
           onOpenMegacorp={() => setActiveLeftPanel((prev) => (prev === 'megacorp' ? null : 'megacorp'))}
           onOpenColossus={() => setActiveLeftPanel((prev) => (prev === 'colossus' ? null : 'colossus'))}
+          onOpenSynthetics={() => setActiveLeftPanel((prev) => (prev === 'synthetics' ? null : 'synthetics'))}
           isColossusActive={isColossusActive}
           isColossusCharging={isColossusCharging}
+          syntheticPopsCount={engineState.synthetics?.[activePlayerId]?.totalSyntheticPops || 0}
+          syntheticUprisingRisk={engineState.synthetics?.[activePlayerId]?.machineUprisingRisk || 0}
           activeBranchOfficesCount={Object.values(engineState.branchOffices || {}).filter((b) => b.corporationId === activePlayerId).length}
           readyFuturesCount={Object.values(engineState.commodityFutures || {}).filter((f) => f.buyerId === activePlayerId && f.isDelivered && !f.isClaimed).length}
           federationLevel={activePlayer?.federationId ? engineState.federations?.[activePlayer.federationId]?.centralizationLevel : undefined}
@@ -2743,6 +2835,27 @@ export function App() {
         onSelectSystem={(systemId) => {
           setSelectedTarget({ type: 'system', systemId });
           setActiveLeftPanel(null);
+        }}
+      />
+
+      {/* Synthetic Dawn, Cybernetic Ascension & Machine Consciousness Modal (Phase 26) */}
+      <SyntheticDawnModal
+        isOpen={activeLeftPanel === 'synthetics'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        playerId={activePlayerId}
+        onAssemblePop={handleAssembleSyntheticPop}
+        onDismantlePop={handleDismantleSyntheticPop}
+        onSetAIPolicy={handleSetAIPolicy}
+        onInitiateAscension={handleInitiateSyntheticAscension}
+        onSuppressUprising={handleSuppressSyntheticUprising}
+        onConvertToMachineWorld={handleConvertToMachineWorld}
+        onSelectPlanet={(planetId) => {
+          const p = engineState.planets[planetId];
+          if (p) {
+            setSelectedTarget({ type: 'planet', systemId: p.systemId, planetId });
+            setActiveLeftPanel('planets');
+          }
         }}
       />
 
