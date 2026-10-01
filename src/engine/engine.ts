@@ -775,6 +775,13 @@ export class GameEngine {
         crystalProd *= traditionProdMult;
       }
 
+      // Phase 34: Strategic Momentum Golden Surge (+20% production boost)
+      if (owner?.surgeActiveUntilMs && nowMs < owner.surgeActiveUntilMs) {
+        oreProd *= 1.20;
+        crystalProd *= 1.20;
+        fuelProd *= 1.20;
+      }
+
       // Planetary Terraforming, Blockers & Decisions (Phase 19)
       const sys = this.state.map.systems[planet.systemId];
       const slot = sys?.slots.find((s) => s.planetId === planet.id || s.slotIndex === planet.slotIndex);
@@ -2938,6 +2945,50 @@ export class GameEngine {
         };
       }
 
+      case 'CLAIM_STRATEGIC_OPPORTUNITY': {
+        const p = this.state.players[playerId];
+        if (!p) {
+          return { success: false, commandType: cmd.type, error: 'Oyuncu bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        const myPlanets = Object.values(this.state.planets).filter((pl) => pl.ownerId === playerId);
+        const targetPlanet = myPlanets.find((pl) => pl.isHomeworld) || myPlanets[0];
+        if (targetPlanet && cmd.reward) {
+          targetPlanet.resources.ore = Math.min(targetPlanet.storageCap, targetPlanet.resources.ore + (cmd.reward.ore || 0));
+          targetPlanet.resources.crystal = Math.min(targetPlanet.storageCap, targetPlanet.resources.crystal + (cmd.reward.crystal || 0));
+          targetPlanet.resources.fuel = Math.min(targetPlanet.storageCap, targetPlanet.resources.fuel + (cmd.reward.fuel || 0));
+        }
+
+        const currentMomentum = p.momentum || 0;
+        const newMomentum = currentMomentum + (cmd.reward?.momentum || 25);
+        let surgeTriggered = false;
+
+        if (newMomentum >= 100) {
+          p.momentum = 0;
+          p.surgeActiveUntilMs = this.state.timeMs + 90 * 1000; // 90 saniye Altın Çağ
+          surgeTriggered = true;
+          this.logEvent(
+            'golden_surge',
+            `🔥 STRATEJİK HİPER-İTİCİ GÜÇ: ${p.name} Altın Çağ'a girdi! 90s boyunca filolar +%35 hızlandı, üretim +%20 arttı!`,
+            playerId,
+            { playerId, durationSec: 90 }
+          );
+        } else {
+          p.momentum = newMomentum;
+        }
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          data: {
+            momentum: p.momentum,
+            surgeTriggered,
+            surgeActiveUntilMs: p.surgeActiveUntilMs,
+          },
+          timeMs: this.state.timeMs,
+        };
+      }
+
       case 'START_RESEARCH': {
         if (player.researchQueue) {
           return { success: false, commandType: cmd.type, error: 'Zaten bir araştırma sürüyor.', timeMs: this.state.timeMs };
@@ -3387,6 +3438,12 @@ export class GameEngine {
           effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / 1.15));
         }
 
+        // Phase 34: Strategic Momentum Golden Surge (+35% fleet speed boost)
+        if (player.surgeActiveUntilMs && this.state.timeMs < player.surgeActiveUntilMs) {
+          effectiveSpeed = Math.round(effectiveSpeed * 1.35);
+          effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / 1.35));
+        }
+
         // Expansion Tradition Tier 1: -30% colonize fuel cost (new_frontiers)
         if (cmd.mission === 'colonize' && hasTradition(this.state, playerId, 'expansion', 1)) {
           effectiveFuelCost = Math.max(1, Math.round(effectiveFuelCost * 0.70));
@@ -3539,9 +3596,10 @@ export class GameEngine {
 
         this.scheduleEvent(effectiveDurationMs, 'fleet_arrival', { fleetId });
 
+        const missionTag = (cmd.mission || 'explore').toUpperCase();
         this.logEvent(
           'fleet_dispatched',
-          `${newFleet.name} sevk edildi -> ${cmd.mission.toUpperCase()} (${route.path.join(' -> ')}). Varış: ${Math.round(effectiveDurationMs / 1000)}s`,
+          `${newFleet.name} sevk edildi -> ${missionTag} (${route.path.join(' -> ')}). Varış: ${Math.round(effectiveDurationMs / 1000)}s`,
           playerId
         );
 

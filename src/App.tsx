@@ -96,6 +96,8 @@ import { TradeModal } from './ui/components/TradeModal';
 import { EspionageModal } from './ui/components/EspionageModal';
 import { VictoryModal } from './ui/components/VictoryModal';
 import { TacticalBottomDock } from './ui/components/TacticalBottomDock';
+import { StrategicMomentumHUD } from './ui/components/StrategicMomentumHUD';
+import { StrategicOpportunity } from './engine/types';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
 import { Swords } from 'lucide-react';
@@ -2766,6 +2768,24 @@ export function App() {
     setIsCommandPanelOpen(true);
   }, []);
 
+  // Phase 34: Strategic Momentum & Slipways Opportunity Flow Handlers
+  const handleExecuteGenericCommand = useCallback((command: any): boolean => {
+    if (!engineRef.current) return false;
+    const res = engineRef.current.dispatchCommand(activePlayerId, command);
+    setEngineState({ ...engineRef.current.state });
+    return res.success;
+  }, [activePlayerId]);
+
+  const handleClaimOpportunity = useCallback((opp: StrategicOpportunity) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CLAIM_STRATEGIC_OPPORTUNITY',
+      opportunityId: opp.id,
+      reward: opp.reward,
+    });
+    setEngineState({ ...engineRef.current.state });
+  }, [activePlayerId]);
+
   return (
     <div className="flex flex-col w-screen h-screen overflow-hidden bg-space-950 font-sans">
       {/* Top Bar Navigation & Resources */}
@@ -3371,6 +3391,14 @@ export function App() {
             }}
             onFocusRelay={handleFocusRelay}
             onSetStance={handleSetStance}
+          />
+
+          {/* Slipways Flow: Contextual Strategic Momentum & Opportunity HUD */}
+          <StrategicMomentumHUD
+            state={engineState}
+            activePlayerId={activePlayerId}
+            onExecuteCommand={handleExecuteGenericCommand}
+            onClaimOpportunity={handleClaimOpportunity}
           />
 
           {/* Sector Real-Time Communications & Alerts Ticker */}

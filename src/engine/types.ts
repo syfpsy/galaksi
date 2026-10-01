@@ -1475,9 +1475,11 @@ export interface Player {
   aiPolicy?: AIPolicyType; // Phase 26: AI & Synthetic rights policy
   machineUprisingRisk?: number; // Phase 26: 0 to 100 rebellion risk
   renown?: number; // Phase 27: Galactic Renown currency
-  paragonIds?: string[]; // Phase 27: Recruited Paragon Leader IDs
+  paragonIds?: string[]; // Phase 27: Galactic Paragons leaders recruited
   activeEnclaveContracts?: EnclaveContract[]; // Phase 31: Active enclave pacts/buffs
   shroudBoon?: ShroudBoon | null;
+  momentum?: number; // 0 to 100 Strategic Momentum (Phase 34: Strategic Momentum & Slipways Flow)
+  surgeActiveUntilMs?: number; // Golden Surge / Hyper-Drive boost active until timeMs
 }
 
 export type ShroudBoonType = 'speed' | 'shield' | 'evasion' | 'research';
@@ -1486,6 +1488,34 @@ export interface ShroudBoon {
   type: ShroudBoonType;
   expiresAtMs: number;
   descriptionTr: string;
+}
+
+// ==========================================
+// Phase 34: Strategic Momentum & Slipways Opportunity Flow
+// ==========================================
+
+export type OpportunityCategory = 'explore' | 'build' | 'fleet' | 'tech' | 'logistics';
+
+export interface StrategicOpportunity {
+  id: string;
+  category: OpportunityCategory;
+  title: string;
+  desc: string;
+  icon: string;
+  badge: string;
+  actionText: string;
+  command: {
+    type: string;
+    [key: string]: any;
+  };
+  reward: {
+    ore?: number;
+    crystal?: number;
+    fuel?: number;
+    momentum: number;
+  };
+  canExecuteNow: boolean;
+  cost?: Partial<Resources>;
 }
 
 export type EmpireDirectiveId =
@@ -2302,6 +2332,16 @@ export type GameCommand =
       type: 'DEMOLISH_DISTRICT';
       planetId: string;
       districtType: DistrictType;
+    }
+  | {
+      type: 'CLAIM_STRATEGIC_OPPORTUNITY';
+      opportunityId: string;
+      reward: {
+        ore?: number;
+        crystal?: number;
+        fuel?: number;
+        momentum: number;
+      };
     };
 
 export interface CommandReceipt {

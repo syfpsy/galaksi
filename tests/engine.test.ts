@@ -259,6 +259,7 @@ import {
 import { evaluateBotEnclaves } from '../src/bots/enclaves';
 import { DISTRICT_STATS } from '../src/engine/constants';
 import { evaluateBotDistricts } from '../src/bots/districts';
+import { evaluatePlayerOpportunities } from '../src/engine/opportunities';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -6437,6 +6438,93 @@ describe('GameEngine Headless Rules (Phase A)', () => {
       buildingType: buildingKeys[4],
     });
     expect(unlockSlot5Res.success).toBe(true);
+  });
+
+  it('Test 64: Phase 34 - Strategic Momentum, Slipways Opportunity Flow & Golden Surge Boosts', () => {
+    const engine = new GameEngine(3434);
+    const { player, homeworld } = engine.addPlayer('p_slip', 'Kaptan Slipway', '#00f0ff');
+
+    // 1. Initial State: Momentum is 0 and no surge
+    expect(player.momentum || 0).toBe(0);
+    expect(player.surgeActiveUntilMs).toBeUndefined();
+
+    // 2. Evaluate Dynamic Contextual Opportunities (Slipways Flow)
+    const opps = evaluatePlayerOpportunities(engine.state, 'p_slip');
+    expect(opps.length).toBeGreaterThan(0);
+    expect(opps.length).toBeLessThanOrEqual(3);
+
+    // Pick first opportunity and verify structure
+    const firstOpp = opps[0];
+    expect(firstOpp.id).toBeDefined();
+    expect(firstOpp.reward.momentum).toBeGreaterThan(0);
+    expect(firstOpp.command).toBeDefined();
+
+    // 3. Claim Strategic Opportunity via Engine Command
+    const initialOre = homeworld.resources.ore;
+    const claimRes = engine.dispatchCommand('p_slip', {
+      type: 'CLAIM_STRATEGIC_OPPORTUNITY',
+      opportunityId: firstOpp.id,
+      reward: { ore: 150, crystal: 50, momentum: 40 },
+    });
+    expect(claimRes.success).toBe(true);
+    expect(player.momentum).toBe(40);
+    expect(homeworld.resources.ore).toBe(initialOre + 150);
+
+    // Claim another opportunity reaching 80 momentum
+    engine.dispatchCommand('p_slip', {
+      type: 'CLAIM_STRATEGIC_OPPORTUNITY',
+      opportunityId: 'opp_2',
+      reward: { momentum: 40 },
+    });
+    expect(player.momentum).toBe(80);
+    expect(player.surgeActiveUntilMs).toBeUndefined();
+
+    // 4. Reach 100 Momentum -> Triggers Golden Surge (Altın Çağ) for 90 seconds!
+    const triggerSurgeRes = engine.dispatchCommand('p_slip', {
+      type: 'CLAIM_STRATEGIC_OPPORTUNITY',
+      opportunityId: 'opp_surge_trigger',
+      reward: { momentum: 30 }, // 80 + 30 = 110 >= 100
+    });
+    expect(triggerSurgeRes.success).toBe(true);
+    expect(player.momentum).toBe(0); // Resets to 0 upon Golden Surge
+    expect(player.surgeActiveUntilMs).toBe(engine.state.timeMs + 90000);
+
+    // 5. Verify Golden Surge Passive Production Boost (+20% resources)
+    homeworld.buildings.mine = 2;
+    const oreBefore = homeworld.resources.ore;
+    engine.tick(10000); // 10 seconds during Golden Surge
+    const oreSurgeGain = homeworld.resources.ore - oreBefore;
+    expect(oreSurgeGain).toBeGreaterThan(0);
+
+    // 6. Verify Golden Surge Fleet Transit Speed Boost (+35% speed -> duration reduced)
+    const adjacentLane = engine.state.map.lanes.find(
+      (l) => l.fromSystemId === homeworld.systemId || l.toSystemId === homeworld.systemId
+    );
+    expect(adjacentLane).toBeDefined();
+    const targetSysId =
+      adjacentLane!.fromSystemId === homeworld.systemId
+        ? adjacentLane!.toSystemId
+        : adjacentLane!.fromSystemId;
+
+    // Dispatch fleet while Surge is active
+    homeworld.garrison.scout = 2;
+    homeworld.resources.fuel = 500;
+    const fleetRes = engine.dispatchCommand('p_slip', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: homeworld.id,
+      targetSystemId: targetSysId,
+      ships: { scout: 1, transport: 0, fighter: 0, battleship: 0 },
+      cargo: { ore: 0, crystal: 0, fuel: 0 },
+    });
+    expect(fleetRes.success).toBe(true);
+    const surgeFleet = Object.values(engine.state.fleets).find(
+      (f) => f.ownerId === 'p_slip' && f.targetSystemId === targetSysId
+    );
+    expect(surgeFleet).toBeDefined();
+
+    // 7. Fast-forward past 90 seconds -> Golden Surge expires
+    engine.tick(95000);
+    expect(engine.state.timeMs).toBeGreaterThan(player.surgeActiveUntilMs!);
   });
 });
 
