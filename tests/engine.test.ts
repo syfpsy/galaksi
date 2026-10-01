@@ -72,6 +72,20 @@ import {
   getRelicConstructionMultiplier,
 } from '../src/engine/archaeology';
 import { evaluateBotArchaeology } from '../src/bots/archaeology';
+import {
+  BIOME_CONFIGS,
+  PLANETARY_BLOCKERS,
+  PLANETARY_DECISIONS,
+  TERRAFORM_RECIPES,
+  getPlanetEffectiveBiome,
+  getPlanetEcologyModifiers,
+  getTerraformRecipe,
+  canStartTerraforming,
+  canEnactDecision,
+  canClearBlocker,
+} from '../src/engine/terraforming';
+import { evaluateBotTerraforming } from '../src/bots/terraforming';
+
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -3225,5 +3239,350 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(botCmds.length).toBeGreaterThanOrEqual(1);
     expect(botCmds[0].type).toBe('ACTIVATE_RELIC_TRIUMPH');
   });
+
+  it('handles Phase 19: Planetary Terraforming, Climate Restoration, Ecological Engineering & Planetary Decisions', () => {
+    const engine = new GameEngine(777);
+    const { player, homeworld } = engine.addPlayer('p_eco', 'Ekoloji Mimarı', '#10b981');
+
+    // 1. Homeworld Baseline Verification
+    expect(homeworld.biome).toBe('terran');
+    expect(homeworld.blockers).toEqual([]);
+    expect(homeworld.terraformingQueue).toBeNull();
+    expect(homeworld.activeDecisions).toEqual([]);
+
+    const hwEcology = getPlanetEcologyModifiers(homeworld);
+    expect(hwEcology.oreMultiplier).toBe(1.0);
+    expect(hwEcology.crystalMultiplier).toBe(1.0);
+    expect(hwEcology.fuelMultiplier).toBe(1.0);
+    expect(hwEcology.researchMultiplier).toBe(1.0);
+    expect(hwEcology.defenseMultiplier).toBe(1.0);
+    expect(hwEcology.habitability).toBe(1.0);
+
+    // 2. Colonization with Biome Inheritance & Surface Blockers
+    // Setup a colony planet with volcanic biome
+    const colonyPlanetId = 'planet_volcanic_colony';
+    engine.state.planets[colonyPlanetId] = {
+      id: colonyPlanetId,
+      name: 'Magma Prime',
+      systemId: homeworld.systemId,
+      slotIndex: 2,
+      ownerId: player.id,
+      isHomeworld: false,
+      biome: 'volcanic',
+      terraformingQueue: null,
+      activeDecisions: [],
+      blockers: [
+        {
+          id: 'blk_volc_1',
+          type: 'volcanic_ash_wastes',
+          clearing: null,
+        },
+      ],
+      resources: { ore: 2000, crystal: 1500, fuel: 1500 },
+      storageCap: 15000,
+      protectedCapacity: 500,
+      buildings: {
+        ore_mine: 2,
+        crystal_synth: 1,
+        fuel_refinery: 1,
+        shipyard: 0,
+        research_lab: 2,
+        sensor_array: 1,
+      },
+      buildingQueue: null,
+      shipyardQueue: [],
+      defenses: { missile_battery: 2, plasma_turret: 1, ion_cannon: 0 },
+      defenseQueue: [],
+      garrison: { scout: 0, transport: 0, fighter: 5, battleship: 0 },
+      stance: 'hold_position',
+      specialization: 'balanced',
+      lastResourceUpdate: engine.state.timeMs,
+    };
+
+    const colony = engine.state.planets[colonyPlanetId];
+    expect(getPlanetEffectiveBiome(colony)).toBe('volcanic');
+
+    // Volcanic base: ore 1.35, crystal 0.85, fuel 1.10, research 0.90, habitability 0.40
+    // Blocker volcanic_ash_wastes penalty: ore -0.10 (x0.90), crystal -0.05 (x0.95), habitability -0.15
+    const initialColonyEco = getPlanetEcologyModifiers(colony);
+    expect(initialColonyEco.oreMultiplier).toBeCloseTo(1.22, 2);
+    expect(initialColonyEco.crystalMultiplier).toBeCloseTo(0.81, 2);
+    expect(initialColonyEco.habitability).toBeCloseTo(0.25, 2);
+
+    // 3. Surface Blocker Clearance
+    const blockerCheck = canClearBlocker(engine.state, player.id, colony.id, 'blk_volc_1');
+    expect(blockerCheck.canClear).toBe(true);
+
+    const clearRes = engine.dispatchCommand(player.id, {
+      type: 'CLEAR_PLANETARY_BLOCKER',
+      planetId: colony.id,
+      blockerId: 'blk_volc_1',
+    });
+    expect(clearRes.success).toBe(true);
+    expect(colony.blockers[0].clearing).not.toBeNull();
+    // Resources deducted (cost: ore 300, fuel 150)
+    expect(colony.resources.ore).toBe(1700);
+    expect(colony.resources.fuel).toBe(1350);
+
+    // Cannot start clearing again while already clearing
+    const duplicateClear = engine.dispatchCommand(player.id, {
+      type: 'CLEAR_PLANETARY_BLOCKER',
+      planetId: colony.id,
+      blockerId: 'blk_volc_1',
+    });
+    expect(duplicateClear.success).toBe(false);
+
+    // Advance time to complete blocker clearance (clearTimeMs is 20000)
+    engine.tick(25000);
+    expect(colony.blockers.length).toBe(0);
+    // Reward deposited (reward: ore 150, crystal 50)
+    expect(Math.floor(colony.resources.ore)).toBe(1850);
+    expect(Math.floor(colony.resources.crystal)).toBe(1550);
+
+    // Ecology penalty removed
+    const clearedColonyEco = getPlanetEcologyModifiers(colony);
+    expect(clearedColonyEco.oreMultiplier).toBeCloseTo(1.35, 2);
+    expect(clearedColonyEco.crystalMultiplier).toBeCloseTo(0.85, 2);
+    expect(clearedColonyEco.habitability).toBeCloseTo(0.40, 2);
+
+    // 4. Planetary Decisions
+    // Enact Geothermal Core Drill (permanent booster)
+    const drillCheck = canEnactDecision(engine.state, player.id, colony.id, 'geothermal_core_drill');
+    expect(drillCheck.canEnact).toBe(true);
+
+    const drillRes = engine.dispatchCommand(player.id, {
+      type: 'ENACT_PLANETARY_DECISION',
+      planetId: colony.id,
+      decisionId: 'geothermal_core_drill',
+    });
+    expect(drillRes.success).toBe(true);
+    expect(colony.activeDecisions.some((d) => d.id === 'geothermal_core_drill')).toBe(true);
+
+    // Ore multiplier boosted by x1.25: 1.35 * 1.25 = 1.6875 -> 1.69
+    const drilledEco = getPlanetEcologyModifiers(colony);
+    expect(drilledEco.oreMultiplier).toBeCloseTo(1.69, 2);
+
+    // Enact Ecological Sanctuary for cultural unity bonus
+    colony.resources.crystal = 2000;
+    colony.resources.fuel = 2000;
+    const initialUnity = engine.state.traditions?.[player.id]?.unity || 0;
+    const sanctuaryRes = engine.dispatchCommand(player.id, {
+      type: 'ENACT_PLANETARY_DECISION',
+      planetId: colony.id,
+      decisionId: 'ecological_sanctuary',
+    });
+    expect(sanctuaryRes.success).toBe(true);
+    expect(engine.state.traditions?.[player.id]?.unity).toBe(initialUnity + 100);
+
+    // Enact Planetary Shield Overcharge (timed booster: 120s, defense +35%)
+    const shieldRes = engine.dispatchCommand(player.id, {
+      type: 'ENACT_PLANETARY_DECISION',
+      planetId: colony.id,
+      decisionId: 'planetary_shield_overcharge',
+    });
+    expect(shieldRes.success).toBe(true);
+    const shieldedEco = getPlanetEcologyModifiers(colony);
+    expect(shieldedEco.defenseMultiplier).toBeCloseTo(1.35, 2);
+
+    // Test combat damage mitigation from planetaryDefenseMultiplier
+    const baseCombat = resolveCombat(
+      {
+        ownerId: 'att_id',
+        ownerName: 'Saldırgan Filo',
+        ships: { scout: 0, transport: 0, fighter: 25, battleship: 4 },
+        weaponsResearchLevel: 2,
+      },
+      {
+        ownerId: player.id,
+        ownerName: player.name,
+        ships: { scout: 0, transport: 0, fighter: 10, battleship: 1 },
+        weaponsResearchLevel: 1,
+        defenses: { missile_battery: 4, plasma_turret: 2, ion_cannon: 1 },
+        planetaryDefenseMultiplier: 1.0,
+      },
+      colony.systemId,
+      'Solaria',
+      'planet_raid',
+      colony.resources,
+      colony.protectedCapacity,
+      engine.state.timeMs,
+      999
+    );
+
+    const reinforcedCombat = resolveCombat(
+      {
+        ownerId: 'att_id',
+        ownerName: 'Saldırgan Filo',
+        ships: { scout: 0, transport: 0, fighter: 25, battleship: 4 },
+        weaponsResearchLevel: 2,
+      },
+      {
+        ownerId: player.id,
+        ownerName: player.name,
+        ships: { scout: 0, transport: 0, fighter: 10, battleship: 1 },
+        weaponsResearchLevel: 1,
+        defenses: { missile_battery: 4, plasma_turret: 2, ion_cannon: 1 },
+        planetaryDefenseMultiplier: 1.35,
+      },
+      colony.systemId,
+      'Solaria',
+      'planet_raid',
+      colony.resources,
+      colony.protectedCapacity,
+      engine.state.timeMs,
+      999
+    );
+
+    // Reinforced defender takes reduced damage, surviving with more or equal total units
+    const baseDefenderTotalSurviving =
+      baseCombat.remainingDefender.fighter +
+      baseCombat.remainingDefender.battleship +
+      (baseCombat.remainingDefenses?.missile_battery || 0) +
+      (baseCombat.remainingDefenses?.plasma_turret || 0) +
+      (baseCombat.remainingDefenses?.ion_cannon || 0);
+
+    const reinforcedDefenderTotalSurviving =
+      reinforcedCombat.remainingDefender.fighter +
+      reinforcedCombat.remainingDefender.battleship +
+      (reinforcedCombat.remainingDefenses?.missile_battery || 0) +
+      (reinforcedCombat.remainingDefenses?.plasma_turret || 0) +
+      (reinforcedCombat.remainingDefenses?.ion_cannon || 0);
+
+    expect(reinforcedDefenderTotalSurviving).toBeGreaterThanOrEqual(baseDefenderTotalSurviving);
+
+    // Advance time past shield duration (120s) -> should expire
+    engine.tick(125000);
+    expect(colony.activeDecisions.some((d) => d.id === 'planetary_shield_overcharge')).toBe(false);
+    expect(getPlanetEcologyModifiers(colony).defenseMultiplier).toBe(1.0);
+
+    // 5. Terraforming Engine
+    // Prepare resources for terraforming
+    colony.resources = { ore: 5000, crystal: 5000, fuel: 5000 };
+
+    // Cannot terraform to same biome
+    const sameBiomeCheck = canStartTerraforming(engine.state, player.id, colony.id, 'volcanic');
+    expect(sameBiomeCheck.canStart).toBe(false);
+
+    // Cannot terraform to gaia without lab level 2 (colony has lab level 2, but test missing resources or wrong source if restricted)
+    // Start terraforming volcanic world to terran
+    const recipe = getTerraformRecipe('volcanic', 'terran');
+    expect(recipe).toBeDefined();
+
+    const startTerraRes = engine.dispatchCommand(player.id, {
+      type: 'START_TERRAFORMING',
+      planetId: colony.id,
+      targetBiome: 'terran',
+    });
+    expect(startTerraRes.success).toBe(true);
+    expect(colony.terraformingQueue).not.toBeNull();
+    expect(colony.terraformingQueue?.targetBiome).toBe('terran');
+    // Resources deducted (cost: ore 1200, crystal 800, fuel 600)
+    expect(colony.resources.ore).toBe(3800);
+    expect(colony.resources.crystal).toBe(4200);
+    expect(colony.resources.fuel).toBe(4400);
+
+    // Cannot start concurrent terraforming
+    const concurrentTerraRes = engine.dispatchCommand(player.id, {
+      type: 'START_TERRAFORMING',
+      planetId: colony.id,
+      targetBiome: 'ocean',
+    });
+    expect(concurrentTerraRes.success).toBe(false);
+
+    // Test cancellation with 75% refund
+    const cancelRes = engine.dispatchCommand(player.id, {
+      type: 'CANCEL_TERRAFORMING',
+      planetId: colony.id,
+    });
+    expect(cancelRes.success).toBe(true);
+    expect(colony.terraformingQueue).toBeNull();
+    // 75% refund: ore +900, crystal +600, fuel +450
+    expect(colony.resources.ore).toBe(4700);
+    expect(colony.resources.crystal).toBe(4800);
+    expect(colony.resources.fuel).toBe(4850);
+
+    // Restart terraforming to terran and complete it
+    engine.dispatchCommand(player.id, {
+      type: 'START_TERRAFORMING',
+      planetId: colony.id,
+      targetBiome: 'terran',
+    });
+    expect(colony.terraformingQueue).not.toBeNull();
+
+    // Advance time to complete terraforming (recipe duration is 45000ms)
+    engine.tick(46000);
+    expect(colony.terraformingQueue).toBeNull();
+    expect(colony.biome).toBe('terran');
+    expect(getPlanetEffectiveBiome(colony)).toBe('terran');
+
+    // Elevate Terran to Gaia World
+    colony.resources = { ore: 6000, crystal: 6000, fuel: 6000 };
+    const gaiaRes = engine.dispatchCommand(player.id, {
+      type: 'START_TERRAFORMING',
+      planetId: colony.id,
+      targetBiome: 'gaia',
+    });
+    expect(gaiaRes.success).toBe(true);
+    expect(colony.terraformingQueue?.targetBiome).toBe('gaia');
+
+    // Advance time to finish Gaia terraforming (duration 75000ms)
+    engine.tick(76000);
+    expect(colony.biome).toBe('gaia');
+    expect(getPlanetEffectiveBiome(colony)).toBe('gaia');
+
+    // Verify Gaia bonuses: +25% on all production, +25% research
+    // Note: includes active decisions on colony (geothermal -0.05 + ecological sanctuary +0.10 => 1.30)
+    const gaiaEco = getPlanetEcologyModifiers(colony);
+    expect(gaiaEco.habitability).toBeCloseTo(1.30, 2);
+    expect(gaiaEco.crystalMultiplier).toBeGreaterThanOrEqual(1.25);
+    expect(gaiaEco.fuelMultiplier).toBeGreaterThanOrEqual(1.25);
+    expect(gaiaEco.researchMultiplier).toBeGreaterThanOrEqual(1.25);
+
+    // 6. Autonomous Bot AI Evaluator
+    const { player: botEcolPlayer, homeworld: botHw } = engine.addPlayer(
+      'bot_ecol_tester',
+      'Eko Bot',
+      '#06b6d4',
+      true,
+      'industrialist'
+    );
+
+    // Bot scenario A: Blocker clearance takes top priority
+    botHw.blockers = [
+      { id: 'blk_bot_1', type: 'volcanic_ash_wastes', clearing: null },
+    ];
+    botHw.resources = { ore: 3000, crystal: 3000, fuel: 3000 };
+
+    const botCmdsA: any[] = [];
+    evaluateBotTerraforming(engine, botEcolPlayer.id, 'industrialist', botCmdsA);
+    expect(botCmdsA.length).toBe(1);
+    expect(botCmdsA[0].type).toBe('CLEAR_PLANETARY_BLOCKER');
+
+    // Bot scenario B: Decision enactment when no blockers
+    botHw.blockers = [];
+    botHw.resources = { ore: 3000, crystal: 3000, fuel: 3000 };
+    const botCmdsB: any[] = [];
+    evaluateBotTerraforming(engine, botEcolPlayer.id, 'industrialist', botCmdsB);
+    expect(botCmdsB.length).toBe(1);
+    expect(botCmdsB[0].type).toBe('ENACT_PLANETARY_DECISION');
+
+    // Bot scenario C: Terraforming hostile planet
+    botHw.activeDecisions = [
+      { id: 'geothermal_core_drill', enactedAtMs: 0 },
+      { id: 'soil_enrichment', enactedAtMs: 0 },
+      { id: 'strip_mining_initiative', enactedAtMs: 0 },
+      { id: 'climate_domes', enactedAtMs: 0 },
+    ];
+    botHw.biome = 'desert';
+    botHw.buildings.research_lab = 2;
+    botHw.resources = { ore: 5000, crystal: 5000, fuel: 5000 };
+
+    const botCmdsC: any[] = [];
+    evaluateBotTerraforming(engine, botEcolPlayer.id, 'industrialist', botCmdsC);
+    expect(botCmdsC.length).toBe(1);
+    expect(botCmdsC[0].type).toBe('START_TERRAFORMING');
+    expect(botCmdsC[0].targetBiome).toBe('terran');
+  });
 });
+
 

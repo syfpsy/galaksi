@@ -89,6 +89,27 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
       label: 'Volkanik / Magma',
       bonus: 'Cevher +40%, Yakıt +20%',
     },
+    gaia: {
+      fill: '#10b981',
+      stroke: '#34d399',
+      glow: '#10b981',
+      label: 'Gaia Cennet Dünyası',
+      bonus: 'Kusursuz Biyom (+%25 Tüm Kaynaklar & Araştırma)',
+    },
+    tomb: {
+      fill: '#57534e',
+      stroke: '#78716c',
+      glow: '#a8a29e',
+      label: 'Kıyamet Sonrası Çorak Dünya',
+      bonus: 'Radyoaktif Çoraklık (Islah Edilmeli)',
+    },
+    gas: {
+      fill: '#a855f7',
+      stroke: '#c084fc',
+      glow: '#c084fc',
+      label: 'Gaz Devi',
+      bonus: 'Yakıt +50%',
+    },
   };
 
   return (
@@ -233,7 +254,7 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
                 const isHovered = hoveredPlanetId === slot.planetId;
 
                 const gradId =
-                  slot.type === 'terran'
+                  slot.type === 'terran' || slot.type === 'gaia'
                     ? 'url(#planet-grad-terran)'
                     : slot.type === 'ocean'
                     ? 'url(#planet-grad-ocean)'

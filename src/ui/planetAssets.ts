@@ -1,7 +1,7 @@
-import { PlanetSlot } from '../engine/types';
+import { PlanetBiome } from '../engine/types';
 
 export interface PlanetVisualAsset {
-  type: PlanetSlot['type'] | 'gas';
+  type: PlanetBiome;
   nameTr: string;
   spaceImage: string;
   surfaceImage: string;
@@ -71,6 +71,26 @@ export const PLANET_VISUAL_ASSETS: Record<string, PlanetVisualAsset> = {
     glowColor: '#c084fc',
     description: 'Göz alıcı fırtına bantları ve devasa halka sistemi. Üst atmosferde yüzen hidrokarbon rafinerileri kurulabilir.',
     habitability: '%0 Yüzey Yok (Atmosferik İstasyon)',
+  },
+  gaia: {
+    type: 'gaia',
+    nameTr: 'Gaia Cennet Dünyası',
+    spaceImage: '/planets/planet_terra_space.png',
+    surfaceImage: '/planets/planet_terra_surface.png',
+    themeColor: '#10b981',
+    glowColor: '#34d399',
+    description: 'Kusursuz biyo-ahenk ve yapay ekosistem dengesi ile inşa edilmiş cennet dünyası. %125 uyumluluk ve %25 her kaynakta bonus.',
+    habitability: '%125 Kusursuz Cennet',
+  },
+  tomb: {
+    type: 'tomb',
+    nameTr: 'Kıyamet Sonrası Çorak Dünya',
+    spaceImage: '/planets/planet_volcanic_space.png',
+    surfaceImage: '/planets/planet_volcanic_surface.png',
+    themeColor: '#78716c',
+    glowColor: '#a8a29e',
+    description: 'Kadim termonükleer veya biyolojik savaşlarla çölleşmiş, yüksek radyasyonlu harabe dünya. Islah edilmeye muhtaçtır.',
+    habitability: '%30 Radyoaktif Çoraklık',
   },
 };
 

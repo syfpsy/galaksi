@@ -1,5 +1,6 @@
 import { generatePirateOutposts } from './pirates';
 import { PRNG } from './prng';
+import { generateInitialBlockers } from './terraforming';
 import {
   EmpireArtifactId,
   FlightLane,
@@ -266,5 +267,9 @@ export function createHomeworldPlanet(
     },
     stance: 'hold_position',
     specialization: 'balanced',
+    biome: 'terran',
+    terraformingQueue: null,
+    activeDecisions: [],
+    blockers: [],
   };
 }

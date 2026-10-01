@@ -130,12 +130,59 @@ export interface ResearchStats {
   timeMultiplier: number;
 }
 
+export type PlanetBiome =
+  | 'terran'
+  | 'ocean'
+  | 'desert'
+  | 'ice'
+  | 'volcanic'
+  | 'gas'
+  | 'gaia'
+  | 'tomb';
+
+export interface TerraformQueue {
+  targetBiome: PlanetBiome;
+  cost: Resources;
+  startTime: number;
+  finishTime: number;
+}
+
+export type PlanetaryDecisionId =
+  | 'climate_domes'
+  | 'soil_enrichment'
+  | 'geothermal_core_drill'
+  | 'ecological_sanctuary'
+  | 'planetary_shield_overcharge'
+  | 'strip_mining_initiative';
+
+export interface PlanetaryDecision {
+  id: PlanetaryDecisionId;
+  enactedAt: number;
+  expiresAt?: number;
+}
+
+export type PlanetaryBlockerId =
+  | 'volcanic_ash_wastes'
+  | 'radioactive_fallout'
+  | 'glacial_chasm'
+  | 'noxious_swamp'
+  | 'dense_jungle';
+
+export interface PlanetaryBlocker {
+  id: string;
+  type: PlanetaryBlockerId;
+  clearing?: {
+    startTime: number;
+    finishTime: number;
+  } | null;
+}
+
 export interface PlanetSlot {
   slotIndex: number;
   planetId: string;
   name: string;
   ownerId: string | null;   // null if uncolonized
-  type: 'terran' | 'desert' | 'ice' | 'volcanic' | 'ocean';
+  type: PlanetBiome;
   size: number;             // max building levels sum or slots
 }
 
@@ -179,6 +226,10 @@ export interface Planet {
     nextUnitFinishTime: number;
   }[];
   specialization?: PlanetSpecialization;
+  biome?: PlanetBiome;
+  terraformingQueue?: TerraformQueue | null;
+  activeDecisions?: PlanetaryDecision[];
+  blockers?: PlanetaryBlocker[];
 }
 
 export type StarbaseTier = 'outpost' | 'starbase' | 'citadel';
@@ -1229,6 +1280,25 @@ export type GameCommand =
       type: 'REVERSE_ENGINEER_ARTIFACTS';
       actionType: 'tech_boost' | 'cultural_festival';
       targetPlanetId?: string;
+    }
+  | {
+      type: 'START_TERRAFORMING';
+      planetId: string;
+      targetBiome: PlanetBiome;
+    }
+  | {
+      type: 'CANCEL_TERRAFORMING';
+      planetId: string;
+    }
+  | {
+      type: 'ENACT_PLANETARY_DECISION';
+      planetId: string;
+      decisionId: PlanetaryDecisionId;
+    }
+  | {
+      type: 'CLEAR_PLANETARY_BLOCKER';
+      planetId: string;
+      blockerId: string;
     };
 
 export interface CommandReceipt {

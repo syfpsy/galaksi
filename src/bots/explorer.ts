@@ -10,6 +10,7 @@ import { evaluateBotShipDesign } from './shipDesign';
 import { evaluateBotCrisisResponse } from './crisis';
 import { evaluateBotTraditions } from './traditions';
 import { evaluateBotArchaeology } from './archaeology';
+import { evaluateBotTerraforming } from './terraforming';
 import { IBotAgent } from './types';
 
 export class ExplorerBot implements IBotAgent {
@@ -183,6 +184,9 @@ export class ExplorerBot implements IBotAgent {
 
     // 13. Archaeology Sites, Relic Triumphs & Minor Artifacts (Phase 18)
     evaluateBotArchaeology(engine, this.playerId, this.archetype, executedCommands);
+
+    // 14. Planetary Terraforming, Blocker Clearance & Ecological Decisions (Phase 19)
+    evaluateBotTerraforming(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

@@ -16,6 +16,7 @@ import {
   Rocket,
   Shield,
   ShieldAlert,
+  Sprout,
   Wrench,
   X,
 } from 'lucide-react';
@@ -42,6 +43,7 @@ interface PlanetPanelProps {
   onOpenResearch?: () => void;
   onOpenMarket?: () => void;
   onOpenEspionage?: (targetPlanetId?: string) => void;
+  onOpenTerraform?: (planetId?: string) => void;
   onDispatchSupplyConvoy?: (colonyPlanetId: string) => void;
   onClose?: () => void;
 }
@@ -59,6 +61,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
   onOpenResearch,
   onOpenMarket,
   onOpenEspionage,
+  onOpenTerraform,
   onDispatchSupplyConvoy,
   onClose,
 }) => {
@@ -76,7 +79,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
   const slot = system?.slots.find(
     (s) => s.planetId === currentPlanet.id || s.slotIndex === currentPlanet.slotIndex
   );
-  const planetAsset = getPlanetAsset(slot?.type);
+  const planetAsset = getPlanetAsset(currentPlanet.biome || slot?.type);
 
   const buildingsList: BuildingType[] = [
     'ore_mine',
@@ -119,7 +122,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
           {planets.map((p) => {
             const pSys = state?.map.systems[p.systemId];
             const pSlot = pSys?.slots.find((s) => s.planetId === p.id || s.slotIndex === p.slotIndex);
-            const pAsset = getPlanetAsset(pSlot?.type);
+            const pAsset = getPlanetAsset(p.biome || pSlot?.type);
             const isCur = p.id === currentPlanet.id;
 
             return (
@@ -286,6 +289,25 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
                 <Eye className="w-4 h-4" />
               </button>
             )}
+            {onOpenTerraform && (
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  onOpenTerraform(currentPlanet.id);
+                }}
+                className={`p-1.5 rounded-sm text-xs transition-all border cursor-pointer relative ${
+                  currentPlanet.terraformingQueue
+                    ? 'border-emerald-500 bg-emerald-950/70 text-emerald-300 animate-pulse'
+                    : 'stellaris-btn-metallic text-slate-300 hover:text-emerald-400 hover:border-emerald-500/50'
+                }`}
+                title="Gezegen Islahı, Yüzey Engelleri ve Ekolojik Kararlar"
+              >
+                <Sprout className="w-4 h-4" />
+                {currentPlanet.blockers && currentPlanet.blockers.length > 0 && !currentPlanet.terraformingQueue && (
+                  <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-amber-400" />
+                )}
+              </button>
+            )}
             <button
               onClick={() => {
                 sound.playClick();
@@ -316,6 +338,46 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Active Terraforming Progress Strip */}
+        {currentPlanet.terraformingQueue && (
+          <div className="px-4 py-2 border-b border-emerald-900/40 bg-emerald-950/30">
+            <div className="flex items-center justify-between text-[10px] font-mono text-emerald-300 mb-1 font-bold">
+              <span className="flex items-center gap-1.5">
+                <Sprout className="w-3.5 h-3.5 animate-spin-slow text-emerald-400" />
+                Islah: {getPlanetAsset(currentPlanet.terraformingQueue.targetBiome).nameTr}
+              </span>
+              <span>
+                %{Math.min(100, Math.max(0, Math.round(((currentTimeMs - currentPlanet.terraformingQueue.startTime) / Math.max(1, currentPlanet.terraformingQueue.finishTime - currentPlanet.terraformingQueue.startTime)) * 100)))}
+              </span>
+            </div>
+            <div className="w-full h-1.5 bg-[#081520] rounded-full overflow-hidden border border-emerald-900/50">
+              <div
+                className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 transition-all duration-300"
+                style={{
+                  width: `${Math.min(100, Math.max(0, Math.round(((currentTimeMs - currentPlanet.terraformingQueue.startTime) / Math.max(1, currentPlanet.terraformingQueue.finishTime - currentPlanet.terraformingQueue.startTime)) * 100)))}%`,
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Active Decisions Badges */}
+        {currentPlanet.activeDecisions && currentPlanet.activeDecisions.length > 0 && (
+          <div className="px-4 py-1.5 border-b border-[#18374b] bg-[#071320] flex items-center gap-1.5 overflow-x-auto scrollbar-none">
+            <span className="text-[9px] font-mono text-cyan-400 uppercase font-bold shrink-0">
+              Kararlar:
+            </span>
+            {currentPlanet.activeDecisions.map((d) => (
+              <span
+                key={d.id}
+                className="text-[9px] font-mono px-1.5 py-0.5 rounded-sm bg-cyan-950/70 border border-cyan-500/40 text-cyan-300 shrink-0"
+              >
+                {d.id.replace(/_/g, ' ')}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* Planetary Specialization Focus (Vali Politikası) */}
         <div className="mt-2.5 pt-2.5 border-t border-[#18374b]/80">

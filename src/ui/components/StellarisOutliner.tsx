@@ -14,6 +14,7 @@ import {
   Rocket,
   Shield,
   ShieldAlert,
+  Sprout,
   Swords,
   Wrench,
   Zap,
@@ -338,7 +339,7 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
 
                 const pSys = state.map.systems[planet.systemId];
                 const pSlot = pSys?.slots.find((s) => s.planetId === planet.id || s.slotIndex === planet.slotIndex);
-                const pAsset = getPlanetAsset(pSlot?.type);
+                const pAsset = getPlanetAsset(planet.biome || pSlot?.type);
 
                 return (
                   <div
@@ -438,6 +439,36 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
                             <div
                               className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 transition-all duration-300"
                               style={{ width: `${bldgProgress}%` }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {/* Active Terraforming Indicator with Progress Bar */}
+                    {planet.terraformingQueue && (() => {
+                      const tf = planet.terraformingQueue;
+                      const tfDuration = Math.max(1, tf.finishTime - tf.startTime);
+                      const tfElapsed = Math.max(0, currentTimeMs - tf.startTime);
+                      const tfProgress = Math.min(100, Math.max(0, Math.round((tfElapsed / tfDuration) * 100)));
+                      const tfRemaining = Math.max(0, tf.finishTime - currentTimeMs);
+                      const tfAsset = getPlanetAsset(tf.targetBiome);
+
+                      return (
+                        <div className="mt-2 pt-1.5 border-t border-emerald-900/50">
+                          <div className="flex items-center justify-between text-[11px] text-emerald-300 font-medium">
+                            <span className="flex items-center gap-1.5 truncate max-w-[155px]">
+                              <Sprout className="w-3 h-3 animate-spin text-emerald-400 shrink-0" />
+                              <span className="truncate">Islah: {tfAsset.nameTr}</span>
+                            </span>
+                            <span className="font-mono text-[11px] text-emerald-200 font-bold shrink-0">
+                              {formatDuration(tfRemaining)}
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-[#08121c] rounded-none mt-1.5 overflow-hidden border border-emerald-800/60">
+                            <div
+                              className="h-full bg-gradient-to-r from-emerald-600 to-teal-400 transition-all duration-300"
+                              style={{ width: `${tfProgress}%` }}
                             />
                           </div>
                         </div>

@@ -19,6 +19,8 @@ import {
   FleetDoctrine,
   MegastructureType,
   MissionType,
+  PlanetBiome,
+  PlanetaryDecisionId,
   PlanetSpecialization,
   PlanetStance,
   ResearchType,
@@ -46,6 +48,7 @@ import { CouncilModal } from './ui/components/CouncilModal';
 import { CrisisModal } from './ui/components/CrisisModal';
 import { TraditionsModal } from './ui/components/TraditionsModal';
 import { ArchaeologyModal } from './ui/components/ArchaeologyModal';
+import { TerraformModal } from './ui/components/TerraformModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -87,6 +90,7 @@ type LeftPanelType =
   | 'council'
   | 'traditions'
   | 'archaeology'
+  | 'terraform'
   | 'crisis'
   | 'relay'
   | 'gallery'
@@ -1084,6 +1088,65 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleStartTerraforming = (planetId: string, targetBiome: PlanetBiome) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'START_TERRAFORMING',
+      planetId,
+      targetBiome,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleCancelTerraforming = (planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CANCEL_TERRAFORMING',
+      planetId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleEnactDecision = (planetId: string, decisionId: PlanetaryDecisionId) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ENACT_PLANETARY_DECISION',
+      planetId,
+      decisionId,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleClearBlocker = (planetId: string, blockerId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CLEAR_PLANETARY_BLOCKER',
+      planetId,
+      blockerId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1409,6 +1472,7 @@ export function App() {
           onOpenCouncil={() => setActiveLeftPanel((prev) => (prev === 'council' ? null : 'council'))}
           onOpenTraditions={() => setActiveLeftPanel((prev) => (prev === 'traditions' ? null : 'traditions'))}
           onOpenArchaeology={() => setActiveLeftPanel((prev) => (prev === 'archaeology' ? null : 'archaeology'))}
+          onOpenTerraform={() => setActiveLeftPanel((prev) => (prev === 'terraform' ? null : 'terraform'))}
           onOpenCrisis={() => setActiveLeftPanel((prev) => (prev === 'crisis' ? null : 'crisis'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
@@ -1424,6 +1488,9 @@ export function App() {
           activeMegastructuresCount={Object.keys(engineState.megastructures || {}).length}
           stabilityPercent={engineState.councils?.[activePlayerId]?.stabilityPercent}
           availableTraditionPerksCount={engineState.traditions?.[activePlayerId]?.availablePerkSlots || 0}
+          activeTerraformingCount={
+            Object.values(engineState.planets).filter((p) => p.ownerId === activePlayerId && !!p.terraformingQueue).length
+          }
           archaeologyPendingCount={
             Object.values(engineState.archaeologySites || {}).filter(
               (s) => s.status === 'choice_pending' && s.excavatingPlayerId === activePlayerId
@@ -1460,6 +1527,7 @@ export function App() {
                   setEspionageTargetPlanetId(targetId || null);
                   setActiveLeftPanel('espionage');
                 }}
+                onOpenTerraform={() => setActiveLeftPanel('terraform')}
                 onDispatchSupplyConvoy={handleDispatchSupplyConvoy}
                 onClose={() => setActiveLeftPanel(null)}
               />
@@ -1921,6 +1989,20 @@ export function App() {
         onActivateRelicTriumph={handleActivateRelicTriumph}
         onReverseEngineer={handleReverseEngineer}
       />
+
+      {/* Planetary Terraforming, Blocker Clearance & Ecological Decisions Modal (Phase 19) */}
+      {activeLeftPanel === 'terraform' && (
+        <TerraformModal
+          state={engineState}
+          activePlayerId={activePlayerId}
+          initialPlanetId={activePlanet?.id}
+          onClose={() => setActiveLeftPanel(null)}
+          onStartTerraforming={handleStartTerraforming}
+          onCancelTerraforming={handleCancelTerraforming}
+          onEnactDecision={handleEnactDecision}
+          onClearBlocker={handleClearBlocker}
+        />
+      )}
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}
       <AnomalyEventModal

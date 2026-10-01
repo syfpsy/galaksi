@@ -154,6 +154,25 @@ import {
   getRelicDiplomaticWeightMultiplier,
   RELIC_TRIUMPH_CONFIGS,
 } from './archaeology';
+import {
+  BIOME_CONFIGS,
+  PLANETARY_BLOCKERS,
+  PLANETARY_DECISIONS,
+  TERRAFORM_RECIPES,
+  canClearBlocker,
+  canEnactDecision,
+  canStartTerraforming,
+  cancelTerraforming,
+  enactDecision,
+  generateInitialBlockers,
+  getPlanetEcologyModifiers,
+  getPlanetEffectiveBiome,
+  startClearBlocker,
+  startTerraforming,
+  tickBlockers,
+  tickDecisions,
+  tickTerraforming,
+} from './terraforming';
 
 export class GameEngine {
   public state: GameState;
@@ -483,6 +502,55 @@ export class GameEngine {
         oreProd *= traditionProdMult;
         crystalProd *= traditionProdMult;
       }
+
+      // Planetary Terraforming, Blockers & Decisions (Phase 19)
+      const sys = this.state.map.systems[planet.systemId];
+      const slot = sys?.slots.find((s) => s.planetId === planet.id || s.slotIndex === planet.slotIndex);
+
+      // 1. Process active terraforming
+      if (planet.terraformingQueue) {
+        const tfResult = tickTerraforming(planet, slot, nowMs);
+        if (tfResult.completed && tfResult.targetBiome) {
+          const biomeCfg = BIOME_CONFIGS[tfResult.targetBiome];
+          this.logEvent(
+            'terraforming_completed',
+            `🌱 GEZEGEN ISLAHI TAMAMLANDI: ${planet.name} başarıyla ${biomeCfg.nameTr} dünyasına dönüştürüldü!`,
+            planet.ownerId,
+            { planetId: planet.id, newBiome: tfResult.targetBiome }
+          );
+        }
+      }
+
+      // 2. Process active decisions (expire timed boosters)
+      const expiredDecs = tickDecisions(planet, nowMs);
+      for (const expId of expiredDecs) {
+        const decDef = PLANETARY_DECISIONS[expId];
+        this.logEvent(
+          'decision_expired',
+          `${planet.name} üzerindeki "${decDef?.nameTr || expId}" kararının süresi sona erdi.`,
+          planet.ownerId,
+          { planetId: planet.id, decisionId: expId }
+        );
+      }
+
+      // 3. Process blocker clearing
+      if (planet.blockers && planet.blockers.length > 0) {
+        const blkResult = tickBlockers(planet, nowMs);
+        for (const clrId of blkResult.clearedBlockerIds) {
+          this.logEvent(
+            'blocker_cleared',
+            `⛏️ YÜZEY ENGELİ TEMİZLENDİ: ${planet.name} üzerindeki engel kaldırıldı. Geri dönüştürülen kaynaklar depoya aktarıldı.`,
+            planet.ownerId,
+            { planetId: planet.id, blockerId: clrId }
+          );
+        }
+      }
+
+      // 4. Apply ecological multipliers (Biome + Decisions + Blockers)
+      const ecology = getPlanetEcologyModifiers(planet, slot);
+      oreProd *= ecology.oreMultiplier;
+      crystalProd *= ecology.crystalMultiplier;
+      fuelProd *= ecology.fuelMultiplier;
 
       const traditionStorageCapMult = getTraditionStorageCapMultiplier(this.state, planet.ownerId);
       const effectiveCap = Math.round(planet.storageCap * traditionStorageCapMult);
@@ -1201,6 +1269,10 @@ export class GameEngine {
             garrison: { scout: 0, transport: 0, fighter: starterFighters, battleship: 0 },
             stance: 'hold_position',
             specialization: 'balanced',
+            biome: emptySlot.type,
+            terraformingQueue: null,
+            activeDecisions: [],
+            blockers: generateInitialBlockers(emptySlot.type, this.prng),
           };
 
           emptySlot.ownerId = fleet.ownerId;
@@ -1377,6 +1449,7 @@ export class GameEngine {
               traditionEvasionBonus: tradCombat.defenderEvasionBonus,
               relicDamageReduction: hasActiveRelicTriumph(this.state, targetPlanet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
               relicEvasionBonus: hasActiveRelicTriumph(this.state, targetPlanet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
+              planetaryDefenseMultiplier: getPlanetEcologyModifiers(targetPlanet).defenseMultiplier,
               shipLoadouts: defenderLoadouts,
             },
             targetSystem.id,
@@ -2293,6 +2366,15 @@ export class GameEngine {
         }
         if (hasAscensionPerk(this.state, playerId, 'transcendence')) {
           durationMs = Math.max(1000, Math.round(durationMs / 1.25)); // +25% research speed (transcendence)
+        }
+        const bestEcologyResearchMultiplier = Math.max(
+          1.0,
+          ...Object.values(this.state.planets)
+            .filter((p) => p.ownerId === playerId)
+            .map((p) => getPlanetEcologyModifiers(p).researchMultiplier)
+        );
+        if (bestEcologyResearchMultiplier > 1.0) {
+          durationMs = Math.max(1000, Math.round(durationMs / bestEcologyResearchMultiplier));
         }
         const finishTime = this.state.timeMs + durationMs;
 
@@ -4964,6 +5046,94 @@ export class GameEngine {
           { actionType: cmd.actionType }
         );
         return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { actionType: cmd.actionType, summaryTr: revRes.summaryTr } };
+      }
+
+      case 'START_TERRAFORMING': {
+        const canStart = canStartTerraforming(this.state, playerId, cmd.planetId, cmd.targetBiome);
+        if (!canStart.canStart) {
+          return { success: false, commandType: cmd.type, error: canStart.reason, timeMs: this.state.timeMs };
+        }
+        const planet = this.state.planets[cmd.planetId];
+        startTerraforming(planet, cmd.targetBiome, canStart.cost!, canStart.durationMs!, this.state.timeMs);
+        const biomeDef = BIOME_CONFIGS[cmd.targetBiome];
+        this.logEvent(
+          'terraforming_started',
+          `🌱 GEZEGEN ISLAHI BAŞLATILDI: ${planet.name} için [${biomeDef?.nameTr || cmd.targetBiome}] dönüşüm protokolü devreye alındı.`,
+          playerId,
+          { planetId: cmd.planetId, targetBiome: cmd.targetBiome, finishTime: planet.terraformingQueue?.finishTime }
+        );
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId, targetBiome: cmd.targetBiome, finishTime: planet.terraformingQueue?.finishTime },
+        };
+      }
+
+      case 'CANCEL_TERRAFORMING': {
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Gezegen kontrolünüz altında değil.', timeMs: this.state.timeMs };
+        }
+        const cancelRes = cancelTerraforming(planet);
+        if (!cancelRes) {
+          return { success: false, commandType: cmd.type, error: 'Devam eden bir ıslah süreci bulunmuyor.', timeMs: this.state.timeMs };
+        }
+        this.logEvent(
+          'terraforming_cancelled',
+          `${planet.name} ıslah projesi iptal edildi. Rezervlerin %75'i iade edildi.`,
+          playerId,
+          { planetId: cmd.planetId, refund: cancelRes.refundedResources }
+        );
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId, refund: cancelRes.refundedResources },
+        };
+      }
+
+      case 'ENACT_PLANETARY_DECISION': {
+        const canEn = canEnactDecision(this.state, playerId, cmd.planetId, cmd.decisionId);
+        if (!canEn.canEnact) {
+          return { success: false, commandType: cmd.type, error: canEn.reason, timeMs: this.state.timeMs };
+        }
+        const planet = this.state.planets[cmd.planetId];
+        enactDecision(planet, cmd.decisionId, this.state.timeMs, this.state, playerId);
+        const decDef = PLANETARY_DECISIONS[cmd.decisionId];
+        this.logEvent(
+          'decision_enacted',
+          `📜 GEZEGENSEL KARAR: ${planet.name} üzerinde "${decDef?.nameTr || cmd.decisionId}" yürürlüğe girdi.`,
+          playerId,
+          { planetId: cmd.planetId, decisionId: cmd.decisionId }
+        );
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId, decisionId: cmd.decisionId },
+        };
+      }
+
+      case 'CLEAR_PLANETARY_BLOCKER': {
+        const canClr = canClearBlocker(this.state, playerId, cmd.planetId, cmd.blockerId);
+        if (!canClr.canClear) {
+          return { success: false, commandType: cmd.type, error: canClr.reason, timeMs: this.state.timeMs };
+        }
+        const planet = this.state.planets[cmd.planetId];
+        startClearBlocker(planet, cmd.blockerId, this.state.timeMs);
+        this.logEvent(
+          'blocker_clear_started',
+          `🚧 ENGEL TEMİZLİĞİ: ${planet.name} üzerindeki yüzey engeli için temizlik çalışmaları başlatıldı.`,
+          playerId,
+          { planetId: cmd.planetId, blockerId: cmd.blockerId }
+        );
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId, blockerId: cmd.blockerId },
+        };
       }
     }
   }

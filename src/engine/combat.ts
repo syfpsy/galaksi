@@ -24,6 +24,7 @@ export interface CombatFleetInput {
   shipLoadouts?: ShipLoadoutMap;
   relicDamageReduction?: number;
   relicEvasionBonus?: number;
+  planetaryDefenseMultiplier?: number;
 }
 
 export interface CombatResult {
@@ -288,6 +289,11 @@ export function resolveCombat(
     }
     if (defender.relicDamageReduction) {
       attDmg = Math.round(attDmg * (1 - defender.relicDamageReduction));
+    }
+
+    // 5. Planetary Defense Matrix Modifier (Phase 19: e.g. planetary_shield_overcharge)
+    if (defender.planetaryDefenseMultiplier && defender.planetaryDefenseMultiplier > 1.0) {
+      attDmg = Math.round(attDmg / defender.planetaryDefenseMultiplier);
     }
 
     // Starbase damage absorption: absorbs up to 40% of incoming attack damage
