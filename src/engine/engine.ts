@@ -173,6 +173,12 @@ import {
   tickDecisions,
   tickTerraforming,
 } from './terraforming';
+import {
+  TRADE_POLICY_CONFIGS,
+  updateTradeNetworks,
+  calculatePlanetTradeValue,
+} from './trade';
+
 
 export class GameEngine {
   public state: GameState;
@@ -182,6 +188,7 @@ export class GameEngine {
   private lastSectorEventSpawnMs: number = 0;
   private lastUnityUpdateMs: number = 0;
   private lastArchaeologyTickMs: number = 0;
+  private lastTradeTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -205,6 +212,8 @@ export class GameEngine {
       traditions: {},
       archaeologySites: initializeSectorArchaeologySites(map.systems),
       activeRelicTriumphs: {},
+      tradeStates: {},
+      systemTrade: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -294,6 +303,8 @@ export class GameEngine {
       artifacts: [],
       minorArtifacts: 0,
       relicCooldowns: {},
+      tradePolicy: 'energy_wealth',
+      commercialPacts: [],
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -664,6 +675,13 @@ export class GameEngine {
       tickArchaeologySites(this.state, nowMs, archaeologyElapsedMs, (type: string, desc: string, pId?: string, meta?: Record<string, unknown>) => {
         this.logEvent(type, desc, pId, meta);
       });
+    }
+
+    // Galactic Trade Networks & Piracy tick (Phase 20)
+    const tradeElapsedMs = Math.max(0, nowMs - this.lastTradeTickMs);
+    this.lastTradeTickMs = nowMs;
+    if (tradeElapsedMs > 0) {
+      updateTradeNetworks(this.state, tradeElapsedMs);
     }
   }
 
@@ -1936,6 +1954,32 @@ export class GameEngine {
           } else {
             this.orderFleetReturn(fleet);
           }
+        }
+        break;
+      }
+
+      case 'patrol': {
+        // Fleet arrives at patrol destination
+        if (fleet.isReturning) {
+          // Patrol return leg complete; merge back into garrison or continue patrol loop
+          if (fleet.targetPlanetId && this.state.planets[fleet.targetPlanetId]) {
+            const planet = this.state.planets[fleet.targetPlanetId];
+            for (const [type, count] of Object.entries(fleet.ships) as [ShipType, number][]) {
+              planet.garrison[type] += count;
+            }
+            fleet.status = 'destroyed';
+            if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
+              this.state.admirals[fleet.admiralId].assignedFleetId = null;
+            }
+            delete this.state.fleets[fleet.id];
+            this.logEvent('patrol_completed', `🛡️ DEVRİYE TAMAMLANDI: ${fleet.name} devriye rotasını tamamlayarak ${planet.name} garnizonuna döndü.`, fleet.ownerId);
+          } else {
+            this.orderFleetReturn(fleet);
+          }
+        } else {
+          // Outbound leg complete; reverse course and patrol back home
+          this.logEvent('patrol_sweep', `🛡️ KORSANLIK BASTIRILDI: ${fleet.name} ${targetSystem.name} sisteminde devriye taramasını tamamladı, dönüş devriyesine geçti.`, fleet.ownerId);
+          this.orderFleetReturn(fleet);
         }
         break;
       }
@@ -5133,6 +5177,90 @@ export class GameEngine {
           commandType: cmd.type,
           timeMs: this.state.timeMs,
           data: { planetId: cmd.planetId, blockerId: cmd.blockerId },
+        };
+      }
+
+      case 'SET_TRADE_POLICY': {
+        const player = this.state.players[playerId];
+        if (!player) {
+          return { success: false, commandType: cmd.type, error: 'Oyuncu bulunamadı.', timeMs: this.state.timeMs };
+        }
+        player.tradePolicy = cmd.policy;
+        if (!this.state.tradeStates) this.state.tradeStates = {};
+        if (this.state.tradeStates[playerId]) {
+          this.state.tradeStates[playerId].policy = cmd.policy;
+        }
+        const policyConfig = TRADE_POLICY_CONFIGS[cmd.policy];
+        this.logEvent(
+          'trade_policy_changed',
+          `📈 TİCARET POLİTİKASI: ${player.name} ticaret politikasını "${policyConfig?.nameTr || cmd.policy}" olarak değiştirdi.`,
+          playerId,
+          { policy: cmd.policy }
+        );
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { policy: cmd.policy },
+        };
+      }
+
+      case 'PROPOSE_COMMERCIAL_PACT': {
+        const player = this.state.players[playerId];
+        const target = this.state.players[cmd.targetPlayerId];
+        if (!player || !target) {
+          return { success: false, commandType: cmd.type, error: 'Hedef imparatorluk bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (playerId === cmd.targetPlayerId) {
+          return { success: false, commandType: cmd.type, error: 'Kendi kendinizle ticaret paktı imzalayamazsınız.', timeMs: this.state.timeMs };
+        }
+        if (!player.commercialPacts) player.commercialPacts = [];
+        if (!target.commercialPacts) target.commercialPacts = [];
+
+        if (player.commercialPacts.includes(cmd.targetPlayerId)) {
+          return { success: false, commandType: cmd.type, error: 'Bu imparatorlukla zaten aktif bir ticaret paktınız var.', timeMs: this.state.timeMs };
+        }
+
+        player.commercialPacts.push(cmd.targetPlayerId);
+        target.commercialPacts.push(playerId);
+
+        this.logEvent(
+          'commercial_pact_signed',
+          `🤝 TİCARET PAKTI: ${player.name} ve ${target.name} karşılıklı Ticaret Paktı imzaladı (+%10 Karşılıklı Ticaret Hacmi).`,
+          playerId,
+          { partnerId: cmd.targetPlayerId }
+        );
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { partnerId: cmd.targetPlayerId },
+        };
+      }
+
+      case 'BREAK_COMMERCIAL_PACT': {
+        const player = this.state.players[playerId];
+        const target = this.state.players[cmd.targetPlayerId];
+        if (!player) {
+          return { success: false, commandType: cmd.type, error: 'Oyuncu bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (player.commercialPacts) {
+          player.commercialPacts = player.commercialPacts.filter((id) => id !== cmd.targetPlayerId);
+        }
+        if (target && target.commercialPacts) {
+          target.commercialPacts = target.commercialPacts.filter((id) => id !== playerId);
+        }
+        this.logEvent(
+          'commercial_pact_cancelled',
+          `🚫 TİCARET PAKTI FESHİ: ${player.name}, ${target?.name || cmd.targetPlayerId} ile olan ticaret paktını feshetti.`,
+          playerId,
+          { partnerId: cmd.targetPlayerId }
+        );
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { partnerId: cmd.targetPlayerId },
         };
       }
     }

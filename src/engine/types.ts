@@ -84,7 +84,8 @@ export type MissionType =
   | 'attack'
   | 'intercept'
   | 'support'
-  | 'colonize';
+  | 'colonize'
+  | 'patrol';
 
 export type IntelLevel =
   | 'unexplored'     // Only know coordinates and connections
@@ -176,6 +177,48 @@ export interface PlanetaryBlocker {
     finishTime: number;
   } | null;
 }
+
+// Phase 20: Galactic Trade Networks, Trade Routes & Piracy
+export type TradePolicy =
+  | 'energy_wealth'          // 1.0 TV -> 1.0 Fuel
+  | 'consumer_benefits'      // 1.0 TV -> 0.5 Fuel + 0.25 Crystal
+  | 'marketplace_of_ideas';  // 1.0 TV -> 0.5 Fuel + 0.15 Cultural Unity
+
+export interface TradeRoute {
+  originPlanetId: string;
+  originPlanetName: string;
+  originSystemId: string;
+  destinationPlanetId: string;
+  destinationPlanetName: string;
+  destinationSystemId: string;
+  pathSystemIds: string[];
+  tradeValue: number;          // Base hourly Trade Value generated
+  collectedValue: number;      // Actual net Trade Value reaching destination
+  piracyLoss: number;          // Trade Value lost along the route
+  active: boolean;
+}
+
+export interface SystemTradeInfo {
+  systemId: string;
+  tradeValuePassing: number;   // Total TV flowing through this system
+  tradeProtection: number;     // Protection projected by starbases
+  piracyRisk: number;          // 0 to 100 risk level
+  piracySuppression: number;   // Fleet patrol suppression
+  piracySiphonedTV: number;    // Amount of TV stolen by pirates
+  hasPirateFleetSpawned: boolean;
+}
+
+export interface PlayerTradeState {
+  playerId: string;
+  policy: TradePolicy;
+  routes: TradeRoute[];
+  totalGeneratedTV: number;
+  totalCollectedTV: number;
+  totalLostTV: number;
+  commercialPacts: string[];   // Partner playerIds
+  lastUpdateMs: number;
+}
+
 
 export interface PlanetSlot {
   slotIndex: number;
@@ -848,6 +891,8 @@ export interface Player {
   artifacts?: EmpireArtifactId[]; // Discovered ancient relics and artifacts
   minorArtifacts?: number; // Phase 18: Strategic minor artifacts from excavations
   relicCooldowns?: Record<string, number>; // Phase 18: relicId -> cooldownExpiresAtMs
+  tradePolicy?: TradePolicy; // Phase 20: Galactic Trade Policy
+  commercialPacts?: string[]; // Phase 20: Array of partner playerIds
 }
 
 export type EmpireDirectiveId =
@@ -989,6 +1034,8 @@ export interface GameState {
   traditions?: Record<string, EmpireTraditionsState>; // key: playerId
   archaeologySites?: Record<string, ArchaeologySite>; // key: siteId (Phase 18)
   activeRelicTriumphs?: Record<string, ActiveRelicTriumph[]>; // key: playerId (Phase 18)
+  tradeStates?: Record<string, PlayerTradeState>; // key: playerId (Phase 20)
+  systemTrade?: Record<string, SystemTradeInfo>; // key: systemId (Phase 20)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1299,6 +1346,18 @@ export type GameCommand =
       type: 'CLEAR_PLANETARY_BLOCKER';
       planetId: string;
       blockerId: string;
+    }
+  | {
+      type: 'SET_TRADE_POLICY';
+      policy: TradePolicy;
+    }
+  | {
+      type: 'PROPOSE_COMMERCIAL_PACT';
+      targetPlayerId: string;
+    }
+  | {
+      type: 'BREAK_COMMERCIAL_PACT';
+      targetPlayerId: string;
     };
 
 export interface CommandReceipt {

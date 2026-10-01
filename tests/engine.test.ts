@@ -85,6 +85,16 @@ import {
   canClearBlocker,
 } from '../src/engine/terraforming';
 import { evaluateBotTerraforming } from '../src/bots/terraforming';
+import {
+  TRADE_POLICY_CONFIGS,
+  calculatePlanetTradeValue,
+  findShortestTradeRoute,
+  getStarbaseProtectionStats,
+  calculateFleetPatrolSuppression,
+  getSystemsWithinHops,
+  updateTradeNetworks,
+} from '../src/engine/trade';
+import { evaluateBotTrade } from '../src/bots/trade';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -3582,6 +3592,320 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(botCmdsC.length).toBe(1);
     expect(botCmdsC[0].type).toBe('START_TERRAFORMING');
     expect(botCmdsC[0].targetBiome).toBe('terran');
+  });
+
+  it('handles Galactic Trade Networks, hyperlane routes, starbase trade hubs, piracy suppression, conversion policies & commercial pacts (Phase 20)', () => {
+    const engine = new GameEngine(90210);
+
+    // 1. Planetary Trade Value (TV) Generation Formula
+    const testPlanet: any = {
+      id: 'planet_trade_test',
+      name: 'Mercantile Prime',
+      systemId: 'sys_1',
+      isHomeworld: true,
+      buildings: {
+        ore_mine: 2,       // +4
+        crystal_synth: 1,  // +4
+        fuel_refinery: 1,  // +3
+        research_lab: 1,   // +2
+      },
+      specialization: 'tech_haven', // +5
+      biome: 'gaia',                // *1.35
+      activeDecisions: [
+        { id: 'climate_domes', enactedAtMs: 0 }, // *1.15
+      ],
+      garrison: { scout: 1, transport: 0, fighter: 5, battleship: 1 },
+      resources: { ore: 1000, crystal: 1000, fuel: 1000 },
+      storageCap: 5000,
+    };
+
+    // Homeworld base = 15, buildings = 13, tech_haven = +5 => base sum = 33
+    // gaia (*1.35) => 44.55, climate_domes (*1.15) => 51.23 => rounded 51
+    const baseTV = calculatePlanetTradeValue(testPlanet);
+    expect(baseTV).toBe(51);
+
+    // Colony planet base = 8
+    const colonyPlanet: any = {
+      ...testPlanet,
+      id: 'planet_colony_test',
+      isHomeworld: false,
+      buildings: {},
+      specialization: 'mining_hub', // +5 => 13
+      biome: 'ocean',               // *1.25 => 16.25
+      activeDecisions: [],
+    };
+    const colonyTV = calculatePlanetTradeValue(colonyPlanet);
+    expect(colonyTV).toBe(16);
+
+    // Commercial pact bonus (+10% per partner)
+    const mockPlayerWithPacts: any = {
+      id: 'p_pact_tester',
+      commercialPacts: ['p_ally_1', 'p_ally_2'], // +20%
+    };
+    const pactTV = calculatePlanetTradeValue(colonyPlanet, mockPlayerWithPacts);
+    expect(pactTV).toBe(20);
+
+    // 2. Shortest Hyperlane Trade Route Discovery & Gateway Shortcut
+    const sysA = Object.keys(engine.state.map.systems)[0];
+    const sysB = Object.keys(engine.state.map.systems)[1];
+    const routeSelf = findShortestTradeRoute(engine.state, sysA, sysA);
+    expect(routeSelf).toEqual([sysA]);
+
+    const routeAB = findShortestTradeRoute(engine.state, sysA, sysB);
+    expect(routeAB[0]).toBe(sysA);
+    expect(routeAB[routeAB.length - 1]).toBe(sysB);
+
+    // Subspace Gateway instant jump test
+    engine.state.gateways = {
+      [sysA]: { systemId: sysA, tier: 2, status: 'active', constructedAtMs: 0 },
+      [sysB]: { systemId: sysB, tier: 2, status: 'active', constructedAtMs: 0 },
+    };
+    const gatewayRoute = findShortestTradeRoute(engine.state, sysA, sysB);
+    expect(gatewayRoute).toEqual([sysA, sysB]);
+
+    // 3. Starbase Protection & Multi-hop Coverage
+    const mockStarbase: any = {
+      systemId: sysA,
+      tier: 'citadel', // 60 prot, 2 hops
+      modules: ['trade_hub', 'defense_platform'], // trade_hub: +10 prot & +1 hop; defense_platform: +15 prot
+      ownerId: 'player_sb',
+    };
+    const sbStats = getStarbaseProtectionStats(mockStarbase);
+    expect(sbStats.protection).toBe(85);
+    expect(sbStats.rangeHops).toBe(3);
+
+    const hops0 = getSystemsWithinHops(engine.state, sysA, 0);
+    expect(hops0).toEqual([sysA]);
+    const hops1 = getSystemsWithinHops(engine.state, sysA, 1);
+    expect(hops1.length).toBeGreaterThan(1);
+    expect(hops1).toContain(sysA);
+
+    // 4. Fleet Patrol Piracy Suppression Stats
+    const patrolFleet: any = {
+      ships: { scout: 2, transport: 0, fighter: 6, battleship: 2 },
+    };
+    // 2*2 + 6*5 + 2*15 = 4 + 30 + 30 = 64
+    const suppression = calculateFleetPatrolSuppression(patrolFleet);
+    expect(suppression).toBe(64);
+
+    // 5. Full Simulation of Trade Networks, Piracy & Conversion Policies
+    const { player, homeworld } = engine.addPlayer('trader_corp', 'Kaufmann Syndicate', '#3b82f6');
+    expect(player.tradePolicy).toBe('energy_wealth');
+    expect(player.commercialPacts).toEqual([]);
+
+    // Set up a colony planet belonging to this player in a different system
+    const otherSys = Object.values(engine.state.map.systems).find(
+      (s) => s.id !== homeworld.systemId
+    )!;
+    const colonyPlanetId = 'planet_colony_trade';
+    engine.state.planets[colonyPlanetId] = {
+      id: colonyPlanetId,
+      name: 'New Carthage',
+      systemId: otherSys.id,
+      slotIndex: 1,
+      ownerId: player.id,
+      isHomeworld: false,
+      biome: 'terran',
+      terraformingQueue: null,
+      activeDecisions: [],
+      blockers: [],
+      resources: { ore: 1000, crystal: 500, fuel: 500 },
+      storageCap: 10000,
+      protectedCapacity: 500,
+      buildings: {
+        ore_mine: 2,
+        crystal_synth: 2,
+        fuel_refinery: 1,
+        shipyard: 0,
+        research_lab: 1,
+        sensor_array: 1,
+      },
+      buildingQueue: null,
+      shipyardQueue: [],
+      defenses: { missile_battery: 1, plasma_turret: 0, ion_cannon: 0 },
+      defenseQueue: [],
+      garrison: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+      stance: 'hold_position',
+      specialization: 'tech_haven',
+      lastResourceUpdate: engine.state.timeMs,
+    };
+    const colony = engine.state.planets[colonyPlanetId];
+
+    // Passive tick initializes trade states & routes
+    engine.tick(2000);
+    const pTrade = engine.state.tradeStates?.[player.id];
+    expect(pTrade).toBeDefined();
+    expect(pTrade!.routes.length).toBe(2);
+    expect(pTrade!.totalGeneratedTV).toBeGreaterThan(20);
+    expect(pTrade!.totalCollectedTV).toBeGreaterThan(0);
+
+    // Verify systemTrade exists on systems along colony's route
+    const colonyRoute = pTrade!.routes.find((r) => r.originPlanetId === colony.id)!;
+    expect(colonyRoute).toBeDefined();
+    expect(colonyRoute.pathSystemIds.length).toBeGreaterThanOrEqual(1);
+
+    // Test Piracy accumulation and mitigation
+    const routeSysId = colonyRoute.pathSystemIds[0];
+    const sysTradeInfo = engine.state.systemTrade?.[routeSysId];
+    expect(sysTradeInfo).toBeDefined();
+
+    // Manually induce high piracy risk on intermediate route system
+    sysTradeInfo!.tradeProtection = 0;
+    sysTradeInfo!.piracyRisk = 40;
+    updateTradeNetworks(engine.state, 1000);
+    expect(sysTradeInfo!.piracySiphonedTV).toBeGreaterThan(0);
+
+    // Test Fleet Patrol Mission suppressing piracy
+    homeworld.garrison.fighter = 6;
+    homeworld.resources.fuel = 2000;
+    const patrolRes = engine.dispatchCommand(player.id, {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: homeworld.id,
+      targetSystemId: colony.systemId,
+      ships: { fighter: 4 },
+      mission: 'patrol',
+    });
+    expect(patrolRes.success).toBe(true);
+    const patrolFleetId = (patrolRes.data as { fleetId: string }).fleetId;
+    const activePatrol = engine.state.fleets[patrolFleetId];
+    expect(activePatrol.mission).toBe('patrol');
+
+    // Run trade network update: suppression applied along patrol path
+    updateTradeNetworks(engine.state, 1000);
+    expect(engine.state.systemTrade![routeSysId].piracySuppression).toBeGreaterThan(0);
+
+    // Test Critical Piracy Threshold (>= 95%) Spawning Pirate Fleet
+    sysTradeInfo!.piracyRisk = 96;
+    sysTradeInfo!.tradeValuePassing = 25;
+    sysTradeInfo!.hasPirateFleetSpawned = false;
+    updateTradeNetworks(engine.state, 1000);
+    expect(sysTradeInfo!.hasPirateFleetSpawned).toBe(true);
+    const spawnedPirates = Object.values(engine.state.fleets).filter(
+      (f) => f.ownerId === 'pirate_faction' && f.originSystemId === routeSysId
+    );
+    expect(spawnedPirates.length).toBeGreaterThan(0);
+
+    // 6. Trade Policy Switching & Resource Conversion
+    homeworld.resources = { ore: 1000, crystal: 500, fuel: 500 };
+    homeworld.storageCap = 50000;
+
+    // Switch to consumer_benefits (50% fuel, 25% crystal)
+    const policyCmdRes = engine.dispatchCommand(player.id, {
+      type: 'SET_TRADE_POLICY',
+      policy: 'consumer_benefits',
+    });
+    expect(policyCmdRes.success).toBe(true);
+    expect(player.tradePolicy).toBe('consumer_benefits');
+
+    const fuelBefore = homeworld.resources.fuel;
+    const crystalBefore = homeworld.resources.crystal;
+
+    // Simulate 1 hour (3,600,000 ms) of trade conversion
+    updateTradeNetworks(engine.state, 3600000);
+    expect(homeworld.resources.fuel).toBeGreaterThan(fuelBefore);
+    expect(homeworld.resources.crystal).toBeGreaterThan(crystalBefore);
+
+    // Switch to marketplace_of_ideas (50% fuel, 15% unity)
+    engine.dispatchCommand(player.id, {
+      type: 'SET_TRADE_POLICY',
+      policy: 'marketplace_of_ideas',
+    });
+    expect(player.tradePolicy).toBe('marketplace_of_ideas');
+    const unityBefore = engine.state.traditions?.[player.id]?.unity || 0;
+    updateTradeNetworks(engine.state, 3600000);
+    const unityAfter = engine.state.traditions?.[player.id]?.unity || 0;
+    expect(unityAfter).toBeGreaterThan(unityBefore);
+
+    // 7. Bilateral Commercial Pacts
+    const { player: partnerPlayer } = engine.addPlayer('trade_partner', 'Alliance Corp', '#10b981');
+    const pactProposal = engine.dispatchCommand(player.id, {
+      type: 'PROPOSE_COMMERCIAL_PACT',
+      targetPlayerId: partnerPlayer.id,
+    });
+    expect(pactProposal.success).toBe(true);
+    expect(player.commercialPacts).toContain(partnerPlayer.id);
+    expect(partnerPlayer.commercialPacts).toContain(player.id);
+
+    // Break commercial pact
+    const breakPact = engine.dispatchCommand(player.id, {
+      type: 'BREAK_COMMERCIAL_PACT',
+      targetPlayerId: partnerPlayer.id,
+    });
+    expect(breakPact.success).toBe(true);
+    expect(player.commercialPacts).not.toContain(partnerPlayer.id);
+    expect(partnerPlayer.commercialPacts).not.toContain(player.id);
+
+    // 8. Autonomous Bot Trade AI Evaluator
+    const { player: botTradePlayer, homeworld: botHw } = engine.addPlayer(
+      'bot_trade_ai',
+      'Merchant Bot',
+      '#ec4899',
+      true,
+      'industrialist'
+    );
+
+    // Scenario A: Bot chooses archetype optimal policy
+    const botCmds1: any[] = [];
+    evaluateBotTrade(engine, botTradePlayer.id, 'industrialist', botCmds1);
+    expect(botCmds1.length).toBe(1);
+    expect(botCmds1[0].type).toBe('SET_TRADE_POLICY');
+    expect(botCmds1[0].policy).toBe('consumer_benefits');
+
+    // Scenario B: Bot proposes commercial pact
+    const botCmds2: any[] = [];
+    evaluateBotTrade(engine, botTradePlayer.id, 'industrialist', botCmds2);
+    expect(botCmds2.length).toBe(1);
+    expect(botCmds2[0].type).toBe('PROPOSE_COMMERCIAL_PACT');
+
+    // Scenario C: Bot dispatches patrol fleet when trade route piracy > 25%
+    botTradePlayer.commercialPacts = ['pact_ally_1', 'pact_ally_2'];
+    botHw.garrison.fighter = 4;
+    botHw.resources.fuel = 1000;
+    const targetSystem = Object.values(engine.state.map.systems).find(
+      (s) => s.id !== botHw.systemId
+    )!;
+
+    // Simulate high piracy route
+    engine.state.tradeStates[botTradePlayer.id] = {
+      playerId: botTradePlayer.id,
+      policy: 'consumer_benefits',
+      routes: [
+        {
+          originPlanetId: botHw.id,
+          originPlanetName: botHw.name,
+          originSystemId: botHw.systemId,
+          destinationPlanetId: botHw.id,
+          destinationPlanetName: botHw.name,
+          destinationSystemId: botHw.systemId,
+          pathSystemIds: [botHw.systemId, targetSystem.id],
+          tradeValue: 30,
+          collectedValue: 20,
+          piracyLoss: 10,
+          active: true,
+        },
+      ],
+      totalGeneratedTV: 30,
+      totalCollectedTV: 20,
+      totalLostTV: 10,
+      commercialPacts: [],
+      lastUpdateMs: 0,
+    };
+    engine.state.systemTrade[targetSystem.id] = {
+      systemId: targetSystem.id,
+      tradeValuePassing: 30,
+      tradeProtection: 0,
+      piracyRisk: 60,
+      piracySuppression: 0,
+      piracySiphonedTV: 5,
+      hasPirateFleetSpawned: false,
+    };
+
+    const botCmds3: any[] = [];
+    evaluateBotTrade(engine, botTradePlayer.id, 'industrialist', botCmds3);
+    expect(botCmds3.length).toBe(1);
+    expect(botCmds3[0].type).toBe('DISPATCH_FLEET');
+    expect(botCmds3[0].mission).toBe('patrol');
+    expect(botCmds3[0].targetSystemId).toBe(targetSystem.id);
   });
 });
 

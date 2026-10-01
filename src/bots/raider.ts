@@ -11,6 +11,7 @@ import { evaluateBotCrisisResponse } from './crisis';
 import { evaluateBotTraditions } from './traditions';
 import { evaluateBotArchaeology } from './archaeology';
 import { evaluateBotTerraforming } from './terraforming';
+import { evaluateBotTrade } from './trade';
 import { IBotAgent } from './types';
 
 export class RaiderBot implements IBotAgent {
@@ -155,6 +156,9 @@ export class RaiderBot implements IBotAgent {
 
     // 14. Planetary Terraforming, Blocker Clearance & Ecological Decisions (Phase 19)
     evaluateBotTerraforming(engine, this.playerId, this.archetype, executedCommands);
+
+    // 15. Galactic Trade Networks, Trade Policies & Fleet Patrols (Phase 20)
+    evaluateBotTrade(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

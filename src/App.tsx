@@ -34,6 +34,7 @@ import {
   TraditionTier,
   TraditionTreeId,
   TransmissionType,
+  TradePolicy,
 } from './engine/types';
 import { evaluatePlayerDirectives } from './engine/directives';
 import { AllianceModal, AllianceTab } from './ui/components/AllianceModal';
@@ -49,6 +50,7 @@ import { CrisisModal } from './ui/components/CrisisModal';
 import { TraditionsModal } from './ui/components/TraditionsModal';
 import { ArchaeologyModal } from './ui/components/ArchaeologyModal';
 import { TerraformModal } from './ui/components/TerraformModal';
+import { TradeRoutesModal } from './ui/components/TradeRoutesModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -91,6 +93,7 @@ type LeftPanelType =
   | 'traditions'
   | 'archaeology'
   | 'terraform'
+  | 'trade_routes'
   | 'crisis'
   | 'relay'
   | 'gallery'
@@ -1147,6 +1150,65 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleSetTradePolicy = (policy: TradePolicy) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SET_TRADE_POLICY',
+      policy,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleProposeCommercialPact = (targetPlayerId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'PROPOSE_COMMERCIAL_PACT',
+      targetPlayerId,
+    });
+    if (res.success) {
+      sound.playNotification();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleBreakCommercialPact = (targetPlayerId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'BREAK_COMMERCIAL_PACT',
+      targetPlayerId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDispatchPatrol = (originPlanetId: string, targetSystemId: string, fighters: number) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISPATCH_FLEET',
+      originPlanetId,
+      targetSystemId,
+      ships: { scout: 0, transport: 0, fighter: fighters, battleship: 0 },
+      mission: 'patrol',
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1435,6 +1497,8 @@ export function App() {
         onOpenVictory={() => setIsVictoryModalOpen(true)}
         onOpenTraditions={() => setActiveLeftPanel((prev) => (prev === 'traditions' ? null : 'traditions'))}
         onOpenArchaeology={() => setActiveLeftPanel((prev) => (prev === 'archaeology' ? null : 'archaeology'))}
+        onOpenTerraform={() => setActiveLeftPanel((prev) => (prev === 'terraform' ? null : 'terraform'))}
+        onOpenTradeRoutes={() => setActiveLeftPanel((prev) => (prev === 'trade_routes' ? null : 'trade_routes'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -1473,6 +1537,9 @@ export function App() {
           onOpenTraditions={() => setActiveLeftPanel((prev) => (prev === 'traditions' ? null : 'traditions'))}
           onOpenArchaeology={() => setActiveLeftPanel((prev) => (prev === 'archaeology' ? null : 'archaeology'))}
           onOpenTerraform={() => setActiveLeftPanel((prev) => (prev === 'terraform' ? null : 'terraform'))}
+          onOpenTradeRoutes={() => setActiveLeftPanel((prev) => (prev === 'trade_routes' ? null : 'trade_routes'))}
+          collectedTradeValue={engineState.tradeStates?.[activePlayerId]?.totalCollectedTV}
+          hasTradePiracyThreat={Boolean((engineState.tradeStates?.[activePlayerId]?.totalLostTV || 0) > 0)}
           onOpenCrisis={() => setActiveLeftPanel((prev) => (prev === 'crisis' ? null : 'crisis'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
@@ -2001,6 +2068,24 @@ export function App() {
           onCancelTerraforming={handleCancelTerraforming}
           onEnactDecision={handleEnactDecision}
           onClearBlocker={handleClearBlocker}
+        />
+      )}
+
+      {/* Galactic Trade Networks & Piracy Modal (Phase 20) */}
+      {activeLeftPanel === 'trade_routes' && (
+        <TradeRoutesModal
+          isOpen={true}
+          onClose={() => setActiveLeftPanel(null)}
+          state={engineState}
+          playerId={activePlayerId}
+          onSetTradePolicy={handleSetTradePolicy}
+          onProposeCommercialPact={handleProposeCommercialPact}
+          onBreakCommercialPact={handleBreakCommercialPact}
+          onDispatchPatrol={handleDispatchPatrol}
+          onSelectSystem={(systemId) => {
+            setSelectedTarget({ type: 'system', systemId });
+            setActiveLeftPanel(null);
+          }}
         />
       )}
 

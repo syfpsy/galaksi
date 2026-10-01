@@ -12,6 +12,7 @@ import { evaluateBotCrisisResponse } from './crisis';
 import { evaluateBotTraditions } from './traditions';
 import { evaluateBotArchaeology } from './archaeology';
 import { evaluateBotTerraforming } from './terraforming';
+import { evaluateBotTrade } from './trade';
 import { IBotAgent } from './types';
 
 /**
@@ -269,6 +270,9 @@ export class AdmiralBot implements IBotAgent {
 
     // 16. Planetary Terraforming, Blocker Clearance & Ecological Decisions (Phase 19)
     evaluateBotTerraforming(engine, this.playerId, this.archetype, executedCommands);
+
+    // 17. Galactic Trade Networks, Trade Policies & Fleet Patrols (Phase 20)
+    evaluateBotTrade(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

@@ -66,6 +66,8 @@ interface TopBarProps {
   onOpenVictory?: () => void;
   onOpenTraditions?: () => void;
   onOpenArchaeology?: () => void;
+  onOpenTerraform?: () => void;
+  onOpenTradeRoutes?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -100,6 +102,8 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenVictory,
   onOpenTraditions,
   onOpenArchaeology,
+  onOpenTerraform,
+  onOpenTradeRoutes,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -716,6 +720,68 @@ const TopBarComponent: React.FC<TopBarProps> = ({
             )}
           </div>
         </div>
+
+        {/* 6.5. GALACTIC TRADE NETWORKS POD (Phase 20) */}
+        {(() => {
+          const tState = state.tradeStates?.[activePlayerId];
+          const collectedTV = tState?.totalCollectedTV || 0;
+          const lostTV = tState?.totalLostTV || 0;
+          const hasLoss = lostTV > 0;
+
+          return (
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenTradeRoutes) onOpenTradeRoutes();
+                }}
+                className={`stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  hasLoss ? 'border-red-500/50 text-red-300' : 'border-amber-500/30 text-amber-300 hover:border-amber-400'
+                }`}
+                title="Galaktik Ticaret Ağları & Korsanlık Koruması"
+              >
+                <CircleDot className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span className="font-bold text-white text-xs">
+                  {collectedTV}
+                </span>
+                <span className="text-[10px] text-amber-400 font-sans uppercase">TV</span>
+                {hasLoss && (
+                  <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse" />
+                )}
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[260px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+                <div className="flex items-center justify-between text-xs font-bold mb-1">
+                  <span className="stellaris-gold tracking-wide">GALAKTİK TİCARET AĞI</span>
+                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                    FAZ 20
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  Kolonilerinizden başkente akan hiperuzay ticaret rotaları ve korsanlık koruması.
+                </p>
+                <div className="mt-2 pt-1.5 border-t border-slate-800 text-[11px] text-slate-200 flex justify-between font-mono">
+                  <span>Üretilen TV:</span>
+                  <span className="text-amber-300 font-bold">{tState?.totalGeneratedTV || 0} TV/saat</span>
+                </div>
+                <div className="text-[11px] text-slate-300 flex justify-between font-mono mt-0.5">
+                  <span>Korsan Sömürüsü:</span>
+                  <span className={`font-bold ${hasLoss ? 'text-red-400' : 'text-slate-400'}`}>
+                    -{lostTV} TV/saat
+                  </span>
+                </div>
+                <div className="text-[11px] text-slate-300 flex justify-between font-mono mt-0.5">
+                  <span>Net Gelir:</span>
+                  <span className="text-emerald-400 font-bold">{collectedTV} TV/saat</span>
+                </div>
+                <div className="text-[11px] text-cyan-300 flex justify-between font-mono mt-1 pt-1 border-t border-slate-800/60">
+                  <span>Politika:</span>
+                  <span className="font-semibold uppercase">{tState?.policy || 'energy_wealth'}</span>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* 7. GALACTIC MARKET QUICK CHIP */}
         <div className="relative group hidden lg:block">
