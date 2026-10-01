@@ -3,6 +3,7 @@ import {
   Activity,
   Award,
   Bed,
+  BookOpen,
   Compass,
   Crown,
   Eye,
@@ -47,6 +48,7 @@ interface StellarisLeftRailProps {
   onOpenSenate?: () => void;
   onOpenMegastructures?: () => void;
   onOpenCouncil?: () => void;
+  onOpenTraditions?: () => void;
   onOpenCrisis?: () => void;
   onOpenGallery: () => void;
   isCrisisActive?: boolean;
@@ -60,6 +62,7 @@ interface StellarisLeftRailProps {
   isSenateSessionActive?: boolean;
   activeMegastructuresCount?: number;
   stabilityPercent?: number;
+  availableTraditionPerksCount?: number;
   planetsCount: number;
   godMode: boolean;
   onToggleGodMode: () => void;
@@ -90,6 +93,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenSenate,
   onOpenMegastructures,
   onOpenCouncil,
+  onOpenTraditions,
   onOpenCrisis,
   onOpenGallery,
   isCrisisActive = false,
@@ -103,6 +107,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   isSenateSessionActive = false,
   activeMegastructuresCount = 0,
   stabilityPercent,
+  availableTraditionPerksCount = 0,
   planetsCount,
   godMode,
   onToggleGodMode,
@@ -657,6 +662,41 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             </div>
             <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Bakanlık atamaları, lider yetenekleri, halk memnuniyeti ve iç siyasi istikrar dengesi.
+            </p>
+          </div>
+        </div>
+
+        {/* Empire Traditions & Ascension Perks (Phase 17) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenTraditions) onOpenTraditions();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'traditions' ? 'active' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <BookOpen className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+            {availableTraditionPerksCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 text-black text-[9px] font-bold flex items-center justify-center border border-amber-300 shadow-md animate-pulse">
+                !
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
+              GEL
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="stellaris-gold tracking-wide">İMPARATORLUK GELENEKLERİ</span>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 17
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Kültürel Birlik doktrinleri, gelenek ağaçları ve Yükseliş Ayrıcalıkları (Ascension Perks).
             </p>
           </div>
         </div>

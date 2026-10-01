@@ -8,6 +8,7 @@ import { IBotAgent } from './bots/types';
 import { GameEngine } from './engine/engine';
 import {
   Admiral,
+  AscensionPerkId,
   BuildingType,
   CouncilPosition,
   DefenseStructureType,
@@ -27,6 +28,8 @@ import {
   ShipLoadout,
   ShipType,
   StarbaseModuleType,
+  TraditionTier,
+  TraditionTreeId,
   TransmissionType,
 } from './engine/types';
 import { evaluatePlayerDirectives } from './engine/directives';
@@ -40,6 +43,7 @@ import { SenateModal } from './ui/components/SenateModal';
 import { MegastructureModal } from './ui/components/MegastructureModal';
 import { CouncilModal } from './ui/components/CouncilModal';
 import { CrisisModal } from './ui/components/CrisisModal';
+import { TraditionsModal } from './ui/components/TraditionsModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -79,6 +83,7 @@ type LeftPanelType =
   | 'senate'
   | 'megastructures'
   | 'council'
+  | 'traditions'
   | 'crisis'
   | 'relay'
   | 'gallery'
@@ -974,6 +979,35 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleAdoptTradition = (treeId: TraditionTreeId, tier: TraditionTier) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ADOPT_TRADITION',
+      treeId,
+      tier,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSelectAscensionPerk = (perkId: AscensionPerkId) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SELECT_ASCENSION_PERK',
+      perkId,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1260,6 +1294,7 @@ export function App() {
         onOpenRelay={() => setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'))}
         onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
         onOpenVictory={() => setIsVictoryModalOpen(true)}
+        onOpenTraditions={() => setActiveLeftPanel((prev) => (prev === 'traditions' ? null : 'traditions'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -1295,6 +1330,7 @@ export function App() {
           onOpenSenate={() => setActiveLeftPanel((prev) => (prev === 'senate' ? null : 'senate'))}
           onOpenMegastructures={() => setActiveLeftPanel((prev) => (prev === 'megastructures' ? null : 'megastructures'))}
           onOpenCouncil={() => setActiveLeftPanel((prev) => (prev === 'council' ? null : 'council'))}
+          onOpenTraditions={() => setActiveLeftPanel((prev) => (prev === 'traditions' ? null : 'traditions'))}
           onOpenCrisis={() => setActiveLeftPanel((prev) => (prev === 'crisis' ? null : 'crisis'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
@@ -1309,6 +1345,7 @@ export function App() {
           isSenateSessionActive={!!engineState.senate?.currentSession}
           activeMegastructuresCount={Object.keys(engineState.megastructures || {}).length}
           stabilityPercent={engineState.councils?.[activePlayerId]?.stabilityPercent}
+          availableTraditionPerksCount={engineState.traditions?.[activePlayerId]?.availablePerkSlots || 0}
           planetsCount={myPlanets.length}
           godMode={godMode}
           onToggleGodMode={() => setGodMode(!godMode)}
@@ -1777,6 +1814,16 @@ export function App() {
         onAssaultAnchor={handleAssaultAnchor}
         onAssaultRift={handleAssaultRift}
         onTriggerTestCrisis={handleTriggerTestCrisis}
+      />
+
+      {/* Empire Traditions, Cultural Unity & Ascension Perks Modal (Phase 17) */}
+      <TraditionsModal
+        isOpen={activeLeftPanel === 'traditions'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        onAdoptTradition={handleAdoptTradition}
+        onSelectAscensionPerk={handleSelectAscensionPerk}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

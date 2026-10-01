@@ -122,6 +122,7 @@ export interface DiplomaticWeightResult {
     colonies: number;
     custodianBonus: number;
     sanctionsPenalty: number;
+    harmonyTraditionBonus?: number;
   };
 }
 
@@ -237,8 +238,11 @@ export function calculateDiplomaticWeight(
   const sanctionsPenalty = isSanctioned
     ? Math.round(baseWeight * SENATE_CONSTANTS.SANCTIONS_DIPLOMATIC_WEIGHT_PENALTY_PERCENT)
     : 0;
+  // 7. Harmony Tradition Tier 2 Bonus (+25% Diplomatic Weight)
+  const hasHarmonyT2 = state.traditions?.[playerId]?.trees.harmony?.unlockedTiers.includes(2) ?? false;
+  const harmonyTraditionBonus = hasHarmonyT2 ? Math.round(baseWeight * 0.25) : 0;
 
-  const total = Math.max(10, baseWeight + custodianBonus - sanctionsPenalty);
+  const total = Math.max(10, baseWeight + custodianBonus - sanctionsPenalty + harmonyTraditionBonus);
 
   return {
     total,
@@ -249,6 +253,7 @@ export function calculateDiplomaticWeight(
       colonies,
       custodianBonus,
       sanctionsPenalty,
+      harmonyTraditionBonus,
     },
   };
 }

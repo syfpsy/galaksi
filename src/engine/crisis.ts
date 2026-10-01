@@ -1,5 +1,6 @@
 import { SHIP_STATS } from './constants';
 import { resolveCombat } from './combat';
+import { getTraditionCombatMultiplier } from './traditions';
 import {
   BattleReport,
   Fleet,
@@ -480,6 +481,7 @@ export function resolveVoidAnchorAssault(
       doctrine: fleet.doctrine,
       artifacts: player?.artifacts,
       senateAttackMultiplier: senateAttackMult,
+      traditionAttackMultiplier: getTraditionCombatMultiplier(state, playerId, 'void_crisis', 'void_anchor').attackerMult,
       shipLoadouts: state.shipLoadouts?.[playerId],
     },
     {
@@ -594,6 +596,7 @@ export function resolveVoidRiftAssault(
       doctrine: fleet.doctrine,
       artifacts: player?.artifacts,
       senateAttackMultiplier: senateAttackMult,
+      traditionAttackMultiplier: getTraditionCombatMultiplier(state, playerId, 'void_behemoth', 'void_rift').attackerMult,
       shipLoadouts: state.shipLoadouts?.[playerId],
     },
     {

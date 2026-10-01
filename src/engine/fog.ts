@@ -24,6 +24,7 @@ import {
   ImperialCouncilState,
   ShipLoadoutMap,
   GalacticCrisisState,
+  EmpireTraditionsState,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -86,6 +87,7 @@ export interface PlayerVisibleState {
   myCouncil?: ImperialCouncilState;
   myShipLoadouts?: ShipLoadoutMap;
   myCrisis?: GalacticCrisisState | null;
+  myTraditions?: EmpireTraditionsState;
 }
 
 /**
@@ -126,12 +128,14 @@ export function getPlayerSensorCoverage(
       )
         ? 1
         : 0;
+      const traditionSensorBonus = state.traditions?.[planet.ownerId]?.trees.discovery?.unlockedTiers.includes(1) ? 1 : 0;
       const range =
         GAME_CONSTANTS.BASE_SENSOR_RANGE +
         Math.floor(sensorLevel / 2) +
         Math.floor(researchLevel / 2) +
         relicSensorBonus +
-        senateSensorBonus;
+        senateSensorBonus +
+        traditionSensorBonus;
 
       addNeighborSystemsWithinHops(planet.systemId, range, state.map, coveredSystems);
     }
@@ -418,5 +422,6 @@ export function filterGameStateForPlayer(
     myCouncil: state.councils?.[playerId],
     myShipLoadouts: state.shipLoadouts?.[playerId] || DEFAULT_LOADOUTS,
     myCrisis: state.crisis || null,
+    myTraditions: state.traditions?.[playerId],
   };
 }

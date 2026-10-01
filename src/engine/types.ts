@@ -408,6 +408,50 @@ export interface GalacticCrisisState {
   startedAtMs: number;
 }
 
+// ==========================================
+// Phase 17: Traditions, Unity & Ascension Perks
+// ==========================================
+export type TraditionTreeId = 'discovery' | 'expansion' | 'prosperity' | 'supremacy' | 'harmony';
+export type TraditionTier = 1 | 2 | 3;
+
+export interface TraditionNodeInfo {
+  id: string;
+  treeId: TraditionTreeId;
+  tier: TraditionTier;
+  nameTr: string;
+  descriptionTr: string;
+  cost: number;
+  icon: string;
+}
+
+export type AscensionPerkId =
+  | 'transcendence'
+  | 'synthetic_evolution'
+  | 'voidborne'
+  | 'galactic_force_projection'
+  | 'defender_of_the_galaxy'
+  | 'ecumenopolis_mastery';
+
+export interface AscensionPerkInfo {
+  id: AscensionPerkId;
+  nameTr: string;
+  descriptionTr: string;
+  icon: string;
+  accentColor: string;
+}
+
+export interface EmpireTraditionsState {
+  playerId: string;
+  unity: number;
+  unityRatePerHour: number;
+  trees: Record<TraditionTreeId, {
+    unlockedTiers: TraditionTier[];
+    completed: boolean;
+  }>;
+  ascensionPerks: AscensionPerkId[];
+  availablePerkSlots: number;
+}
+
 export type EmpireArtifactId =
   | 'progenitor_matrix'
   | 'rift_hyperdrive'
@@ -824,6 +868,7 @@ export interface GameState {
   councils?: Record<string, ImperialCouncilState>; // key: playerId
   shipLoadouts?: Record<string, ShipLoadoutMap>; // key: playerId
   crisis?: GalacticCrisisState | null;
+  traditions?: Record<string, EmpireTraditionsState>; // key: playerId
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1083,6 +1128,15 @@ export type GameCommand =
   | {
       type: 'TRIGGER_CRISIS_TEST';
       epicenterSystemId?: string;
+    }
+  | {
+      type: 'ADOPT_TRADITION';
+      treeId: TraditionTreeId;
+      tier: TraditionTier;
+    }
+  | {
+      type: 'SELECT_ASCENSION_PERK';
+      perkId: AscensionPerkId;
     };
 
 export interface CommandReceipt {

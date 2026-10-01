@@ -3,6 +3,7 @@ import {
   Activity,
   AlertTriangle,
   ArrowRight,
+  BookOpen,
   ChevronDown,
   CircleDot,
   Coins,
@@ -62,6 +63,7 @@ interface TopBarProps {
   onOpenRelay?: () => void;
   onOpenAlliance?: () => void;
   onOpenVictory?: () => void;
+  onOpenTraditions?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -94,6 +96,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenRelay,
   onOpenAlliance,
   onOpenVictory,
+  onOpenTraditions,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -623,7 +626,53 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {/* 6. GALACTIC MARKET QUICK CHIP */}
+        {/* 6. CULTURAL UNITY & TRADITIONS QUICK CHIP */}
+        {state.traditions?.[activePlayerId] && (
+          <div className="relative group hidden xl:block">
+            <button
+              onClick={() => {
+                sound.playClick();
+                if (onOpenTraditions) onOpenTraditions();
+              }}
+              className="stellaris-resource-pod px-2.5 py-1.5 rounded-sm text-purple-300 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer hover:border-purple-400"
+              title="Kültürel Birlik & Gelenek Ağaçları"
+            >
+              <BookOpen className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+              <span className="font-bold text-white text-xs">
+                {Math.floor(state.traditions[activePlayerId].unity)}
+              </span>
+              <span className="text-[10px] text-purple-300 font-bold">
+                +{state.traditions[activePlayerId].unityRatePerHour.toFixed(1)}/s
+              </span>
+              {state.traditions[activePlayerId].availablePerkSlots > 0 && (
+                <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
+              )}
+            </button>
+
+            {/* Unity Tooltip */}
+            <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+              <span className="font-bold text-purple-300 text-xs block mb-1">🏛️ Kültürel Birlik & Gelenekler</span>
+              <p className="text-[11px] text-slate-300 leading-snug">
+                İmparatorluk kültürü ve gelenek ağaçlarını benimseyin. Tamamlanan her ağaç bir Yükseliş Ayrıcalığı yuvası açar.
+              </p>
+              <div className="mt-2 pt-1.5 border-t border-slate-800 text-[11px] text-slate-200 flex justify-between font-mono">
+                <span>Birlik Birikimi:</span>
+                <span className="text-purple-300 font-bold">{Math.floor(state.traditions[activePlayerId].unity)} Birlik</span>
+              </div>
+              <div className="text-[11px] text-slate-300 flex justify-between font-mono mt-0.5">
+                <span>Saatlik Artış:</span>
+                <span className="text-emerald-400 font-bold">+{state.traditions[activePlayerId].unityRatePerHour.toFixed(1)} / saat</span>
+              </div>
+              {state.traditions[activePlayerId].availablePerkSlots > 0 && (
+                <div className="mt-1 text-[10px] text-amber-300 font-bold font-mono">
+                  ✨ {state.traditions[activePlayerId].availablePerkSlots} Seçilebilir Yükseliş Yuvası Var!
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* 7. GALACTIC MARKET QUICK CHIP */}
         <div className="relative group hidden lg:block">
           <button
             onClick={() => {

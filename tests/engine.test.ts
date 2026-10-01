@@ -48,6 +48,18 @@ import {
   initializeGalacticCrisis,
 } from '../src/engine/crisis';
 import { evaluateBotCrisisResponse } from '../src/bots/crisis';
+import {
+  TRADITION_CONFIGS,
+  TRADITION_NODES,
+  ASCENSION_PERKS,
+  calculatePlayerUnityRate,
+  hasTradition,
+  hasAscensionPerk,
+  getTraditionCombatMultiplier,
+  getTraditionProductionMultiplier,
+  getTraditionStorageCapMultiplier,
+} from '../src/engine/traditions';
+import { evaluateBotTraditions } from '../src/bots/traditions';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -2871,6 +2883,144 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     evaluateBotCrisisResponse(engine, botGuard.id, 'guardian', executedCmds);
     expect(executedCmds.length).toBeGreaterThanOrEqual(1);
     expect(executedCmds[0].type).toBe('DONATE_TO_GDF');
+  });
+
+  it('handles Phase 17: Empire Traditions, Cultural Unity & Ascension Perks', () => {
+    const engine = new GameEngine(888);
+    const { player } = engine.addPlayer('player_trad', 'Kültür İmparatorluğu', '#a855f7');
+
+    // 1. Initialization checks
+    expect(engine.state.traditions).toBeDefined();
+    const traditions = engine.state.traditions![player.id];
+    expect(traditions).toBeDefined();
+    expect(traditions.unity).toBe(0);
+    expect(traditions.unityRatePerHour).toBeGreaterThanOrEqual(1.0);
+    expect(traditions.availablePerkSlots).toBe(0);
+    expect(traditions.ascensionPerks).toEqual([]);
+    expect(traditions.trees.discovery.unlockedTiers).toEqual([]);
+    expect(traditions.trees.discovery.completed).toBe(false);
+
+    // 2. Passive Unity generation over time
+    const initialUnity = traditions.unity;
+    engine.tick(60 * 1000); // 1 minute
+    expect(traditions.unity).toBeGreaterThan(initialUnity);
+
+    // 3. Validation: Cannot adopt T2 before T1
+    const invalidTierRes = engine.dispatchCommand(player.id, {
+      type: 'ADOPT_TRADITION',
+      treeId: 'discovery',
+      tier: 2,
+    });
+    expect(invalidTierRes.success).toBe(false);
+
+    // 4. Validation: Insufficient unity fails
+    traditions.unity = 10;
+    const poorRes = engine.dispatchCommand(player.id, {
+      type: 'ADOPT_TRADITION',
+      treeId: 'discovery',
+      tier: 1,
+    });
+    expect(poorRes.success).toBe(false);
+
+    // 5. Sequential Tree Adoption: Discovery T1, T2, T3
+    traditions.unity = 2000;
+    const t1Res = engine.dispatchCommand(player.id, {
+      type: 'ADOPT_TRADITION',
+      treeId: 'discovery',
+      tier: 1,
+    });
+    expect(t1Res.success).toBe(true);
+    expect(traditions.trees.discovery.unlockedTiers).toContain(1);
+    expect(hasTradition(engine.state, player.id, 'discovery', 1)).toBe(true);
+    expect(hasTradition(engine.state, player.id, 'discovery', 2)).toBe(false);
+    expect(traditions.unity).toBe(2000 - TRADITION_CONFIGS.TIER_COSTS[1]);
+
+    // Sensor coverage bonus from Discovery T1 (+1 hop)
+    const sensorCoverage = getPlayerSensorCoverage(engine.state, player.id);
+    expect(sensorCoverage.size).toBeGreaterThan(1);
+
+    // Adopt T2
+    const t2Res = engine.dispatchCommand(player.id, {
+      type: 'ADOPT_TRADITION',
+      treeId: 'discovery',
+      tier: 2,
+    });
+    expect(t2Res.success).toBe(true);
+    expect(traditions.trees.discovery.unlockedTiers).toContain(2);
+
+    // Adopt T3 (tree completion)
+    const t3Res = engine.dispatchCommand(player.id, {
+      type: 'ADOPT_TRADITION',
+      treeId: 'discovery',
+      tier: 3,
+    });
+    expect(t3Res.success).toBe(true);
+    expect(traditions.trees.discovery.unlockedTiers).toContain(3);
+    expect(traditions.trees.discovery.completed).toBe(true);
+    expect(traditions.availablePerkSlots).toBe(1);
+
+    // Cannot adopt beyond T3
+    const overT3Res = engine.dispatchCommand(player.id, {
+      type: 'ADOPT_TRADITION',
+      treeId: 'discovery',
+      tier: 3,
+    });
+    expect(overT3Res.success).toBe(false);
+
+    // 6. Ascension Perk Selection
+    // Cannot select invalid perk
+    const invalidPerkRes = engine.dispatchCommand(player.id, {
+      type: 'SELECT_ASCENSION_PERK',
+      perkId: 'invalid_perk' as any,
+    });
+    expect(invalidPerkRes.success).toBe(false);
+
+    // Select Defender of the Galaxy
+    const perkRes = engine.dispatchCommand(player.id, {
+      type: 'SELECT_ASCENSION_PERK',
+      perkId: 'defender_of_the_galaxy',
+    });
+    expect(perkRes.success).toBe(true);
+    expect(hasAscensionPerk(engine.state, player.id, 'defender_of_the_galaxy')).toBe(true);
+    expect(traditions.ascensionPerks).toContain('defender_of_the_galaxy');
+    expect(traditions.availablePerkSlots).toBe(0);
+
+    // Cannot select second perk without available slot
+    const noSlotRes = engine.dispatchCommand(player.id, {
+      type: 'SELECT_ASCENSION_PERK',
+      perkId: 'voidborne',
+    });
+    expect(noSlotRes.success).toBe(false);
+
+    // 7. Modifiers verification
+    // Defender of the Galaxy combat multiplier against crisis/pirates
+    const crisisCombatMultiplier = getTraditionCombatMultiplier(engine.state, player.id, 'enemy_player', 'void_anchor');
+    expect(crisisCombatMultiplier.attackerMult).toBe(1.35); // +35% attack
+
+    // Adopt Prosperity T1 & T3 on another player to test economy
+    const { player: indPlayer } = engine.addPlayer('ind_test_player', 'Sanayici', '#10b981');
+    const indTraditions = engine.state.traditions![indPlayer.id];
+    indTraditions.unity = 3000;
+    engine.dispatchCommand(indPlayer.id, { type: 'ADOPT_TRADITION', treeId: 'prosperity', tier: 1 });
+    engine.dispatchCommand(indPlayer.id, { type: 'ADOPT_TRADITION', treeId: 'prosperity', tier: 2 });
+    engine.dispatchCommand(indPlayer.id, { type: 'ADOPT_TRADITION', treeId: 'prosperity', tier: 3 });
+
+    const prodMultiplier = getTraditionProductionMultiplier(engine.state, indPlayer.id);
+    expect(prodMultiplier).toBe(1.15); // +15% resource production
+
+    const storageCapMultiplier = getTraditionStorageCapMultiplier(engine.state, indPlayer.id);
+    expect(storageCapMultiplier).toBe(1.25); // +25% storage capacity
+
+    // 8. Autonomous Bot Traditions AI
+    const { player: botRaid } = engine.addPlayer('bot_raider_trad', 'Korsan AI', '#ef4444', true, 'raider');
+    const botTraditions = engine.state.traditions![botRaid.id];
+    botTraditions.unity = 1500; // Enough for T1 & T2
+
+    const botCmds: any[] = [];
+    evaluateBotTraditions(engine, botRaid.id, 'raider', botCmds);
+    expect(botCmds.length).toBeGreaterThanOrEqual(1);
+    // Raider prioritizes supremacy -> should have adopted supremacy T1
+    expect(botTraditions.trees.supremacy.unlockedTiers).toContain(1);
   });
 });
 

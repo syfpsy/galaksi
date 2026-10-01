@@ -271,6 +271,11 @@ export function calculateEmpireStability(state: GameState, playerId: string): nu
     }
   }
 
+  // Harmony Tradition Tier 1 Bonus (+15 Imperial Stability)
+  if (state.traditions?.[playerId]?.trees.harmony?.unlockedTiers.includes(1)) {
+    stability += 15;
+  }
+
   return Math.max(0, Math.min(100, Math.round(stability)));
 }
 

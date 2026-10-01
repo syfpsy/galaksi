@@ -8,6 +8,7 @@ import { evaluateBotMegastructures } from './megastructures';
 import { evaluateBotCouncil } from './council';
 import { evaluateBotShipDesign } from './shipDesign';
 import { evaluateBotCrisisResponse } from './crisis';
+import { evaluateBotTraditions } from './traditions';
 import { IBotAgent } from './types';
 
 export class GuardianBot implements IBotAgent {
@@ -184,6 +185,9 @@ export class GuardianBot implements IBotAgent {
 
     // 10. Galactic Crisis & GDF Response (Phase 16)
     evaluateBotCrisisResponse(engine, this.playerId, this.archetype, executedCommands);
+
+    // 11. Empire Traditions & Ascension Perks (Phase 17)
+    evaluateBotTraditions(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

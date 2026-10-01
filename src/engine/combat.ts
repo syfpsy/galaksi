@@ -18,6 +18,9 @@ export interface CombatFleetInput {
   artifacts?: EmpireArtifactId[];
   starbase?: Starbase;
   senateAttackMultiplier?: number;
+  traditionAttackMultiplier?: number;
+  traditionDefenseMultiplier?: number;
+  traditionEvasionBonus?: number;
   shipLoadouts?: ShipLoadoutMap;
 }
 
@@ -195,14 +198,20 @@ export function resolveCombat(
 
     const starbaseAttack = starbaseActive && starbaseStats ? starbaseStats.attack : 0;
     let attDmg = Math.round(
-      attRating.totalAttack * attVariance * attAdmiralMult * attTraitMult * (attacker.senateAttackMultiplier ?? 1.0)
+      attRating.totalAttack *
+        attVariance *
+        attAdmiralMult *
+        attTraitMult *
+        (attacker.senateAttackMultiplier ?? 1.0) *
+        (attacker.traditionAttackMultiplier ?? 1.0)
     );
     let defDmg = Math.round(
       (defRating.totalAttack + currentDefenseRating.totalAttack + starbaseAttack) *
         defVariance *
         defAdmiralMult *
         defTraitMult *
-        (defender.senateAttackMultiplier ?? 1.0)
+        (defender.senateAttackMultiplier ?? 1.0) *
+        (defender.traditionAttackMultiplier ?? 1.0)
     );
 
     // Attacker Critical Strike check
@@ -212,11 +221,12 @@ export function resolveCombat(
       }
     }
 
-    // Defender Evasion check
-    if (defender.admiral && defender.admiral.traitId === 'evasion_master') {
-      if (prng.next() < 0.18) {
-        attDmg = Math.round(attDmg * 0.65);
-      }
+    // Defender Evasion check (including transcendence / tradition evasion bonus)
+    const defEvasionChance =
+      (defender.admiral && defender.admiral.traitId === 'evasion_master' ? 0.18 : 0) +
+      (defender.traditionEvasionBonus ?? 0);
+    if (defEvasionChance > 0 && prng.next() < defEvasionChance) {
+      attDmg = Math.round(attDmg * 0.65);
     }
 
     // Iron discipline damage reductions

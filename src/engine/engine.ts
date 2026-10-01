@@ -120,6 +120,21 @@ import {
   resolveVoidAnchorAssault,
   resolveVoidRiftAssault,
 } from './crisis';
+import {
+  TRADITION_CONFIGS,
+  initializeEmpireTraditions,
+  calculatePlayerUnityRate,
+  hasTradition,
+  hasAscensionPerk,
+  adoptTradition,
+  selectAscensionPerk,
+  getTraditionCombatMultiplier,
+  getTraditionProductionMultiplier,
+  getTraditionBuildingCostModifier,
+  getTraditionShipyardTimeModifier,
+  getTraditionBuildingTimeModifier,
+  getTraditionStorageCapMultiplier,
+} from './traditions';
 
 export class GameEngine {
   public state: GameState;
@@ -127,6 +142,7 @@ export class GameEngine {
   private prng: PRNG;
   private lastMarketUpdateMs: number = 0;
   private lastSectorEventSpawnMs: number = 0;
+  private lastUnityUpdateMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -147,6 +163,7 @@ export class GameEngine {
       councils: {},
       shipLoadouts: {},
       crisis: null,
+      traditions: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -323,6 +340,12 @@ export class GameEngine {
     }
     this.state.shipLoadouts[id] = JSON.parse(JSON.stringify(DEFAULT_LOADOUTS));
 
+    // Initialize Empire Traditions & Ascension Perks (Phase 17)
+    if (!this.state.traditions) {
+      this.state.traditions = {};
+    }
+    this.state.traditions[id] = initializeEmpireTraditions(id);
+
     this.logEvent('player_joined', `${name} galaksiye katıldı (${targetSys.name}).`, id);
 
     return { player, homeworld };
@@ -430,16 +453,26 @@ export class GameEngine {
         fuelProd *= 0.50;
       }
 
+      // Traditions & Ascension Perks production modifier (Phase 17)
+      const traditionProdMult = getTraditionProductionMultiplier(this.state, planet.ownerId);
+      if (traditionProdMult !== 1.0) {
+        oreProd *= traditionProdMult;
+        crystalProd *= traditionProdMult;
+      }
+
+      const traditionStorageCapMult = getTraditionStorageCapMultiplier(this.state, planet.ownerId);
+      const effectiveCap = Math.round(planet.storageCap * traditionStorageCapMult);
+
       planet.resources.ore = Math.min(
-        planet.storageCap,
+        effectiveCap,
         planet.resources.ore + oreProd * elapsedHours
       );
       planet.resources.crystal = Math.min(
-        planet.storageCap,
+        effectiveCap,
         planet.resources.crystal + crystalProd * elapsedHours
       );
       planet.resources.fuel = Math.min(
-        planet.storageCap,
+        effectiveCap,
         planet.resources.fuel + fuelProd * elapsedHours
       );
 
@@ -450,6 +483,26 @@ export class GameEngine {
 
       // Process Defense Installation Queue
       this.processPlanetDefenseQueue(planet, nowMs);
+    }
+
+    // Cultural Unity accumulation (Phase 17)
+    if (!this.state.traditions) {
+      this.state.traditions = {};
+    }
+    const elapsedUnityMs = nowMs - this.lastUnityUpdateMs;
+    if (elapsedUnityMs > 0) {
+      const elapsedUnityHours = elapsedUnityMs / (3600 * 1000);
+      this.lastUnityUpdateMs = nowMs;
+      for (const [pId, player] of Object.entries(this.state.players)) {
+        if (player.vacationMode) continue;
+        if (!this.state.traditions[pId]) {
+          this.state.traditions[pId] = initializeEmpireTraditions(pId);
+        }
+        const traditions = this.state.traditions[pId];
+        const rate = calculatePlayerUnityRate(this.state, pId);
+        traditions.unityRatePerHour = rate;
+        traditions.unity += rate * elapsedUnityHours;
+      }
     }
 
     // Market mean reversion: rates gradually drift towards base rates (5% per hour)
@@ -1077,6 +1130,10 @@ export class GameEngine {
 
         if (emptySlot && existingColonies.length < GAME_CONSTANTS.MAX_COLONIES_PER_PLAYER) {
           const newPlanetId = `planet_colony_${this.state.nextId++}`;
+          const hasExpansionT3 = hasTradition(this.state, fleet.ownerId, 'expansion', 3);
+          const starterFighters = hasExpansionT3 ? 3 : 1;
+          const starterBonus = hasExpansionT3 ? 500 : 0;
+
           const newPlanet: Planet = {
             id: newPlanetId,
             name: `${player?.name || 'Koloni'} - ${emptySlot.name}`,
@@ -1085,9 +1142,9 @@ export class GameEngine {
             ownerId: fleet.ownerId,
             isHomeworld: false,
             resources: {
-              ore: fleet.cargo.ore,
-              crystal: fleet.cargo.crystal,
-              fuel: fleet.cargo.fuel,
+              ore: fleet.cargo.ore + starterBonus,
+              crystal: fleet.cargo.crystal + starterBonus,
+              fuel: fleet.cargo.fuel + starterBonus,
             },
             lastResourceUpdate: this.state.timeMs,
             storageCap: 15000,
@@ -1108,7 +1165,7 @@ export class GameEngine {
               ion_cannon: 0,
             },
             defenseQueue: [],
-            garrison: { scout: 0, transport: 0, fighter: 1, battleship: 0 },
+            garrison: { scout: 0, transport: 0, fighter: starterFighters, battleship: 0 },
             stance: 'hold_position',
             specialization: 'balanced',
           };
@@ -1254,6 +1311,8 @@ export class GameEngine {
           const attackerLoadouts = fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId];
           const defenderLoadouts = this.state.shipLoadouts?.[targetPlanet.ownerId];
 
+          const tradCombat = getTraditionCombatMultiplier(this.state, fleet.ownerId, targetPlanet.ownerId, 'planet_raid');
+
           const combatResult = resolveCombat(
             {
               ownerId: fleet.ownerId,
@@ -1264,6 +1323,8 @@ export class GameEngine {
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+              traditionAttackMultiplier: tradCombat.attackerMult,
+              traditionEvasionBonus: tradCombat.attackerEvasionBonus,
               shipLoadouts: attackerLoadouts,
             },
             {
@@ -1277,6 +1338,8 @@ export class GameEngine {
               artifacts: defenderPlayer?.artifacts,
               starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetPlanet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(targetPlanet.ownerId),
+              traditionAttackMultiplier: tradCombat.defenderMult,
+              traditionEvasionBonus: tradCombat.defenderEvasionBonus,
               shipLoadouts: defenderLoadouts,
             },
             targetSystem.id,
@@ -1468,6 +1531,8 @@ export class GameEngine {
               ? { missile_battery: 2, plasma_turret: 1, ion_cannon: 0 }
               : { missile_battery: 1, plasma_turret: 0, ion_cannon: 0 };
 
+          const tradPirateCombat = getTraditionCombatMultiplier(this.state, fleet.ownerId, 'pirates', 'pirate_lair');
+
           const combatResult = resolveCombat(
             {
               ownerId: fleet.ownerId,
@@ -1478,6 +1543,8 @@ export class GameEngine {
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+              traditionAttackMultiplier: tradPirateCombat.attackerMult,
+              traditionEvasionBonus: tradPirateCombat.attackerEvasionBonus,
               shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
             },
             {
@@ -2073,7 +2140,13 @@ export class GameEngine {
         }
 
         const currentLvl = planet.buildings[cmd.buildingType] || 0;
-        const cost = getBuildingUpgradeCost(cmd.buildingType, currentLvl);
+        const rawCost = getBuildingUpgradeCost(cmd.buildingType, currentLvl);
+        const costMod = getTraditionBuildingCostModifier(this.state, playerId);
+        const cost = {
+          ore: Math.round(rawCost.ore * costMod),
+          crystal: Math.round(rawCost.crystal * costMod),
+          fuel: Math.round(rawCost.fuel * costMod),
+        };
 
         if (
           planet.resources.ore < cost.ore ||
@@ -2088,7 +2161,9 @@ export class GameEngine {
         planet.resources.crystal -= cost.crystal;
         planet.resources.fuel -= cost.fuel;
 
-        const durationMs = getBuildingUpgradeDurationMs(cmd.buildingType, currentLvl);
+        const rawDurationMs = getBuildingUpgradeDurationMs(cmd.buildingType, currentLvl);
+        const timeMod = getTraditionBuildingTimeModifier(this.state, playerId);
+        const durationMs = Math.max(1000, Math.round(rawDurationMs * timeMod));
         const finishTime = this.state.timeMs + durationMs;
 
         planet.buildingQueue = {
@@ -2162,6 +2237,12 @@ export class GameEngine {
         const councilBonuses = getCouncilEmpireBonuses(this.state, playerId);
         if (councilBonuses.researchSpeedMultiplier > 1.0) {
           durationMs = Math.max(1000, Math.round(durationMs / councilBonuses.researchSpeedMultiplier));
+        }
+        if (hasTradition(this.state, playerId, 'discovery', 2)) {
+          durationMs = Math.max(1000, Math.round(durationMs * 0.85)); // -15% research duration (data_driven)
+        }
+        if (hasAscensionPerk(this.state, playerId, 'transcendence')) {
+          durationMs = Math.max(1000, Math.round(durationMs / 1.25)); // +25% research speed (transcendence)
         }
         const finishTime = this.state.timeMs + durationMs;
 
@@ -2242,6 +2323,10 @@ export class GameEngine {
         const councilBonuses = getCouncilEmpireBonuses(this.state, playerId);
         if (councilBonuses.shipBuildSpeedMultiplier > 1.0) {
           unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs / councilBonuses.shipBuildSpeedMultiplier));
+        }
+        const traditionShipTimeMod = getTraditionShipyardTimeModifier(this.state, playerId);
+        if (traditionShipTimeMod < 1.0) {
+          unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs * traditionShipTimeMod));
         }
         const nextFinish = (planet.shipyardQueue.length === 0)
           ? this.state.timeMs + unitBuildTimeMs
@@ -2517,6 +2602,22 @@ export class GameEngine {
         if (player.artifacts?.includes('rift_hyperdrive')) {
           effectiveSpeed = Math.round(effectiveSpeed * 1.10);
           effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / 1.10));
+        }
+
+        // Discovery Tradition Tier 3: +15% fleet speed (into_the_unknown)
+        if (hasTradition(this.state, playerId, 'discovery', 3)) {
+          effectiveSpeed = Math.round(effectiveSpeed * 1.15);
+          effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / 1.15));
+        }
+
+        // Expansion Tradition Tier 1: -30% colonize fuel cost (new_frontiers)
+        if (cmd.mission === 'colonize' && hasTradition(this.state, playerId, 'expansion', 1)) {
+          effectiveFuelCost = Math.max(1, Math.round(effectiveFuelCost * 0.70));
+        }
+
+        // Synthetic Evolution Ascension Perk: -30% fleet fuel consumption
+        if (hasAscensionPerk(this.state, playerId, 'synthetic_evolution')) {
+          effectiveFuelCost = Math.max(1, Math.round(effectiveFuelCost * 0.70));
         }
 
         // Cargo validation
@@ -4672,6 +4773,54 @@ export class GameEngine {
         }
         return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { stage: this.state.crisis.stage } };
       }
+
+      case 'ADOPT_TRADITION': {
+        if (!this.state.traditions) {
+          this.state.traditions = {};
+        }
+        if (!this.state.traditions[playerId]) {
+          this.state.traditions[playerId] = initializeEmpireTraditions(playerId);
+        }
+        const res = adoptTradition(this.state, playerId, cmd.treeId, cmd.tier);
+        if (res.success) {
+          this.logEvent(
+            'tradition_adopted',
+            `${player.name} yeni bir gelenek doktrini benimsedi: ${cmd.treeId} (Aşama ${cmd.tier}).`,
+            playerId,
+            { treeId: cmd.treeId, tier: cmd.tier }
+          );
+        }
+        return {
+          success: res.success,
+          commandType: cmd.type,
+          error: res.error,
+          timeMs: this.state.timeMs,
+        };
+      }
+
+      case 'SELECT_ASCENSION_PERK': {
+        if (!this.state.traditions) {
+          this.state.traditions = {};
+        }
+        if (!this.state.traditions[playerId]) {
+          this.state.traditions[playerId] = initializeEmpireTraditions(playerId);
+        }
+        const res = selectAscensionPerk(this.state, playerId, cmd.perkId);
+        if (res.success) {
+          this.logEvent(
+            'ascension_perk_selected',
+            `🌟 BÜYÜK YÜKSELİŞ: ${player.name} bir İmparatorluk Yükseliş Ayrıcalığı benimsedi: ${cmd.perkId}!`,
+            playerId,
+            { perkId: cmd.perkId }
+          );
+        }
+        return {
+          success: res.success,
+          commandType: cmd.type,
+          error: res.error,
+          timeMs: this.state.timeMs,
+        };
+      }
     }
   }
 
@@ -4879,6 +5028,7 @@ export class GameEngine {
       councils: {},
       shipLoadouts: {},
       crisis: null,
+      traditions: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -4922,6 +5072,7 @@ export class GameEngine {
     this.scheduledEvents = [];
     this.lastMarketUpdateMs = 0;
     this.lastSectorEventSpawnMs = 0;
+    this.lastUnityUpdateMs = 0;
 
     // Schedule initial relay point tick
     this.scheduleEvent(GAME_CONSTANTS.RELAY_POINT_INTERVAL_MS, 'relay_point_tick', {});
