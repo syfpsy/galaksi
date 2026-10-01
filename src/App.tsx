@@ -3423,6 +3423,8 @@ export function App() {
             activePlanetId={activePlanetId}
             isMinimized={isBottomDockMinimized}
             onToggleMinimized={setIsBottomDockMinimized}
+            directDispatchMode={directDispatchMode}
+            onSetDirectDispatchMode={setDirectDispatchMode}
             onOpenCommandPanel={() => setIsCommandPanelOpen(true)}
             onRecallFleet={handleRecallFleet}
             onOpenShipyard={() => setActiveLeftPanel('shipyard')}
@@ -3460,7 +3462,7 @@ export function App() {
 
         {/* Fleet Dispatch & Target Command Deck (Floating Slide-over Drawer) */}
         {isCommandPanelOpen && (
-          <div className={`absolute ${isOutlinerCollapsed ? 'right-4' : 'right-72'} top-0 bottom-0 z-30 shadow-2xl animate-fade-in flex`}>
+          <div className="absolute right-0 top-0 bottom-0 z-30 shadow-2xl animate-fade-in flex">
             <CommandPanel
               state={engineState}
               activePlayerId={activePlayerId}

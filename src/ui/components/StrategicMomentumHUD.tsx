@@ -80,7 +80,7 @@ export const StrategicMomentumHUD: React.FC<StrategicMomentumHUDProps> = ({
     }
   };
 
-  const bottomOffsetClass = dockMinimized ? 'bottom-12' : 'bottom-[124px]';
+  const bottomOffsetClass = dockMinimized ? 'bottom-12' : 'bottom-[100px]';
 
   return (
     <div className={`fixed ${bottomOffsetClass} left-1/2 -translate-x-1/2 z-20 max-w-4xl w-[95%] sm:w-auto select-none pointer-events-auto font-mono transition-all duration-300`}>
