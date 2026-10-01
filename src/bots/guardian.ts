@@ -12,6 +12,7 @@ import { evaluateBotTraditions } from './traditions';
 import { evaluateBotArchaeology } from './archaeology';
 import { evaluateBotTerraforming } from './terraforming';
 import { evaluateBotTrade } from './trade';
+import { evaluateBotWarfare } from './wars';
 import { IBotAgent } from './types';
 
 export class GuardianBot implements IBotAgent {
@@ -200,6 +201,9 @@ export class GuardianBot implements IBotAgent {
 
     // 14. Galactic Trade Networks, Trade Policies & Fleet Patrols (Phase 20)
     evaluateBotTrade(engine, this.playerId, this.archetype, executedCommands);
+
+    // 15. Casus Belli, Wars, War Exhaustion & Subject Management (Phase 21)
+    evaluateBotWarfare(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

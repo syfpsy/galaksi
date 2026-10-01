@@ -54,11 +54,13 @@ interface StellarisLeftRailProps {
   onOpenArchaeology?: () => void;
   onOpenTerraform?: () => void;
   onOpenTradeRoutes?: () => void;
+  onOpenWarfare?: () => void;
   onOpenCrisis?: () => void;
   onOpenGallery: () => void;
   activeTerraformingCount?: number;
   collectedTradeValue?: number;
   hasTradePiracyThreat?: boolean;
+  activeWarsCount?: number;
   archaeologyPendingCount?: number;
   isCrisisActive?: boolean;
   crisisStage?: string;
@@ -106,11 +108,13 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenArchaeology,
   onOpenTerraform,
   onOpenTradeRoutes,
+  onOpenWarfare,
   onOpenCrisis,
   onOpenGallery,
   activeTerraformingCount = 0,
   collectedTradeValue = 0,
   hasTradePiracyThreat = false,
+  activeWarsCount = 0,
   archaeologyPendingCount = 0,
   isCrisisActive = false,
   crisisStage,
@@ -822,6 +826,46 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             {collectedTradeValue > 0 && (
               <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-amber-300 font-mono">
                 💰 Net Akış: {collectedTradeValue} TV/saat
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Casus Belli, Wars & Subjects (Phase 21) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenWarfare) onOpenWarfare();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'warfare' ? 'active' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Swords className="w-5 h-5 text-red-400 group-hover:scale-110 transition-transform" />
+            {activeWarsCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center border border-red-400 shadow-md animate-pulse">
+                {activeWarsCount}
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-400 group-hover:text-red-300">
+              SVS
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="stellaris-gold tracking-wide">SAVAŞ & VASALLIK KARARGAHI</span>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 21
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Casus Belli savaş hedefleri, savaş yorgunluğu (War Exhaustion), barış antlaşmaları ve vasallık sözleşmeleri.
+            </p>
+            {activeWarsCount > 0 && (
+              <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-red-300 font-mono">
+                ⚔️ {activeWarsCount} Aktif Savaş Cephesi
               </div>
             )}
           </div>

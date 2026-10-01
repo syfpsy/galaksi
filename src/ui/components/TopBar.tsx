@@ -68,6 +68,7 @@ interface TopBarProps {
   onOpenArchaeology?: () => void;
   onOpenTerraform?: () => void;
   onOpenTradeRoutes?: () => void;
+  onOpenWarfare?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -104,6 +105,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenArchaeology,
   onOpenTerraform,
   onOpenTradeRoutes,
+  onOpenWarfare,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -778,6 +780,63 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                   <span>Politika:</span>
                   <span className="font-semibold uppercase">{tState?.policy || 'energy_wealth'}</span>
                 </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* 6.6. WARFARE & CASUS BELLI POD (Phase 21) */}
+        {(() => {
+          const activeWars = Object.values(state.wars || {}).filter(
+            (w) => w.status === 'active' && (w.attackerId === activePlayerId || w.defenderId === activePlayerId)
+          );
+          const hasWars = activeWars.length > 0;
+          const mySubjects = Object.values(state.subjects || {}).filter(
+            (s) => s.overlordId === activePlayerId
+          );
+
+          if (!hasWars && mySubjects.length === 0) return null;
+
+          return (
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenWarfare) onOpenWarfare();
+                }}
+                className={`stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  hasWars
+                    ? 'border-red-500/60 text-red-300 bg-red-950/30 hover:border-red-400'
+                    : 'border-cyan-500/30 text-cyan-300 hover:border-cyan-400'
+                }`}
+                title="Savaş Cepheleri & Vasallık Karargahı"
+              >
+                <Swords className={`w-4 h-4 ${hasWars ? 'text-red-400 animate-pulse' : 'text-cyan-400'} group-hover:scale-110 transition-transform`} />
+                <span className="font-bold text-white text-xs">
+                  {hasWars ? `${activeWars.length} Savaş` : `${mySubjects.length} Vasal`}
+                </span>
+                {hasWars && (
+                  <span className="w-2 h-2 rounded-full bg-red-500 animate-ping" />
+                )}
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[260px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+                <div className="flex items-center justify-between text-xs font-bold mb-1">
+                  <span className="stellaris-gold tracking-wide">SAVAŞ & VASALLIK KARARGAHI</span>
+                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                    FAZ 21
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  {hasWars
+                    ? `${activeWars.length} aktif savaş cephesinde çatışmalar ve savaş yorgunluğu devam ediyor.`
+                    : `${mySubjects.length} adet bağımlı devlet imparatorluğunuza haraç ödüyor.`}
+                </p>
+                {hasWars && (
+                  <div className="mt-2 pt-1 border-t border-slate-800 text-[10px] text-red-300 font-mono">
+                    Detayları ve barış müzakerelerini görüntülemek için tıklayın.
+                  </div>
+                )}
               </div>
             </div>
           );

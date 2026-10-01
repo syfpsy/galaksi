@@ -219,6 +219,58 @@ export interface PlayerTradeState {
   lastUpdateMs: number;
 }
 
+// ==========================================
+// Phase 21: Casus Belli, War Goals, War Exhaustion & Subject/Vassal Agreements
+// ==========================================
+
+export type WarGoalType =
+  | 'conquest'       // Seize claimed or occupied enemy colonies
+  | 'subjugation'    // Impose Vassalage on defeated empire
+  | 'tributary'      // Impose Tributary status (resource tithes)
+  | 'liberation'     // Free subjects from overlords, break hostile pacts, grant independence
+  | 'humiliation';   // Strip Hegemony points, transfer Hegemony & massive Cultural Unity
+
+export type WarStatus =
+  | 'active'
+  | 'attacker_victory'
+  | 'defender_victory'
+  | 'status_quo'
+  | 'white_peace';
+
+export interface WarState {
+  id: string;
+  name: string;
+  declaredAtMs: number;
+  attackerId: string;
+  attackerWarGoal: WarGoalType;
+  defenderId: string;
+  defenderWarGoal: WarGoalType;
+  attackerExhaustion: number; // 0 to 100 percentage
+  defenderExhaustion: number; // 0 to 100 percentage
+  attackerOccupation: number; // 0 to 100 percentage
+  defenderOccupation: number; // 0 to 100 percentage
+  battlesWonByAttacker: number;
+  battlesWonByDefender: number;
+  status: WarStatus;
+  concludedAtMs?: number;
+}
+
+export type SubjectType =
+  | 'vassal'       // Overlord defends & joins wars, 15% resource tithe, shared vision
+  | 'tributary'    // Retains foreign policy freedom, 30% resource tithe, no war obligations
+  | 'scholarium'   // Specialized research satellite: +25% research shared, 10% mineral tithe
+  | 'bulwark';     // Specialized defense march: receives resource subsidies, +25% combat defense
+
+export interface SubjectAgreement {
+  subjectId: string;
+  overlordId: string;
+  type: SubjectType;
+  establishedAtMs: number;
+  titheRate: number; // 0.10 to 0.40
+  integrationProgress?: number; // 0 to 100 if being integrated
+  loyalty: number; // -100 to +100
+}
+
 
 export interface PlanetSlot {
   slotIndex: number;
@@ -893,6 +945,8 @@ export interface Player {
   relicCooldowns?: Record<string, number>; // Phase 18: relicId -> cooldownExpiresAtMs
   tradePolicy?: TradePolicy; // Phase 20: Galactic Trade Policy
   commercialPacts?: string[]; // Phase 20: Array of partner playerIds
+  overlordId?: string | null; // Phase 21: ID of overlord if player is a subject
+  subjects?: string[]; // Phase 21: Array of subject playerIds
 }
 
 export type EmpireDirectiveId =
@@ -1036,6 +1090,8 @@ export interface GameState {
   activeRelicTriumphs?: Record<string, ActiveRelicTriumph[]>; // key: playerId (Phase 18)
   tradeStates?: Record<string, PlayerTradeState>; // key: playerId (Phase 20)
   systemTrade?: Record<string, SystemTradeInfo>; // key: systemId (Phase 20)
+  wars?: Record<string, WarState>; // key: warId (Phase 21)
+  subjects?: Record<string, SubjectAgreement>; // key: subjectId (Phase 21)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1358,6 +1414,30 @@ export type GameCommand =
   | {
       type: 'BREAK_COMMERCIAL_PACT';
       targetPlayerId: string;
+    }
+  | {
+      type: 'DECLARE_WAR';
+      targetPlayerId: string;
+      warGoal: WarGoalType;
+    }
+  | {
+      type: 'OFFER_PEACE';
+      warId: string;
+      proposalType: 'surrender' | 'status_quo' | 'white_peace';
+    }
+  | {
+      type: 'SET_SUBJECT_TERMS';
+      subjectId: string;
+      subjectType: SubjectType;
+      titheRate: number;
+    }
+  | {
+      type: 'RELEASE_SUBJECT';
+      subjectId: string;
+    }
+  | {
+      type: 'INTEGRATE_SUBJECT';
+      subjectId: string;
     };
 
 export interface CommandReceipt {

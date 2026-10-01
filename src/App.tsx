@@ -35,6 +35,8 @@ import {
   TraditionTreeId,
   TransmissionType,
   TradePolicy,
+  SubjectType,
+  WarGoalType,
 } from './engine/types';
 import { evaluatePlayerDirectives } from './engine/directives';
 import { AllianceModal, AllianceTab } from './ui/components/AllianceModal';
@@ -51,6 +53,7 @@ import { TraditionsModal } from './ui/components/TraditionsModal';
 import { ArchaeologyModal } from './ui/components/ArchaeologyModal';
 import { TerraformModal } from './ui/components/TerraformModal';
 import { TradeRoutesModal } from './ui/components/TradeRoutesModal';
+import { WarfareModal } from './ui/components/WarfareModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -94,6 +97,7 @@ type LeftPanelType =
   | 'archaeology'
   | 'terraform'
   | 'trade_routes'
+  | 'warfare'
   | 'crisis'
   | 'relay'
   | 'gallery'
@@ -1209,6 +1213,80 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleDeclareWar = (targetPlayerId: string, warGoal: WarGoalType) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DECLARE_WAR',
+      targetPlayerId,
+      warGoal,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleOfferPeace = (warId: string, proposalType: 'surrender' | 'status_quo' | 'white_peace') => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'OFFER_PEACE',
+      warId,
+      proposalType,
+    });
+    if (res.success) {
+      sound.playNotification();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSetSubjectTerms = (subjectId: string, subjectType: SubjectType, titheRate: number) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SET_SUBJECT_TERMS',
+      subjectId,
+      subjectType,
+      titheRate,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleReleaseSubject = (subjectId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RELEASE_SUBJECT',
+      subjectId,
+    });
+    if (res.success) {
+      sound.playNotification();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleIntegrateSubject = (subjectId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'INTEGRATE_SUBJECT',
+      subjectId,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1499,6 +1577,7 @@ export function App() {
         onOpenArchaeology={() => setActiveLeftPanel((prev) => (prev === 'archaeology' ? null : 'archaeology'))}
         onOpenTerraform={() => setActiveLeftPanel((prev) => (prev === 'terraform' ? null : 'terraform'))}
         onOpenTradeRoutes={() => setActiveLeftPanel((prev) => (prev === 'trade_routes' ? null : 'trade_routes'))}
+        onOpenWarfare={() => setActiveLeftPanel((prev) => (prev === 'warfare' ? null : 'warfare'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -1538,8 +1617,14 @@ export function App() {
           onOpenArchaeology={() => setActiveLeftPanel((prev) => (prev === 'archaeology' ? null : 'archaeology'))}
           onOpenTerraform={() => setActiveLeftPanel((prev) => (prev === 'terraform' ? null : 'terraform'))}
           onOpenTradeRoutes={() => setActiveLeftPanel((prev) => (prev === 'trade_routes' ? null : 'trade_routes'))}
+          onOpenWarfare={() => setActiveLeftPanel((prev) => (prev === 'warfare' ? null : 'warfare'))}
           collectedTradeValue={engineState.tradeStates?.[activePlayerId]?.totalCollectedTV}
           hasTradePiracyThreat={Boolean((engineState.tradeStates?.[activePlayerId]?.totalLostTV || 0) > 0)}
+          activeWarsCount={
+            Object.values(engineState.wars || {}).filter(
+              (w) => w.status === 'active' && (w.attackerId === activePlayerId || w.defenderId === activePlayerId)
+            ).length
+          }
           onOpenCrisis={() => setActiveLeftPanel((prev) => (prev === 'crisis' ? null : 'crisis'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
@@ -2082,6 +2167,25 @@ export function App() {
           onProposeCommercialPact={handleProposeCommercialPact}
           onBreakCommercialPact={handleBreakCommercialPact}
           onDispatchPatrol={handleDispatchPatrol}
+          onSelectSystem={(systemId) => {
+            setSelectedTarget({ type: 'system', systemId });
+            setActiveLeftPanel(null);
+          }}
+        />
+      )}
+
+      {/* Galactic Warfare, Casus Belli & Vassalage Modal (Phase 21) */}
+      {activeLeftPanel === 'warfare' && (
+        <WarfareModal
+          isOpen={true}
+          onClose={() => setActiveLeftPanel(null)}
+          state={engineState}
+          playerId={activePlayerId}
+          onDeclareWar={handleDeclareWar}
+          onOfferPeace={handleOfferPeace}
+          onSetSubjectTerms={handleSetSubjectTerms}
+          onReleaseSubject={handleReleaseSubject}
+          onIntegrateSubject={handleIntegrateSubject}
           onSelectSystem={(systemId) => {
             setSelectedTarget({ type: 'system', systemId });
             setActiveLeftPanel(null);

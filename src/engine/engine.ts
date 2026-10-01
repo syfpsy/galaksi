@@ -178,6 +178,21 @@ import {
   updateTradeNetworks,
   calculatePlanetTradeValue,
 } from './trade';
+import {
+  WAR_GOAL_CONFIGS,
+  SUBJECT_TYPE_CONFIGS,
+  isAtWar,
+  getActiveWarsForPlayer,
+  getSubjectAgreement,
+  getPlayerSubjects,
+  recordBattleWarExhaustion,
+  updateWarsAndSubjects,
+  declareWar,
+  offerPeace,
+  setSubjectTerms,
+  releaseSubject,
+  integrateSubject,
+} from './wars';
 
 
 export class GameEngine {
@@ -189,6 +204,7 @@ export class GameEngine {
   private lastUnityUpdateMs: number = 0;
   private lastArchaeologyTickMs: number = 0;
   private lastTradeTickMs: number = 0;
+  private lastWarTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -214,6 +230,8 @@ export class GameEngine {
       activeRelicTriumphs: {},
       tradeStates: {},
       systemTrade: {},
+      wars: {},
+      subjects: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -305,6 +323,8 @@ export class GameEngine {
       relicCooldowns: {},
       tradePolicy: 'energy_wealth',
       commercialPacts: [],
+      overlordId: null,
+      subjects: [],
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -682,6 +702,13 @@ export class GameEngine {
     this.lastTradeTickMs = nowMs;
     if (tradeElapsedMs > 0) {
       updateTradeNetworks(this.state, tradeElapsedMs);
+    }
+
+    // Wars, War Exhaustion & Subject Tithes tick (Phase 21)
+    const warElapsedMs = Math.max(0, nowMs - this.lastWarTickMs);
+    this.lastWarTickMs = nowMs;
+    if (warElapsedMs > 0) {
+      updateWarsAndSubjects(this.state, warElapsedMs);
     }
   }
 
@@ -1480,6 +1507,7 @@ export class GameEngine {
           );
 
           this.state.battleReports.push(combatResult.report);
+          recordBattleWarExhaustion(this.state, combatResult.report);
           this.handlePostCombatAdmiralXP(combatResult);
 
           // Update defender garrison, defenses, starbase, and deducted looted resources
@@ -1814,6 +1842,7 @@ export class GameEngine {
         );
 
         this.state.battleReports.push(combatResult.report);
+        recordBattleWarExhaustion(this.state, combatResult.report);
         this.handlePostCombatAdmiralXP(combatResult);
 
         // Add debris
@@ -2635,8 +2664,9 @@ export class GameEngine {
               return { success: false, commandType: cmd.type, error: 'Hedef oyuncu tatil modunda korumalıdır. Saldırı düzenlenemez.', timeMs: this.state.timeMs };
             }
 
-            // Check attacker newbie protection
-            if (this.state.timeMs < player.protectionUntilTime) {
+            // Check attacker & defender newbie protection (unless in active war)
+            const activeWar = isAtWar(this.state, playerId, targetPlanet.ownerId);
+            if (!activeWar && this.state.timeMs < player.protectionUntilTime) {
               const remainingHours = Math.ceil((player.protectionUntilTime - this.state.timeMs) / (3600 * 1000));
               return {
                 success: false,
@@ -2647,7 +2677,7 @@ export class GameEngine {
             }
 
             // Check defender newbie protection
-            if (this.state.timeMs < targetOwner.protectionUntilTime) {
+            if (!activeWar && this.state.timeMs < targetOwner.protectionUntilTime) {
               return {
                 success: false,
                 commandType: cmd.type,
@@ -5263,6 +5293,71 @@ export class GameEngine {
           data: { partnerId: cmd.targetPlayerId },
         };
       }
+
+      case 'DECLARE_WAR': {
+        const res = declareWar(this.state, playerId, cmd.targetPlayerId, cmd.warGoal);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { warId: res.warId, targetPlayerId: cmd.targetPlayerId, warGoal: cmd.warGoal },
+        };
+      }
+
+      case 'OFFER_PEACE': {
+        const res = offerPeace(this.state, playerId, cmd.warId, cmd.proposalType);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { warId: cmd.warId, proposalType: cmd.proposalType, outcome: res.outcome },
+        };
+      }
+
+      case 'SET_SUBJECT_TERMS': {
+        const res = setSubjectTerms(this.state, playerId, cmd.subjectId, cmd.subjectType, cmd.titheRate);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { subjectId: cmd.subjectId, subjectType: cmd.subjectType, titheRate: cmd.titheRate },
+        };
+      }
+
+      case 'RELEASE_SUBJECT': {
+        const res = releaseSubject(this.state, playerId, cmd.subjectId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { subjectId: cmd.subjectId },
+        };
+      }
+
+      case 'INTEGRATE_SUBJECT': {
+        const res = integrateSubject(this.state, playerId, cmd.subjectId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { subjectId: cmd.subjectId },
+        };
+      }
     }
   }
 
@@ -5473,6 +5568,10 @@ export class GameEngine {
       traditions: {},
       archaeologySites: initializeSectorArchaeologySites(map.systems),
       activeRelicTriumphs: {},
+      tradeStates: {},
+      systemTrade: {},
+      wars: {},
+      subjects: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},

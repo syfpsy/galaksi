@@ -95,6 +95,23 @@ import {
   updateTradeNetworks,
 } from '../src/engine/trade';
 import { evaluateBotTrade } from '../src/bots/trade';
+import { BattleReport } from '../src/engine/types';
+import {
+  WAR_GOAL_CONFIGS,
+  SUBJECT_TYPE_CONFIGS,
+  isAtWar,
+  getActiveWarsForPlayer,
+  getSubjectAgreement,
+  getPlayerSubjects,
+  recordBattleWarExhaustion,
+  updateWarsAndSubjects,
+  declareWar,
+  offerPeace,
+  setSubjectTerms,
+  releaseSubject,
+  integrateSubject,
+} from '../src/engine/wars';
+import { evaluateBotWarfare } from '../src/bots/wars';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -3906,6 +3923,289 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(botCmds3[0].type).toBe('DISPATCH_FLEET');
     expect(botCmds3[0].mission).toBe('patrol');
     expect(botCmds3[0].targetSystemId).toBe(targetSystem.id);
+  });
+
+  it('handles Casus Belli, War Goals, War Exhaustion, Subject/Vassal Agreements & Peace Treaties (Phase 21)', () => {
+    const engine = new GameEngine(777);
+    const { player: p1, homeworld: p1Hw } = engine.addPlayer('p1', 'Aggressor Empire', '#ff0055', false, 'raider');
+    const { player: p2, homeworld: p2Hw } = engine.addPlayer('p2', 'Defender Empire', '#00f3ff', false, 'industrialist');
+    const { player: p3, homeworld: p3Hw } = engine.addPlayer('p3', 'Third Party Empire', '#10b981', false, 'guardian');
+
+    // Initial state verifications
+    expect(engine.state.wars).toBeDefined();
+    expect(engine.state.subjects).toBeDefined();
+    expect(p1.overlordId).toBeNull();
+    expect(p1.subjects).toEqual([]);
+    expect(isAtWar(engine.state, p1.id, p2.id)).toBeNull();
+
+    // 1. CONFIGS validation
+    expect(WAR_GOAL_CONFIGS.conquest.nameTr).toBeDefined();
+    expect(WAR_GOAL_CONFIGS.subjugation.nameTr).toBeDefined();
+    expect(WAR_GOAL_CONFIGS.tributary.nameTr).toBeDefined();
+    expect(WAR_GOAL_CONFIGS.liberation.nameTr).toBeDefined();
+    expect(WAR_GOAL_CONFIGS.humiliation.nameTr).toBeDefined();
+
+    expect(SUBJECT_TYPE_CONFIGS.vassal.defaultTitheRate).toBe(0.15);
+    expect(SUBJECT_TYPE_CONFIGS.tributary.defaultTitheRate).toBe(0.30);
+    expect(SUBJECT_TYPE_CONFIGS.scholarium.defaultTitheRate).toBe(0.10);
+    expect(SUBJECT_TYPE_CONFIGS.bulwark.defaultTitheRate).toBe(-0.10);
+
+    // 2. DECLARE_WAR Validation & Execution
+    // Cannot declare war on self
+    const selfWar = engine.dispatchCommand(p1.id, {
+      type: 'DECLARE_WAR',
+      targetPlayerId: p1.id,
+      warGoal: 'conquest',
+    });
+    expect(selfWar.success).toBe(false);
+
+    // Cannot declare war on non-existent player
+    const invalidWar = engine.dispatchCommand(p1.id, {
+      type: 'DECLARE_WAR',
+      targetPlayerId: 'non_existent_id',
+      warGoal: 'conquest',
+    });
+    expect(invalidWar.success).toBe(false);
+
+    // Cannot declare war if ally
+    p1.allianceId = 'ally_omega';
+    p3.allianceId = 'ally_omega';
+    const allyWar = engine.dispatchCommand(p1.id, {
+      type: 'DECLARE_WAR',
+      targetPlayerId: p3.id,
+      warGoal: 'subjugation',
+    });
+    expect(allyWar.success).toBe(false);
+    p1.allianceId = null;
+    p3.allianceId = null;
+
+    // Successful war declaration: p1 declares Subjugation war on p2
+    const warRes = engine.dispatchCommand(p1.id, {
+      type: 'DECLARE_WAR',
+      targetPlayerId: p2.id,
+      warGoal: 'subjugation',
+    });
+    expect(warRes.success).toBe(true);
+    expect(isAtWar(engine.state, p1.id, p2.id)).not.toBeNull();
+    expect(isAtWar(engine.state, p2.id, p1.id)).not.toBeNull();
+    expect(isAtWar(engine.state, p1.id, p3.id)).toBeNull();
+
+    const activeWarsP1 = getActiveWarsForPlayer(engine.state, p1.id);
+    expect(activeWarsP1.length).toBe(1);
+    const war = activeWarsP1[0];
+    expect(war.attackerId).toBe(p1.id);
+    expect(war.defenderId).toBe(p2.id);
+    expect(war.attackerWarGoal).toBe('subjugation');
+    expect(war.status).toBe('active');
+    expect(war.attackerExhaustion).toBe(0);
+    expect(war.defenderExhaustion).toBe(0);
+
+    // Cannot declare another war while already at war
+    const dupWar = engine.dispatchCommand(p1.id, {
+      type: 'DECLARE_WAR',
+      targetPlayerId: p2.id,
+      warGoal: 'conquest',
+    });
+    expect(dupWar.success).toBe(false);
+
+    // 3. War Exhaustion Tracking
+    // Record fleet battle casualties: p1 loses 2 fighters, p2 loses 5 battleships
+    const fleetBattleReport: BattleReport = {
+      id: 'br_fleet_test',
+      context: 'fleet_interception',
+      attackerId: p1.id,
+      defenderId: p2.id,
+      systemId: 'sys_test',
+      rounds: [
+        {
+          roundNumber: 1,
+          attackerLosses: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+          defenderLosses: { scout: 0, transport: 0, fighter: 0, battleship: 5 },
+          attackerRemaining: { scout: 0, transport: 0, fighter: 10, battleship: 2 },
+          defenderRemaining: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+        },
+      ],
+      winner: 'attacker',
+      loot: { ore: 0, crystal: 0, fuel: 0 },
+      timestamp: engine.state.timeMs,
+      survivingAttacker: { scout: 0, transport: 0, fighter: 10, battleship: 2 },
+      survivingDefender: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+    };
+    recordBattleWarExhaustion(engine.state, fleetBattleReport);
+    expect(war.attackerExhaustion).toBeGreaterThan(0);
+    expect(war.defenderExhaustion).toBeGreaterThan(war.attackerExhaustion);
+
+    // Planetary raid casualty / defense wipe boost
+    const defExhaustionBeforeRaid = war.defenderExhaustion;
+    const raidBattleReport: BattleReport = {
+      id: 'br_raid_test',
+      context: 'planet_raid',
+      attackerId: p1.id,
+      defenderId: p2.id,
+      systemId: 'sys_test',
+      planetId: p2Hw.id,
+      rounds: [
+        {
+          roundNumber: 1,
+          attackerLosses: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+          defenderLosses: { scout: 0, transport: 0, fighter: 1, battleship: 0 },
+          attackerRemaining: { scout: 0, transport: 0, fighter: 10, battleship: 2 },
+          defenderRemaining: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+        },
+      ],
+      winner: 'attacker',
+      loot: { ore: 100, crystal: 100, fuel: 100 },
+      timestamp: engine.state.timeMs,
+      survivingAttacker: { scout: 0, transport: 0, fighter: 10, battleship: 2 },
+      survivingDefender: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+      survivingDefenses: { missile_battery: 0, plasma_turret: 0, ion_cannon: 0 },
+    };
+    recordBattleWarExhaustion(engine.state, raidBattleReport);
+    expect(war.defenderExhaustion).toBeGreaterThan(defExhaustionBeforeRaid);
+
+    // Passive war exhaustion attrition over time
+    const defExhaustionBeforeTick = war.defenderExhaustion;
+    updateWarsAndSubjects(engine.state, 60000); // 1 minute
+    expect(war.defenderExhaustion).toBeGreaterThanOrEqual(defExhaustionBeforeTick);
+
+    // 4. Peace Settlement (OFFER_PEACE)
+    // Non-participant cannot offer peace
+    const unauthorizedPeace = engine.dispatchCommand(p3.id, {
+      type: 'OFFER_PEACE',
+      warId: war.id,
+      proposalType: 'status_quo',
+    });
+    expect(unauthorizedPeace.success).toBe(false);
+
+    // Surrender with subjugation war goal -> p2 surrenders to p1
+    const surrenderRes = engine.dispatchCommand(p2.id, {
+      type: 'OFFER_PEACE',
+      warId: war.id,
+      proposalType: 'surrender',
+    });
+    expect(surrenderRes.success).toBe(true);
+    expect(war.status).toBe('attacker_victory');
+    expect(isAtWar(engine.state, p1.id, p2.id)).toBeNull();
+
+    // Check vassal creation
+    const agreement = getSubjectAgreement(engine.state, p2.id);
+    expect(agreement).toBeDefined();
+    expect(agreement!.overlordId).toBe(p1.id);
+    expect(agreement!.subjectId).toBe(p2.id);
+    expect(agreement!.type).toBe('vassal');
+    expect(p2.overlordId).toBe(p1.id);
+    expect(p1.subjects).toContain(p2.id);
+
+    const p1Subjects = getPlayerSubjects(engine.state, p1.id);
+    expect(p1Subjects.length).toBe(1);
+    expect(p1Subjects[0].subjectId).toBe(p2.id);
+
+    // Truce is established between p1 and p2 (10 minutes)
+    expect(engine.state.truces).toBeDefined();
+    const sortedPair = [p1.id, p2.id].sort();
+    const truceKey = `${sortedPair[0]}_${sortedPair[1]}`;
+    expect(engine.state.truces![truceKey]).toBeGreaterThan(engine.state.timeMs);
+
+    // Cannot immediately declare war during truce
+    const truceWar = engine.dispatchCommand(p1.id, {
+      type: 'DECLARE_WAR',
+      targetPlayerId: p2.id,
+      warGoal: 'humiliation',
+    });
+    expect(truceWar.success).toBe(false);
+
+    // 5. Subject & Vassal Mechanics
+    // Setup resources on p2 homeworld to test tithes
+    p2Hw.resources = { ore: 10000, crystal: 5000, fuel: 5000 };
+    p1Hw.resources = { ore: 1000, crystal: 1000, fuel: 1000 };
+
+    // Update wars and subjects passive tick (simulate 10 minutes)
+    updateWarsAndSubjects(engine.state, 600000);
+    // Overlord received resources, subject tithed
+    expect(p1Hw.resources.ore).toBeGreaterThan(1000);
+    expect(p2Hw.resources.ore).toBeLessThan(10000);
+
+    // INTEGRATE_SUBJECT: Overlord initiates integration
+    const intRes = engine.dispatchCommand(p1.id, {
+      type: 'INTEGRATE_SUBJECT',
+      subjectId: p2.id,
+    });
+    expect(intRes.success).toBe(true);
+    expect(agreement!.integrationProgress).toBe(0);
+
+    // Fast-forward integration progress by ticking 25 hours (rate is 5%/hr)
+    updateWarsAndSubjects(engine.state, 25 * 3600000);
+    // Subject should be fully annexed
+    expect(p2Hw.ownerId).toBe(p1.id);
+    expect(getSubjectAgreement(engine.state, p2.id)).toBeNull();
+    expect(p2.overlordId).toBeNull();
+    expect(p1.subjects).not.toContain(p2.id);
+
+    // 6. Test SET_SUBJECT_TERMS & RELEASE_SUBJECT on a new subject
+    const { player: p4 } = engine.addPlayer('p4', 'Tributary Empire', '#38bdf8', false, 'explorer');
+    engine.state.subjects[p4.id] = {
+      subjectId: p4.id,
+      overlordId: p1.id,
+      type: 'tributary',
+      establishedAtMs: engine.state.timeMs,
+      titheRate: 0.30,
+      loyalty: 30,
+    };
+    p4.overlordId = p1.id;
+    p1.subjects!.push(p4.id);
+
+    // Unauthorized player cannot set terms
+    const badTerms = engine.dispatchCommand(p3.id, {
+      type: 'SET_SUBJECT_TERMS',
+      subjectId: p4.id,
+      subjectType: 'scholarium',
+      titheRate: 0.20,
+    });
+    expect(badTerms.success).toBe(false);
+
+    // Overlord changes terms to scholarium
+    const goodTerms = engine.dispatchCommand(p1.id, {
+      type: 'SET_SUBJECT_TERMS',
+      subjectId: p4.id,
+      subjectType: 'scholarium',
+      titheRate: 0.10,
+    });
+    expect(goodTerms.success).toBe(true);
+    expect(engine.state.subjects[p4.id].type).toBe('scholarium');
+    expect(engine.state.subjects[p4.id].titheRate).toBe(0.10);
+
+    // Overlord releases subject
+    const releaseRes = engine.dispatchCommand(p1.id, {
+      type: 'RELEASE_SUBJECT',
+      subjectId: p4.id,
+    });
+    expect(releaseRes.success).toBe(true);
+    expect(getSubjectAgreement(engine.state, p4.id)).toBeNull();
+    expect(p4.overlordId).toBeNull();
+
+    // 7. Bot AI Warfare Decisions (evaluateBotWarfare)
+    const { player: botRaider, homeworld: raiderHw } = engine.addPlayer('bot_raider', 'Bot Raider', '#f43f5e', true, 'raider');
+    const { player: botVictim, homeworld: victimHw } = engine.addPlayer('bot_victim', 'Bot Victim', '#a855f7', true, 'guardian');
+    raiderHw.garrison.battleship = 10;
+    victimHw.garrison.battleship = 1;
+
+    const botCmds: any[] = [];
+    evaluateBotWarfare(engine, botRaider.id, 'raider', botCmds);
+    // Aggressive raider with military superiority should declare war
+    expect(botCmds.length).toBeGreaterThan(0);
+    const warDecCmd = botCmds.find((c) => c.type === 'DECLARE_WAR');
+    expect(warDecCmd).toBeDefined();
+
+    // Bot war is now active; with extreme war exhaustion, bot offers status quo
+    const botWar = getActiveWarsForPlayer(engine.state, botRaider.id)[0];
+    expect(botWar).toBeDefined();
+    botWar.attackerExhaustion = 90; // Over 85% threshold
+    const botPeaceCmds: any[] = [];
+    evaluateBotWarfare(engine, botRaider.id, 'raider', botPeaceCmds);
+    const peaceOfferCmd = botPeaceCmds.find((c) => c.type === 'OFFER_PEACE');
+    expect(peaceOfferCmd).toBeDefined();
+    expect(peaceOfferCmd.proposalType).toBe('status_quo');
+    expect(botWar.status).toBe('status_quo');
   });
 });
 
