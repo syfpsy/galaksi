@@ -71,7 +71,8 @@ import { ParagonModal } from './ui/components/ParagonModal';
 import { HyperRelayModal } from './ui/components/HyperRelayModal';
 import { ShadowOpsModal } from './ui/components/ShadowOpsModal';
 import { GroundInvasionModal } from './ui/components/GroundInvasionModal';
-import { HyperRelayPolicy, SecretAgentTrait, ShadowOpType, ArmyType, BombardmentStance } from './engine/types';
+import { EnclavesModal } from './ui/components/EnclavesModal';
+import { HyperRelayPolicy, SecretAgentTrait, ShadowOpType, ArmyType, BombardmentStance, EnclaveServiceId } from './engine/types';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -125,6 +126,7 @@ type LeftPanelType =
   | 'hyperRelays'
   | 'shadowOps'
   | 'groundWarfare'
+  | 'enclaves'
   | 'relay'
   | 'gallery'
   | null;
@@ -2057,6 +2059,51 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  // Phase 31: Enclaves, Caravaneers & Shroud Factions Handlers
+  const handleInteractEnclave = (enclaveId: string, serviceId: EnclaveServiceId) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'INTERACT_ENCLAVE',
+      enclaveId,
+      serviceId,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleBuyCaravanReliquary = (caravanId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'BUY_CARAVAN_RELIQUARY',
+      caravanId,
+    });
+    if (res.success) {
+      sound.playLaser();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleGambleCaravanSlots = (caravanId: string, betAmount: number) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'GAMBLE_CARAVAN_SLOTS',
+      caravanId,
+      betAmount,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -2530,6 +2577,9 @@ export function App() {
           onOpenGroundWarfare={() => setActiveLeftPanel((prev) => (prev === 'groundWarfare' ? null : 'groundWarfare'))}
           activeGroundBattlesCount={Object.values(engineState.groundBattles || {}).filter((b) => b.status === 'active').length}
           totalArmiesCount={Object.values(engineState.armies || {}).filter((a) => a.ownerId === activePlayerId).length}
+          onOpenEnclaves={() => setActiveLeftPanel((prev) => (prev === 'enclaves' ? null : 'enclaves'))}
+          activeEnclaveContractsCount={activePlayer?.activeEnclaveContracts?.length || 0}
+          hasShroudBoon={Boolean(activePlayer?.shroudBoon)}
           paragonsCount={activePlayer?.paragonIds?.length || 0}
           availableParagonsCount={engineState.galacticParagonPool?.length || 0}
           isColossusActive={isColossusActive}
@@ -3258,6 +3308,17 @@ export function App() {
         onSetBombardmentStance={handleSetBombardmentStance}
         onDismissArmy={handleDismissArmy}
         onLiberatePlanet={handleLiberatePlanet}
+      />
+
+      {/* Galactic Enclaves, Caravaneers & Shroud Factions Modal (Phase 31) */}
+      <EnclavesModal
+        isOpen={activeLeftPanel === 'enclaves'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        playerId={activePlayerId}
+        onInteractEnclave={handleInteractEnclave}
+        onBuyCaravanReliquary={handleBuyCaravanReliquary}
+        onGambleCaravanSlots={handleGambleCaravanSlots}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

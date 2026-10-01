@@ -22,6 +22,7 @@ import { evaluateBotParagons } from './paragons';
 import { evaluateBotHyperRelays } from './hyperRelays';
 import { evaluateBotShadowOps } from './shadowOps';
 import { evaluateBotGroundWarfare } from './groundWarfare';
+import { evaluateBotEnclaves } from './enclaves';
 import { IBotAgent } from './types';
 
 export class ExplorerBot implements IBotAgent {
@@ -231,6 +232,9 @@ export class ExplorerBot implements IBotAgent {
 
     // 25. Planetary Invasions, Ground Armies & Orbital Bombardment (Phase 30)
     evaluateBotGroundWarfare(engine, this.playerId, this.archetype, executedCommands);
+
+    // 26. Galactic Enclaves, Caravaneers & Shroud Factions (Phase 31)
+    evaluateBotEnclaves(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

@@ -658,6 +658,59 @@ export interface GroundCombatBattle {
   combatLog: string[];
 }
 
+// ========================================================
+// Phase 31: Galactic Enclaves, Caravaneers & Shroud Factions
+// ========================================================
+export type EnclaveType = 'curator_order' | 'artisan_troupe' | 'trader_enclave' | 'shroud_coven';
+
+export type EnclaveServiceId =
+  | 'hire_curator_researcher'
+  | 'purchase_ancient_survey'
+  | 'titan_combat_insights'
+  | 'sponsor_grand_festival'
+  | 'commission_art_monument'
+  | 'acquire_ministry_of_culture'
+  | 'bulk_mineral_contract'
+  | 'rare_crystal_monopoly'
+  | 'hire_mercenary_corps'
+  | 'commune_with_shroud'
+  | 'shroud_patron_covenant'
+  | 'psionic_precognition';
+
+export interface EnclaveContract {
+  id: string;
+  enclaveId: string;
+  playerId: string;
+  serviceId: EnclaveServiceId;
+  nameTr: string;
+  bonusDescTr: string;
+  startedAtMs: number;
+  expiresAtMs: number;
+}
+
+export interface EnclaveStation {
+  id: string;
+  type: EnclaveType;
+  name: string;
+  systemId: string;
+  opinion: Record<string, number>; // playerId -> opinion (-100 to +100)
+  totalDealsDone: Record<string, number>; // playerId -> deals count
+  activeContracts: Record<string, EnclaveContract[]>; // playerId -> active contracts
+}
+
+export interface CaravaneerFleet {
+  id: string;
+  name: string;
+  currentSystemId: string;
+  targetSystemId: string;
+  status: 'orbiting' | 'in_transit';
+  departureTimeMs: number;
+  arrivalTimeMs: number;
+  dealType: 'reliquary' | 'mineral_exchange' | 'gambling_slots';
+  reliquaryPrice: Resources;
+  slotsBetAmount: number;
+}
+
 export type CouncilPosition =
   | 'ruler'
   | 'defense_minister'
@@ -1398,6 +1451,16 @@ export interface Player {
   machineUprisingRisk?: number; // Phase 26: 0 to 100 rebellion risk
   renown?: number; // Phase 27: Galactic Renown currency
   paragonIds?: string[]; // Phase 27: Recruited Paragon Leader IDs
+  activeEnclaveContracts?: EnclaveContract[]; // Phase 31: Active enclave pacts/buffs
+  shroudBoon?: ShroudBoon | null;
+}
+
+export type ShroudBoonType = 'speed' | 'shield' | 'evasion' | 'research';
+
+export interface ShroudBoon {
+  type: ShroudBoonType;
+  expiresAtMs: number;
+  descriptionTr: string;
 }
 
 export type EmpireDirectiveId =
@@ -1558,6 +1621,8 @@ export interface GameState {
   shadowOperations?: Record<string, ShadowOperation>; // key: operationId (Phase 29)
   armies?: Record<string, Army>; // key: armyId (Phase 30)
   groundBattles?: Record<string, GroundCombatBattle>; // key: battleId (Phase 30)
+  enclaves?: Record<string, EnclaveStation>; // key: enclaveId (Phase 31)
+  caravaneers?: CaravaneerFleet[]; // array of nomadic caravaneer fleets (Phase 31)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -2184,6 +2249,23 @@ export type GameCommand =
   | {
       type: 'LIBERATE_PLANET';
       planetId: string;
+    }
+  | {
+      type: 'INTERACT_ENCLAVE';
+      enclaveId: string;
+      serviceId: EnclaveServiceId;
+      planetId?: string;
+    }
+  | {
+      type: 'BUY_CARAVAN_RELIQUARY';
+      caravanId: string;
+      planetId?: string;
+    }
+  | {
+      type: 'GAMBLE_CARAVAN_SLOTS';
+      caravanId: string;
+      planetId?: string;
+      betAmount: number;
     };
 
 export interface CommandReceipt {

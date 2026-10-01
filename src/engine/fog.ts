@@ -41,6 +41,10 @@ import {
   ShadowOperation,
   Army,
   GroundCombatBattle,
+  EnclaveStation,
+  CaravaneerFleet,
+  EnclaveContract,
+  ShroudBoon,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -125,6 +129,10 @@ export interface PlayerVisibleState {
   myArmies?: Army[];
   activeGroundBattles?: GroundCombatBattle[];
   occupiedPlanets?: { planetId: string; name: string; ownerId: string; occupierId: string; systemId: string }[];
+  enclaves?: Record<string, EnclaveStation>;
+  caravaneers?: CaravaneerFleet[];
+  myEnclaveContracts?: EnclaveContract[];
+  myShroudBoon?: ShroudBoon | null;
 }
 
 /**
@@ -533,5 +541,19 @@ export function filterGameStateForPlayer(
         occupierId: p.occupierId!,
         systemId: p.systemId,
       })),
+    enclaves: state.enclaves
+      ? Object.fromEntries(
+          Object.entries(state.enclaves).filter(
+            ([_, st]) => Boolean(discoveredSystems[st.systemId]) || sensorCoverage.has(st.systemId)
+          )
+        )
+      : {},
+    caravaneers: state.caravaneers
+      ? state.caravaneers.filter(
+          (c) => Boolean(discoveredSystems[c.currentSystemId]) || sensorCoverage.has(c.currentSystemId)
+        )
+      : [],
+    myEnclaveContracts: player?.activeEnclaveContracts || [],
+    myShroudBoon: player?.shroudBoon || null,
   };
 }

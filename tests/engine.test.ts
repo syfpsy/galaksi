@@ -247,6 +247,16 @@ import {
   updateGroundWarfare,
 } from '../src/engine/groundWarfare';
 import { evaluateBotGroundWarfare } from '../src/bots/groundWarfare';
+import {
+  ENCLAVE_CONFIGS,
+  ENCLAVE_SERVICES,
+  canInteractWithEnclave,
+  interactWithEnclave,
+  buyCaravanReliquary,
+  gambleCaravanSlots,
+  tickEnclavesAndCaravans,
+} from '../src/engine/enclaves';
+import { evaluateBotEnclaves } from '../src/bots/enclaves';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -6144,6 +6154,121 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const recruitedArmyCmd = botCmds.find((c) => c.type === 'RECRUIT_ARMY');
     expect(recruitedArmyCmd).toBeDefined();
     expect(recruitedArmyCmd.planetId).toBe(botHw2.id);
+  });
+
+  it('Test 61: Phase 31 - Galactic Enclaves, Caravaneers & Shroud Factions (Galaktik Enklavlar, Göçebe Karavanlar & Zihinsel Örtü Meclisi)', () => {
+    const engine = new GameEngine(3131);
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p1', 'İmparator Vaelen', '#00f3ff');
+    const { player: p2, homeworld: hw2 } = engine.addPlayer('p2', 'Tüccar Guild', '#f59e0b', true, 'industrialist');
+
+    hw1.resources = { ore: 15000, crystal: 15000, fuel: 15000 };
+    hw1.storageCap = 50000;
+
+    // 1. Initial State: Enclaves and Caravaneers verification
+    expect(engine.state.enclaves).toBeDefined();
+    expect(engine.state.caravaneers).toBeDefined();
+
+    const enclaves = Object.values(engine.state.enclaves!);
+    expect(enclaves.length).toBeGreaterThanOrEqual(4);
+
+    const curator = enclaves.find((e) => e.type === 'curator_order');
+    const artisan = enclaves.find((e) => e.type === 'artisan_troupe');
+    const trader = enclaves.find((e) => e.type === 'trader_enclave');
+    const shroud = enclaves.find((e) => e.type === 'shroud_coven');
+
+    expect(curator).toBeDefined();
+    expect(artisan).toBeDefined();
+    expect(trader).toBeDefined();
+    expect(shroud).toBeDefined();
+
+    const caravaneers = engine.state.caravaneers!;
+    expect(caravaneers.length).toBe(2);
+    expect(caravaneers.some((c) => c.dealType === 'gambling_slots')).toBe(true);
+    expect(caravaneers.some((c) => c.dealType === 'reliquary')).toBe(true);
+
+    // 2. Curator Order Contract: hire_curator_researcher
+    const preCrystal = hw1.resources.crystal;
+    const curatorRes = engine.dispatchCommand('p1', {
+      type: 'INTERACT_ENCLAVE',
+      enclaveId: curator!.id,
+      serviceId: 'hire_curator_researcher',
+    });
+    expect(curatorRes.success).toBe(true);
+    expect(hw1.resources.crystal).toBeLessThan(preCrystal);
+    expect(p1.activeEnclaveContracts?.length).toBe(1);
+    expect(p1.activeEnclaveContracts![0].serviceId).toBe('hire_curator_researcher');
+
+    // Duplicate purchase blocked while active
+    const dupRes = engine.dispatchCommand('p1', {
+      type: 'INTERACT_ENCLAVE',
+      enclaveId: curator!.id,
+      serviceId: 'hire_curator_researcher',
+    });
+    expect(dupRes.success).toBe(false);
+    expect(dupRes.error).toContain('zaten aktif');
+
+    // 3. Trader Enclave: hire_mercenary_corps & opinion tracking
+    const preArmies = Object.values(engine.state.armies || {}).filter((a) => a.ownerId === 'p1').length;
+    const traderRes = engine.dispatchCommand('p1', {
+      type: 'INTERACT_ENCLAVE',
+      enclaveId: trader!.id,
+      serviceId: 'hire_mercenary_corps',
+    });
+    expect(traderRes.success).toBe(true);
+    const postArmies = Object.values(engine.state.armies || {}).filter((a) => a.ownerId === 'p1').length;
+    expect(postArmies).toBe(preArmies + 2);
+    expect(trader!.opinion['p1']).toBeGreaterThan(0);
+    expect(trader!.totalDealsDone['p1']).toBe(1);
+
+    // 4. Shroud Coven: commune_with_shroud & psionic boons
+    const shroudRes = engine.dispatchCommand('p1', {
+      type: 'INTERACT_ENCLAVE',
+      enclaveId: shroud!.id,
+      serviceId: 'commune_with_shroud',
+    });
+    expect(shroudRes.success).toBe(true);
+    expect(p1.shroudBoon).toBeDefined();
+    expect(p1.shroudBoon?.type).toBeDefined();
+    expect(p1.shroudBoon?.descriptionTr).toBeDefined();
+
+    // 5. Caravaneer Fleet Reliquary Mystery Box (BUY_CARAVAN_RELIQUARY)
+    const reliquaryCaravan = caravaneers.find((c) => c.dealType === 'reliquary')!;
+    const preOre = hw1.resources.ore;
+    const reliquaryRes = engine.dispatchCommand('p1', {
+      type: 'BUY_CARAVAN_RELIQUARY',
+      caravanId: reliquaryCaravan.id,
+    });
+    expect(reliquaryRes.success).toBe(true);
+    expect(hw1.resources.ore).toBeLessThan(preOre);
+
+    // 6. Caravaneer Casino Slots Gambling (GAMBLE_CARAVAN_SLOTS)
+    const slotsCaravan = caravaneers.find((c) => c.dealType === 'gambling_slots')!;
+    const slotsRes = engine.dispatchCommand('p1', {
+      type: 'GAMBLE_CARAVAN_SLOTS',
+      caravanId: slotsCaravan.id,
+      betAmount: 200,
+    });
+    expect(slotsRes.success).toBe(true);
+    expect(slotsRes.data?.won).toBeDefined();
+
+    // 7. Engine Tick: Contracts expiration and caravaneers movement
+    engine.tick(60 * 1000); // 1 minute
+    expect(engine.state.timeMs).toBe(60 * 1000);
+
+    // 8. Fog of War Visibility
+    const p1View = engine.getPlayerView('p1');
+    expect(p1View.enclaves).toBeDefined();
+    expect(p1View.myEnclaveContracts?.length).toBe(2);
+    expect(p1View.myShroudBoon).toBeDefined();
+
+    // 9. Autonomous Bot AI (evaluateBotEnclaves)
+    hw2.resources = { ore: 8000, crystal: 6000, fuel: 5000 };
+    hw2.storageCap = 50000;
+    const botCmds: any[] = [];
+    evaluateBotEnclaves(engine, 'p2', 'industrialist', botCmds);
+    expect(botCmds.length).toBeGreaterThan(0);
+    const enclaveCmd = botCmds.find((c) => c.type === 'INTERACT_ENCLAVE');
+    expect(enclaveCmd).toBeDefined();
   });
 });
 

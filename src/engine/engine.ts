@@ -305,6 +305,17 @@ import {
   liberatePlanet,
   updateGroundWarfare,
 } from './groundWarfare';
+import {
+  ENCLAVE_CONFIGS,
+  ENCLAVE_SERVICES,
+  initializeGalaxyEnclaves,
+  initializeCaravaneers,
+  canInteractWithEnclave,
+  interactWithEnclave,
+  buyCaravanReliquary,
+  gambleCaravanSlots,
+  tickEnclavesAndCaravans,
+} from './enclaves';
 
 export class GameEngine {
   public state: GameState;
@@ -325,6 +336,7 @@ export class GameEngine {
   private lastHyperRelaysTickMs: number = 0;
   private lastShadowOpsTickMs: number = 0;
   private lastGroundWarfareTickMs: number = 0;
+  private lastEnclavesTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -347,6 +359,8 @@ export class GameEngine {
       shadowOperations: {},
       armies: {},
       groundBattles: {},
+      enclaves: initializeGalaxyEnclaves(map.systems),
+      caravaneers: initializeCaravaneers(map.systems),
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},
@@ -994,6 +1008,15 @@ export class GameEngine {
     this.lastGroundWarfareTickMs = nowMs;
     if (groundWarfareElapsedMs > 0) {
       updateGroundWarfare(this.state, groundWarfareElapsedMs, (type, desc, pId, meta) => {
+        this.logEvent(type, desc, pId, meta);
+      });
+    }
+
+    // Galactic Enclaves, Caravaneers & Shroud Factions tick (Phase 31)
+    const enclavesElapsedMs = Math.max(0, nowMs - this.lastEnclavesTickMs);
+    this.lastEnclavesTickMs = nowMs;
+    if (enclavesElapsedMs > 0) {
+      tickEnclavesAndCaravans(this.state, enclavesElapsedMs, (type, desc, pId, meta) => {
         this.logEvent(type, desc, pId, meta);
       });
     }
@@ -6464,6 +6487,48 @@ export class GameEngine {
           data: { planetId: cmd.planetId },
         };
       }
+
+      // ==========================================
+      // Phase 31: Galactic Enclaves, Caravaneers & Shroud Factions
+      // ==========================================
+      case 'INTERACT_ENCLAVE': {
+        const res = interactWithEnclave(this.state, playerId, cmd.enclaveId, cmd.serviceId, cmd.planetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { enclaveId: cmd.enclaveId, serviceId: cmd.serviceId, contract: res.contract },
+        };
+      }
+
+      case 'BUY_CARAVAN_RELIQUARY': {
+        const res = buyCaravanReliquary(this.state, playerId, cmd.caravanId, cmd.planetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { caravanId: cmd.caravanId, reward: res.reward, minorArtifacts: res.minorArtifacts, rewardDescTr: res.rewardDescTr },
+        };
+      }
+
+      case 'GAMBLE_CARAVAN_SLOTS': {
+        const res = gambleCaravanSlots(this.state, playerId, cmd.caravanId, cmd.betAmount, cmd.planetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { caravanId: cmd.caravanId, betAmount: cmd.betAmount, won: res.won, winAmount: res.winAmount, multiplier: res.multiplier },
+        };
+      }
     }
   }
 
@@ -6674,6 +6739,8 @@ export class GameEngine {
       shadowOperations: {},
       armies: {},
       groundBattles: {},
+      enclaves: initializeGalaxyEnclaves(map.systems),
+      caravaneers: initializeCaravaneers(map.systems),
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},

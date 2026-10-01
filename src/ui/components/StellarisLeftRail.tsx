@@ -78,6 +78,9 @@ interface StellarisLeftRailProps {
   onOpenGroundWarfare?: () => void;
   activeGroundBattlesCount?: number;
   totalArmiesCount?: number;
+  onOpenEnclaves?: () => void;
+  activeEnclaveContractsCount?: number;
+  hasShroudBoon?: boolean;
   onOpenGallery: () => void;
   isColossusActive?: boolean;
   isColossusCharging?: boolean;
@@ -156,6 +159,9 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenGroundWarfare,
   activeGroundBattlesCount = 0,
   totalArmiesCount = 0,
+  onOpenEnclaves,
+  activeEnclaveContractsCount = 0,
+  hasShroudBoon = false,
   onOpenGallery,
   isColossusActive = false,
   isColossusCharging = false,
@@ -1360,6 +1366,59 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             <div className="mt-2 pt-1.5 border-t border-red-900/60 text-[10px] font-mono text-red-300 flex items-center justify-between">
               <span>Birlikler / Muharebeler:</span>
               <span className="font-bold">{totalArmiesCount} Ordu · {activeGroundBattlesCount} Canlı Çatışma</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Galactic Enclaves, Caravaneers & Shroud Factions (Phase 31) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenEnclaves) onOpenEnclaves();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'enclaves'
+                ? 'active'
+                : activeEnclaveContractsCount > 0 || hasShroudBoon
+                ? 'text-cyan-400 hover:text-cyan-200 border-cyan-700/50'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Sparkles
+              className={`w-5 h-5 transition-transform group-hover:scale-110 ${
+                hasShroudBoon
+                  ? 'text-purple-400 animate-pulse'
+                  : activeEnclaveContractsCount > 0
+                  ? 'text-cyan-400'
+                  : 'text-cyan-300'
+              }`}
+            />
+            {activeEnclaveContractsCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-cyan-600 text-white text-[9px] font-bold flex items-center justify-center border border-cyan-400 shadow-md">
+                {activeEnclaveContractsCount}
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-cyan-400/80 group-hover:text-cyan-300">
+              ENC
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-cyan-400 tracking-wide">GALAKTİK ENKLAVLAR & ÖRTÜ MECLİSİ</span>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 31
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Küratörler, Sanatçılar, Tüccar tekelleri, göçebe karavanlar ve Zihinsel Örtü paktları.
+            </p>
+            <div className="mt-2 pt-1.5 border-t border-cyan-900/60 text-[10px] font-mono text-cyan-300 flex items-center justify-between">
+              <span>Sözleşmeler / Örtü:</span>
+              <span className="font-bold">
+                {activeEnclaveContractsCount} Kontrat {hasShroudBoon ? '· 🔮 Örtü Paktı Aktif' : ''}
+              </span>
             </div>
           </div>
         </div>
