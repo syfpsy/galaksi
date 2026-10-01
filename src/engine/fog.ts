@@ -119,6 +119,16 @@ export function getPlayerSensorCoverage(
     }
   }
 
+  // Include federation members for shared sensor vision (Phase 22)
+  if (player?.federationId && state.federations?.[player.federationId]) {
+    const fed = state.federations[player.federationId];
+    if (fed.centralizationLevel >= 3 || fed.type === 'galactic_union' || fed.type === 'research_cooperative') {
+      for (const memberId of fed.members) {
+        alliedPlayerIds.add(memberId);
+      }
+    }
+  }
+
   // 1. Systems with owned or allied planets
   for (const planet of Object.values(state.planets)) {
     if (alliedPlayerIds.has(planet.ownerId)) {

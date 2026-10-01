@@ -112,6 +112,23 @@ import {
   integrateSubject,
 } from '../src/engine/wars';
 import { evaluateBotWarfare } from '../src/bots/wars';
+import {
+  FEDERATION_TYPE_CONFIGS,
+  getPlayerFederation,
+  isFederationAlly,
+  getFederalFleetPower,
+  formFederation,
+  inviteToFederation,
+  respondFederationInvite,
+  leaveFederation,
+  proposeFederationLaw,
+  voteFederationLaw,
+  assignFederationEnvoys,
+  buildFederalShip,
+  dispatchFederalFleet,
+  updateFederations,
+} from '../src/engine/federations';
+import { evaluateBotFederations } from '../src/bots/federations';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -4206,6 +4223,270 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(peaceOfferCmd).toBeDefined();
     expect(peaceOfferCmd.proposalType).toBe('status_quo');
     expect(botWar.status).toBe('status_quo');
+  });
+
+  it('manages Galactic Federations, Federal Fleets, Cohesion, Centralization & Federal Laws (Phase 22)', () => {
+    const engine = new GameEngine(777);
+
+    // 1. Config validation for all 5 federation archetypes
+    expect(FEDERATION_TYPE_CONFIGS.galactic_union.nameTr).toContain('Galaktik Birlik');
+    expect(FEDERATION_TYPE_CONFIGS.martial_alliance.damageBonus).toBe(0.15);
+    expect(FEDERATION_TYPE_CONFIGS.martial_alliance.fleetCapBonus).toBe(0.25);
+    expect(FEDERATION_TYPE_CONFIGS.research_cooperative.perksTr).toContain('Araştırma');
+    expect(FEDERATION_TYPE_CONFIGS.trade_league.perksTr).toContain('Ticaret');
+    expect(FEDERATION_TYPE_CONFIGS.hegemony.nameTr).toContain('Hegemonya');
+
+    // Add players
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p1', 'President Alpha', '#00f3ff');
+    const { player: p2, homeworld: hw2 } = engine.addPlayer('p2', 'Ally Beta', '#10b981');
+    const { player: p3, homeworld: hw3 } = engine.addPlayer('p3', 'Candidate Gamma', '#f59e0b');
+    const { player: pEnemy } = engine.addPlayer('pEnemy', 'Hostile Delta', '#ef4444');
+
+    // 2. FORM_FEDERATION validations
+    // Cannot form with oneself
+    const selfForm = engine.dispatchCommand(p1.id, {
+      type: 'FORM_FEDERATION',
+      name: 'Alpha Solo',
+      fedType: 'galactic_union',
+      invitedPlayerId: p1.id,
+    });
+    expect(selfForm.success).toBe(false);
+
+    // Cannot form with active enemy
+    engine.dispatchCommand(p1.id, {
+      type: 'DECLARE_WAR',
+      targetPlayerId: pEnemy.id,
+      warGoal: 'conquest',
+    });
+    const enemyForm = engine.dispatchCommand(p1.id, {
+      type: 'FORM_FEDERATION',
+      name: 'Hostile Union',
+      fedType: 'galactic_union',
+      invitedPlayerId: pEnemy.id,
+    });
+    expect(enemyForm.success).toBe(false);
+
+    // Successfully form federation between p1 and p2
+    const formRes = engine.dispatchCommand(p1.id, {
+      type: 'FORM_FEDERATION',
+      name: 'Solar Concordat',
+      fedType: 'martial_alliance',
+      invitedPlayerId: p2.id,
+    });
+    expect(formRes.success).toBe(true);
+
+    const fed = getPlayerFederation(engine.state, p1.id);
+    expect(fed).toBeDefined();
+    expect(fed!.name).toBe('Solar Concordat');
+    expect(fed!.type).toBe('martial_alliance');
+    expect(fed!.presidentId).toBe(p1.id);
+    expect(fed!.centralizationLevel).toBe(1);
+    expect(fed!.cohesion).toBe(50);
+    expect(fed!.experience).toBe(0);
+    expect(fed!.members).toContain(p1.id);
+    expect(fed!.members).toContain(p2.id);
+    expect(p1.federationId).toBe(fed!.id);
+    expect(p2.federationId).toBe(fed!.id);
+
+    // 3. Mutual federation alliance & non-aggression
+    expect(isFederationAlly(engine.state, p1.id, p2.id)).toBe(true);
+    const warOnAlly = engine.dispatchCommand(p1.id, {
+      type: 'DECLARE_WAR',
+      targetPlayerId: p2.id,
+      warGoal: 'conquest',
+    });
+    expect(warOnAlly.success).toBe(false);
+
+    // 4. INVITE_TO_FEDERATION & RESPOND_FEDERATION_INVITE
+    // Non-member cannot invite
+    const badInvite = engine.dispatchCommand(p3.id, {
+      type: 'INVITE_TO_FEDERATION',
+      federationId: fed!.id,
+      targetPlayerId: p3.id,
+    });
+    expect(badInvite.success).toBe(false);
+
+    // Member p1 invites p3
+    const inviteRes = engine.dispatchCommand(p1.id, {
+      type: 'INVITE_TO_FEDERATION',
+      federationId: fed!.id,
+      targetPlayerId: p3.id,
+    });
+    expect(inviteRes.success).toBe(true);
+    expect(fed!.pendingInvites).toContain(p3.id);
+
+    // p3 declines
+    const declineRes = engine.dispatchCommand(p3.id, {
+      type: 'RESPOND_FEDERATION_INVITE',
+      federationId: fed!.id,
+      accept: false,
+    });
+    expect(declineRes.success).toBe(true);
+    expect(fed!.pendingInvites).not.toContain(p3.id);
+    expect(p3.federationId).toBeNull();
+
+    // Re-invite and accept
+    engine.dispatchCommand(p1.id, {
+      type: 'INVITE_TO_FEDERATION',
+      federationId: fed!.id,
+      targetPlayerId: p3.id,
+    });
+    const acceptRes = engine.dispatchCommand(p3.id, {
+      type: 'RESPOND_FEDERATION_INVITE',
+      federationId: fed!.id,
+      accept: true,
+    });
+    expect(acceptRes.success).toBe(true);
+    expect(fed!.members.length).toBe(3);
+    expect(p3.federationId).toBe(fed!.id);
+
+    // 5. Federal Laws & Democratic Voting
+    // High tier law proposal fails at level 1
+    const invalidLaw = engine.dispatchCommand(p1.id, {
+      type: 'PROPOSE_FEDERATION_LAW',
+      federationId: fed!.id,
+      lawType: 'successionType',
+      proposedValue: 'golden_rule',
+    });
+    expect(invalidLaw.success).toBe(false);
+
+    // Valid law proposal: fleetContribution to 'low'
+    const propLaw = engine.dispatchCommand(p1.id, {
+      type: 'PROPOSE_FEDERATION_LAW',
+      federationId: fed!.id,
+      lawType: 'fleetContribution',
+      proposedValue: 'low',
+    });
+    expect(propLaw.success).toBe(true);
+    expect(fed!.activeVote).toBeDefined();
+    expect(fed!.activeVote!.votes[p1.id]).toBe('yes');
+
+    // Second proposal while one is active should fail
+    const dupProp = engine.dispatchCommand(p2.id, {
+      type: 'PROPOSE_FEDERATION_LAW',
+      federationId: fed!.id,
+      lawType: 'warVoteType',
+      proposedValue: 'unanimous',
+    });
+    expect(dupProp.success).toBe(false);
+
+    // Member p2 votes 'yes' -> 2/3 yes votes is > 50% majority -> law passes immediately!
+    const voteRes = engine.dispatchCommand(p2.id, {
+      type: 'VOTE_FEDERATION_LAW',
+      federationId: fed!.id,
+      vote: 'yes',
+    });
+    expect(voteRes.success).toBe(true);
+    expect(fed!.activeVote).toBeNull();
+    expect(fed!.laws.fleetContribution).toBe('low');
+
+    // 6. Federal Fleet Construction & Presidential Fleet Dispatch
+    // Check federal fleet capacity (non-zero due to low contribution and member garrisons)
+    expect(fed!.federalFleetCapacity).toBeGreaterThan(0);
+
+    // Non-member cannot build federal ship
+    const badShip = engine.dispatchCommand(pEnemy.id, {
+      type: 'BUILD_FEDERAL_SHIP',
+      federationId: fed!.id,
+      planetId: hw1.id,
+      shipType: 'fighter',
+      count: 1,
+    });
+    expect(badShip.success).toBe(false);
+
+    // Member builds federal fighter (costs discounted)
+    hw1.resources.ore = 1000;
+    hw1.resources.crystal = 1000;
+    hw1.buildings.shipyard = 2;
+    const initialOre = hw1.resources.ore;
+
+    const buildShipRes = engine.dispatchCommand(p1.id, {
+      type: 'BUILD_FEDERAL_SHIP',
+      federationId: fed!.id,
+      planetId: hw1.id,
+      shipType: 'fighter',
+      count: 2,
+    });
+    expect(buildShipRes.success).toBe(true);
+    expect(fed!.federalFleet.fighter).toBe(4);
+    // Cost must be discounted (normal fighter is 320 ore, with 20% discount is 256 ore each * 2 = 512)
+    expect(initialOre - hw1.resources.ore).toBe(512);
+    expect(getFederalFleetPower(fed!)).toBeGreaterThan(0);
+
+    // Non-president cannot dispatch federal fleet
+    const badDispatch = engine.dispatchCommand(p2.id, {
+      type: 'DISPATCH_FEDERAL_FLEET',
+      federationId: fed!.id,
+      originPlanetId: hw1.id,
+      targetSystemId: hw2.systemId,
+      ships: { scout: 0, transport: 0, fighter: 1, battleship: 0 },
+    });
+    expect(badDispatch.success).toBe(false);
+
+    // President p1 dispatches federal fleet
+    const goodDispatch = engine.dispatchCommand(p1.id, {
+      type: 'DISPATCH_FEDERAL_FLEET',
+      federationId: fed!.id,
+      originPlanetId: hw1.id,
+      targetSystemId: hw2.systemId,
+      ships: { scout: 0, transport: 0, fighter: 1, battleship: 0 },
+    });
+    expect(goodDispatch.success).toBe(true);
+    expect(fed!.federalFleet.fighter).toBe(3);
+
+    // 7. Envoys & Cohesion Drift Progression
+    const envoyRes = engine.dispatchCommand(p1.id, {
+      type: 'ASSIGN_FEDERATION_ENVOYS',
+      federationId: fed!.id,
+      envoys: 2,
+    });
+    expect(envoyRes.success).toBe(true);
+    expect(fed!.assignedEnvoys[p1.id]).toBe(2);
+
+    // Run passive update: cohesion should increase
+    const initCohesion = fed!.cohesion;
+    updateFederations(engine.state, 120 * 1000); // 2 minutes elapsed
+    expect(fed!.cohesion).toBeGreaterThan(initCohesion);
+
+    // Centralization XP accumulation and level up
+    fed!.cohesion = 80;
+    fed!.experience = 198;
+    updateFederations(engine.state, 60 * 1000); // 1 minute with high cohesion grants +3 XP
+    // Experience crosses 200 threshold -> levels up from 1 to 2!
+    expect(fed!.centralizationLevel).toBe(2);
+
+    // 8. Succession Evaluation
+    // Change succession to fleet_power (allowed at level 3)
+    fed!.centralizationLevel = 3;
+    fed!.laws.successionType = 'fleet_power';
+    // p2 builds heavy armada in garrison
+    hw2.garrison.battleship = 10;
+    hw1.garrison.battleship = 1;
+    // Expire presidential term to trigger election
+    fed!.termStartedAtMs = engine.state.timeMs - 600000;
+    updateFederations(engine.state, 1000);
+    expect(fed!.presidentId).toBe(p2.id);
+
+    // 9. LEAVE_FEDERATION
+    const leaveRes = engine.dispatchCommand(p3.id, {
+      type: 'LEAVE_FEDERATION',
+      federationId: fed!.id,
+    });
+    expect(leaveRes.success).toBe(true);
+    expect(p3.federationId).toBeNull();
+    expect(fed!.members).not.toContain(p3.id);
+    expect(fed!.members.length).toBe(2);
+
+    // 10. Bot AI Federation Decisions (evaluateBotFederations)
+    const { player: botAdmin, homeworld: admHw } = engine.addPlayer('bot_adm_fed', 'Bot Admiral', '#a855f7', true, 'admiral');
+    const botCmds: any[] = [];
+    // Bot is invited to federation
+    fed!.pendingInvites.push(botAdmin.id);
+    evaluateBotFederations(engine, botAdmin.id, 'admiral', botCmds);
+    // Admiral bot should accept invitation into martial alliance
+    const acceptCmd = botCmds.find((c) => c.type === 'RESPOND_FEDERATION_INVITE');
+    expect(acceptCmd).toBeDefined();
+    expect(acceptCmd.accept).toBe(true);
   });
 });
 

@@ -367,6 +367,11 @@ export function declareWar(
     return { success: false, error: 'Aynı ittifakta yer aldığınız müttefiğe savaş ilan edemezsiniz.' };
   }
 
+  // Federation check: cannot declare war on federation members (Phase 22)
+  if (attacker.federationId && defender.federationId && attacker.federationId === defender.federationId) {
+    return { success: false, error: 'Aynı federasyonda yer aldığınız bir müttefiğe savaş ilan edemezsiniz.' };
+  }
+
   // Existing war check
   if (isAtWar(state, attackerId, defenderId)) {
     return { success: false, error: 'Bu imparatorluk ile zaten devam eden aktif bir savaş bulunmaktadır.' };

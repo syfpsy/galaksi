@@ -69,6 +69,7 @@ interface TopBarProps {
   onOpenTerraform?: () => void;
   onOpenTradeRoutes?: () => void;
   onOpenWarfare?: () => void;
+  onOpenFederation?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -106,6 +107,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenTerraform,
   onOpenTradeRoutes,
   onOpenWarfare,
+  onOpenFederation,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -837,6 +839,54 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                     Detayları ve barış müzakerelerini görüntülemek için tıklayın.
                   </div>
                 )}
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* 6.7. GALACTIC FEDERATIONS POD (Phase 22) */}
+        {(() => {
+          const fedId = activePlayer?.federationId;
+          const fed = fedId ? state.federations?.[fedId] : null;
+          if (!fed) return null;
+          const isPresident = fed.presidentId === activePlayerId;
+          const memberCount = fed.members.length;
+
+          return (
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenFederation) onOpenFederation();
+                }}
+                className="stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer border-cyan-500/40 text-cyan-300 hover:border-cyan-400"
+                title="Galaktik Federasyon & Federal Donanma"
+              >
+                <Shield className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+                <span className="font-bold text-white text-xs truncate max-w-[90px]">
+                  {fed.name}
+                </span>
+                <span className="text-[10px] text-amber-300 font-mono font-bold">
+                  L{fed.centralizationLevel}
+                </span>
+                {isPresident && (
+                  <Crown className="w-3 h-3 text-amber-400" />
+                )}
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[260px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+                <div className="flex items-center justify-between text-xs font-bold mb-1">
+                  <span className="stellaris-gold tracking-wide">{fed.name}</span>
+                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                    L{fed.centralizationLevel} • %{Math.round(fed.cohesion)} UYUM
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  {memberCount} İmparatorluk üye. {isPresident ? '👑 Dönem Başkanı: Sizsiniz.' : `Başkan: ${state.players[fed.presidentId]?.name || 'Müttefik'}.`}
+                </p>
+                <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-cyan-400 font-mono text-center">
+                  Federasyon ve Federal Donanma yönetimini açmak için tıklayın
+                </div>
               </div>
             </div>
           );

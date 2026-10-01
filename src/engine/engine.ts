@@ -193,6 +193,24 @@ import {
   releaseSubject,
   integrateSubject,
 } from './wars';
+import {
+  FEDERATION_TYPE_CONFIGS,
+  getPlayerFederation,
+  isFederationAlly,
+  getFederalFleetPower,
+  calculateCompositeTechLevels,
+  calculateFederalFleetCapacity,
+  formFederation,
+  inviteToFederation,
+  respondFederationInvite,
+  leaveFederation,
+  proposeFederationLaw,
+  voteFederationLaw,
+  assignFederationEnvoys,
+  buildFederalShip,
+  dispatchFederalFleet,
+  updateFederations,
+} from './federations';
 
 
 export class GameEngine {
@@ -205,6 +223,7 @@ export class GameEngine {
   private lastArchaeologyTickMs: number = 0;
   private lastTradeTickMs: number = 0;
   private lastWarTickMs: number = 0;
+  private lastFederationTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -232,6 +251,7 @@ export class GameEngine {
       systemTrade: {},
       wars: {},
       subjects: {},
+      federations: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -325,6 +345,8 @@ export class GameEngine {
       commercialPacts: [],
       overlordId: null,
       subjects: [],
+      federationId: null,
+      assignedFederationEnvoys: 0,
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -709,6 +731,13 @@ export class GameEngine {
     this.lastWarTickMs = nowMs;
     if (warElapsedMs > 0) {
       updateWarsAndSubjects(this.state, warElapsedMs);
+    }
+
+    // Galactic Federations & Federal Fleets tick (Phase 22)
+    const fedElapsedMs = Math.max(0, nowMs - this.lastFederationTickMs);
+    this.lastFederationTickMs = nowMs;
+    if (fedElapsedMs > 0) {
+      updateFederations(this.state, fedElapsedMs);
     }
   }
 
@@ -2662,6 +2691,16 @@ export class GameEngine {
             // Target vacation mode check
             if (targetOwner.vacationMode) {
               return { success: false, commandType: cmd.type, error: 'Hedef oyuncu tatil modunda korumalıdır. Saldırı düzenlenemez.', timeMs: this.state.timeMs };
+            }
+
+            // Federation ally attack check (Phase 22)
+            if (isFederationAlly(this.state, playerId, targetPlanet.ownerId)) {
+              return {
+                success: false,
+                commandType: cmd.type,
+                error: 'Aynı federasyon bünyesindeki bir müttefiğinize saldıramazsınız.',
+                timeMs: this.state.timeMs,
+              };
             }
 
             // Check attacker & defender newbie protection (unless in active war)
@@ -5358,6 +5397,124 @@ export class GameEngine {
           data: { subjectId: cmd.subjectId },
         };
       }
+
+      // --- Galactic Federations (Phase 22) ---
+      case 'FORM_FEDERATION': {
+        const res = formFederation(this.state, playerId, cmd.name, cmd.fedType, cmd.invitedPlayerId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { federationId: res.federation?.id, name: cmd.name },
+        };
+      }
+
+      case 'INVITE_TO_FEDERATION': {
+        const res = inviteToFederation(this.state, playerId, cmd.federationId, cmd.targetPlayerId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { federationId: cmd.federationId, targetPlayerId: cmd.targetPlayerId },
+        };
+      }
+
+      case 'RESPOND_FEDERATION_INVITE': {
+        const res = respondFederationInvite(this.state, playerId, cmd.federationId, cmd.accept);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { federationId: cmd.federationId, accept: cmd.accept },
+        };
+      }
+
+      case 'LEAVE_FEDERATION': {
+        const res = leaveFederation(this.state, playerId, cmd.federationId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { federationId: cmd.federationId },
+        };
+      }
+
+      case 'PROPOSE_FEDERATION_LAW': {
+        const res = proposeFederationLaw(this.state, playerId, cmd.federationId, cmd.lawType, cmd.proposedValue);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { federationId: cmd.federationId, lawType: cmd.lawType, proposedValue: cmd.proposedValue },
+        };
+      }
+
+      case 'VOTE_FEDERATION_LAW': {
+        const res = voteFederationLaw(this.state, playerId, cmd.federationId, cmd.vote);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { federationId: cmd.federationId, vote: cmd.vote },
+        };
+      }
+
+      case 'ASSIGN_FEDERATION_ENVOYS': {
+        const res = assignFederationEnvoys(this.state, playerId, cmd.federationId, cmd.envoys);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { federationId: cmd.federationId, envoys: cmd.envoys },
+        };
+      }
+
+      case 'BUILD_FEDERAL_SHIP': {
+        const res = buildFederalShip(this.state, playerId, cmd.federationId, cmd.planetId, cmd.shipType, cmd.count);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { federationId: cmd.federationId, shipType: cmd.shipType, count: cmd.count },
+        };
+      }
+
+      case 'DISPATCH_FEDERAL_FLEET': {
+        const res = dispatchFederalFleet(this.state, playerId, cmd.federationId, cmd.originPlanetId, cmd.targetSystemId, cmd.ships);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { federationId: cmd.federationId, targetSystemId: cmd.targetSystemId },
+        };
+      }
     }
   }
 
@@ -5572,6 +5729,7 @@ export class GameEngine {
       systemTrade: {},
       wars: {},
       subjects: {},
+      federations: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},

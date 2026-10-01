@@ -18,6 +18,7 @@ import {
   Palette,
   Radio,
   Send,
+  Shield,
   Sparkles,
   Sprout,
   Swords,
@@ -55,9 +56,12 @@ interface StellarisLeftRailProps {
   onOpenTerraform?: () => void;
   onOpenTradeRoutes?: () => void;
   onOpenWarfare?: () => void;
+  onOpenFederation?: () => void;
   onOpenCrisis?: () => void;
   onOpenGallery: () => void;
   activeTerraformingCount?: number;
+  federationLevel?: number;
+  activeFederationVotesCount?: number;
   collectedTradeValue?: number;
   hasTradePiracyThreat?: boolean;
   activeWarsCount?: number;
@@ -109,9 +113,12 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenTerraform,
   onOpenTradeRoutes,
   onOpenWarfare,
+  onOpenFederation,
   onOpenCrisis,
   onOpenGallery,
   activeTerraformingCount = 0,
+  federationLevel,
+  activeFederationVotesCount = 0,
   collectedTradeValue = 0,
   hasTradePiracyThreat = false,
   activeWarsCount = 0,
@@ -866,6 +873,49 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             {activeWarsCount > 0 && (
               <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-red-300 font-mono">
                 ⚔️ {activeWarsCount} Aktif Savaş Cephesi
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Galactic Federations, Cohesion & Federal Fleet (Phase 22) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenFederation) onOpenFederation();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'federation' ? 'active' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Shield className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
+            {federationLevel !== undefined && (
+              <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 bg-cyan-950 border border-cyan-400/80 text-cyan-300 text-[9px] font-mono rounded-sm flex items-center justify-center font-bold">
+                L{federationLevel}
+              </span>
+            )}
+            {activeFederationVotesCount > 0 && (
+              <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-amber-400 animate-ping" />
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-400 group-hover:text-cyan-300">
+              FED
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="stellaris-gold tracking-wide">GALAKTİK FEDERASYON</span>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 22
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Ortak Federal Donanma, Federal Yasalar, Uyum & Merkezileşme kademeleri ve koalisyon paktları.
+            </p>
+            {federationLevel !== undefined && (
+              <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-cyan-300 font-mono">
+                🌐 Kademe {federationLevel} Merkezileşme
               </div>
             )}
           </div>

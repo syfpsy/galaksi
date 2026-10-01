@@ -37,6 +37,7 @@ import {
   TradePolicy,
   SubjectType,
   WarGoalType,
+  FederationType,
 } from './engine/types';
 import { evaluatePlayerDirectives } from './engine/directives';
 import { AllianceModal, AllianceTab } from './ui/components/AllianceModal';
@@ -54,6 +55,7 @@ import { ArchaeologyModal } from './ui/components/ArchaeologyModal';
 import { TerraformModal } from './ui/components/TerraformModal';
 import { TradeRoutesModal } from './ui/components/TradeRoutesModal';
 import { WarfareModal } from './ui/components/WarfareModal';
+import { FederationModal } from './ui/components/FederationModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -98,6 +100,7 @@ type LeftPanelType =
   | 'terraform'
   | 'trade_routes'
   | 'warfare'
+  | 'federation'
   | 'crisis'
   | 'relay'
   | 'gallery'
@@ -1287,6 +1290,160 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleFormFederation = (name: string, fedType: FederationType, invitedPlayerId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'FORM_FEDERATION',
+      name,
+      fedType,
+      invitedPlayerId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleInviteToFederation = (federationId: string, targetPlayerId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'INVITE_TO_FEDERATION',
+      federationId,
+      targetPlayerId,
+    });
+    if (res.success) {
+      sound.playNotification();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleRespondFederationInvite = (federationId: string, accept: boolean) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RESPOND_FEDERATION_INVITE',
+      federationId,
+      accept,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleLeaveFederation = (federationId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'LEAVE_FEDERATION',
+      federationId,
+    });
+    if (res.success) {
+      sound.playNotification();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleProposeFederationLaw = (
+    federationId: string,
+    lawType: 'successionType' | 'warVoteType' | 'fleetContribution',
+    proposedValue: string
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'PROPOSE_FEDERATION_LAW',
+      federationId,
+      lawType,
+      proposedValue,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleVoteFederationLaw = (federationId: string, vote: 'yes' | 'no') => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'VOTE_FEDERATION_LAW',
+      federationId,
+      vote,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAssignFederationEnvoys = (federationId: string, envoys: number) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ASSIGN_FEDERATION_ENVOYS',
+      federationId,
+      envoys,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleBuildFederalShip = (
+    federationId: string,
+    planetId: string,
+    shipType: ShipType,
+    count: number
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'BUILD_FEDERAL_SHIP',
+      federationId,
+      planetId,
+      shipType,
+      count,
+    });
+    if (res.success) {
+      sound.playConstruction();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDispatchFederalFleet = (
+    federationId: string,
+    originPlanetId: string,
+    targetSystemId: string,
+    ships: Record<ShipType, number>
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISPATCH_FEDERAL_FLEET',
+      federationId,
+      originPlanetId,
+      targetSystemId,
+      ships,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1578,6 +1735,7 @@ export function App() {
         onOpenTerraform={() => setActiveLeftPanel((prev) => (prev === 'terraform' ? null : 'terraform'))}
         onOpenTradeRoutes={() => setActiveLeftPanel((prev) => (prev === 'trade_routes' ? null : 'trade_routes'))}
         onOpenWarfare={() => setActiveLeftPanel((prev) => (prev === 'warfare' ? null : 'warfare'))}
+        onOpenFederation={() => setActiveLeftPanel((prev) => (prev === 'federation' ? null : 'federation'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -1618,6 +1776,9 @@ export function App() {
           onOpenTerraform={() => setActiveLeftPanel((prev) => (prev === 'terraform' ? null : 'terraform'))}
           onOpenTradeRoutes={() => setActiveLeftPanel((prev) => (prev === 'trade_routes' ? null : 'trade_routes'))}
           onOpenWarfare={() => setActiveLeftPanel((prev) => (prev === 'warfare' ? null : 'warfare'))}
+          onOpenFederation={() => setActiveLeftPanel((prev) => (prev === 'federation' ? null : 'federation'))}
+          federationLevel={activePlayer?.federationId ? engineState.federations?.[activePlayer.federationId]?.centralizationLevel : undefined}
+          activeFederationVotesCount={activePlayer?.federationId && engineState.federations?.[activePlayer.federationId]?.activeVote ? 1 : 0}
           collectedTradeValue={engineState.tradeStates?.[activePlayerId]?.totalCollectedTV}
           hasTradePiracyThreat={Boolean((engineState.tradeStates?.[activePlayerId]?.totalLostTV || 0) > 0)}
           activeWarsCount={
@@ -2186,6 +2347,29 @@ export function App() {
           onSetSubjectTerms={handleSetSubjectTerms}
           onReleaseSubject={handleReleaseSubject}
           onIntegrateSubject={handleIntegrateSubject}
+          onSelectSystem={(systemId) => {
+            setSelectedTarget({ type: 'system', systemId });
+            setActiveLeftPanel(null);
+          }}
+        />
+      )}
+
+      {/* Galactic Federations, Federal Fleet, Cohesion & Laws Modal (Phase 22) */}
+      {activeLeftPanel === 'federation' && (
+        <FederationModal
+          isOpen={true}
+          onClose={() => setActiveLeftPanel(null)}
+          state={engineState}
+          playerId={activePlayerId}
+          onFormFederation={handleFormFederation}
+          onInviteToFederation={handleInviteToFederation}
+          onRespondFederationInvite={handleRespondFederationInvite}
+          onLeaveFederation={handleLeaveFederation}
+          onProposeFederationLaw={handleProposeFederationLaw}
+          onVoteFederationLaw={handleVoteFederationLaw}
+          onAssignFederationEnvoys={handleAssignFederationEnvoys}
+          onBuildFederalShip={handleBuildFederalShip}
+          onDispatchFederalFleet={handleDispatchFederalFleet}
           onSelectSystem={(systemId) => {
             setSelectedTarget({ type: 'system', systemId });
             setActiveLeftPanel(null);

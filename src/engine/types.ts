@@ -271,6 +271,68 @@ export interface SubjectAgreement {
   loyalty: number; // -100 to +100
 }
 
+// --- Galactic Federations (Phase 22) ---
+export type FederationType =
+  | 'galactic_union'       // Multi-species union: +20% Diplomatic Weight, +10% Unity, high cohesion
+  | 'martial_alliance'     // Mutual defense: +15% Ship Weapon Damage, +20% Admiral XP, +25% Federal Fleet Cap
+  | 'research_cooperative' // Scientific vanguard: Free tech sharing, +20% Research Speed
+  | 'trade_league'         // Economic coalition: Trade League Policy (+0.5 Energy, +0.25 Minerals, +0.25 Unity), +25% Trade Value
+  | 'hegemony';            // Dominance empire: President tax (+30% resources), members cannot leave without president approval
+
+export type FederationSuccessionType =
+  | 'rotation'             // Rotates every term (10 min)
+  | 'diplomatic_weight'    // Highest Senate Diplomatic Weight
+  | 'fleet_power'          // Highest military power
+  | 'golden_rule';         // Highest treasury/economy
+
+export type FederationWarVoteType =
+  | 'unanimous'            // All members must agree
+  | 'majority'             // > 50% must agree
+  | 'president_only';      // President declares war unilaterally
+
+export type FederationFleetContributionType =
+  | 'none'                 // 0% naval cap contribution
+  | 'low'                  // 10% naval cap contribution
+  | 'medium'               // 20% naval cap contribution
+  | 'high';                // 30% naval cap contribution
+
+export interface FederationLaws {
+  successionType: FederationSuccessionType;
+  warVoteType: FederationWarVoteType;
+  fleetContribution: FederationFleetContributionType;
+}
+
+export interface FederationActiveVote {
+  id: string;
+  lawType: 'successionType' | 'warVoteType' | 'fleetContribution';
+  proposedValue: string;
+  proposerId: string;
+  votes: Record<string, 'yes' | 'no'>; // memberId -> vote
+  deadlineMs: number;
+}
+
+export interface FederationState {
+  id: string;
+  name: string;
+  type: FederationType;
+  founderId: string;
+  presidentId: string;
+  members: string[]; // member playerIds
+  pendingInvites: string[]; // playerIds invited
+  centralizationLevel: number; // 1 to 5
+  experience: number; // 0 to 1000
+  cohesion: number; // -100 to +100
+  laws: FederationLaws;
+  activeVote?: FederationActiveVote | null;
+  assignedEnvoys: Record<string, number>; // playerId -> envoy count (0 to 3)
+  federalFleet: Record<ShipType, number>;
+  federalFleetCapacity: number; // total capacity contributed by members
+  termStartedAtMs: number;
+  lastCohesionUpdateMs: number;
+  compositeTechLevels: Record<ResearchType, number>; // highest tech levels among all members
+}
+
+
 
 export interface PlanetSlot {
   slotIndex: number;
@@ -947,6 +1009,8 @@ export interface Player {
   commercialPacts?: string[]; // Phase 20: Array of partner playerIds
   overlordId?: string | null; // Phase 21: ID of overlord if player is a subject
   subjects?: string[]; // Phase 21: Array of subject playerIds
+  federationId?: string | null; // Phase 22: ID of the federation this player belongs to
+  assignedFederationEnvoys?: number; // Phase 22: Envoys assigned to federation to maintain cohesion
 }
 
 export type EmpireDirectiveId =
@@ -1092,6 +1156,7 @@ export interface GameState {
   systemTrade?: Record<string, SystemTradeInfo>; // key: systemId (Phase 20)
   wars?: Record<string, WarState>; // key: warId (Phase 21)
   subjects?: Record<string, SubjectAgreement>; // key: subjectId (Phase 21)
+  federations?: Record<string, FederationState>; // key: federationId (Phase 22)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1438,6 +1503,56 @@ export type GameCommand =
   | {
       type: 'INTEGRATE_SUBJECT';
       subjectId: string;
+    }
+  | {
+      type: 'FORM_FEDERATION';
+      name: string;
+      fedType: FederationType;
+      invitedPlayerId: string;
+    }
+  | {
+      type: 'INVITE_TO_FEDERATION';
+      federationId: string;
+      targetPlayerId: string;
+    }
+  | {
+      type: 'RESPOND_FEDERATION_INVITE';
+      federationId: string;
+      accept: boolean;
+    }
+  | {
+      type: 'LEAVE_FEDERATION';
+      federationId: string;
+    }
+  | {
+      type: 'PROPOSE_FEDERATION_LAW';
+      federationId: string;
+      lawType: 'successionType' | 'warVoteType' | 'fleetContribution';
+      proposedValue: string;
+    }
+  | {
+      type: 'VOTE_FEDERATION_LAW';
+      federationId: string;
+      vote: 'yes' | 'no';
+    }
+  | {
+      type: 'ASSIGN_FEDERATION_ENVOYS';
+      federationId: string;
+      envoys: number;
+    }
+  | {
+      type: 'BUILD_FEDERAL_SHIP';
+      federationId: string;
+      planetId: string;
+      shipType: ShipType;
+      count: number;
+    }
+  | {
+      type: 'DISPATCH_FEDERAL_FLEET';
+      federationId: string;
+      originPlanetId: string;
+      targetSystemId: string;
+      ships: Record<ShipType, number>;
     };
 
 export interface CommandReceipt {

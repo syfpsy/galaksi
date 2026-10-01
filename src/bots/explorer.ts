@@ -13,6 +13,7 @@ import { evaluateBotArchaeology } from './archaeology';
 import { evaluateBotTerraforming } from './terraforming';
 import { evaluateBotTrade } from './trade';
 import { evaluateBotWarfare } from './wars';
+import { evaluateBotFederations } from './federations';
 import { IBotAgent } from './types';
 
 export class ExplorerBot implements IBotAgent {
@@ -195,6 +196,9 @@ export class ExplorerBot implements IBotAgent {
 
     // 16. Casus Belli, Wars, War Exhaustion & Subject Management (Phase 21)
     evaluateBotWarfare(engine, this.playerId, this.archetype, executedCommands);
+
+    // 17. Galactic Federations, Federal Fleets & Centralization Laws (Phase 22)
+    evaluateBotFederations(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }
