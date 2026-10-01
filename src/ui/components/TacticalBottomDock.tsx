@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   AlertTriangle,
   ArrowRight,
+  Building2,
   Crosshair,
   Flame,
   Globe,
@@ -9,6 +10,7 @@ import {
   Pickaxe,
   Radio,
   RotateCcw,
+  Search,
   Send,
   Shield,
   ShieldAlert,
@@ -17,7 +19,7 @@ import {
   Wrench,
   Zap,
 } from 'lucide-react';
-import { GameState, PlanetStance, ShipType } from '../../engine/types';
+import { FleetDoctrine, GameState, PlanetStance, ShipType } from '../../engine/types';
 import { SHIP_STATS } from '../../engine/constants';
 import { SelectedTarget } from '../types';
 import { formatDuration } from '../timeUtils';
@@ -28,13 +30,18 @@ interface TacticalBottomDockProps {
   activePlayerId: string;
   selectedTarget: SelectedTarget | null;
   activePlanetId: string;
+  isMinimized?: boolean;
+  onToggleMinimized?: (min: boolean) => void;
   onOpenCommandPanel: () => void;
   onRecallFleet: (fleetId: string) => void;
   onOpenShipyard: () => void;
   onOpenMarket: () => void;
+  onOpenPlanetPanel?: (planetId: string) => void;
+  onOpenFleetDetails?: (fleetId: string) => void;
   onFocusPlanet: (planetId: string) => void;
   onFocusRelay: () => void;
   onSetStance?: (planetId: string, stance: PlanetStance) => void;
+  onSetDoctrine?: (fleetId: string, doctrine: FleetDoctrine) => void;
   onBuildShips?: (planetId: string, shipType: ShipType, count: number) => void;
   onToggleAutoSupply?: (planetId: string, enabled: boolean) => void;
   onRapidIntercept?: (targetSystemId?: string, targetFleetId?: string) => void;
@@ -45,18 +52,28 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
   activePlayerId,
   selectedTarget,
   activePlanetId,
+  isMinimized: isMinimizedProp,
+  onToggleMinimized,
   onOpenCommandPanel,
   onRecallFleet,
   onOpenShipyard,
   onOpenMarket,
+  onOpenPlanetPanel,
+  onOpenFleetDetails,
   onFocusPlanet,
   onFocusRelay,
   onSetStance,
+  onSetDoctrine,
   onBuildShips,
   onToggleAutoSupply,
   onRapidIntercept,
 }) => {
-  const [isMinimized, setIsMinimized] = useState(false);
+  const [internalMinimized, setInternalMinimized] = useState(false);
+  const isMinimized = isMinimizedProp !== undefined ? isMinimizedProp : internalMinimized;
+  const setIsMinimized = (val: boolean) => {
+    if (onToggleMinimized) onToggleMinimized(val);
+    else setInternalMinimized(val);
+  };
 
   // Selected fleet or target resolution
   const selectedFleet =
@@ -151,19 +168,66 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
               </div>
             </div>
 
+            {/* Fleet Doctrine Selector */}
+            {isMyFleet && onSetDoctrine && (
+              <div className="mt-1.5 pt-1 border-t border-slate-800/80 flex items-center justify-between">
+                <span className="text-[9.5px] text-slate-400 font-semibold">Doktrin:</span>
+                <div className="flex items-center gap-1">
+                  {(
+                    [
+                      { id: 'balanced', label: 'Dengeli' },
+                      { id: 'aggressive', label: 'Taarruz' },
+                      { id: 'defensive', label: 'Savunma' },
+                      { id: 'hit_and_run', label: 'Vur-Kaç' },
+                    ] as const
+                  ).map((doc) => (
+                    <button
+                      key={doc.id}
+                      onClick={() => {
+                        sound.playClick();
+                        onSetDoctrine(selectedFleet.id, doc.id as FleetDoctrine);
+                      }}
+                      className={`px-1.5 py-0.5 rounded-sm text-[9px] font-bold border transition-colors cursor-pointer ${
+                        selectedFleet.doctrine === doc.id
+                          ? 'bg-cyan-950/90 border-cyan-400 text-cyan-200 shadow-sm'
+                          : 'border-slate-800 text-slate-400 hover:text-slate-200'
+                      }`}
+                    >
+                      {doc.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Quick Stance / Recall for My Fleet or 1-Click Rapid Intercept for Hostile Fleet */}
-            {isMyFleet && selectedFleet.status === 'in_transit' ? (
-              <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-end">
-                <button
-                  onClick={() => {
-                    sound.playClick();
-                    onRecallFleet(selectedFleet.id);
-                  }}
-                  className="px-2.5 py-1 bg-rose-950/80 border border-rose-500 hover:border-rose-400 text-rose-200 text-[10.5px] rounded-sm flex items-center gap-1.5 font-bold cursor-pointer transition-colors"
-                >
-                  <RotateCcw className="w-3 h-3" />
-                  <span>Geri Çağır</span>
-                </button>
+            {isMyFleet ? (
+              <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-between">
+                {onOpenFleetDetails && (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onOpenFleetDetails(selectedFleet.id);
+                    }}
+                    className="text-cyan-300 hover:text-white font-bold flex items-center gap-1 cursor-pointer transition-colors text-[10.5px]"
+                    title="Detaylı Filo & Gemi Durumu İncele"
+                  >
+                    <Search className="w-3 h-3 text-cyan-400" />
+                    <span>İncele</span>
+                  </button>
+                )}
+                {selectedFleet.status === 'in_transit' && (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onRecallFleet(selectedFleet.id);
+                    }}
+                    className="px-2.5 py-1 bg-rose-950/80 border border-rose-500 hover:border-rose-400 text-rose-200 text-[10.5px] rounded-sm flex items-center gap-1.5 font-bold cursor-pointer transition-colors ml-auto"
+                  >
+                    <RotateCcw className="w-3 h-3" />
+                    <span>Geri Çağır</span>
+                  </button>
+                )}
               </div>
             ) : !isMyFleet && onRapidIntercept ? (
               <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-between">
@@ -271,16 +335,31 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
 
             {/* Quick Actions */}
             <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-between text-[10.5px]">
-              <button
-                onClick={() => {
-                  sound.playClick();
-                  onFocusPlanet(selectedPlanet.id);
-                }}
-                className="text-cyan-300 hover:text-white font-bold flex items-center gap-1 cursor-pointer transition-colors"
-              >
-                <Navigation className="w-3 h-3" />
-                <span>Odaklan</span>
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onFocusPlanet(selectedPlanet.id);
+                  }}
+                  className="text-cyan-300 hover:text-white font-bold flex items-center gap-1 cursor-pointer transition-colors"
+                >
+                  <Navigation className="w-3 h-3" />
+                  <span>Odaklan</span>
+                </button>
+                {isMyPlanet && onOpenPlanetPanel && (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onOpenPlanetPanel(selectedPlanet.id);
+                    }}
+                    className="text-amber-300 hover:text-white font-bold flex items-center gap-1 cursor-pointer transition-colors ml-1"
+                    title="Gezegen Yönetimi, İlçeler & Binalar (F1)"
+                  >
+                    <Building2 className="w-3 h-3 text-amber-400" />
+                    <span>Yönetim</span>
+                  </button>
+                )}
+              </div>
 
               {isMyPlanet && (selectedPlanet.buildings.shipyard || 0) > 0 && onBuildShips ? (
                 <div className="flex items-center gap-1">

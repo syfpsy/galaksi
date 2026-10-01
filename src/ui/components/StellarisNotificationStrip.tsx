@@ -337,7 +337,7 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
   };
 
   return (
-    <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-[25] flex items-center gap-2 select-none pointer-events-none">
+    <div className="absolute top-14 left-4 z-20 flex items-center gap-2 select-none pointer-events-none">
       {notifications.map((n) => {
         const style = getIconAndStyle(n.type);
         const isHovered = hoveredId === n.id;
@@ -374,9 +374,9 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
               </button>
             </div>
 
-            {/* Tactical Stellaris Tooltip */}
+            {/* Tactical Stellaris Tooltip - Opens downward from top banner */}
             {isHovered && (
-              <div className="absolute bottom-11 left-1/2 -translate-x-1/2 z-40 w-64 stellaris-tooltip rounded-sm p-3 shadow-2xl text-xs font-mono animate-fade-in pointer-events-none">
+              <div className="absolute top-11 left-0 z-40 w-64 stellaris-tooltip rounded-sm p-3 shadow-2xl text-xs font-mono animate-fade-in pointer-events-none">
                 <div className="flex items-center justify-between text-[11px] text-amber-300 font-bold mb-1 uppercase tracking-wider">
                   <span>{n.title}</span>
                 </div>

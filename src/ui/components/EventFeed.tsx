@@ -14,7 +14,7 @@ const EventFeedComponent: React.FC<EventFeedProps> = ({ events }) => {
   if (events.length === 0) return null;
 
   return (
-    <div className="absolute bottom-16 left-6 z-20 select-none max-w-sm w-full">
+    <div className="absolute bottom-2 left-4 z-10 select-none max-w-xs w-full">
       <div className="stellaris-outliner border border-[#1c3647] rounded-sm shadow-xl overflow-hidden">
         {/* Toggle Bar */}
         <div

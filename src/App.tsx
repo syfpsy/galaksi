@@ -191,6 +191,8 @@ export function App() {
   const [isCommandPanelOpen, setIsCommandPanelOpen] = useState<boolean>(false);
   const [isOutlinerCollapsed, setIsOutlinerCollapsed] = useState<boolean>(false);
   const [isAudioMuted, setIsAudioMuted] = useState<boolean>(sound.isMuted);
+  const [isBottomDockMinimized, setIsBottomDockMinimized] = useState<boolean>(false);
+  const [detailedFleetHUDId, setDetailedFleetHUDId] = useState<string | null>(null);
 
   // Auxiliary inspection / anomaly dialogs & orientation
   const [inspectedSystemId, setInspectedSystemId] = useState<string | null>(null);
@@ -3360,9 +3362,6 @@ export function App() {
               setSelectedTarget({ type: 'planet', systemId, planetId });
               if (engineState.planets[planetId]?.ownerId === activePlayerId) {
                 setActivePlanetId(planetId);
-                setActiveLeftPanel('planets');
-              } else {
-                setIsCommandPanelOpen(true);
               }
             }}
             onInspectSystem={(systemId) => setInspectedSystemId(systemId)}
@@ -3393,25 +3392,23 @@ export function App() {
             </div>
           )}
 
-          {/* Stellaris Fleet Inspector Bottom Card HUD */}
-          {selectedTarget?.type === 'fleet' && selectedTarget.fleetId && (
+          {/* Stellaris Fleet Inspector Bottom Card HUD (Only when explicitly opened for deep telemetry) */}
+          {detailedFleetHUDId && engineState.fleets[detailedFleetHUDId] && (
             <FleetCardHUD
               state={engineState}
-              fleetId={selectedTarget.fleetId}
+              fleetId={detailedFleetHUDId}
               activePlayerId={activePlayerId}
               currentTimeMs={engineState.timeMs}
-              onClose={() => setSelectedTarget(null)}
+              onClose={() => setDetailedFleetHUDId(null)}
               onRecallFleet={handleRecallFleet}
               onOpenCommandPanel={() => setIsCommandPanelOpen(true)}
               onSetDoctrine={handleSetFleetDoctrine}
               onFocusFleetPosition={() => {
-                if (selectedTarget.fleetId) {
-                  const fl = engineState.fleets[selectedTarget.fleetId];
-                  if (fl) {
-                    const sysId = fl.targetSystemId || fl.originSystemId;
-                    if (sysId) {
-                      setSelectedTarget({ type: 'system', systemId: sysId });
-                    }
+                const fl = engineState.fleets[detailedFleetHUDId];
+                if (fl) {
+                  const sysId = fl.targetSystemId || fl.originSystemId;
+                  if (sysId) {
+                    setSelectedTarget({ type: 'system', systemId: sysId });
                   }
                 }
               }}
@@ -3424,10 +3421,17 @@ export function App() {
             activePlayerId={activePlayerId}
             selectedTarget={selectedTarget}
             activePlanetId={activePlanetId}
+            isMinimized={isBottomDockMinimized}
+            onToggleMinimized={setIsBottomDockMinimized}
             onOpenCommandPanel={() => setIsCommandPanelOpen(true)}
             onRecallFleet={handleRecallFleet}
             onOpenShipyard={() => setActiveLeftPanel('shipyard')}
             onOpenMarket={() => setActiveLeftPanel('market')}
+            onOpenPlanetPanel={(pId) => {
+              setActivePlanetId(pId);
+              setActiveLeftPanel('planets');
+            }}
+            onOpenFleetDetails={(fId) => setDetailedFleetHUDId(fId)}
             onFocusPlanet={(pId) => {
               setActivePlanetId(pId);
               const p = engineState.planets[pId];
@@ -3435,6 +3439,7 @@ export function App() {
             }}
             onFocusRelay={handleFocusRelay}
             onSetStance={handleSetStance}
+            onSetDoctrine={handleSetFleetDoctrine}
             onBuildShips={handleBuildShip}
             onToggleAutoSupply={handleToggleAutoSupply}
             onRapidIntercept={handleRapidIntercept}
@@ -3444,6 +3449,7 @@ export function App() {
           <StrategicMomentumHUD
             state={engineState}
             activePlayerId={activePlayerId}
+            dockMinimized={isBottomDockMinimized}
             onExecuteCommand={handleExecuteGenericCommand}
             onClaimOpportunity={handleClaimOpportunity}
           />
@@ -3482,7 +3488,6 @@ export function App() {
             if (p) {
               setSelectedTarget({ type: 'planet', systemId: p.systemId, planetId: p.id });
             }
-            setActiveLeftPanel('planets');
           }}
           onSelectFleet={(fleetId) => {
             const fl = engineState.fleets[fleetId];

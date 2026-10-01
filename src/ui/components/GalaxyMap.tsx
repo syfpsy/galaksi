@@ -19,7 +19,6 @@ import { GameState, StarSystem } from '../../engine/types';
 import { SelectedTarget } from '../types';
 import { sound } from '../sound';
 import { GalaxyScene25D, MapMode, DirectOrderPayload, TacticalPingResult } from './GalaxyScene25D';
-import { StellarisBottomDeck } from './StellarisBottomDeck';
 
 interface GalaxyMapProps {
   state: GameState;
@@ -450,50 +449,96 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         </div>
       )}
 
-      {/* Bottom Center: Stellaris Operations Deck & Activity Console (Collapsible & Expandable) */}
-      <StellarisBottomDeck
-        state={state}
-        activePlayerId={activePlayerId}
-        currentTimeMs={state.timeMs}
-        viewMode={viewMode}
-        activeSystemName={activeSystem.name}
-        showProjections={showProjections}
-        zoom={zoom}
-        onToggleViewMode={() => {
-          sound.playClick();
-          if (viewMode === 'system') {
-            setViewMode('galaxy');
-          } else {
-            enterSystemView(focusedSystemId);
-          }
-        }}
-        onCycleSystem={cycleSystem}
-        onToggleProjections={() => {
-          sound.playClick();
-          setShowProjections(!showProjections);
-        }}
-        onZoomIn={() => {
-          sound.playClick();
-          setZoom((prev) => Math.min(2.5, prev + 0.2));
-        }}
-        onZoomOut={() => {
-          sound.playClick();
-          setZoom((prev) => Math.max(0.6, prev - 0.2));
-        }}
-        onSelectFleet={onSelectFleet}
-        onSelectPlanet={onSelectPlanet}
-        onSelectSystem={onSelectSystem}
-        onRecallFleet={onRecallFleet}
-        onOpenShipyard={onOpenShipyard}
-        onOpenResearch={onOpenResearch}
-        onOpenTransitRadar={onOpenTransitRadar}
-        onFocusHomeworld={onFocusHomeworld}
-        onFocusRelay={onFocusRelay}
-        onCycleColonies={onCycleColonies}
-      />
+      {/* Sleek Stellaris View Switcher & Zoom Deck (Bottom-Right of Map) */}
+      <div className="absolute bottom-3 right-4 z-20 flex items-center gap-1.5 stellaris-dock-card px-2.5 py-1.5 rounded-sm shadow-xl font-mono text-xs select-none">
+        {viewMode === 'system' ? (
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => cycleSystem('prev')}
+              className="p-1 text-slate-300 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Önceki Sistem"
+            >
+              <ChevronLeft className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                setViewMode('galaxy');
+              }}
+              className="px-2.5 py-1 bg-cyan-950/80 border border-cyan-500/50 hover:border-cyan-400 text-cyan-300 font-bold rounded-sm flex items-center gap-1.5 transition-all cursor-pointer"
+              title="Galaksi Haritasına Çık [M]"
+            >
+              <Compass className="w-3.5 h-3.5" />
+              <span>GALAKSİ [M]</span>
+            </button>
+            <button
+              onClick={() => cycleSystem('next')}
+              className="p-1 text-slate-300 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer"
+              title="Sonraki Sistem"
+            >
+              <ChevronRight className="w-3.5 h-3.5" />
+            </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                setShowProjections(!showProjections);
+              }}
+              className={`px-2 py-1 rounded-sm text-[10px] font-bold border transition-colors cursor-pointer ml-1 ${
+                showProjections
+                  ? 'border-cyan-400 bg-cyan-950/80 text-cyan-300'
+                  : 'border-slate-700 text-slate-400 hover:text-slate-200'
+              }`}
+              title="Gelecek Yörünge Projeksiyonlarını Göster/Gizle"
+            >
+              🔭 Projeksiyon
+            </button>
+          </div>
+        ) : (
+          <button
+            onClick={() => {
+              sound.playClick();
+              enterSystemView(focusedSystemId);
+            }}
+            className="px-2.5 py-1 bg-amber-950/80 border border-amber-500/50 hover:border-amber-400 text-amber-300 font-bold rounded-sm flex items-center gap-1.5 transition-all cursor-pointer"
+            title="Sistem Detayına Gir [M / Çift Tık]"
+          >
+            <Globe className="w-3.5 h-3.5" />
+            <span>{activeSystem.name.toUpperCase()} [M]</span>
+          </button>
+        )}
 
-      {/* Dynamic Map Legend (Bottom-Left) */}
-      <div className="absolute bottom-3 left-4 stellaris-item-card rounded-sm px-3 py-1.5 flex items-center gap-4 text-[11px] font-mono text-slate-300 pointer-events-none shadow-xl border border-slate-700/60 backdrop-blur-md">
+        <div className="h-4 w-px bg-slate-700 mx-1" />
+
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-1 text-[11px]">
+          <button
+            onClick={() => {
+              sound.playClick();
+              setZoom((prev) => Math.max(0.6, prev - 0.2));
+            }}
+            className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer font-bold"
+            title="Uzaklaş"
+          >
+            -
+          </button>
+          <span className="text-amber-300 font-bold text-[10px] w-9 text-center">
+            {Math.round(zoom * 100)}%
+          </span>
+          <button
+            onClick={() => {
+              sound.playClick();
+              setZoom((prev) => Math.min(2.5, prev + 0.2));
+            }}
+            className="w-5 h-5 rounded flex items-center justify-center text-slate-400 hover:text-white hover:bg-slate-800 cursor-pointer font-bold"
+            title="Yakınlaş"
+          >
+            +
+          </button>
+        </div>
+      </div>
+
+      {/* Dynamic Map Legend (Bottom-Right, neatly above Zoom & Switcher) */}
+      <div className="absolute bottom-12 right-4 stellaris-item-card rounded-sm px-3 py-1.5 flex items-center gap-4 text-[11px] font-mono text-slate-300 pointer-events-none shadow-xl border border-slate-700/60 backdrop-blur-md">
         {mapMode === 'military' ? (
           <>
             <div className="flex items-center gap-1.5">

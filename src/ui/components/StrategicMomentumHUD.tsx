@@ -21,6 +21,7 @@ import { sound } from '../sound';
 interface StrategicMomentumHUDProps {
   state: GameState;
   activePlayerId: string;
+  dockMinimized?: boolean;
   onExecuteCommand: (command: any) => boolean;
   onClaimOpportunity: (opp: StrategicOpportunity) => void;
 }
@@ -28,10 +29,11 @@ interface StrategicMomentumHUDProps {
 export const StrategicMomentumHUD: React.FC<StrategicMomentumHUDProps> = ({
   state,
   activePlayerId,
+  dockMinimized = false,
   onExecuteCommand,
   onClaimOpportunity,
 }) => {
-  const [isCollapsed, setIsCollapsed] = useState(false);
+  const [isCollapsed, setIsCollapsed] = useState(true);
   const [completedToast, setCompletedToast] = useState<string | null>(null);
 
   const player = state.players[activePlayerId];
@@ -78,8 +80,10 @@ export const StrategicMomentumHUD: React.FC<StrategicMomentumHUDProps> = ({
     }
   };
 
+  const bottomOffsetClass = dockMinimized ? 'bottom-12' : 'bottom-[124px]';
+
   return (
-    <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-25 max-w-4xl w-[95%] sm:w-auto select-none pointer-events-auto font-mono animate-in slide-in-from-bottom-3 duration-300">
+    <div className={`fixed ${bottomOffsetClass} left-1/2 -translate-x-1/2 z-20 max-w-4xl w-[95%] sm:w-auto select-none pointer-events-auto font-mono transition-all duration-300`}>
       {/* Toast Notification Float */}
       {completedToast && (
         <div className="absolute -top-10 left-1/2 -translate-x-1/2 px-4 py-1.5 rounded-sm bg-gradient-to-r from-amber-500 to-yellow-400 text-slate-950 font-bold text-xs shadow-[0_0_20px_rgba(251,191,36,0.6)] animate-bounce flex items-center gap-1.5">
@@ -154,10 +158,13 @@ export const StrategicMomentumHUD: React.FC<StrategicMomentumHUDProps> = ({
           {/* Collapse Toggle */}
           <button
             onClick={() => setIsCollapsed(!isCollapsed)}
-            className="p-1 text-slate-400 hover:text-white rounded-sm hover:bg-slate-800/60 transition-colors cursor-pointer"
-            title={isCollapsed ? 'Fırsatları Göster' : 'Gizle'}
+            className="px-2 py-0.5 text-slate-400 hover:text-white rounded-sm hover:bg-slate-800/60 transition-colors cursor-pointer flex items-center gap-1"
+            title={isCollapsed ? 'Stratejik Fırsatları Göster' : 'Gizle'}
           >
-            {isCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            <span className="text-[10px] text-amber-300 font-bold hidden sm:inline">
+              {isCollapsed ? 'Fırsatlar ▲' : 'Kapat ▼'}
+            </span>
+            {isCollapsed ? <ChevronUp className="w-3.5 h-3.5 text-amber-300" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         </div>
 
