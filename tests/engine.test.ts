@@ -32,6 +32,15 @@ import {
   getCouncilEmpireBonuses,
 } from '../src/engine/council';
 import { evaluateBotCouncil } from '../src/bots/council';
+import {
+  DEFAULT_LOADOUTS,
+  getModifiedShipStats,
+  calculateRefitCost,
+  WEAPON_MODULES,
+  DEFENSE_MODULES,
+  UTILITY_MODULES,
+} from '../src/engine/shipDesign';
+import { evaluateBotShipDesign } from '../src/bots/shipDesign';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -2442,6 +2451,248 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     council2.factions.militarists.approvalRating = 30; // set low approval to trigger agenda support
     evaluateBotCouncil(engine, 'p2', 'industrialist');
     expect(council2.factions.militarists.approvalRating).toBeGreaterThan(30);
+  });
+
+  it('manages modular ship designer, custom component loadouts, refit shipyard, and archetype doctrines (Phase 15)', () => {
+    const engine = new GameEngine(888);
+    const { player, homeworld } = engine.addPlayer('p_shepard', 'Admiral Shepard', '#00f3ff');
+
+    // 1. Initial State & Fog of War Projection
+    expect(engine.state.shipLoadouts).toBeDefined();
+    expect(engine.state.shipLoadouts![player.id]).toEqual(DEFAULT_LOADOUTS);
+
+    const visibleState = engine.getPlayerView(player.id);
+    expect(visibleState.myShipLoadouts).toBeDefined();
+    expect(visibleState.myShipLoadouts!.fighter).toEqual(DEFAULT_LOADOUTS.fighter);
+
+    // 2. SET_SHIP_LOADOUT Validation & State Updates
+    // Try invalid module id
+    const invalidRes = engine.dispatchCommand(player.id, {
+      type: 'SET_SHIP_LOADOUT',
+      shipType: 'fighter',
+      loadout: {
+        weapon: 'antimatter_death_ray' as any,
+        defense: 'standard_shield',
+        utility: 'standard_reactor',
+      },
+    });
+    expect(invalidRes.success).toBe(false);
+
+    // Set valid custom loadout: plasma, plasteel_armor, hyper_drive
+    const setRes = engine.dispatchCommand(player.id, {
+      type: 'SET_SHIP_LOADOUT',
+      shipType: 'fighter',
+      loadout: {
+        weapon: 'plasma',
+        defense: 'plasteel_armor',
+        utility: 'hyper_drive',
+      },
+    });
+    expect(setRes.success).toBe(true);
+    expect(engine.state.shipLoadouts![player.id].fighter).toEqual({
+      weapon: 'plasma',
+      defense: 'plasteel_armor',
+      utility: 'hyper_drive',
+    });
+
+    // 3. BUILD_SHIPS with Custom Loadout
+    // Base fighter cost: 320 ore, 180 crystal, 80 fuel.
+    // Modules: plasma (40 ore, 35 crystal), plasteel_armor (55 ore, 10 crystal), hyper_drive (45 fuel).
+    // Total cost per fighter: 415 ore, 225 crystal, 125 fuel.
+    const modFighterStats = getModifiedShipStats('fighter', {
+      weapon: 'plasma',
+      defense: 'plasteel_armor',
+      utility: 'hyper_drive',
+    });
+    expect(modFighterStats.cost.ore).toBe(415);
+    expect(modFighterStats.cost.crystal).toBe(225);
+    expect(modFighterStats.cost.fuel).toBe(125);
+
+    homeworld.resources.ore = 2000;
+    homeworld.resources.crystal = 1000;
+    homeworld.resources.fuel = 1000;
+    homeworld.buildings.shipyard = 1;
+
+    const buildRes = engine.dispatchCommand(player.id, {
+      type: 'BUILD_SHIPS',
+      planetId: homeworld.id,
+      shipType: 'fighter',
+      count: 2,
+    });
+    expect(buildRes.success).toBe(true);
+    // Cost for 2 fighters: 830 ore, 450 crystal, 250 fuel
+    expect(homeworld.resources.ore).toBe(2000 - 830);
+    expect(homeworld.resources.crystal).toBe(1000 - 450);
+    expect(homeworld.resources.fuel).toBe(1000 - 250);
+
+    // 4. REFIT_SHIPS Command
+    // Give 5 stock fighters in garrison
+    homeworld.garrison.fighter = 5;
+    const refitCostSingle = calculateRefitCost(
+      'fighter',
+      {
+        weapon: 'plasma',
+        defense: 'plasteel_armor',
+        utility: 'hyper_drive',
+      },
+      2
+    );
+    expect(refitCostSingle.ore).toBeGreaterThan(0);
+
+    // Cannot refit more than garrison
+    const excessRefit = engine.dispatchCommand(player.id, {
+      type: 'REFIT_SHIPS',
+      planetId: homeworld.id,
+      shipType: 'fighter',
+      count: 10,
+    });
+    expect(excessRefit.success).toBe(false);
+
+    // Valid refit of 2 fighters
+    const oreBefore = homeworld.resources.ore;
+    const crystalBefore = homeworld.resources.crystal;
+    const fuelBefore = homeworld.resources.fuel;
+
+    const validRefit = engine.dispatchCommand(player.id, {
+      type: 'REFIT_SHIPS',
+      planetId: homeworld.id,
+      shipType: 'fighter',
+      count: 2,
+    });
+    expect(validRefit.success).toBe(true);
+    expect(homeworld.resources.ore).toBe(oreBefore - refitCostSingle.ore);
+    expect(homeworld.resources.crystal).toBe(crystalBefore - refitCostSingle.crystal);
+    expect(homeworld.resources.fuel).toBe(fuelBefore - refitCostSingle.fuel);
+
+    // Event emitted
+    const refitEvent = engine.state.eventLog.find((e) => e.type === 'ships_refitted');
+    expect(refitEvent).toBeDefined();
+
+    // 5. Flight Speed and Utility Synergy
+    const targetSys = Object.values(engine.state.map.systems).find(
+      (s) => s.id !== homeworld.systemId && !s.hasRelay
+    )!;
+
+    const dispatchRes = engine.dispatchCommand(player.id, {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: homeworld.id,
+      targetSystemId: targetSys.id,
+      ships: { fighter: 2 },
+      mission: 'recon',
+    });
+    expect(dispatchRes.success).toBe(true);
+    const fleetId = (dispatchRes.data as { fleetId: string }).fleetId;
+    const fleet = engine.state.fleets[fleetId];
+    expect(fleet).toBeDefined();
+    expect(fleet.loadouts).toBeDefined();
+    expect(fleet.loadouts!.fighter.utility).toBe('hyper_drive');
+
+    // Route info duration with speed modules (evasion_thrusters + hyper_drive) is faster than heavy armor (plasteel_armor)
+    const armoredRoute = calculateRouteInfo(
+      homeworld.systemId,
+      targetSys.id,
+      { fighter: 2, scout: 0, transport: 0, battleship: 0 },
+      engine.state.map.lanes,
+      0,
+      undefined,
+      {
+        fighter: { weapon: 'railgun', defense: 'plasteel_armor', utility: 'standard_reactor' },
+        scout: DEFAULT_LOADOUTS.scout,
+        transport: DEFAULT_LOADOUTS.transport,
+        battleship: DEFAULT_LOADOUTS.battleship,
+      }
+    );
+    const speedRoute = calculateRouteInfo(
+      homeworld.systemId,
+      targetSys.id,
+      { fighter: 2, scout: 0, transport: 0, battleship: 0 },
+      engine.state.map.lanes,
+      0,
+      undefined,
+      {
+        fighter: { weapon: 'plasma', defense: 'evasion_thrusters', utility: 'hyper_drive' },
+        scout: DEFAULT_LOADOUTS.scout,
+        transport: DEFAULT_LOADOUTS.transport,
+        battleship: DEFAULT_LOADOUTS.battleship,
+      }
+    );
+    expect(speedRoute!.durationMs).toBeLessThan(armoredRoute!.durationMs);
+
+    // Cargo expander utility module boosts transport capacity (4200 vs 2800)
+    const standardTransportStats = getModifiedShipStats('transport', {
+      weapon: 'laser',
+      defense: 'standard_shield',
+      utility: 'standard_reactor',
+    });
+    const cargoTransportStats = getModifiedShipStats('transport', {
+      weapon: 'laser',
+      defense: 'standard_shield',
+      utility: 'cargo_expander',
+    });
+    expect(cargoTransportStats.cargoCapacity).toBeGreaterThan(standardTransportStats.cargoCapacity);
+    expect(cargoTransportStats.cargoCapacity).toBe(4200);
+    expect(standardTransportStats.cargoCapacity).toBe(2800);
+
+    // 6. Combat Simulation with Custom Loadouts
+    const combatResult = resolveCombat(
+      {
+        ownerId: 'p1',
+        ownerName: 'Attacker',
+        ships: { fighter: 10, scout: 0, transport: 0, battleship: 0 },
+        weaponsResearchLevel: 0,
+        shipLoadouts: {
+          fighter: {
+            weapon: 'plasma', // +25% attack
+            defense: 'plasteel_armor', // +45% hull
+            utility: 'standard_reactor',
+          },
+          scout: DEFAULT_LOADOUTS.scout,
+          transport: DEFAULT_LOADOUTS.transport,
+          battleship: DEFAULT_LOADOUTS.battleship,
+        },
+      },
+      {
+        ownerId: 'p2',
+        ownerName: 'Defender',
+        ships: { fighter: 10, scout: 0, transport: 0, battleship: 0 },
+        weaponsResearchLevel: 0,
+        shipLoadouts: DEFAULT_LOADOUTS,
+      },
+      homeworld.systemId,
+      homeworld.name,
+      'fleet_interception',
+      undefined,
+      10000
+    );
+    expect(combatResult.report).toBeDefined();
+    expect(combatResult.report.attackerLoadouts).toBeDefined();
+    expect(combatResult.report.defenderLoadouts).toBeDefined();
+    expect(combatResult.report.winner).toBe('attacker');
+
+    // 7. Autonomous Bot AI Loadout Specialization
+    const { player: botRaid } = engine.addPlayer('bot_raid', 'Bot Raider', '#ef4444', true, 'raider');
+    const { player: botGuard } = engine.addPlayer('bot_guard', 'Bot Guardian', '#10b981', true, 'guardian');
+    const { player: botExp } = engine.addPlayer('bot_exp', 'Bot Explorer', '#3b82f6', true, 'explorer');
+
+    // Before bot optimization: default
+    expect(engine.state.shipLoadouts![botRaid.id].scout.weapon).toBe('laser');
+    expect(engine.state.shipLoadouts![botGuard.id].scout.defense).toBe('evasion_thrusters');
+    expect(engine.state.shipLoadouts![botExp.id].transport.defense).toBe('standard_shield');
+
+    // Run evaluateBotShipDesign
+    evaluateBotShipDesign(engine, botRaid.id, 'raider');
+    evaluateBotShipDesign(engine, botGuard.id, 'guardian');
+    evaluateBotShipDesign(engine, botExp.id, 'explorer');
+
+    // Raider specializes in plasma for scouts
+    expect(engine.state.shipLoadouts![botRaid.id].scout.weapon).toBe('plasma');
+    expect(engine.state.shipLoadouts![botRaid.id].scout.utility).toBe('hyper_drive');
+
+    // Guardian specializes in plasteel armor for scouts
+    expect(engine.state.shipLoadouts![botGuard.id].scout.defense).toBe('plasteel_armor');
+
+    // Explorer specializes in evasion thrusters for transports
+    expect(engine.state.shipLoadouts![botExp.id].transport.defense).toBe('evasion_thrusters');
   });
 });
 

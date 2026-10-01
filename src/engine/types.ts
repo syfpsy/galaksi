@@ -23,6 +23,18 @@ export type ResearchType = 'engines' | 'weapons' | 'sensors';
 
 export type ShipType = 'scout' | 'transport' | 'fighter' | 'battleship';
 
+export type WeaponModuleId = 'laser' | 'plasma' | 'railgun' | 'torpedo';
+export type DefenseModuleId = 'standard_shield' | 'plasteel_armor' | 'evasion_thrusters';
+export type UtilityModuleId = 'standard_reactor' | 'cargo_expander' | 'subspace_sensor' | 'hyper_drive';
+
+export interface ShipLoadout {
+  weapon: WeaponModuleId;
+  defense: DefenseModuleId;
+  utility: UtilityModuleId;
+}
+
+export type ShipLoadoutMap = Record<ShipType, ShipLoadout>;
+
 export type DefenseStructureType = 'missile_battery' | 'plasma_turret' | 'ion_cannon';
 
 export interface DefenseStats {
@@ -433,6 +445,7 @@ export interface Fleet {
   status: 'orbiting' | 'in_transit' | 'intercepting' | 'returning' | 'destroyed';
   admiralId?: string;
   doctrine?: FleetDoctrine;
+  loadouts?: ShipLoadoutMap;
 }
 
 export interface RelayContest {
@@ -482,6 +495,8 @@ export interface BattleReport {
   defenderDoctrine?: FleetDoctrine;
   attackerArtifacts?: EmpireArtifactId[];
   defenderArtifacts?: EmpireArtifactId[];
+  attackerLoadouts?: ShipLoadoutMap;
+  defenderLoadouts?: ShipLoadoutMap;
   initialStarbase?: {
     tier: StarbaseTier;
     hull: number;
@@ -760,6 +775,7 @@ export interface GameState {
   gateways?: Record<string, Gateway>; // key: systemId
   senate?: SenateState;
   councils?: Record<string, ImperialCouncilState>; // key: playerId
+  shipLoadouts?: Record<string, ShipLoadoutMap>; // key: playerId
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -979,6 +995,17 @@ export type GameCommand =
       factionType: FactionType;
       agendaId: string;
       fundingPlanetId: string;
+    }
+  | {
+      type: 'SET_SHIP_LOADOUT';
+      shipType: ShipType;
+      loadout: ShipLoadout;
+    }
+  | {
+      type: 'REFIT_SHIPS';
+      planetId: string;
+      shipType: ShipType;
+      count: number;
     };
 
 export interface CommandReceipt {

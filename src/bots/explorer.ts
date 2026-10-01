@@ -6,6 +6,7 @@ import { evaluateBotStarbases } from './starbases';
 import { evaluateBotSenate } from './senate';
 import { evaluateBotMegastructures } from './megastructures';
 import { evaluateBotCouncil } from './council';
+import { evaluateBotShipDesign } from './shipDesign';
 import { IBotAgent } from './types';
 
 export class ExplorerBot implements IBotAgent {
@@ -167,6 +168,9 @@ export class ExplorerBot implements IBotAgent {
 
     // 9. Imperial Council & Faction Agendas (Phase 14)
     evaluateBotCouncil(engine, this.playerId, this.archetype, executedCommands);
+
+    // 10. Modular Ship Design & Fleet Refit (Phase 15)
+    evaluateBotShipDesign(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

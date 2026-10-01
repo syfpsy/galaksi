@@ -1,5 +1,6 @@
 import { SHIP_STATS } from './constants';
-import { Fleet, FlightLane, SectorMap, ShipType, StarSystem } from './types';
+import { Fleet, FlightLane, SectorMap, ShipLoadoutMap, ShipType, StarSystem } from './types';
+import { getModifiedShipStats } from './shipDesign';
 
 export interface RouteInfo {
   path: string[];            // List of system IDs
@@ -92,7 +93,8 @@ export function findShortestRoute(
  */
 export function calculateFleetSpeed(
   ships: Record<ShipType, number>,
-  engineResearchLevel: number = 0
+  engineResearchLevel: number = 0,
+  loadouts?: ShipLoadoutMap
 ): number {
   let minSpeed = Infinity;
   let hasShips = false;
@@ -100,7 +102,7 @@ export function calculateFleetSpeed(
   for (const [shipType, count] of Object.entries(ships) as [ShipType, number][]) {
     if (count > 0) {
       hasShips = true;
-      const stats = SHIP_STATS[shipType];
+      const stats = loadouts?.[shipType] ? getModifiedShipStats(shipType, loadouts[shipType]) : SHIP_STATS[shipType];
       if (stats.speed < minSpeed) {
         minSpeed = stats.speed;
       }
@@ -140,7 +142,8 @@ export function calculateRouteInfo(
   ships: Record<ShipType, number>,
   lanes: FlightLane[],
   engineResearchLevel: number = 0,
-  activeGatewaySystemIds?: Set<string> | string[]
+  activeGatewaySystemIds?: Set<string> | string[],
+  loadouts?: ShipLoadoutMap
 ): RouteInfo | null {
   // Check direct Subspace Gateway Conduit jump
   if (
@@ -155,7 +158,7 @@ export function calculateRouteInfo(
       : activeGatewaySystemIds.includes(toSystemId);
 
     if (hasOrigin && hasTarget) {
-      const speed = calculateFleetSpeed(ships, engineResearchLevel);
+      const speed = calculateFleetSpeed(ships, engineResearchLevel, loadouts);
       return {
         path: [fromSystemId, toSystemId],
         totalDistance: 10,
@@ -170,7 +173,7 @@ export function calculateRouteInfo(
   const route = findShortestRoute(fromSystemId, toSystemId, lanes);
   if (!route) return null;
 
-  const speed = calculateFleetSpeed(ships, engineResearchLevel);
+  const speed = calculateFleetSpeed(ships, engineResearchLevel, loadouts);
   // Heavy persistent strategy flight scaling:
   // 100 distance @ 100 speed = 900 seconds (15 minutes).
   // A 200 distance jump takes ~31 min for Battleship (spd 95), ~13.6 min for Fighter (spd 220).

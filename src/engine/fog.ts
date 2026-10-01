@@ -22,7 +22,9 @@ import {
   Megastructure,
   Gateway,
   ImperialCouncilState,
+  ShipLoadoutMap,
 } from './types';
+import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
 
 export interface MaskedFleet {
@@ -81,6 +83,7 @@ export interface PlayerVisibleState {
   megastructures?: Record<string, Megastructure>;
   gateways?: Record<string, Gateway>;
   myCouncil?: ImperialCouncilState;
+  myShipLoadouts?: ShipLoadoutMap;
 }
 
 /**
@@ -411,5 +414,6 @@ export function filterGameStateForPlayer(
     megastructures: state.megastructures,
     gateways: state.gateways,
     myCouncil: state.councils?.[playerId],
+    myShipLoadouts: state.shipLoadouts?.[playerId] || DEFAULT_LOADOUTS,
   };
 }

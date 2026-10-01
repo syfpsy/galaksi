@@ -10,6 +10,7 @@ import {
   Globe,
   HelpCircle,
   Landmark,
+  Layers,
   LineChart,
   Palette,
   Radio,
@@ -32,6 +33,7 @@ interface StellarisLeftRailProps {
   activeLeftPanel?: string | null;
   onOpenOrientation?: () => void;
   onOpenShipyard: () => void;
+  onOpenShipDesigner?: () => void;
   onOpenResearch: () => void;
   onOpenTransitRadar?: () => void;
   onOpenMarket?: () => void;
@@ -71,6 +73,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   activeLeftPanel,
   onOpenOrientation,
   onOpenShipyard,
+  onOpenShipDesigner,
   onOpenResearch,
   onOpenTransitRadar,
   onOpenMarket,
@@ -183,6 +186,34 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             </div>
             <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Avcı, kruvazör, keşif ve taşıma gemisi imalatı.
+            </p>
+          </div>
+        </div>
+
+        {/* Modular Ship Designer & Refit Dock (TAS) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenShipDesigner) onOpenShipDesigner();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'ship_designer' ? 'active' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Layers className="w-5 h-5 text-cyan-400 group-hover:scale-110 transition-transform" />
+            <span className="absolute bottom-0.5 right-1 text-[9px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
+              TAS
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="stellaris-gold tracking-wide">GEMİ TASARIMCISI & DOK</span>
+              <span className="text-[10.5px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">TAS / B</span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Silah, zırh/kalkan ve sistem modülleri yüklemesi; garnizon gemi modernizasyonu.
             </p>
           </div>
         </div>

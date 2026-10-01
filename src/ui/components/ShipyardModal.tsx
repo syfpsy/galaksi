@@ -17,9 +17,10 @@ import {
   Package,
   Sliders,
   CheckCircle2,
+  Anchor,
 } from 'lucide-react';
 import { DEFENSE_STATS, getDefenseBuildDurationMs, getShipBuildDurationMs, SHIP_STATS } from '../../engine/constants';
-import { DefenseStructureType, Planet, ShipType } from '../../engine/types';
+import { DefenseStructureType, Planet, ShipLoadout, ShipType } from '../../engine/types';
 import { formatDuration } from '../timeUtils';
 import { sound } from '../sound';
 import {
@@ -44,6 +45,10 @@ interface ShipyardModalProps {
   onBuildShip: (planetId: string, shipType: ShipType, count: number) => void;
   onBuildDefense?: (planetId: string, defenseType: DefenseStructureType, count: number) => void;
   currentTimeMs: number;
+  myShipLoadouts?: ShipLoadoutMap;
+  onSetShipLoadout?: (shipType: ShipType, loadout: ShipLoadout) => void;
+  onRefitShips?: (planetId: string, shipType: ShipType, count: number) => void;
+  onOpenShipDesigner?: () => void;
 }
 
 const SHIP_ART: Record<ShipType, string> = {
@@ -75,11 +80,21 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
   onBuildShip,
   onBuildDefense,
   currentTimeMs,
+  myShipLoadouts,
+  onSetShipLoadout,
+  onRefitShips,
+  onOpenShipDesigner,
 }) => {
   const [activeTab, setActiveTab] = useState<'build' | 'defenses' | 'designer'>('build');
   const [selectedDesignerShip, setSelectedDesignerShip] = useState<ShipType>('scout');
-  const [loadouts, setLoadouts] = useState<ShipLoadoutMap>(() => loadSavedLoadouts());
+  const [loadouts, setLoadouts] = useState<ShipLoadoutMap>(() => myShipLoadouts || loadSavedLoadouts());
   const [saveSuccessNotice, setSaveSuccessNotice] = useState<string | null>(null);
+
+  React.useEffect(() => {
+    if (myShipLoadouts) {
+      setLoadouts(JSON.parse(JSON.stringify(myShipLoadouts)));
+    }
+  }, [myShipLoadouts]);
 
   const [counts, setCounts] = useState<Record<ShipType, number>>({
     scout: 1,
@@ -119,16 +134,23 @@ const ShipyardModalComponent: React.FC<ShipyardModalProps> = ({
   const handleSaveAndApply = () => {
     sound.playNotification();
     saveLoadouts(loadouts);
+    if (onSetShipLoadout) {
+      onSetShipLoadout(selectedDesignerShip, currentLoadout);
+    }
     setSaveSuccessNotice('Donanım konfigürasyonu tersaneye uygulandı!');
     setTimeout(() => setSaveSuccessNotice(null), 3000);
   };
 
   const handleResetToDefault = () => {
     sound.playClick();
+    const def = DEFAULT_LOADOUTS[selectedDesignerShip];
     setLoadouts((prev) => ({
       ...prev,
-      [selectedDesignerShip]: { ...DEFAULT_LOADOUTS[selectedDesignerShip] },
+      [selectedDesignerShip]: { ...def },
     }));
+    if (onSetShipLoadout) {
+      onSetShipLoadout(selectedDesignerShip, def);
+    }
   };
 
   // Active loadout for the designer

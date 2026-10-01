@@ -1,8 +1,9 @@
 import { DEFENSE_STATS, GAME_CONSTANTS, SHIP_STATS } from './constants';
 import { PRNG } from './prng';
-import { BattleReport, CombatRound, DefenseStructureType, EmpireArtifactId, FleetDoctrine, PlanetSpecialization, PlanetStance, Resources, ShipType, Starbase, StarbaseTier } from './types';
+import { BattleReport, CombatRound, DefenseStructureType, EmpireArtifactId, FleetDoctrine, PlanetSpecialization, PlanetStance, Resources, ShipLoadoutMap, ShipType, Starbase, StarbaseTier } from './types';
 import { Admiral, ADMIRAL_TRAITS } from './admirals';
 import { getStarbaseEffectiveStats, STARBASE_TIER_CONFIG } from './starbases';
+import { getModifiedShipStats } from './shipDesign';
 
 export interface CombatFleetInput {
   ownerId: string;
@@ -17,6 +18,7 @@ export interface CombatFleetInput {
   artifacts?: EmpireArtifactId[];
   starbase?: Starbase;
   senateAttackMultiplier?: number;
+  shipLoadouts?: ShipLoadoutMap;
 }
 
 export interface CombatResult {
@@ -41,7 +43,8 @@ export interface CombatResult {
  */
 export function getFleetCombatRating(
   ships: Record<ShipType, number>,
-  weaponsLevel: number = 0
+  weaponsLevel: number = 0,
+  loadouts?: ShipLoadoutMap
 ): { totalAttack: number; totalHealth: number } {
   let totalAttack = 0;
   let totalHealth = 0;
@@ -50,7 +53,7 @@ export function getFleetCombatRating(
 
   for (const [shipType, count] of Object.entries(ships) as [ShipType, number][]) {
     if (count > 0) {
-      const stats = SHIP_STATS[shipType];
+      const stats = loadouts?.[shipType] ? getModifiedShipStats(shipType, loadouts[shipType]) : SHIP_STATS[shipType];
       totalAttack += stats.attack * count * weaponMult;
       totalHealth += (stats.hull + stats.shield) * count;
     }
@@ -168,8 +171,8 @@ export function resolveCombat(
     if (attCount === 0 || (defCount === 0 && defDefCount === 0 && !starbaseActive)) break;
 
     // Calculate attack output with +/- 10% deterministic variance
-    const attRating = getFleetCombatRating(currentAttacker, attacker.weaponsResearchLevel);
-    const defRating = getFleetCombatRating(currentDefender, defender.weaponsResearchLevel);
+    const attRating = getFleetCombatRating(currentAttacker, attacker.weaponsResearchLevel, attacker.shipLoadouts);
+    const defRating = getFleetCombatRating(currentDefender, defender.weaponsResearchLevel, defender.shipLoadouts);
     const currentDefenseRating = getDefenseCombatRating(currentDefenses, defender.weaponsResearchLevel);
     const isMilitaryBastion = context === 'planet_raid' && defender.planetSpecialization === 'military_bastion';
     if (isMilitaryBastion) {
@@ -280,15 +283,15 @@ export function resolveCombat(
     let defDefenseLosses: Record<DefenseStructureType, number> | undefined;
 
     if (hasInitialDefenses) {
-      const defRes = applyDamageToDefender(currentDefender, currentDefenses, damageToDefenderGarrison, prng, isMilitaryBastion);
+      const defRes = applyDamageToDefender(currentDefender, currentDefenses, damageToDefenderGarrison, prng, isMilitaryBastion, defender.shipLoadouts);
       defLosses = { losses: defRes.shipLosses };
       defDefenseLosses = defRes.defenseLosses;
     } else {
-      defLosses = applyDamageToFleet(currentDefender, damageToDefenderGarrison, prng);
+      defLosses = applyDamageToFleet(currentDefender, damageToDefenderGarrison, prng, defender.shipLoadouts);
     }
 
     // Apply losses to attacker
-    const attLosses = applyDamageToFleet(currentAttacker, defDmg, prng);
+    const attLosses = applyDamageToFleet(currentAttacker, defDmg, prng, attacker.shipLoadouts);
 
     rounds.push({
       roundNumber: r,
@@ -330,9 +333,13 @@ export function resolveCombat(
     const totalLost = lostAttacker + lostDefender;
 
     if (totalLost > 0) {
-      const stats = SHIP_STATS[st];
-      debrisFieldCreated.ore += Math.round(totalLost * stats.cost.ore * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
-      debrisFieldCreated.crystal += Math.round(totalLost * stats.cost.crystal * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
+      const attStats = attacker.shipLoadouts?.[st] ? getModifiedShipStats(st, attacker.shipLoadouts[st]) : SHIP_STATS[st];
+      const defStats = defender.shipLoadouts?.[st] ? getModifiedShipStats(st, defender.shipLoadouts[st]) : SHIP_STATS[st];
+      const totalOreLoss = lostAttacker * attStats.cost.ore + lostDefender * defStats.cost.ore;
+      const totalCrystalLoss = lostAttacker * attStats.cost.crystal + lostDefender * defStats.cost.crystal;
+
+      debrisFieldCreated.ore += Math.round(totalOreLoss * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
+      debrisFieldCreated.crystal += Math.round(totalCrystalLoss * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
     }
   }
 
@@ -364,7 +371,8 @@ export function resolveCombat(
     // Attacker cargo capacity of remaining ships
     let totalCargoCapacity = 0;
     for (const st of shipTypes) {
-      totalCargoCapacity += currentAttacker[st] * SHIP_STATS[st].cargoCapacity;
+      const stats = attacker.shipLoadouts?.[st] ? getModifiedShipStats(st, attacker.shipLoadouts[st]) : SHIP_STATS[st];
+      totalCargoCapacity += currentAttacker[st] * stats.cargoCapacity;
     }
 
     if (totalCargoCapacity > 0) {
@@ -427,6 +435,8 @@ export function resolveCombat(
     defenderDoctrine: defender.doctrine,
     attackerArtifacts: attacker.artifacts,
     defenderArtifacts: defender.artifacts,
+    attackerLoadouts: attacker.shipLoadouts,
+    defenderLoadouts: defender.shipLoadouts,
   };
 
   const attackerAdmiralXP = attacker.admiral
@@ -504,7 +514,8 @@ function applyDamageToDefender(
   defenses: Record<DefenseStructureType, number>,
   incomingDamage: number,
   prng: PRNG,
-  isMilitaryBastion: boolean = false
+  isMilitaryBastion: boolean = false,
+  loadouts?: ShipLoadoutMap
 ): {
   shipLosses: Record<ShipType, number>;
   defenseLosses: Record<DefenseStructureType, number>;
@@ -520,7 +531,7 @@ function applyDamageToDefender(
   }
 
   if (defCount === 0) {
-    const shipLosses = applyDamageToFleet(fleet, incomingDamage, prng).losses;
+    const shipLosses = applyDamageToFleet(fleet, incomingDamage, prng, loadouts).losses;
     return {
       shipLosses,
       defenseLosses: { missile_battery: 0, plasma_turret: 0, ion_cannon: 0 },
@@ -541,7 +552,7 @@ function applyDamageToDefender(
   const shipDmg = incomingDamage - defDmg;
 
   const defenseLosses = applyDamageToDefenses(defenses, defDmg, prng, isMilitaryBastion).losses;
-  const shipLosses = applyDamageToFleet(fleet, shipDmg, prng).losses;
+  const shipLosses = applyDamageToFleet(fleet, shipDmg, prng, loadouts).losses;
 
   return { shipLosses, defenseLosses };
 }
@@ -552,7 +563,8 @@ function applyDamageToDefender(
 function applyDamageToFleet(
   fleet: Record<ShipType, number>,
   incomingDamage: number,
-  _prng: PRNG
+  _prng: PRNG,
+  loadouts?: ShipLoadoutMap
 ): { losses: Record<ShipType, number> } {
   const losses: Record<ShipType, number> = { scout: 0, transport: 0, fighter: 0, battleship: 0 };
   let remainingDmg = incomingDamage;
@@ -565,7 +577,7 @@ function applyDamageToFleet(
     const count = fleet[st];
     if (count <= 0) continue;
 
-    const stats = SHIP_STATS[st];
+    const stats = loadouts?.[st] ? getModifiedShipStats(st, loadouts[st]) : SHIP_STATS[st];
     const unitHp = stats.hull + stats.shield;
 
     const unitsDestroyed = Math.min(count, Math.floor(remainingDmg / unitHp));

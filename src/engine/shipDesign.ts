@@ -1,17 +1,22 @@
-import { Resources, ShipStats, ShipType } from './types';
+import {
+  Resources,
+  ShipStats,
+  ShipType,
+  WeaponModuleId,
+  DefenseModuleId,
+  UtilityModuleId,
+  ShipLoadout,
+  ShipLoadoutMap,
+} from './types';
 import { SHIP_STATS } from './constants';
 
-export type WeaponModuleId = 'laser' | 'plasma' | 'railgun' | 'torpedo';
-export type DefenseModuleId = 'standard_shield' | 'plasteel_armor' | 'evasion_thrusters';
-export type UtilityModuleId = 'standard_reactor' | 'cargo_expander' | 'subspace_sensor' | 'hyper_drive';
-
-export interface ShipLoadout {
-  weapon: WeaponModuleId;
-  defense: DefenseModuleId;
-  utility: UtilityModuleId;
-}
-
-export type ShipLoadoutMap = Record<ShipType, ShipLoadout>;
+export type {
+  WeaponModuleId,
+  DefenseModuleId,
+  UtilityModuleId,
+  ShipLoadout,
+  ShipLoadoutMap,
+};
 
 export interface ModuleDefinition {
   id: string;
@@ -217,11 +222,13 @@ export const DEFAULT_LOADOUTS: ShipLoadoutMap = {
 /**
  * Calculates modified ship statistics and costs according to equipped loadouts
  */
-export function getModifiedShipStats(shipType: ShipType, loadout: ShipLoadout): ShipStats {
+export function getModifiedShipStats(shipType: ShipType, loadout?: ShipLoadout): ShipStats {
   const base = SHIP_STATS[shipType];
-  const wMod = WEAPON_MODULES[loadout.weapon];
-  const dMod = DEFENSE_MODULES[loadout.defense];
-  const uMod = UTILITY_MODULES[loadout.utility];
+  if (!loadout) return { ...base, cost: { ...base.cost } };
+
+  const wMod = WEAPON_MODULES[loadout.weapon] || WEAPON_MODULES.laser;
+  const dMod = DEFENSE_MODULES[loadout.defense] || DEFENSE_MODULES.standard_shield;
+  const uMod = UTILITY_MODULES[loadout.utility] || UTILITY_MODULES.standard_reactor;
 
   const totalAtkMult = wMod.attackMultiplier * dMod.attackMultiplier * uMod.attackMultiplier;
   const totalHullMult = wMod.hullMultiplier * dMod.hullMultiplier * uMod.hullMultiplier;
@@ -245,6 +252,23 @@ export function getModifiedShipStats(shipType: ShipType, loadout: ShipLoadout): 
       crystal: base.cost.crystal + extraCrystal,
       fuel: base.cost.fuel + extraFuel,
     },
+  };
+}
+
+/**
+ * Calculates refit cost for upgrading existing garrison ships to current loadout
+ */
+export function calculateRefitCost(shipType: ShipType, loadout: ShipLoadout, count: number = 1): Resources {
+  const base = SHIP_STATS[shipType];
+  const mod = getModifiedShipStats(shipType, loadout);
+  const extraOre = Math.max(0, mod.cost.ore - base.cost.ore);
+  const extraCrystal = Math.max(0, mod.cost.crystal - base.cost.crystal);
+  const extraFuel = Math.max(0, mod.cost.fuel - base.cost.fuel);
+
+  return {
+    ore: Math.max(10, Math.round(extraOre * 0.75 + base.cost.ore * 0.05)) * count,
+    crystal: Math.max(5, Math.round(extraCrystal * 0.75 + base.cost.crystal * 0.05)) * count,
+    fuel: Math.round(extraFuel * 0.75 + base.cost.fuel * 0.05) * count,
   };
 }
 

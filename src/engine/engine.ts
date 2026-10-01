@@ -102,6 +102,14 @@ import {
   applySectorCrisisEnd,
   getRouteCrisisModifiers,
 } from './events';
+import {
+  DEFAULT_LOADOUTS,
+  WEAPON_MODULES,
+  DEFENSE_MODULES,
+  UTILITY_MODULES,
+  getModifiedShipStats,
+  calculateRefitCost,
+} from './shipDesign';
 
 export class GameEngine {
   public state: GameState;
@@ -127,6 +135,7 @@ export class GameEngine {
       gateways: {},
       senate: createInitialSenateState(),
       councils: {},
+      shipLoadouts: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -296,6 +305,12 @@ export class GameEngine {
       this.state.councils = {};
     }
     this.state.councils[id] = createDefaultImperialCouncil(id, name, botArchetype);
+
+    // Initialize modular ship design loadouts (Phase 15)
+    if (!this.state.shipLoadouts) {
+      this.state.shipLoadouts = {};
+    }
+    this.state.shipLoadouts[id] = JSON.parse(JSON.stringify(DEFAULT_LOADOUTS));
 
     this.logEvent('player_joined', `${name} galaksiye katıldı (${targetSys.name}).`, id);
 
@@ -1194,6 +1209,9 @@ export class GameEngine {
           const attackerWeapons = player?.research.weapons || 0;
           const defenderWeapons = defenderPlayer?.research.weapons || 0;
 
+          const attackerLoadouts = fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId];
+          const defenderLoadouts = this.state.shipLoadouts?.[targetPlanet.ownerId];
+
           const combatResult = resolveCombat(
             {
               ownerId: fleet.ownerId,
@@ -1204,6 +1222,7 @@ export class GameEngine {
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+              shipLoadouts: attackerLoadouts,
             },
             {
               ownerId: targetPlanet.ownerId,
@@ -1216,6 +1235,7 @@ export class GameEngine {
               artifacts: defenderPlayer?.artifacts,
               starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetPlanet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(targetPlanet.ownerId),
+              shipLoadouts: defenderLoadouts,
             },
             targetSystem.id,
             targetSystem.name,
@@ -1307,6 +1327,7 @@ export class GameEngine {
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+              shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
             },
             {
               ownerId: 'ancient_titan',
@@ -1415,6 +1436,7 @@ export class GameEngine {
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+              shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
             },
             {
               ownerId: 'pirates',
@@ -1523,6 +1545,7 @@ export class GameEngine {
             doctrine: fleet.doctrine || 'balanced',
             artifacts: player?.artifacts,
             senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+            shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
           },
           {
             ownerId: targetFleet.ownerId,
@@ -1534,6 +1557,7 @@ export class GameEngine {
             artifacts: defenderPlayer?.artifacts,
             starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetFleet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
             senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(targetFleet.ownerId),
+            shipLoadouts: targetFleet.loadouts || this.state.shipLoadouts?.[targetFleet.ownerId],
           },
           targetSystem.id,
           targetSystem.name,
@@ -1606,6 +1630,7 @@ export class GameEngine {
                 doctrine: fleet.doctrine || 'balanced',
                 artifacts: player?.artifacts,
                 senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+                shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
               },
               {
                 ownerId: this.state.relay.controllingPlayerId || 'neutral',
@@ -1619,6 +1644,9 @@ export class GameEngine {
                 senateAttackMultiplier: this.state.relay.controllingPlayerId
                   ? this.getPlayerSenateAttackMultiplier(this.state.relay.controllingPlayerId)
                   : 1.0,
+                shipLoadouts: this.state.relay.controllingPlayerId
+                  ? this.state.shipLoadouts?.[this.state.relay.controllingPlayerId]
+                  : undefined,
               },
               targetSystem.id,
               targetSystem.name,
@@ -2131,7 +2159,8 @@ export class GameEngine {
           return { success: false, commandType: cmd.type, error: 'Geçersiz gemi adedi.', timeMs: this.state.timeMs };
         }
 
-        const stats = SHIP_STATS[cmd.shipType];
+        const playerLoadout = this.state.shipLoadouts?.[playerId]?.[cmd.shipType] || DEFAULT_LOADOUTS[cmd.shipType];
+        const stats = getModifiedShipStats(cmd.shipType, playerLoadout);
         const totalOre = stats.cost.ore * cmd.count;
         const totalCrystal = stats.cost.crystal * cmd.count;
         const totalFuel = stats.cost.fuel * cmd.count;
@@ -2371,12 +2400,15 @@ export class GameEngine {
         // Verify ships in garrison
         let totalShips = 0;
         let totalCargoCap = 0;
+        const playerLoadouts = this.state.shipLoadouts?.[playerId];
         for (const [type, count] of Object.entries(cmd.ships) as [ShipType, number][]) {
           if (count < 0 || (originPlanet.garrison[type] || 0) < count) {
             return { success: false, commandType: cmd.type, error: `Yetersiz ${SHIP_STATS[type].nameTr} garnizonda yok.`, timeMs: this.state.timeMs };
           }
           totalShips += count;
-          totalCargoCap += count * SHIP_STATS[type].cargoCapacity;
+          const typeLoadout = playerLoadouts?.[type];
+          const shipStats = typeLoadout ? getModifiedShipStats(type, typeLoadout) : SHIP_STATS[type];
+          totalCargoCap += count * shipStats.cargoCapacity;
         }
 
         if (totalShips <= 0) {
@@ -2392,7 +2424,8 @@ export class GameEngine {
           cmd.ships,
           this.state.map.lanes,
           engineLevel,
-          activeGateways
+          activeGateways,
+          playerLoadouts
         );
 
         if (!route) {
@@ -2549,6 +2582,7 @@ export class GameEngine {
           status: 'in_transit',
           admiralId: assignedAdmiralId,
           doctrine: fleetDoctrine,
+          loadouts: playerLoadouts ? JSON.parse(JSON.stringify(playerLoadouts)) : undefined,
         };
 
         this.state.fleets[fleetId] = newFleet;
@@ -3513,13 +3547,15 @@ export class GameEngine {
         // Estimate route fuel consumption
         const engineLevel = player.research.engines || 0;
         const activeGateways = this.getActiveGatewaySystemIds(playerId);
+        const playerLoadouts = this.state.shipLoadouts?.[playerId];
         const testRoute = calculateRouteInfo(
           colony.systemId,
           targetPlanet.systemId,
           { scout: 0, transport: 1, fighter: 0, battleship: 0 },
           this.state.map.lanes,
           engineLevel,
-          activeGateways
+          activeGateways,
+          playerLoadouts
         );
 
         if (!testRoute) {
@@ -3531,7 +3567,8 @@ export class GameEngine {
           };
         }
 
-        const transportCap = SHIP_STATS.transport.cargoCapacity;
+        const transportStats = playerLoadouts?.transport ? getModifiedShipStats('transport', playerLoadouts.transport) : SHIP_STATS.transport;
+        const transportCap = transportStats.cargoCapacity;
         const totalSurplusToShip = surplusOre + surplusCrystal + rawSurplusFuel;
         const neededTransports = Math.max(1, Math.min(availableTransports, Math.ceil(totalSurplusToShip / transportCap)));
 
@@ -3541,7 +3578,8 @@ export class GameEngine {
           { scout: 0, transport: neededTransports, fighter: 0, battleship: 0 },
           this.state.map.lanes,
           engineLevel,
-          activeGateways
+          activeGateways,
+          playerLoadouts
         );
 
         if (!actualRoute) {
@@ -3611,6 +3649,7 @@ export class GameEngine {
           isReturning: false,
           status: 'in_transit',
           doctrine: 'balanced',
+          loadouts: playerLoadouts ? JSON.parse(JSON.stringify(playerLoadouts)) : undefined,
         };
 
         this.state.fleets[fleetId] = newFleet;
@@ -4422,6 +4461,101 @@ export class GameEngine {
 
         return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
       }
+
+      case 'SET_SHIP_LOADOUT': {
+        if (!['scout', 'transport', 'fighter', 'battleship'].includes(cmd.shipType)) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz gemi sınıfı.', timeMs: this.state.timeMs };
+        }
+        if (!WEAPON_MODULES[cmd.loadout.weapon]) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz silah modülü.', timeMs: this.state.timeMs };
+        }
+        if (!DEFENSE_MODULES[cmd.loadout.defense]) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz savunma modülü.', timeMs: this.state.timeMs };
+        }
+        if (!UTILITY_MODULES[cmd.loadout.utility]) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz yardımcı sistem modülü.', timeMs: this.state.timeMs };
+        }
+
+        if (!this.state.shipLoadouts) {
+          this.state.shipLoadouts = {};
+        }
+        if (!this.state.shipLoadouts[playerId]) {
+          this.state.shipLoadouts[playerId] = JSON.parse(JSON.stringify(DEFAULT_LOADOUTS));
+        }
+
+        this.state.shipLoadouts[playerId][cmd.shipType] = {
+          weapon: cmd.loadout.weapon,
+          defense: cmd.loadout.defense,
+          utility: cmd.loadout.utility,
+        };
+
+        const shipName = SHIP_STATS[cmd.shipType].nameTr;
+        this.logEvent(
+          'ship_loadout_updated',
+          `🛠️ DOKTRİN GÜNCELLEMESİ: ${shipName} sınıfı donanımı yenilendi (${cmd.loadout.weapon}/${cmd.loadout.defense}/${cmd.loadout.utility}).`,
+          playerId,
+          { shipType: cmd.shipType, loadout: cmd.loadout }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { shipType: cmd.shipType, loadout: cmd.loadout },
+        };
+      }
+
+      case 'REFIT_SHIPS': {
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Gezegen size ait değil.', timeMs: this.state.timeMs };
+        }
+        if (planet.buildings.shipyard < 1) {
+          return { success: false, commandType: cmd.type, error: 'Yükseltme ve donatım için Tersane kurulu olmalıdır.', timeMs: this.state.timeMs };
+        }
+        if (cmd.count <= 0) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz gemi adedi.', timeMs: this.state.timeMs };
+        }
+        const availableGarrison = planet.garrison[cmd.shipType] || 0;
+        if (availableGarrison < cmd.count) {
+          return { success: false, commandType: cmd.type, error: 'Garnizonda yeterli gemi bulunmuyor.', timeMs: this.state.timeMs };
+        }
+
+        const playerLoadout = this.state.shipLoadouts?.[playerId]?.[cmd.shipType] || DEFAULT_LOADOUTS[cmd.shipType];
+        const refitCost = calculateRefitCost(cmd.shipType, playerLoadout, cmd.count);
+
+        if (
+          planet.resources.ore < refitCost.ore ||
+          planet.resources.crystal < refitCost.crystal ||
+          planet.resources.fuel < refitCost.fuel
+        ) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yetersiz kaynak (Donatım için ${refitCost.ore} Cevher, ${refitCost.crystal} Kristal, ${refitCost.fuel} Yakıt gerekli).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        planet.resources.ore -= refitCost.ore;
+        planet.resources.crystal -= refitCost.crystal;
+        planet.resources.fuel -= refitCost.fuel;
+
+        const shipName = SHIP_STATS[cmd.shipType].nameTr;
+        this.logEvent(
+          'ships_refitted',
+          `⚓ TERSANE MODERNİZASYONU: ${planet.name} garnizonundaki ${cmd.count} adet ${shipName} son teknoloji modüllerle donatıldı.`,
+          playerId,
+          { planetId: cmd.planetId, shipType: cmd.shipType, count: cmd.count, cost: refitCost }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId, shipType: cmd.shipType, count: cmd.count, cost: refitCost },
+        };
+      }
     }
   }
 
@@ -4627,6 +4761,7 @@ export class GameEngine {
       gateways: {},
       senate: createInitialSenateState(),
       councils: {},
+      shipLoadouts: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},

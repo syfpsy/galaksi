@@ -24,6 +24,7 @@ import {
   Resources,
   SenateResolutionType,
   SenateVote,
+  ShipLoadout,
   ShipType,
   StarbaseModuleType,
   TransmissionType,
@@ -45,6 +46,7 @@ import { IncomingThreatBanner } from './ui/components/IncomingThreatBanner';
 import { PlanetPanel } from './ui/components/PlanetPanel';
 import { ResearchModal } from './ui/components/ResearchModal';
 import { ShipyardModal } from './ui/components/ShipyardModal';
+import { ShipDesignerModal } from './ui/components/ShipDesignerModal';
 import { FleetTransitRadarModal } from './ui/components/FleetTransitRadarModal';
 import { SystemInspectionModal } from './ui/components/SystemInspectionModal';
 import { AdmiralsModal } from './ui/components/AdmiralsModal';
@@ -64,6 +66,7 @@ import { sound } from './ui/sound';
 type LeftPanelType =
   | 'planets'
   | 'shipyard'
+  | 'ship_designer'
   | 'research'
   | 'transit_radar'
   | 'market'
@@ -275,6 +278,10 @@ export function App() {
         e.preventDefault();
         sound.playClick();
         setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'));
+      } else if (e.key === 'b' || e.key === 'B') {
+        e.preventDefault();
+        sound.playClick();
+        setActiveLeftPanel((prev) => (prev === 'ship_designer' ? null : 'ship_designer'));
       } else if (e.key === '?' || (e.shiftKey && e.key === '/')) {
         e.preventDefault();
         sound.playClick();
@@ -515,6 +522,27 @@ export function App() {
       type: 'BUILD_DEFENSES',
       planetId,
       defenseType,
+      count,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSetShipLoadout = (shipType: ShipType, loadout: ShipLoadout) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SET_SHIP_LOADOUT',
+      shipType,
+      loadout,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleRefitShips = (planetId: string, shipType: ShipType, count: number) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'REFIT_SHIPS',
+      planetId,
+      shipType,
       count,
     });
     setEngineState({ ...engineRef.current.state });
@@ -1166,6 +1194,7 @@ export function App() {
           isCommandPanelOpen={isCommandPanelOpen}
           onToggleCommandPanel={() => setIsCommandPanelOpen(!isCommandPanelOpen)}
           onOpenShipyard={() => setActiveLeftPanel((prev) => (prev === 'shipyard' ? null : 'shipyard'))}
+          onOpenShipDesigner={() => setActiveLeftPanel((prev) => (prev === 'ship_designer' ? null : 'ship_designer'))}
           onOpenResearch={() => setActiveLeftPanel((prev) => (prev === 'research' ? null : 'research'))}
           onOpenTransitRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
           onOpenMarket={() => setActiveLeftPanel((prev) => (prev === 'market' ? null : 'market'))}
@@ -1234,6 +1263,23 @@ export function App() {
                 onBuildShip={handleBuildShip}
                 onBuildDefense={handleBuildDefense}
                 currentTimeMs={engineState.timeMs}
+                myShipLoadouts={engineState.shipLoadouts?.[activePlayerId]}
+                onSetShipLoadout={handleSetShipLoadout}
+                onRefitShips={handleRefitShips}
+                onOpenShipDesigner={() => setActiveLeftPanel('ship_designer')}
+              />
+            )}
+
+            {activeLeftPanel === 'ship_designer' && (
+              <ShipDesignerModal
+                isOpen={true}
+                isDocked={true}
+                onClose={() => setActiveLeftPanel(null)}
+                state={engineState}
+                activePlayerId={activePlayerId}
+                activePlanet={activePlanet}
+                onSetShipLoadout={handleSetShipLoadout}
+                onRefitShips={handleRefitShips}
               />
             )}
 
