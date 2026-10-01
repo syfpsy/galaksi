@@ -44,6 +44,7 @@ interface CombatReplayModalProps {
   reports: BattleReport[];
   isOpen: boolean;
   isDocked?: boolean;
+  initialReportId?: string | null;
   onClose: () => void;
   onSelectSystem?: (systemId: string) => void;
 }
@@ -107,6 +108,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
   reports,
   isOpen,
   isDocked = false,
+  initialReportId = null,
   onClose,
   onSelectSystem,
 }) => {
@@ -114,10 +116,19 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
   const [simulatedReport, setSimulatedReport] = useState<BattleReport | null>(null);
 
   // Replay State
-  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(initialReportId);
   const [currentRoundIdx, setCurrentRoundIdx] = useState<number>(0);
-  const [isPlaying, setIsPlaying] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(Boolean(initialReportId));
   const [combatViewMode, setCombatViewMode] = useState<'3d' | 'schematic'>('3d');
+
+  useEffect(() => {
+    if (initialReportId) {
+      setSelectedReportId(initialReportId);
+      setCurrentRoundIdx(0);
+      setIsPlaying(true);
+      setCombatViewMode('3d');
+    }
+  }, [initialReportId]);
 
   // Simulator State
   const [attShips, setAttShips] = useState<Record<ShipType, number>>({

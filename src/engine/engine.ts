@@ -1103,7 +1103,7 @@ export class GameEngine {
   }
 
   private processPlanetShipyardQueue(planet: Planet, nowMs: number) {
-    if (planet.shipyardQueue.length === 0) return;
+    if (!planet.shipyardQueue || planet.shipyardQueue.length === 0) return;
 
     const currentOrder = planet.shipyardQueue[0];
     while (currentOrder && nowMs >= currentOrder.nextUnitFinishTime && currentOrder.completed < currentOrder.count) {
@@ -2759,6 +2759,22 @@ export class GameEngine {
         }
 
         const currentLvl = planet.buildings[cmd.buildingType] || 0;
+
+        // Pop-driven building slot unlocking (Tier 1: 3, Tier 2: 4, Tier 3: 5, Tier 4: 6)
+        const currentPops = planet.pops || (planet.isHomeworld ? 10 : 2);
+        const unlockedSlots = planet.isHomeworld ? 6 : currentPops >= 15 ? 6 : currentPops >= 10 ? 5 : currentPops >= 5 ? 4 : 3;
+        const buildingOrder: BuildingType[] = ['ore_mine', 'crystal_synth', 'fuel_refinery', 'shipyard', 'research_lab', 'sensor_array'];
+        const bIdx = buildingOrder.indexOf(cmd.buildingType);
+        if (bIdx >= unlockedSlots && currentLvl === 0) {
+          const reqPops = bIdx === 3 ? 5 : bIdx === 4 ? 10 : 15;
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Bu altyapıyı kurabilmek için ${reqPops} Pop gereklidir (Mevcut: ${currentPops} Pop).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
         const rawCost = getBuildingUpgradeCost(cmd.buildingType, currentLvl);
         const costMod = getTraditionBuildingCostModifier(this.state, playerId);
         const cost = {

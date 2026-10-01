@@ -867,15 +867,57 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
       {/* Buildings List (Scrollable) */}
       {activeTab === 'buildings' && (
       <div className="flex-1 overflow-y-auto p-3.5 pb-6 space-y-2 text-xs font-mono scrollbar-none">
+        {/* Colony Development Tier Banner */}
+        {(() => {
+          const pops = currentPlanet.pops ?? (currentPlanet.isHomeworld ? 10 : 2);
+          const tier =
+            pops >= 15
+              ? { name: 'Galaktik Metropol', icon: '🌌', color: '#c084fc', bonus: '+%30 Tüm Çıktılar', unlockedSlots: 6 }
+              : pops >= 10
+              ? { name: 'Sanayi Dünyası', icon: '🏙️', color: '#38bdf8', bonus: '+%20 Maden & Tersane Çıktısı', unlockedSlots: 5 }
+              : pops >= 5
+              ? { name: 'Gelişmiş Koloni', icon: '🏢', color: '#34d399', bonus: '+%10 Madencilik Verimi', unlockedSlots: 4 }
+              : { name: 'Öncü Karakol', icon: '🏕️', color: '#fbbf24', bonus: 'Temel Altyapı Desteği', unlockedSlots: 3 };
+
+          const nextTierThreshold = pops < 5 ? 5 : pops < 10 ? 10 : pops < 15 ? 15 : null;
+
+          return (
+            <div className="p-2.5 rounded-sm bg-[#050e18] border border-[#18374b] mb-2 font-mono">
+              <div className="flex items-center justify-between text-[11px] mb-1">
+                <span className="flex items-center gap-1.5 font-bold" style={{ color: tier.color }}>
+                  <span>{tier.icon}</span>
+                  <span>{tier.name}</span>
+                </span>
+                <span className="text-[10px] text-cyan-300 font-bold bg-[#071220] px-1.5 py-0.5 rounded-sm border border-[#1b3d54]">
+                  {tier.unlockedSlots} / 6 Bina Slotu Açık
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-[9.5px] text-slate-400">
+                <span className="text-emerald-400 font-medium">{tier.bonus}</span>
+                {nextTierThreshold && (
+                  <span className="text-amber-300">
+                    Sonraki Seviye: {pops}/{nextTierThreshold} Pop
+                  </span>
+                )}
+              </div>
+            </div>
+          );
+        })()}
+
         <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1">
           GEZEGEN ALTYAPISI & ÜRETİM
         </div>
 
-        {buildingsList.map((type) => {
+        {buildingsList.map((type, idx) => {
           const stats = BUILDING_STATS[type];
           const currentLevel = currentPlanet.buildings[type] || 0;
           const isQueueActive = currentPlanet.buildingQueue?.type === type;
           const nextCost = getBuildingUpgradeCost(type, currentLevel);
+
+          const pops = currentPlanet.pops ?? (currentPlanet.isHomeworld ? 10 : 2);
+          const unlockedSlots = pops >= 15 ? 6 : pops >= 10 ? 5 : pops >= 5 ? 4 : 3;
+          const isLockedByPop = idx >= unlockedSlots && currentLevel === 0;
+          const requiredPops = idx === 3 ? 5 : idx === 4 ? 10 : 15;
 
           const canAfford =
             currentPlanet.resources.ore >= nextCost.ore &&
@@ -899,7 +941,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
               key={type}
               className={`p-2.5 rounded-sm stellaris-item-card transition-all ${
                 isQueueActive ? '!border-cyan-400/70 shadow-sm shadow-cyan-950/40' : ''
-              }`}
+              } ${isLockedByPop ? 'opacity-70 bg-[#060c14]/60' : ''}`}
             >
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
@@ -945,12 +987,16 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
                     </button>
                   )}
 
-                  {/* Upgrade Button or Countdown */}
+                  {/* Upgrade Button, Lock Badge or Countdown */}
                   {isQueueActive ? (
                     <div className="flex items-center gap-1.5 text-xs font-mono text-cyan-300">
                       <Clock className="w-3.5 h-3.5 animate-spin" />
                       <span>{formatDuration(remainingMs)}</span>
                     </div>
+                  ) : isLockedByPop ? (
+                    <span className="text-[9.5px] font-mono font-bold text-amber-300 bg-amber-950/70 border border-amber-500/40 px-2 py-0.5 rounded-sm">
+                      🔒 {requiredPops} Pop Gerekli
+                    </span>
                   ) : (
                     <button
                       disabled={!canAfford || isAnyUpgrading}
@@ -980,23 +1026,30 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
               )}
 
               {/* Cost requirement badges */}
-              <div className="flex items-center gap-2 mt-1.5 text-[11px] font-mono font-medium">
-                <span className={currentPlanet.resources.ore >= nextCost.ore ? 'text-slate-200' : 'text-rose-400 font-bold'}>
-                  {nextCost.ore} Cevher
-                </span>
-                <span className="text-slate-600">•</span>
-                <span className={currentPlanet.resources.crystal >= nextCost.crystal ? 'text-cyan-300' : 'text-rose-400 font-bold'}>
-                  {nextCost.crystal} Kristal
-                </span>
-                {nextCost.fuel > 0 && (
-                  <>
-                    <span className="text-slate-600">•</span>
-                    <span className={currentPlanet.resources.fuel >= nextCost.fuel ? 'text-amber-300' : 'text-rose-400 font-bold'}>
-                      {nextCost.fuel} Yakıt
-                    </span>
-                  </>
-                )}
-              </div>
+              {isLockedByPop ? (
+                <div className="text-[10px] font-mono text-amber-300/90 mt-1 flex items-center gap-1.5 bg-amber-950/30 p-1 rounded-sm border border-amber-500/20">
+                  <span>🔒</span>
+                  <span>Bu altyapıyı kurabilmek için koloni nüfusunu <strong>{requiredPops} Pop</strong> seviyesine ulaştırın.</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 mt-1.5 text-[11px] font-mono font-medium">
+                  <span className={currentPlanet.resources.ore >= nextCost.ore ? 'text-slate-200' : 'text-rose-400 font-bold'}>
+                    {nextCost.ore} Cevher
+                  </span>
+                  <span className="text-slate-600">•</span>
+                  <span className={currentPlanet.resources.crystal >= nextCost.crystal ? 'text-cyan-300' : 'text-rose-400 font-bold'}>
+                    {nextCost.crystal} Kristal
+                  </span>
+                  {nextCost.fuel > 0 && (
+                    <>
+                      <span className="text-slate-600">•</span>
+                      <span className={currentPlanet.resources.fuel >= nextCost.fuel ? 'text-amber-300' : 'text-rose-400 font-bold'}>
+                        {nextCost.fuel} Yakıt
+                      </span>
+                    </>
+                  )}
+                </div>
+              )}
             </div>
           );
         })}

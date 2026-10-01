@@ -100,6 +100,23 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
   const currentRound: CombatRound | undefined = report.rounds[currentRoundIdx];
   const totalRounds = report.rounds.length;
 
+  // Victory Banner & Spoils Celebration
+  const [showVictoryBanner, setShowVictoryBanner] = useState<boolean>(false);
+  const hasPlayedFanfareRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    if (totalRounds > 0 && currentRoundIdx >= totalRounds - 1) {
+      setShowVictoryBanner(true);
+      if (!hasPlayedFanfareRef.current) {
+        sound.playVictoryFanfare();
+        hasPlayedFanfareRef.current = true;
+      }
+    } else {
+      hasPlayedFanfareRef.current = false;
+      setShowVictoryBanner(false);
+    }
+  }, [currentRoundIdx, totalRounds]);
+
   // Camera presets coordinates
   const applyCameraPreset = useCallback((preset: CameraPreset) => {
     setCameraPreset(preset);
@@ -1444,6 +1461,117 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
               <div className="text-[9.5px] text-slate-300">
                 Savaş Simülasyonu & Filo Doktrini Anında Güncellendi
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* End of Battle Victory & Spoils Celebration Plaque */}
+      {showVictoryBanner && (
+        <div className="absolute inset-0 z-35 flex items-center justify-center p-3 bg-black/60 backdrop-blur-xs animate-in fade-in zoom-in-95 duration-300">
+          <div className="max-w-md w-full bg-[#06111d]/95 border-2 border-amber-500/70 rounded-sm shadow-[0_0_35px_rgba(245,158,11,0.35)] p-4 font-mono text-xs flex flex-col gap-2.5">
+            {/* Header with Winner Banner */}
+            <div className="flex items-center justify-between border-b border-[#1b3d54] pb-2">
+              <div className="flex items-center gap-2">
+                <span className="text-2xl">
+                  {report.winner === 'attacker' ? '🏆' : report.winner === 'defender' ? '🛡️' : '⚖️'}
+                </span>
+                <div>
+                  <div className="text-[12px] font-bold text-amber-300 uppercase tracking-wider">
+                    {report.winner === 'attacker'
+                      ? `${report.attackerName} ZAFERİ!`
+                      : report.winner === 'defender'
+                      ? `${report.defenderName} SAVUNMASI BAŞARILI!`
+                      : 'ÇEKİŞMELİ ÇATIŞMA (BERABERE)'}
+                  </div>
+                  <div className="text-[9.5px] text-slate-400">
+                    📍 {report.systemName} Sistemi Muharebe Sonu Raporu
+                  </div>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowVictoryBanner(false)}
+                className="text-slate-400 hover:text-white p-1 rounded-sm hover:bg-[#102538] transition-colors cursor-pointer"
+                title="Plaketi Gizle (Arenayı İzle)"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Loot & Spoils Display */}
+            <div className="grid grid-cols-2 gap-2 text-[10px]">
+              {/* Looted Resources */}
+              <div className="p-2 rounded-sm bg-[#040a14] border border-[#18394e] flex flex-col gap-1">
+                <span className="text-amber-400 font-bold flex items-center gap-1">
+                  <span>💎</span>
+                  <span>Ele Geçirilen Ganimet:</span>
+                </span>
+                <div className="flex items-center gap-2 text-slate-300 font-medium">
+                  <span>⛏️ {report.lootedResources?.ore ?? 0}</span>
+                  <span>💎 {report.lootedResources?.crystal ?? 0}</span>
+                  {report.lootedResources?.fuel ? (
+                    <span>⛽ {report.lootedResources.fuel}</span>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Debris Field */}
+              <div className="p-2 rounded-sm bg-[#040a14] border border-[#18394e] flex flex-col gap-1">
+                <span className="text-cyan-400 font-bold flex items-center gap-1">
+                  <span>🛰️</span>
+                  <span>Uzay Enkaz Sahası:</span>
+                </span>
+                <div className="flex items-center gap-2 text-slate-300 font-medium">
+                  <span>⚙️ {report.debrisFieldCreated?.ore ?? 0} Hurda</span>
+                  <span>💎 {report.debrisFieldCreated?.crystal ?? 0} Kristal</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Admiral XP & Bounty Bonus */}
+            <div className="p-2 rounded-sm bg-[#091829] border border-cyan-500/40 flex items-center justify-between text-[10.5px]">
+              <span className="flex items-center gap-1.5 text-cyan-200">
+                <span className="text-amber-300">⭐</span>
+                <span>Taktik Komuta & Amiral Deneyimi:</span>
+              </span>
+              <span className="text-emerald-400 font-bold">
+                +{report.bountyEarned?.xp ?? 25} XP
+              </span>
+            </div>
+
+            {/* Surviving Fleets Summary */}
+            <div className="flex items-center justify-between text-[10px] text-slate-400 px-1">
+              <div>
+                <span className="text-rose-300 font-bold">{report.attackerName}:</span>{' '}
+                {Object.values(report.survivingAttacker).reduce((a, b) => a + b, 0)} Gemi Hayatta
+              </div>
+              <div>
+                <span className="text-cyan-300 font-bold">{report.defenderName}:</span>{' '}
+                {Object.values(report.survivingDefender).reduce((a, b) => a + b, 0)} Gemi Hayatta
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center justify-end gap-2 pt-1 border-t border-[#1b3d54]">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowVictoryBanner(false);
+                  onSelectRound?.(0);
+                }}
+                className="px-2.5 py-1 rounded-sm text-[10px] font-mono font-bold stellaris-btn-metallic text-cyan-300 flex items-center gap-1 cursor-pointer"
+              >
+                <span>🔄</span>
+                <span>Baştan Oynat</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowVictoryBanner(false)}
+                className="px-3 py-1 rounded-sm text-[10px] font-mono font-bold bg-amber-950/60 hover:bg-amber-900/70 border border-amber-500/70 text-amber-200 cursor-pointer shadow-sm transition-all"
+              >
+                <span>Arenada Kal</span>
+              </button>
             </div>
           </div>
         </div>

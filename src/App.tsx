@@ -98,6 +98,7 @@ import { VictoryModal } from './ui/components/VictoryModal';
 import { TacticalBottomDock } from './ui/components/TacticalBottomDock';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
+import { Swords } from 'lucide-react';
 
 type LeftPanelType =
   | 'planets'
@@ -224,6 +225,56 @@ export function App() {
     }, 4500);
     return () => clearTimeout(timer);
   }, [tacticalToasts]);
+
+  // Live Battle Threat Alert Banner & Tactical Arena Jump
+  interface BattleThreatAlert {
+    reportId: string;
+    systemId: string;
+    systemName: string;
+    attackerName: string;
+    defenderName: string;
+    winner: 'attacker' | 'defender' | 'draw';
+    isPlayerInvolved: boolean;
+    timestamp: number;
+  }
+  const [battleThreatAlert, setBattleThreatAlert] = useState<BattleThreatAlert | null>(null);
+  const [combatJumpReportId, setCombatJumpReportId] = useState<string | null>(null);
+  const prevBattleReportCountRef = useRef(engineState.battleReports.length);
+
+  useEffect(() => {
+    if (engineState.battleReports.length > prevBattleReportCountRef.current) {
+      const latestReport = engineState.battleReports[0];
+      if (latestReport) {
+        const sys = engineState.map.systems[latestReport.systemId];
+        const isPlayerInvolved =
+          latestReport.attackerId === activePlayerId ||
+          latestReport.defenderId === activePlayerId;
+
+        setBattleThreatAlert({
+          reportId: latestReport.id,
+          systemId: latestReport.systemId,
+          systemName: sys?.name || latestReport.systemName || latestReport.systemId,
+          attackerName: latestReport.attackerName,
+          defenderName: latestReport.defenderName,
+          winner: latestReport.winner,
+          isPlayerInvolved,
+          timestamp: Date.now(),
+        });
+
+        sound.playCombatAlarm();
+      }
+    }
+    prevBattleReportCountRef.current = engineState.battleReports.length;
+  }, [engineState.battleReports.length, activePlayerId, engineState.battleReports, engineState.map.systems]);
+
+  // Auto-dismiss battle threat alert after 8 seconds
+  useEffect(() => {
+    if (!battleThreatAlert) return;
+    const timer = setTimeout(() => {
+      setBattleThreatAlert(null);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [battleThreatAlert]);
 
   const activePlanetIdRef = useRef(activePlanetId);
   activePlanetIdRef.current = activePlanetId;
@@ -2768,6 +2819,74 @@ export function App() {
         }}
       />
 
+      {/* Live Battle Threat Alert Banner & Tactical Arena Jump */}
+      {battleThreatAlert && (
+        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[92%] sm:w-auto animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
+          <div className="p-2 sm:px-4 sm:py-2.5 rounded-sm bg-[#0a0508]/95 border-2 border-rose-500/80 shadow-[0_0_30px_rgba(244,63,94,0.45)] backdrop-blur-md flex items-center justify-between gap-3 font-mono text-xs">
+            <div className="flex items-center gap-2.5">
+              <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
+              <div className="flex flex-col">
+                <div className="flex items-center gap-2">
+                  <span className="text-rose-400 font-bold uppercase tracking-wider flex items-center gap-1">
+                    <span>🚨</span>
+                    <span>SICAK TEMAS UYARISI</span>
+                  </span>
+                  <span className="text-[10px] text-amber-300 font-bold bg-amber-950/60 px-1.5 py-0.2 rounded-sm border border-amber-500/40">
+                    📍 {battleThreatAlert.systemName}
+                  </span>
+                </div>
+                <div className="text-[10px] text-slate-300 flex items-center gap-1.5 mt-0.5">
+                  <span className="text-rose-300 font-semibold">{battleThreatAlert.attackerName}</span>
+                  <span className="text-slate-500">vs</span>
+                  <span className="text-cyan-300 font-semibold">{battleThreatAlert.defenderName}</span>
+                  {battleThreatAlert.isPlayerInvolved && (
+                    <span className="text-[9px] bg-rose-600/80 text-white px-1 rounded-xs font-bold animate-pulse">
+                      FİLOMUZ ÇATIŞMADA!
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 shrink-0">
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playLaser();
+                  setSelectedTarget({ type: 'system', systemId: battleThreatAlert.systemId });
+                }}
+                className="px-2 py-1 rounded-sm text-[10px] font-mono font-bold stellaris-btn-metallic text-slate-300 hover:text-white cursor-pointer"
+                title="Sistemi Galaksi Haritasında Odakla"
+              >
+                📍 Odakla
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  sound.playClick();
+                  setCombatJumpReportId(battleThreatAlert.reportId);
+                  setActiveLeftPanel('battles');
+                  setBattleThreatAlert(null);
+                }}
+                className="px-3 py-1 rounded-sm text-[10.5px] font-mono font-bold bg-rose-950/70 hover:bg-rose-900/80 border border-rose-500 text-rose-200 shadow-[0_0_12px_rgba(244,63,94,0.3)] hover:scale-102 active:scale-98 cursor-pointer flex items-center gap-1.5 transition-all"
+                title="3D Taktik Arenayı Aç ve Muharebeye Doğrudan Bağlan"
+              >
+                <Swords className="w-3.5 h-3.5 text-amber-400" />
+                <span>3D Taktik Arenaya Bağlan</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setBattleThreatAlert(null)}
+                className="p-1 text-slate-400 hover:text-white rounded-sm hover:bg-slate-800/60 cursor-pointer"
+                title="Uyarıyı Kapat"
+              >
+                ✕
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Main Game Interface (Stellaris Left Rail, Wide Center Galaxy Map, Stellaris Outliner, Sliding Drawers) */}
       <div className="flex-1 flex overflow-hidden relative">
         {/* Leftmost: Stellaris Vertical Navigation Icon Rail */}
@@ -3001,7 +3120,11 @@ export function App() {
                 reports={engineState.battleReports}
                 isOpen={true}
                 isDocked={true}
-                onClose={() => setActiveLeftPanel(null)}
+                initialReportId={combatJumpReportId}
+                onClose={() => {
+                  setActiveLeftPanel(null);
+                  setCombatJumpReportId(null);
+                }}
                 onSelectSystem={(sysId) => {
                   sound.playClick();
                   setSelectedTarget({ type: 'system', systemId: sysId });

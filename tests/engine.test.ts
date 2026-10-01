@@ -6342,6 +6342,102 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const districtCmd = botDistrictCmds.find((c) => c.type === 'BUILD_DISTRICT');
     expect(districtCmd).toBeDefined();
   });
+
+  it('Test 63: Phase 33 - Pop-Driven Building Slots & Colony Development Tiers', () => {
+    const engine = new GameEngine(777);
+    const { homeworld } = engine.addPlayer('p_tier', 'Tier Empire', '#38bdf8');
+    homeworld.resources = { ore: 10000, crystal: 10000, fuel: 10000 };
+
+    // 1. Homeworld is exempt from Pop-locked building slots
+    const hwBuildings = Object.keys(homeworld.buildings) as (keyof typeof homeworld.buildings)[];
+    const hwShipyardType = hwBuildings[3]; // 4th building (idx 3)
+    const hwRes = engine.dispatchCommand('p_tier', {
+      type: 'UPGRADE_BUILDING',
+      planetId: homeworld.id,
+      buildingType: hwShipyardType,
+    });
+    expect(hwRes.success).toBe(true);
+
+    // 2. Setup a non-homeworld colony with 2 pops
+    const colonyId = 'colony_tier_test';
+    engine.state.planets[colonyId] = {
+      id: colonyId,
+      name: 'Alpha Outpost',
+      systemId: homeworld.systemId,
+      orbitIndex: 2,
+      ownerId: 'p_tier',
+      isHomeworld: false,
+      resources: { ore: 10000, crystal: 10000, fuel: 10000 },
+      storageCap: 50000,
+      buildings: {
+        ore_mine: 0,
+        crystal_synth: 0,
+        fuel_refinery: 0,
+        shipyard: 0,
+        research_lab: 0,
+        sensor_array: 0,
+      },
+      garrison: { scout: 0, transport: 0, fighter: 0, battleship: 0 },
+      shipyardQueue: [],
+      districts: { city: 1, mining: 1, generator: 0, agriculture: 0 },
+      pops: 2,
+      housing: 5,
+      amenities: 5,
+      stability: 70,
+    };
+
+    const colony = engine.state.planets[colonyId];
+    const buildingKeys = Object.keys(colony.buildings) as (keyof typeof colony.buildings)[];
+
+    // Building 0 (oreMine) is within first 3 slots -> allowed
+    const buildMineRes = engine.dispatchCommand('p_tier', {
+      type: 'UPGRADE_BUILDING',
+      planetId: colonyId,
+      buildingType: buildingKeys[0],
+    });
+    expect(buildMineRes.success).toBe(true);
+
+    // Cancel or clear queue for next test
+    colony.buildingQueue = undefined;
+
+    // Building 3 (shipyard, 4th slot) requires 5 pops -> blocked with 2 pops
+    const buildShipyardRes = engine.dispatchCommand('p_tier', {
+      type: 'UPGRADE_BUILDING',
+      planetId: colonyId,
+      buildingType: buildingKeys[3],
+    });
+    expect(buildShipyardRes.success).toBe(false);
+    expect(buildShipyardRes.error).toContain('5 Pop gereklidir');
+
+    // 3. Grow colony to 5 pops -> 4th slot unlocks
+    colony.pops = 5;
+    const unlockSlot4Res = engine.dispatchCommand('p_tier', {
+      type: 'UPGRADE_BUILDING',
+      planetId: colonyId,
+      buildingType: buildingKeys[3],
+    });
+    expect(unlockSlot4Res.success).toBe(true);
+
+    colony.buildingQueue = undefined;
+
+    // Building 4 (researchLab, 5th slot) requires 10 pops -> blocked with 5 pops
+    const buildLabRes = engine.dispatchCommand('p_tier', {
+      type: 'UPGRADE_BUILDING',
+      planetId: colonyId,
+      buildingType: buildingKeys[4],
+    });
+    expect(buildLabRes.success).toBe(false);
+    expect(buildLabRes.error).toContain('10 Pop gereklidir');
+
+    // 4. Grow colony to 10 pops -> 5th slot unlocks
+    colony.pops = 10;
+    const unlockSlot5Res = engine.dispatchCommand('p_tier', {
+      type: 'UPGRADE_BUILDING',
+      planetId: colonyId,
+      buildingType: buildingKeys[4],
+    });
+    expect(unlockSlot5Res.success).toBe(true);
+  });
 });
 
 

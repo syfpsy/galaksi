@@ -645,6 +645,35 @@ class SoundSystem {
     } catch {}
   }
 
+  public playCombatAlarm() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime;
+      [0, 0.18].forEach((offset, idx) => {
+        if (!this.ctx) return;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(idx === 0 ? 580 : 740, now + offset);
+        osc.frequency.exponentialRampToValueAtTime(idx === 0 ? 440 : 600, now + offset + 0.16);
+
+        gain.gain.setValueAtTime(0.001, now + offset);
+        gain.gain.linearRampToValueAtTime(0.12, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.18);
+
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.18);
+      });
+    } catch {}
+  }
+
   public playVictoryFanfare() {
     if (this.isMuted) return;
     this.initCtx();
