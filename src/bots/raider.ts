@@ -5,6 +5,7 @@ import { evaluateBotDiplomacy } from './diplomacy';
 import { evaluateBotStarbases } from './starbases';
 import { evaluateBotSenate } from './senate';
 import { evaluateBotMegastructures } from './megastructures';
+import { evaluateBotCouncil } from './council';
 import { IBotAgent } from './types';
 
 export class RaiderBot implements IBotAgent {
@@ -131,6 +132,9 @@ export class RaiderBot implements IBotAgent {
       const receipt = engine.dispatchCommand(this.playerId, cmd);
       if (receipt.success) executedCommands.push(cmd);
     }
+
+    // 9. Imperial Council & Faction Agendas (Phase 14)
+    evaluateBotCouncil(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

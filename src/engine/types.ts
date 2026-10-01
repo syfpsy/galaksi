@@ -273,6 +273,81 @@ export interface Gateway {
   activationFinishTimeMs?: number;
 }
 
+export type CouncilPosition =
+  | 'ruler'
+  | 'defense_minister'
+  | 'science_director'
+  | 'industry_minister'
+  | 'spymaster';
+
+export type LeaderTraitId =
+  | 'iron_disciplinarian'
+  | 'technologist_visionary'
+  | 'master_logistics'
+  | 'shadow_broker'
+  | 'inspirational_orator'
+  | 'warlord'
+  | 'fleet_organizer'
+  | 'deep_space_miner';
+
+export interface LeaderTrait {
+  id: LeaderTraitId;
+  nameTr: string;
+  descriptionTr: string;
+  bonusType: 'production' | 'research' | 'ship_build' | 'fleet_attack' | 'espionage' | 'stability';
+  bonusValue: number;
+}
+
+export interface CouncilLeader {
+  id: string;
+  name: string;
+  title: string;
+  avatar: string;
+  ownerId: string;
+  level: number; // 1 to 5
+  xp: number;
+  nextLevelXp: number;
+  assignedPosition: CouncilPosition | null;
+  trait: LeaderTrait;
+  tenureHours?: number;
+}
+
+export type FactionType =
+  | 'militarists'
+  | 'technocrats'
+  | 'merchants'
+  | 'expansionists';
+
+export interface FactionAgenda {
+  id: string;
+  titleTr: string;
+  descriptionTr: string;
+  fulfilled: boolean;
+  approvalImpact: number;
+}
+
+export interface EmpireFaction {
+  type: FactionType;
+  nameTr: string;
+  icon: string;
+  color: string;
+  populationSharePercent: number; // 0 to 100
+  approvalRating: number; // 0 to 100
+  status: 'rebellious' | 'discontent' | 'content' | 'pleased' | 'fanatical';
+  agendas: FactionAgenda[];
+}
+
+export interface ImperialCouncilState {
+  playerId: string;
+  leaders: Record<string, CouncilLeader>;
+  positions: Record<CouncilPosition, string | null>; // position -> leaderId
+  factions: Record<FactionType, EmpireFaction>;
+  stabilityPercent: number; // 0 to 100
+  resourceProductionMultiplier: number; // e.g. 0.85 to 1.15
+  recruitCandidates: CouncilLeader[];
+  lastCandidateRefreshMs?: number;
+}
+
 
 export type EmpireArtifactId =
   | 'progenitor_matrix'
@@ -684,6 +759,7 @@ export interface GameState {
   megastructures?: Record<string, Megastructure>; // key: megastructureId
   gateways?: Record<string, Gateway>; // key: systemId
   senate?: SenateState;
+  councils?: Record<string, ImperialCouncilState>; // key: playerId
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -882,6 +958,26 @@ export type GameCommand =
   | {
       type: 'ACTIVATE_GATEWAY';
       systemId: string;
+      fundingPlanetId: string;
+    }
+  | {
+      type: 'APPOINT_COUNCILOR';
+      position: CouncilPosition;
+      leaderId: string;
+    }
+  | {
+      type: 'DISMISS_COUNCILOR';
+      position: CouncilPosition;
+    }
+  | {
+      type: 'RECRUIT_COUNCIL_LEADER';
+      candidateId: string;
+      fundingPlanetId: string;
+    }
+  | {
+      type: 'PROMOTE_FACTION_AGENDA';
+      factionType: FactionType;
+      agendaId: string;
       fundingPlanetId: string;
     };
 

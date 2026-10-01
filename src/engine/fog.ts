@@ -21,6 +21,7 @@ import {
   VictoryRecord,
   Megastructure,
   Gateway,
+  ImperialCouncilState,
 } from './types';
 import { getPlayerMegastructureBonuses } from './megastructures';
 
@@ -79,6 +80,7 @@ export interface PlayerVisibleState {
   senate?: SenateState;
   megastructures?: Record<string, Megastructure>;
   gateways?: Record<string, Gateway>;
+  myCouncil?: ImperialCouncilState;
 }
 
 /**
@@ -408,5 +410,6 @@ export function filterGameStateForPlayer(
     senate: state.senate,
     megastructures: state.megastructures,
     gateways: state.gateways,
+    myCouncil: state.councils?.[playerId],
   };
 }

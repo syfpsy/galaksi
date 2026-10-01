@@ -23,6 +23,15 @@ import {
   getPlayerMegastructureBonuses,
   canBuildMegastructure,
 } from '../src/engine/megastructures';
+import {
+  COUNCIL_CONSTANTS,
+  COUNCIL_POSITION_INFO,
+  LEADER_TRAIT_CONFIGS,
+  calculateEmpireStability,
+  evaluateFactionApproval,
+  getCouncilEmpireBonuses,
+} from '../src/engine/council';
+import { evaluateBotCouncil } from '../src/bots/council';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -2277,6 +2286,162 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const indMega = Object.values(engine.state.megastructures || {}).find((m) => m.ownerId === 'p2');
     expect(indMega).toBeDefined();
     expect(indMega?.type).toBe('dyson_swarm');
+  });
+
+  it('manages Imperial Council, galactic leader appointments, battle XP, internal factions, stability bonuses, and autonomous bot council AI (Phase 14)', () => {
+    const engine = new GameEngine(1414);
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p1', 'İmparator Vaelen', '#00f3ff', false, undefined, false);
+    const { player: p2, homeworld: hw2 } = engine.addPlayer('p2', 'Komutan Kael', '#f43f5e', true, 'industrialist', false);
+
+    // 1. Initial State & Fog of War
+    expect(engine.state.councils).toBeDefined();
+    const council1 = engine.state.councils!['p1'];
+    expect(council1).toBeDefined();
+    expect(council1.positions.ruler).toBeDefined();
+    expect(council1.positions.defense_minister).toBeNull();
+    expect(council1.positions.science_director).toBeNull();
+    expect(council1.positions.industry_minister).toBeNull();
+    expect(council1.positions.spymaster).toBeNull();
+
+    // Verify fog of war filtering: p1 sees myCouncil, p2 cannot see p1's council
+    const view1 = engine.getPlayerView('p1');
+    expect(view1.myCouncil).toBeDefined();
+    expect(view1.myCouncil?.playerId).toBe('p1');
+    expect((view1 as any).councils).toBeUndefined();
+
+    // Baseline multipliers without appointed ministers
+    const baseBonuses = getCouncilEmpireBonuses(engine.state, 'p1');
+    expect(baseBonuses.fleetAttackMultiplier).toBe(1.0);
+    expect(baseBonuses.shipBuildSpeedMultiplier).toBe(1.0);
+    expect(baseBonuses.researchSpeedMultiplier).toBe(1.0);
+
+    // 2. Candidate Recruitment (RECRUIT_COUNCIL_LEADER)
+    expect(council1.recruitCandidates.length).toBe(3);
+    const candidateToRecruit = council1.recruitCandidates[0];
+    hw1.resources.ore = 2000;
+    hw1.resources.crystal = 2000;
+    hw1.resources.fuel = 1000;
+
+    const recruitRes = engine.dispatchCommand('p1', {
+      type: 'RECRUIT_COUNCIL_LEADER',
+      candidateId: candidateToRecruit.id,
+      fundingPlanetId: hw1.id,
+    });
+    expect(recruitRes.success).toBe(true);
+    expect(council1.leaders[candidateToRecruit.id]).toBeDefined();
+    expect(council1.leaders[candidateToRecruit.id].assignedPosition).toBeNull();
+    expect(hw1.resources.ore).toBe(2000 - COUNCIL_CONSTANTS.RECRUIT_LEADER_COST.ore);
+
+    // 3. Position Appointment & Dismissal (APPOINT_COUNCILOR / DISMISS_COUNCILOR)
+    const starterDefMinister = Object.values(council1.leaders).find(
+      (l) => l.trait.id === 'warlord'
+    );
+    expect(starterDefMinister).toBeDefined();
+
+    const appointRes = engine.dispatchCommand('p1', {
+      type: 'APPOINT_COUNCILOR',
+      leaderId: starterDefMinister!.id,
+      position: 'defense_minister',
+    });
+    expect(appointRes.success).toBe(true);
+    expect(council1.positions.defense_minister).toBe(starterDefMinister!.id);
+    expect(starterDefMinister!.assignedPosition).toBe('defense_minister');
+
+    // Multipliers updated: warlord gives +15% fleet attack, defense minister gives +15% ship build speed
+    const defBonuses = getCouncilEmpireBonuses(engine.state, 'p1');
+    expect(defBonuses.fleetAttackMultiplier).toBe(1.15);
+    expect(defBonuses.shipBuildSpeedMultiplier).toBe(1.15);
+
+    // Dismissal
+    const dismissRes = engine.dispatchCommand('p1', {
+      type: 'DISMISS_COUNCILOR',
+      position: 'defense_minister',
+    });
+    expect(dismissRes.success).toBe(true);
+    expect(council1.positions.defense_minister).toBeNull();
+    expect(starterDefMinister!.assignedPosition).toBeNull();
+    expect(getCouncilEmpireBonuses(engine.state, 'p1').fleetAttackMultiplier).toBe(1.0);
+
+    // Re-appoint for combat testing
+    engine.dispatchCommand('p1', {
+      type: 'APPOINT_COUNCILOR',
+      leaderId: starterDefMinister!.id,
+      position: 'defense_minister',
+    });
+
+    // 4. Combat XP Distribution to Council Leaders
+    const rulerId = council1.positions.ruler!;
+    const ruler = council1.leaders[rulerId];
+    const initialRulerXp = ruler.xp;
+    const initialDefXp = starterDefMinister!.xp;
+
+    hw1.garrison.battleship = 5;
+    hw1.resources.fuel = 5000;
+    hw2.garrison.fighter = 2;
+
+    const dispatchCombat = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw1.id,
+      targetSystemId: hw2.systemId,
+      targetPlanetId: hw2.id,
+      ships: { battleship: 5 },
+      mission: 'attack',
+    });
+    expect(dispatchCombat.success).toBe(true);
+    const fleetId = (dispatchCombat.data as { fleetId: string }).fleetId;
+    const fleet = engine.state.fleets[fleetId];
+
+    // Fast-forward to arrival and combat resolution
+    engine.advanceTo(fleet.arrivalTime + 100);
+    expect(council1.leaders[starterDefMinister!.id].xp).toBeGreaterThan(initialDefXp);
+    expect(council1.leaders[rulerId].xp).toBeGreaterThan(initialRulerXp);
+
+    // 5. Internal Factions, Dynamic Approval & Agenda Promotion
+    const approval = evaluateFactionApproval(engine.state, 'p1');
+    expect(approval.militarists).toBeGreaterThanOrEqual(50); // fleet and won battles boost militarists
+
+    const expansionistFaction = council1.factions.expansionists;
+    expect(expansionistFaction).toBeDefined();
+    const targetAgenda = expansionistFaction.agendas[0];
+    expect(targetAgenda.fulfilled).toBe(false);
+
+    const initialApproval = expansionistFaction.approvalRating;
+    const promoteRes = engine.dispatchCommand('p1', {
+      type: 'PROMOTE_FACTION_AGENDA',
+      factionType: 'expansionists',
+      agendaId: targetAgenda.id,
+      fundingPlanetId: hw1.id,
+    });
+    expect(promoteRes.success).toBe(true);
+    expect(targetAgenda.fulfilled).toBe(true);
+    expect(expansionistFaction.approvalRating).toBe(
+      Math.min(100, initialApproval + COUNCIL_CONSTANTS.AGENDA_PROMOTION_APPROVAL_BOOST)
+    );
+
+    const stability = calculateEmpireStability(engine.state, 'p1');
+    expect(stability).toBeGreaterThanOrEqual(40);
+    const activeEmpireBonuses = getCouncilEmpireBonuses(engine.state, 'p1');
+    expect(activeEmpireBonuses.resourceProductionMultiplier).toBeGreaterThanOrEqual(0.9);
+
+    // 6. Autonomous Bot AI Evaluation (evaluateBotCouncil)
+    const indBot = new IndustrialistBot('p2');
+    const council2 = engine.state.councils!['p2'];
+    expect(council2.positions.industry_minister).toBeNull();
+
+    // Trigger bot update: should appoint matching minister
+    evaluateBotCouncil(engine, 'p2', 'industrialist');
+    expect(council2.positions.industry_minister).not.toBeNull();
+    const indMinisterId = council2.positions.industry_minister!;
+    expect(council2.leaders[indMinisterId].trait.id).toBe('master_logistics');
+
+    // Bot candidate recruitment and agenda promotion when rich
+    hw2.storageCap = 50000;
+    hw2.resources.ore = 25000;
+    hw2.resources.crystal = 25000;
+    hw2.resources.fuel = 25000;
+    council2.factions.militarists.approvalRating = 30; // set low approval to trigger agenda support
+    evaluateBotCouncil(engine, 'p2', 'industrialist');
+    expect(council2.factions.militarists.approvalRating).toBeGreaterThan(30);
   });
 });
 

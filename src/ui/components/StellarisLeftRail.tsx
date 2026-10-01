@@ -43,6 +43,7 @@ interface StellarisLeftRailProps {
   onOpenAlliance: () => void;
   onOpenSenate?: () => void;
   onOpenMegastructures?: () => void;
+  onOpenCouncil?: () => void;
   onOpenGallery: () => void;
   movingFleetsCount?: number;
   threatsCount?: number;
@@ -52,6 +53,7 @@ interface StellarisLeftRailProps {
   isRelayControlled: boolean;
   isSenateSessionActive?: boolean;
   activeMegastructuresCount?: number;
+  stabilityPercent?: number;
   planetsCount: number;
   godMode: boolean;
   onToggleGodMode: () => void;
@@ -80,6 +82,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenAlliance,
   onOpenSenate,
   onOpenMegastructures,
+  onOpenCouncil,
   onOpenGallery,
   movingFleetsCount = 0,
   threatsCount = 0,
@@ -89,6 +92,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   isRelayControlled,
   isSenateSessionActive = false,
   activeMegastructuresCount = 0,
+  stabilityPercent,
   planetsCount,
   godMode,
   onToggleGodMode,
@@ -572,6 +576,49 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             </div>
             <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Dyson Küresi, Bilim Dizisi, Mega Tersane, Sensör Küresi ve anlık Alt-Uzay Ağ Geçitleri.
+            </p>
+          </div>
+        </div>
+
+        {/* Imperial Council & Factions (Phase 14) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenCouncil) onOpenCouncil();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'council' ? 'active' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Crown className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+            {stabilityPercent !== undefined && (
+              <span
+                className={`absolute -top-1 -right-1 px-1 min-w-[16px] h-3.5 rounded-full text-[8.5px] font-bold font-mono flex items-center justify-center border shadow-sm ${
+                  stabilityPercent >= 70
+                    ? 'bg-emerald-600 text-white border-emerald-400'
+                    : stabilityPercent >= 40
+                    ? 'bg-amber-600 text-white border-amber-400'
+                    : 'bg-rose-600 text-white border-rose-400 animate-pulse'
+                }`}
+              >
+                %{stabilityPercent}
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
+              KON
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="stellaris-gold tracking-wide">HÜKÜMET KONSEYİ & FRAKSİYONLAR</span>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 14
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Bakanlık atamaları, lider yetenekleri, halk memnuniyeti ve iç siyasi istikrar dengesi.
             </p>
           </div>
         </div>

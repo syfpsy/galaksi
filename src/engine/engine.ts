@@ -57,6 +57,10 @@ import {
   MegastructureType,
   Gateway,
   GatewayStatus,
+  CouncilLeader,
+  CouncilPosition,
+  FactionType,
+  ImperialCouncilState,
 } from './types';
 import {
   MEGASTRUCTURE_CONFIGS,
@@ -64,6 +68,17 @@ import {
   getPlayerMegastructureBonuses,
   canBuildMegastructure,
 } from './megastructures';
+import {
+  COUNCIL_CONSTANTS,
+  COUNCIL_POSITION_INFO,
+  LEADER_TRAIT_CONFIGS,
+  addLeaderXP,
+  calculateEmpireStability,
+  createDefaultImperialCouncil,
+  evaluateFactionApproval,
+  generateLeaderCandidates,
+  getCouncilEmpireBonuses,
+} from './council';
 import {
   calculateDiplomaticWeight,
   createInitialSenateState,
@@ -111,6 +126,7 @@ export class GameEngine {
       megastructures: {},
       gateways: {},
       senate: createInitialSenateState(),
+      councils: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -275,6 +291,12 @@ export class GameEngine {
       };
     }
 
+    // Initialize starter imperial council and factions (Phase 14)
+    if (!this.state.councils) {
+      this.state.councils = {};
+    }
+    this.state.councils[id] = createDefaultImperialCouncil(id, name, botArchetype);
+
     this.logEvent('player_joined', `${name} galaksiye katıldı (${targetSys.name}).`, id);
 
     return { player, homeworld };
@@ -367,6 +389,14 @@ export class GameEngine {
         fuelProd += megaBonuses.passiveHourlyResources.fuel;
       }
 
+      // Imperial Council & Faction Stability production modifier (Phase 14)
+      const councilBonuses = getCouncilEmpireBonuses(this.state, planet.ownerId);
+      if (councilBonuses.resourceProductionMultiplier !== 1.0) {
+        oreProd *= councilBonuses.resourceProductionMultiplier;
+        crystalProd *= councilBonuses.resourceProductionMultiplier;
+        fuelProd *= councilBonuses.resourceProductionMultiplier;
+      }
+
       planet.resources.ore = Math.min(
         planet.storageCap,
         planet.resources.ore + oreProd * elapsedHours
@@ -403,6 +433,25 @@ export class GameEngine {
             this.state.market.rates[res] = Number((current + (base - current) * 0.05 * Math.min(2, elapsedMarketHours)).toFixed(3));
           }
         }
+      }
+    }
+
+    // Update internal factions & imperial stability periodically (Phase 14)
+    if (this.state.councils) {
+      for (const [pId, council] of Object.entries(this.state.councils)) {
+        const approval = evaluateFactionApproval(this.state, pId);
+        for (const [fType, score] of Object.entries(approval)) {
+          if (council.factions[fType as FactionType]) {
+            council.factions[fType as FactionType].approvalRating = score;
+            if (score >= 75) council.factions[fType as FactionType].status = 'pleased';
+            else if (score >= 55) council.factions[fType as FactionType].status = 'content';
+            else if (score >= 35) council.factions[fType as FactionType].status = 'discontent';
+            else council.factions[fType as FactionType].status = 'rebellious';
+          }
+        }
+        council.stabilityPercent = calculateEmpireStability(this.state, pId);
+        const bonuses = getCouncilEmpireBonuses(this.state, pId);
+        council.resourceProductionMultiplier = bonuses.resourceProductionMultiplier;
       }
     }
 
@@ -561,9 +610,16 @@ export class GameEngine {
       case 'relay_point_tick': {
         if (this.state.relay.controllingPlayerId) {
           const pid = this.state.relay.controllingPlayerId;
-          this.state.relay.weeklyPoints[pid] =
-            (this.state.relay.weeklyPoints[pid] || 0) + GAME_CONSTANTS.RELAY_POINTS_PER_TICK;
+          let pts = GAME_CONSTANTS.RELAY_POINTS_PER_TICK;
+          if (this.state.councils?.[pid]) {
+            const bonuses = getCouncilEmpireBonuses(this.state, pid);
+            if (bonuses.rulerWeeklyHegemonyBonus > 0) {
+              pts += Math.round(bonuses.rulerWeeklyHegemonyBonus / 10);
+            }
+          }
+          this.state.relay.weeklyPoints[pid] = (this.state.relay.weeklyPoints[pid] || 0) + pts;
         }
+
         this.scheduleEvent(GAME_CONSTANTS.RELAY_POINT_INTERVAL_MS, 'relay_point_tick', {});
         this.evaluateVictoryConditions();
         break;
@@ -806,6 +862,8 @@ export class GameEngine {
     }
     const megaBonuses = getPlayerMegastructureBonuses(this.state, playerId);
     mult += megaBonuses.shipBonusAttackPercent;
+    const councilBonuses = getCouncilEmpireBonuses(this.state, playerId);
+    mult *= councilBonuses.fleetAttackMultiplier;
     return mult;
   }
 
@@ -1683,6 +1741,43 @@ export class GameEngine {
         }
       }
     }
+
+    this.handlePostCombatCouncilXP(combatResult);
+  }
+
+  private handlePostCombatCouncilXP(combatResult: CombatResult) {
+    if (!this.state.councils) return;
+    const processCouncil = (pId: string, won: boolean) => {
+      const council = this.state.councils?.[pId];
+      if (!council) return;
+      const xpAmount = won ? 40 : 20;
+
+      // Award to ruler & defense minister
+      const roles: CouncilPosition[] = ['ruler', 'defense_minister'];
+      for (const role of roles) {
+        const leaderId = council.positions[role];
+        if (leaderId && council.leaders[leaderId]) {
+          const leader = council.leaders[leaderId];
+          const { leader: updated, leveledUp } = addLeaderXP(leader, xpAmount);
+          council.leaders[leaderId] = updated;
+          if (leveledUp) {
+            this.logEvent(
+              'council_leader_leveled_up',
+              `🎖️ KONSEY TERFİSİ: ${COUNCIL_POSITION_INFO[role].nameTr} ${updated.name} Seviye ${updated.level}'e yükseldi!`,
+              pId,
+              { leaderId, position: role, newLevel: updated.level }
+            );
+          }
+        }
+      }
+    };
+
+    if (combatResult.report.attackerId) {
+      processCouncil(combatResult.report.attackerId, combatResult.report.winner === 'attacker');
+    }
+    if (combatResult.report.defenderId) {
+      processCouncil(combatResult.report.defenderId, combatResult.report.winner === 'defender');
+    }
   }
 
   // --- Espionage & Covert Ops Resolution ---
@@ -1994,6 +2089,10 @@ export class GameEngine {
         if (megaBonuses.researchSpeedMultiplier > 1.0) {
           durationMs = Math.max(1000, Math.round(durationMs / megaBonuses.researchSpeedMultiplier));
         }
+        const councilBonuses = getCouncilEmpireBonuses(this.state, playerId);
+        if (councilBonuses.researchSpeedMultiplier > 1.0) {
+          durationMs = Math.max(1000, Math.round(durationMs / councilBonuses.researchSpeedMultiplier));
+        }
         const finishTime = this.state.timeMs + durationMs;
 
         player.researchQueue = {
@@ -2068,6 +2167,10 @@ export class GameEngine {
         const megaBonuses = getPlayerMegastructureBonuses(this.state, playerId);
         if (megaBonuses.shipBuildSpeedMultiplier > 1.0) {
           unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs / megaBonuses.shipBuildSpeedMultiplier));
+        }
+        const councilBonuses = getCouncilEmpireBonuses(this.state, playerId);
+        if (councilBonuses.shipBuildSpeedMultiplier > 1.0) {
+          unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs / councilBonuses.shipBuildSpeedMultiplier));
         }
         const nextFinish = (planet.shipyardQueue.length === 0)
           ? this.state.timeMs + unitBuildTimeMs
@@ -2773,6 +2876,10 @@ export class GameEngine {
         }
         if (this.isSenateResolutionActive('sanctions', playerId)) {
           feeRate += SENATE_CONSTANTS.SANCTIONS_MARKET_FEE_PENALTY_PERCENT;
+        }
+        const councilBonuses = getCouncilEmpireBonuses(this.state, playerId);
+        if (councilBonuses.marketFeeDiscount > 0) {
+          feeRate -= councilBonuses.marketFeeDiscount;
         }
         feeRate = Math.max(0.02, Math.min(0.50, feeRate));
 
@@ -4141,6 +4248,180 @@ export class GameEngine {
           data: { gatewayId: gw.id, finishTime: gw.activationFinishTimeMs },
         };
       }
+
+      case 'APPOINT_COUNCILOR': {
+        if (!this.state.councils) this.state.councils = {};
+        let council = this.state.councils[playerId];
+        if (!council) {
+          council = createDefaultImperialCouncil(playerId, this.state.players[playerId]?.name);
+          this.state.councils[playerId] = council;
+        }
+
+        const leader = council.leaders[cmd.leaderId];
+        if (!leader || leader.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Atanacak lider bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        // If leader is already assigned elsewhere, clear previous position
+        if (leader.assignedPosition && leader.assignedPosition !== cmd.position) {
+          council.positions[leader.assignedPosition] = null;
+        }
+
+        // If position already had another leader, clear their assignedPosition
+        const prevLeaderId = council.positions[cmd.position];
+        if (prevLeaderId && council.leaders[prevLeaderId]) {
+          council.leaders[prevLeaderId].assignedPosition = null;
+        }
+
+        leader.assignedPosition = cmd.position;
+        council.positions[cmd.position] = leader.id;
+
+        const posName = COUNCIL_POSITION_INFO[cmd.position].nameTr;
+        this.logEvent(
+          'councilor_appointed',
+          `🏛️ MAKAM ATAMASI: ${leader.name} (${leader.title}) ${posName} makamına atandı.`,
+          playerId,
+          { position: cmd.position, leaderId: leader.id }
+        );
+
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
+
+      case 'DISMISS_COUNCILOR': {
+        const council = this.state.councils?.[playerId];
+        if (!council) {
+          return { success: false, commandType: cmd.type, error: 'Hükümet Konseyi bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        if (cmd.position === 'ruler') {
+          return { success: false, commandType: cmd.type, error: 'Hükümdar makamından azledilemez.', timeMs: this.state.timeMs };
+        }
+
+        const leaderId = council.positions[cmd.position];
+        if (!leaderId || !council.leaders[leaderId]) {
+          return { success: false, commandType: cmd.type, error: 'Bu makamda görevli bir bakan bulunmuyor.', timeMs: this.state.timeMs };
+        }
+
+        const leader = council.leaders[leaderId];
+        leader.assignedPosition = null;
+        council.positions[cmd.position] = null;
+
+        const posName = COUNCIL_POSITION_INFO[cmd.position].nameTr;
+        this.logEvent(
+          'councilor_dismissed',
+          `📜 GÖREVDEN ALMA: ${leader.name} ${posName} makamından ayrıldı.`,
+          playerId,
+          { position: cmd.position, leaderId: leader.id }
+        );
+
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
+
+      case 'RECRUIT_COUNCIL_LEADER': {
+        if (!this.state.councils) this.state.councils = {};
+        let council = this.state.councils[playerId];
+        if (!council) {
+          council = createDefaultImperialCouncil(playerId, this.state.players[playerId]?.name);
+          this.state.councils[playerId] = council;
+        }
+
+        const candidate = council.recruitCandidates.find((c) => c.id === cmd.candidateId);
+        if (!candidate) {
+          return { success: false, commandType: cmd.type, error: 'Aday lider havuzunda bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        const fundingPlanet = this.state.planets[cmd.fundingPlanetId];
+        if (!fundingPlanet || fundingPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Lider istihdamı için geçerli bir koloniniz seçilmelidir.', timeMs: this.state.timeMs };
+        }
+
+        const cost = COUNCIL_CONSTANTS.RECRUIT_LEADER_COST;
+        if (
+          fundingPlanet.resources.ore < cost.ore ||
+          fundingPlanet.resources.crystal < cost.crystal ||
+          fundingPlanet.resources.fuel < cost.fuel
+        ) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yetersiz kaynak (${cost.ore} Cevher, ${cost.crystal} Kristal, ${cost.fuel} Yakıt gerekli).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        fundingPlanet.resources.ore -= cost.ore;
+        fundingPlanet.resources.crystal -= cost.crystal;
+        fundingPlanet.resources.fuel -= cost.fuel;
+
+        council.leaders[candidate.id] = candidate;
+        council.recruitCandidates = council.recruitCandidates.filter((c) => c.id !== cmd.candidateId);
+
+        // Replenish recruit pool if empty
+        if (council.recruitCandidates.length === 0) {
+          council.recruitCandidates = generateLeaderCandidates(this.state.nextId++, playerId);
+        }
+
+        this.logEvent(
+          'council_leader_recruited',
+          `🌟 LİDER İSTİHDAMI: ${candidate.name} (${candidate.title}) imparatorluk hizmetine katıldı!`,
+          playerId,
+          { leaderId: candidate.id, trait: candidate.trait.nameTr }
+        );
+
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { leaderId: candidate.id } };
+      }
+
+      case 'PROMOTE_FACTION_AGENDA': {
+        const council = this.state.councils?.[playerId];
+        if (!council) {
+          return { success: false, commandType: cmd.type, error: 'Hükümet Konseyi bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        const faction = council.factions[cmd.factionType];
+        if (!faction) {
+          return { success: false, commandType: cmd.type, error: 'Fraksiyon bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        const fundingPlanet = this.state.planets[cmd.fundingPlanetId];
+        if (!fundingPlanet || fundingPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Gündem fonu için geçerli bir koloniniz seçilmelidir.', timeMs: this.state.timeMs };
+        }
+
+        const cost = COUNCIL_CONSTANTS.PROMOTE_AGENDA_COST;
+        if (
+          fundingPlanet.resources.ore < cost.ore ||
+          fundingPlanet.resources.crystal < cost.crystal ||
+          fundingPlanet.resources.fuel < cost.fuel
+        ) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yetersiz kaynak (${cost.ore} Cevher, ${cost.crystal} Kristal, ${cost.fuel} Yakıt gerekli).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        fundingPlanet.resources.ore -= cost.ore;
+        fundingPlanet.resources.crystal -= cost.crystal;
+        fundingPlanet.resources.fuel -= cost.fuel;
+
+        const agenda = faction.agendas.find((a) => a.id === cmd.agendaId);
+        if (agenda) {
+          agenda.fulfilled = true;
+        }
+
+        faction.approvalRating = Math.min(100, faction.approvalRating + COUNCIL_CONSTANTS.AGENDA_PROMOTION_APPROVAL_BOOST);
+        council.stabilityPercent = calculateEmpireStability(this.state, playerId);
+
+        this.logEvent(
+          'faction_agenda_promoted',
+          `📢 POLİTİK TAVİZ: '${faction.nameTr}' fraksiyonuna fon sağlandı! Memnuniyet +%${COUNCIL_CONSTANTS.AGENDA_PROMOTION_APPROVAL_BOOST} arttı.`,
+          playerId,
+          { factionType: cmd.factionType, newApproval: faction.approvalRating }
+        );
+
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
     }
   }
 
@@ -4345,6 +4626,7 @@ export class GameEngine {
       megastructures: {},
       gateways: {},
       senate: createInitialSenateState(),
+      councils: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},

@@ -9,8 +9,10 @@ import { GameEngine } from './engine/engine';
 import {
   Admiral,
   BuildingType,
+  CouncilPosition,
   DefenseStructureType,
   EspionageOpType,
+  FactionType,
   Fleet,
   FleetDoctrine,
   MegastructureType,
@@ -35,6 +37,7 @@ import { CommandPanel } from './ui/components/CommandPanel';
 import { StarbaseModal } from './ui/components/StarbaseModal';
 import { SenateModal } from './ui/components/SenateModal';
 import { MegastructureModal } from './ui/components/MegastructureModal';
+import { CouncilModal } from './ui/components/CouncilModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -71,6 +74,7 @@ type LeftPanelType =
   | 'alliance'
   | 'senate'
   | 'megastructures'
+  | 'council'
   | 'relay'
   | 'gallery'
   | null;
@@ -794,6 +798,66 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleAppointCouncilor = (leaderId: string, position: CouncilPosition) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'APPOINT_COUNCILOR',
+      leaderId,
+      position,
+    });
+    if (res.success) {
+      sound.playNotification();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismissCouncilor = (position: CouncilPosition) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMISS_COUNCILOR',
+      position,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleRecruitCouncilLeader = (candidateId: string, planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RECRUIT_COUNCIL_LEADER',
+      candidateId,
+      fundingPlanetId: planetId,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handlePromoteFactionAgenda = (factionType: FactionType, agendaId: string, planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'PROMOTE_FACTION_AGENDA',
+      factionType,
+      agendaId,
+      fundingPlanetId: planetId,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1113,6 +1177,7 @@ export function App() {
           onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
           onOpenSenate={() => setActiveLeftPanel((prev) => (prev === 'senate' ? null : 'senate'))}
           onOpenMegastructures={() => setActiveLeftPanel((prev) => (prev === 'megastructures' ? null : 'megastructures'))}
+          onOpenCouncil={() => setActiveLeftPanel((prev) => (prev === 'council' ? null : 'council'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
           movingFleetsCount={movingFleetsCount}
@@ -1123,6 +1188,7 @@ export function App() {
           isRelayControlled={engineState.relay.controllingPlayerId === activePlayerId}
           isSenateSessionActive={!!engineState.senate?.currentSession}
           activeMegastructuresCount={Object.keys(engineState.megastructures || {}).length}
+          stabilityPercent={engineState.councils?.[activePlayerId]?.stabilityPercent}
           planetsCount={myPlanets.length}
           godMode={godMode}
           onToggleGodMode={() => setGodMode(!godMode)}
@@ -1546,6 +1612,18 @@ export function App() {
         onUpgradeMegastructure={handleUpgradeMegastructure}
         onConstructGateway={handleConstructGateway}
         onActivateGateway={handleActivateGateway}
+      />
+
+      {/* Imperial Council & Factions Modal (Phase 14) */}
+      <CouncilModal
+        isOpen={activeLeftPanel === 'council'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        onAppointCouncilor={handleAppointCouncilor}
+        onDismissCouncilor={handleDismissCouncilor}
+        onRecruitCouncilLeader={handleRecruitCouncilLeader}
+        onPromoteFactionAgenda={handlePromoteFactionAgenda}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}
