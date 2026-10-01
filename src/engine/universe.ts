@@ -271,5 +271,18 @@ export function createHomeworldPlanet(
     terraformingQueue: null,
     activeDecisions: [],
     blockers: [],
+    // Phase 32: Surface Districts & Pops Simulation
+    districts: {
+      city: 3,
+      mining: 2,
+      generator: 2,
+      agriculture: 1,
+    },
+    districtQueue: null,
+    pops: 10,
+    housing: 17, // 3 city * 5 + 2 mining * 2 + ... = 15+4 = 19
+    amenities: 15,
+    stability: 80,
+    lastPopGrowthTime: nowMs,
   };
 }

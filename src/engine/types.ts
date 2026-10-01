@@ -352,6 +352,23 @@ export interface PlanetSlot {
 export type PlanetSpecialization = 'balanced' | 'mining_hub' | 'tech_haven' | 'military_bastion';
 export type FleetDoctrine = 'balanced' | 'spearhead' | 'fortress' | 'hit_and_run';
 
+// Phase 32: Planetary Surface Districts & Pop Jobs Simulation
+export type DistrictType = 'city' | 'mining' | 'generator' | 'agriculture';
+
+export interface PlanetDistricts {
+  city: number;
+  mining: number;
+  generator: number;
+  agriculture: number;
+}
+
+export interface PlanetDistrictQueue {
+  type: DistrictType;
+  districtType?: DistrictType;
+  startTime: number;
+  finishTime: number;
+}
+
 export interface Planet {
   id: string;
   name: string;
@@ -415,6 +432,14 @@ export interface Planet {
     finishTime: number;
     name?: string;
   } | null;
+  // Phase 32: Surface Districts & Pop Employment
+  districts?: PlanetDistricts;
+  districtQueue?: PlanetDistrictQueue | null;
+  pops?: number;
+  housing?: number;
+  amenities?: number;
+  stability?: number; // 0 to 100 percentage
+  lastPopGrowthTime?: number;
 }
 
 export type StarbaseTier = 'outpost' | 'starbase' | 'citadel';
@@ -1649,6 +1674,7 @@ export interface GameEventRecord {
 // Scheduled simulation events in queue
 export type ScheduledEventType =
   | 'building_completed'
+  | 'district_completed'
   | 'research_completed'
   | 'shipyard_batch_tick'
   | 'defense_batch_tick'
@@ -2266,6 +2292,16 @@ export type GameCommand =
       caravanId: string;
       planetId?: string;
       betAmount: number;
+    }
+  | {
+      type: 'BUILD_DISTRICT';
+      planetId: string;
+      districtType: DistrictType;
+    }
+  | {
+      type: 'DEMOLISH_DISTRICT';
+      planetId: string;
+      districtType: DistrictType;
     };
 
 export interface CommandReceipt {

@@ -2,6 +2,7 @@ import {
   BUILDING_STATS,
   calculateHourlyProduction,
   DEFENSE_STATS,
+  DISTRICT_STATS,
   GAME_CONSTANTS,
   getBuildingUpgradeCost,
   getBuildingUpgradeDurationMs,
@@ -23,6 +24,7 @@ import {
   BuildingType,
   CommandReceipt,
   DefenseStructureType,
+  DistrictType,
   EspionageOp,
   EspionageOpType,
   EspionageReport,
@@ -647,6 +649,30 @@ export class GameEngine {
     this.tick(targetTime - this.state.timeMs);
   }
 
+  /**
+   * Recalculates housing, amenities, and stability for a planet based on districts, pops, and devastation
+   */
+  public recalculatePlanetPopsAndHousing(planet: Planet): void {
+    if (!planet.districts) {
+      planet.districts = {
+        city: planet.isHomeworld ? 3 : 1,
+        mining: planet.isHomeworld ? 2 : 1,
+        generator: planet.isHomeworld ? 2 : 0,
+        agriculture: planet.isHomeworld ? 1 : 0,
+      };
+    }
+    const d = planet.districts;
+    planet.housing = 5 + d.city * 5 + d.mining * 2 + d.generator * 2 + d.agriculture * 2;
+    planet.amenities = 5 + d.city * 5;
+    if (planet.pops === undefined) {
+      planet.pops = planet.isHomeworld ? 10 : 2;
+    }
+    const overcrowding = Math.max(0, planet.pops - planet.housing);
+    const amenityBonus = Math.min(25, planet.amenities);
+    const devastationPenalty = Math.round((planet.devastation || 0) * 0.5);
+    planet.stability = Math.max(10, Math.min(100, 50 + amenityBonus - overcrowding * 10 - devastationPenalty));
+  }
+
   // --- Passive Resource & Production Accumulator ---
   private updatePassiveProduction(nowMs: number): void {
     for (const planet of Object.values(this.state.planets)) {
@@ -661,9 +687,36 @@ export class GameEngine {
 
       const elapsedHours = elapsedMs / (3600 * 1000);
 
+      // Phase 32: Surface Districts Production & Pop Growth
+      this.recalculatePlanetPopsAndHousing(planet);
+
       let oreProd = calculateHourlyProduction('ore', planet.buildings.ore_mine);
       let crystalProd = calculateHourlyProduction('crystal', planet.buildings.crystal_synth);
       let fuelProd = calculateHourlyProduction('fuel', planet.buildings.fuel_refinery);
+
+      // District hourly yields: Mining (+120 Ore), Generator (+80 Fuel), Agriculture (+60 Crystal)
+      if (planet.districts) {
+        oreProd += (planet.districts.mining || 0) * DISTRICT_STATS.mining.hourlyProduction.ore;
+        fuelProd += (planet.districts.generator || 0) * DISTRICT_STATS.generator.hourlyProduction.fuel;
+        crystalProd += (planet.districts.agriculture || 0) * DISTRICT_STATS.agriculture.hourlyProduction.crystal;
+      }
+
+      // Stability multiplier: 50 stability = 1.0x, 100 stability = 1.2x, 0 stability = 0.8x
+      const stabilityMult = 0.8 + ((planet.stability ?? 75) / 100) * 0.4;
+      oreProd *= stabilityMult;
+      crystalProd *= stabilityMult;
+      fuelProd *= stabilityMult;
+
+      // Pop growth simulation: 1 new pop every 120s if housing allows
+      if (!planet.lastPopGrowthTime) planet.lastPopGrowthTime = planet.lastResourceUpdate;
+      const popGrowthIntervalMs = 120_000;
+      if (nowMs - planet.lastPopGrowthTime >= popGrowthIntervalMs) {
+        const growthSteps = Math.floor((nowMs - planet.lastPopGrowthTime) / popGrowthIntervalMs);
+        if (planet.pops! < planet.housing!) {
+          planet.pops = Math.min(planet.housing!, planet.pops! + growthSteps);
+        }
+        planet.lastPopGrowthTime = nowMs;
+      }
 
       if (planet.specialization === 'mining_hub') {
         oreProd *= 1.20;
@@ -1129,6 +1182,32 @@ export class GameEngine {
             'building_upgraded',
             `${planet.name}: ${BUILDING_STATS[buildingType].nameTr} Seviye ${targetLevel} tamamlandı.`,
             planet.ownerId
+          );
+        }
+        break;
+      }
+
+      case 'district_completed': {
+        const { planetId, districtType } = event.payload as {
+          planetId: string;
+          districtType: DistrictType;
+        };
+        const planet = this.state.planets[planetId];
+        if (planet && planet.districtQueue) {
+          if (!planet.districts) {
+            planet.districts = { city: 1, mining: 1, generator: 0, agriculture: 0 };
+          }
+          planet.districts[districtType] = (planet.districts[districtType] || 0) + 1;
+          planet.districtQueue = null;
+
+          this.recalculatePlanetPopsAndHousing(planet);
+
+          const stats = DISTRICT_STATS[districtType];
+          this.logEvent(
+            'district_completed',
+            `🏛️ ${planet.name}: ${stats.nameTr} inşası tamamlandı. (${stats.descTr})`,
+            planet.ownerId,
+            { planetId: planet.id, districtType }
           );
         }
         break;
@@ -1628,6 +1707,19 @@ export class GameEngine {
             terraformingQueue: null,
             activeDecisions: [],
             blockers: generateInitialBlockers(emptySlot.type, this.prng),
+            // Phase 32: Surface Districts & Pops Simulation
+            districts: {
+              city: 1,
+              mining: 1,
+              generator: 0,
+              agriculture: 0,
+            },
+            districtQueue: null,
+            pops: 2,
+            housing: 7,
+            amenities: 5,
+            stability: 70,
+            lastPopGrowthTime: this.state.timeMs,
           };
 
           emptySlot.ownerId = fleet.ownerId;
@@ -2712,6 +2804,121 @@ export class GameEngine {
           commandType: cmd.type,
           timeMs: this.state.timeMs,
           data: { finishTime, durationMs },
+        };
+      }
+
+      case 'BUILD_DISTRICT': {
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Gezegen size ait değil.', timeMs: this.state.timeMs };
+        }
+        if (planet.districtQueue) {
+          return { success: false, commandType: cmd.type, error: 'Halihazırda devam eden ilçe inşası var.', timeMs: this.state.timeMs };
+        }
+
+        if (!planet.districts) {
+          planet.districts = {
+            city: planet.isHomeworld ? 3 : 1,
+            mining: planet.isHomeworld ? 2 : 1,
+            generator: planet.isHomeworld ? 2 : 0,
+            agriculture: planet.isHomeworld ? 1 : 0,
+          };
+        }
+
+        const stats = DISTRICT_STATS[cmd.districtType];
+        if (!stats) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz ilçe türü.', timeMs: this.state.timeMs };
+        }
+
+        const system = this.state.map.systems[planet.systemId];
+        const slot = system?.slots.find((s) => s.planetId === planet.id || s.slotIndex === planet.slotIndex);
+        const maxDistricts = slot?.size || (planet.isHomeworld ? 20 : 16);
+        const currentTotal =
+          planet.districts.city +
+          planet.districts.mining +
+          planet.districts.generator +
+          planet.districts.agriculture;
+
+        if (currentTotal >= maxDistricts) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Gezegen ilçe kapasitesine ulaşıldı (${currentTotal}/${maxDistricts}).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        const costMod = getTraditionBuildingCostModifier(this.state, playerId);
+        const cost = {
+          ore: Math.round(stats.cost.ore * costMod),
+          crystal: Math.round(stats.cost.crystal * costMod),
+          fuel: Math.round(stats.cost.fuel * costMod),
+        };
+
+        if (
+          planet.resources.ore < cost.ore ||
+          planet.resources.crystal < cost.crystal ||
+          planet.resources.fuel < cost.fuel
+        ) {
+          return { success: false, commandType: cmd.type, error: 'Yetersiz kaynak.', timeMs: this.state.timeMs };
+        }
+
+        planet.resources.ore -= cost.ore;
+        planet.resources.crystal -= cost.crystal;
+        planet.resources.fuel -= cost.fuel;
+
+        const timeMod = getTraditionBuildingTimeModifier(this.state, playerId);
+        const relicConstMod = getRelicConstructionMultiplier(this.state, playerId);
+        const durationMs = Math.max(1000, Math.round(stats.buildTimeMs * timeMod * relicConstMod));
+        const finishTime = this.state.timeMs + durationMs;
+
+        planet.districtQueue = {
+          type: cmd.districtType,
+          districtType: cmd.districtType,
+          startTime: this.state.timeMs,
+          finishTime,
+        };
+
+        this.scheduleEvent(durationMs, 'district_completed', {
+          planetId: planet.id,
+          districtType: cmd.districtType,
+        });
+
+        this.logEvent(
+          'district_started',
+          `🏗️ ${planet.name} üzerinde ${stats.nameTr} inşası başladı.`,
+          playerId,
+          { planetId: planet.id, districtType: cmd.districtType }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: planet.id, districtType: cmd.districtType, finishTime },
+        };
+      }
+
+      case 'DEMOLISH_DISTRICT': {
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Gezegen size ait değil.', timeMs: this.state.timeMs };
+        }
+        if (!planet.districts || (planet.districts[cmd.districtType] || 0) <= 0) {
+          return { success: false, commandType: cmd.type, error: 'Yıkılacak ilçe bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        planet.districts[cmd.districtType]--;
+        this.recalculatePlanetPopsAndHousing(planet);
+
+        // Refund partial materials
+        planet.resources.ore += 100;
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: planet.id, districtType: cmd.districtType },
         };
       }
 

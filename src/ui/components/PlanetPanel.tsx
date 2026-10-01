@@ -17,15 +17,31 @@ import {
   Shield,
   ShieldAlert,
   Sprout,
+  Users,
+  Home,
+  Sparkles,
+  Trash2,
+  Plus,
+  Zap,
+  Hammer,
   Wrench,
   X,
 } from 'lucide-react';
 import {
   BUILDING_STATS,
+  DISTRICT_STATS,
   calculateHourlyProduction,
   getBuildingUpgradeCost,
 } from '../../engine/constants';
-import { BuildingType, GameState, Planet, PlanetSpecialization, PlanetStance, ShipType } from '../../engine/types';
+import {
+  BuildingType,
+  DistrictType,
+  GameState,
+  Planet,
+  PlanetSpecialization,
+  PlanetStance,
+  ShipType,
+} from '../../engine/types';
 import { formatDuration } from '../timeUtils';
 import { sound } from '../sound';
 import { getPlanetAsset } from '../planetAssets';
@@ -36,6 +52,8 @@ interface PlanetPanelProps {
   state?: GameState;
   onSelectPlanet: (id: string) => void;
   onUpgradeBuilding: (planetId: string, type: BuildingType) => void;
+  onBuildDistrict?: (planetId: string, districtType: DistrictType) => void;
+  onDemolishDistrict?: (planetId: string, districtType: DistrictType) => void;
   onSetStance: (planetId: string, stance: PlanetStance) => void;
   onSetSpecialization?: (planetId: string, specialization: PlanetSpecialization) => void;
   currentTimeMs: number;
@@ -54,6 +72,8 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
   state,
   onSelectPlanet,
   onUpgradeBuilding,
+  onBuildDistrict,
+  onDemolishDistrict,
   onSetStance,
   onSetSpecialization,
   currentTimeMs,
@@ -65,6 +85,8 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
   onDispatchSupplyConvoy,
   onClose,
 }) => {
+  const [activeTab, setActiveTab] = React.useState<'districts' | 'buildings'>('districts');
+
   const currentPlanet = planets.find((p) => p.id === activePlanetId) || planets[0];
   if (!currentPlanet) {
     return (
@@ -189,6 +211,68 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
             </span>
           )}
         </div>
+      </div>
+
+      {/* Stellaris Planetary Demographic & Social HUD */}
+      <div className="grid grid-cols-4 gap-1 px-3 py-2 bg-[#060c14] border-b border-[#18374b] text-center font-mono shrink-0">
+        {/* Pops */}
+        <div className="flex flex-col items-center justify-center p-1 rounded-sm bg-[#091522] border border-[#18374b]/60" title="Gezegen Nüfusu (Pop): Çalışan iş gücü">
+          <div className="flex items-center gap-1 text-[11px] text-cyan-400 font-bold">
+            <Users className="w-3 h-3 text-cyan-400" />
+            <span>{currentPlanet.pops ?? (currentPlanet.isHomeworld ? 10 : 2)}</span>
+          </div>
+          <span className="text-[8.5px] text-slate-400 uppercase tracking-tighter">Nüfus</span>
+        </div>
+
+        {/* Housing */}
+        {(() => {
+          const pops = currentPlanet.pops ?? (currentPlanet.isHomeworld ? 10 : 2);
+          const housing = currentPlanet.housing ?? (currentPlanet.isHomeworld ? 17 : 7);
+          const isOvercrowded = pops > housing;
+          return (
+            <div className={`flex flex-col items-center justify-center p-1 rounded-sm border ${
+              isOvercrowded ? 'bg-rose-950/40 border-rose-500/60 text-rose-300' : 'bg-[#091522] border-[#18374b]/60 text-emerald-400'
+            }`} title={`Konut Kapasitesi: ${pops}/${housing}`}>
+              <div className="flex items-center gap-1 text-[11px] font-bold">
+                <Home className="w-3 h-3" />
+                <span>{pops}/{housing}</span>
+              </div>
+              <span className="text-[8.5px] text-slate-400 uppercase tracking-tighter">Konut</span>
+            </div>
+          );
+        })()}
+
+        {/* Amenities */}
+        {(() => {
+          const amenities = currentPlanet.amenities ?? 15;
+          const isDeficit = amenities < 0;
+          return (
+            <div className={`flex flex-col items-center justify-center p-1 rounded-sm border ${
+              isDeficit ? 'bg-rose-950/40 border-rose-500/60 text-rose-300' : 'bg-[#091522] border-[#18374b]/60 text-amber-300'
+            }`} title={`Hizmet Seviyesi: ${amenities >= 0 ? `+${amenities}` : amenities} (İstikrarı etkiler)`}>
+              <div className="flex items-center gap-1 text-[11px] font-bold">
+                <Sparkles className="w-3 h-3" />
+                <span>{amenities >= 0 ? `+${amenities}` : amenities}</span>
+              </div>
+              <span className="text-[8.5px] text-slate-400 uppercase tracking-tighter">Hizmet</span>
+            </div>
+          );
+        })()}
+
+        {/* Stability */}
+        {(() => {
+          const stability = currentPlanet.stability ?? 80;
+          const multiplier = 1 + (stability - 50) * 0.004;
+          return (
+            <div className="flex flex-col items-center justify-center p-1 rounded-sm bg-[#091522] border border-[#18374b]/60" title={`Gezegen İstikrarı: %${stability} (Üretim Çarpanı: ${multiplier.toFixed(2)}x)`}>
+              <div className="flex items-center gap-1 text-[11px] text-purple-300 font-bold">
+                <Shield className="w-3 h-3 text-purple-400" />
+                <span>%{stability}</span>
+              </div>
+              <span className="text-[8.5px] text-purple-300 font-bold uppercase tracking-tighter">{multiplier.toFixed(2)}x Üretim</span>
+            </div>
+          );
+        })()}
       </div>
 
       {/* Planetary Status & Defense Stance */}
@@ -454,7 +538,334 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
         </div>
       </div>
 
+      {/* Navigation Tabs: Districts & Surface vs Infrastructure Buildings */}
+      <div className="flex border-b border-[#18374b] bg-[#07101a] px-3 pt-2 gap-2 shrink-0">
+        <button
+          onClick={() => {
+            sound.playClick();
+            setActiveTab('districts');
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold transition-all border-b-2 cursor-pointer ${
+            activeTab === 'districts'
+              ? 'border-cyan-400 text-cyan-200 bg-cyan-950/30'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Building className="w-3.5 h-3.5" />
+          <span>İlçeler & Yüzey</span>
+          {currentPlanet.districtQueue && (
+            <span className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse" />
+          )}
+        </button>
+
+        <button
+          onClick={() => {
+            sound.playClick();
+            setActiveTab('buildings');
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-mono font-bold transition-all border-b-2 cursor-pointer ${
+            activeTab === 'buildings'
+              ? 'border-cyan-400 text-cyan-200 bg-cyan-950/30'
+              : 'border-transparent text-slate-400 hover:text-slate-200'
+          }`}
+        >
+          <Wrench className="w-3.5 h-3.5" />
+          <span>Altyapı Binaları</span>
+          {currentPlanet.buildingQueue && (
+            <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse" />
+          )}
+        </button>
+      </div>
+
+      {/* Tab Content: Districts View */}
+      {activeTab === 'districts' && (
+        <div className="flex-1 overflow-y-auto p-3.5 pb-6 space-y-3 text-xs font-mono scrollbar-none">
+          {(() => {
+            const maxDistricts = slot?.size || (currentPlanet.isHomeworld ? 20 : 16);
+            const districts = currentPlanet.districts || {
+              city: currentPlanet.isHomeworld ? 3 : 1,
+              mining: currentPlanet.isHomeworld ? 2 : 1,
+              generator: currentPlanet.isHomeworld ? 2 : 0,
+              agriculture: currentPlanet.isHomeworld ? 1 : 0,
+            };
+            const totalBuilt =
+              districts.city + districts.mining + districts.generator + districts.agriculture;
+            const hasQueue = !!currentPlanet.districtQueue;
+
+            // Generate slot cells for visualization
+            const gridCells: {
+              type: DistrictType | 'empty';
+              isBuilding?: boolean;
+              name: string;
+              icon: string;
+              border: string;
+              bg: string;
+              text: string;
+            }[] = [];
+
+            for (let i = 0; i < districts.city; i++) {
+              gridCells.push({
+                type: 'city',
+                name: 'Şehir İlçesi',
+                icon: '🏙️',
+                border: 'border-cyan-500/70',
+                bg: 'bg-cyan-950/50',
+                text: 'text-cyan-300',
+              });
+            }
+            for (let i = 0; i < districts.mining; i++) {
+              gridCells.push({
+                type: 'mining',
+                name: 'Maden İlçesi',
+                icon: '⛏️',
+                border: 'border-orange-500/70',
+                bg: 'bg-orange-950/50',
+                text: 'text-orange-300',
+              });
+            }
+            for (let i = 0; i < districts.generator; i++) {
+              gridCells.push({
+                type: 'generator',
+                name: 'Jeneratör İlçesi',
+                icon: '⚡',
+                border: 'border-yellow-500/70',
+                bg: 'bg-yellow-950/50',
+                text: 'text-yellow-300',
+              });
+            }
+            for (let i = 0; i < districts.agriculture; i++) {
+              gridCells.push({
+                type: 'agriculture',
+                name: 'Tarım İlçesi',
+                icon: '🌱',
+                border: 'border-emerald-500/70',
+                bg: 'bg-emerald-950/50',
+                text: 'text-emerald-300',
+              });
+            }
+
+            if (currentPlanet.districtQueue) {
+              const qType = currentPlanet.districtQueue.type;
+              gridCells.push({
+                type: qType,
+                isBuilding: true,
+                name: `${DISTRICT_STATS[qType]?.nameTr || 'İlçe'} (İnşa Ediliyor)`,
+                icon: '🔨',
+                border: 'border-purple-400 animate-pulse shadow-sm shadow-purple-500/50',
+                bg: 'bg-purple-950/70',
+                text: 'text-purple-300',
+              });
+            }
+
+            while (gridCells.length < maxDistricts) {
+              gridCells.push({
+                type: 'empty',
+                name: 'Boş İlçe Slotu',
+                icon: '+',
+                border: 'border-dashed border-[#1e3a50]',
+                bg: 'bg-[#060c14]/40',
+                text: 'text-slate-600',
+              });
+            }
+
+            return (
+              <>
+                {/* Surface Grid Container */}
+                <div className="p-2.5 rounded-sm bg-[#050b12] border border-[#18374b] shadow-inner">
+                  <div className="flex items-center justify-between text-[10px] font-mono text-slate-300 uppercase font-bold tracking-wider mb-2">
+                    <span className="flex items-center gap-1.5">
+                      <span>🪐</span>
+                      <span>Görsel Yüzey Izgarası</span>
+                    </span>
+                    <span className="text-cyan-400 font-mono">
+                      {totalBuilt} / {maxDistricts} Slot Dolu
+                    </span>
+                  </div>
+
+                  {/* Surface Grid Cells */}
+                  <div className="grid grid-cols-5 gap-1.5">
+                    {gridCells.map((cell, idx) => (
+                      <div
+                        key={idx}
+                        className={`h-11 rounded-sm border flex flex-col items-center justify-center relative group transition-all ${cell.border} ${cell.bg}`}
+                        title={`${cell.name} (Slot #${idx + 1})`}
+                      >
+                        <span className="text-xs">{cell.icon}</span>
+                        <span className={`text-[8.5px] font-mono font-bold mt-0.5 ${cell.text}`}>
+                          {cell.isBuilding ? 'İnşa' : cell.type === 'empty' ? 'Boş' : cell.type.slice(0, 3).toUpperCase()}
+                        </span>
+                        {cell.isBuilding && (
+                          <div className="absolute inset-0 bg-purple-500/10 rounded-sm animate-pulse pointer-events-none" />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Active District Queue Bar */}
+                {currentPlanet.districtQueue && (
+                  <div className="p-2.5 rounded-sm bg-purple-950/30 border border-purple-500/40">
+                    {(() => {
+                      const q = currentPlanet.districtQueue;
+                      const stats = DISTRICT_STATS[q.type];
+                      const total = Math.max(1, q.finishTime - q.startTime);
+                      const elapsed = currentTimeMs - q.startTime;
+                      const remainingMs = Math.max(0, q.finishTime - currentTimeMs);
+                      const progress = Math.min(100, Math.max(0, Math.round((elapsed / total) * 100)));
+
+                      return (
+                        <div>
+                          <div className="flex items-center justify-between text-[10.5px] font-mono text-purple-300 font-bold mb-1">
+                            <span className="flex items-center gap-1.5">
+                              <Hammer className="w-3.5 h-3.5 text-purple-400 animate-bounce" />
+                              <span>{stats.nameTr} İnşaatı</span>
+                            </span>
+                            <span className="flex items-center gap-1 text-purple-200">
+                              <Clock className="w-3 h-3 text-purple-400 animate-spin" />
+                              <span>{formatDuration(remainingMs)} (%{progress})</span>
+                            </span>
+                          </div>
+                          <div className="w-full h-1.5 bg-[#060c14] rounded-full overflow-hidden border border-purple-500/40 relative">
+                            <div
+                              className="h-full bg-gradient-to-r from-purple-600 via-purple-400 to-white transition-all duration-300 relative shadow-sm"
+                              style={{ width: `${progress}%` }}
+                            >
+                              <div className="absolute top-0 right-0 bottom-0 w-2 bg-white animate-pulse" />
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
+
+                {/* District Management Cards */}
+                <div className="space-y-2 pt-1">
+                  <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider">
+                    İLÇE İNŞASI & GELİŞTİRME
+                  </div>
+
+                  {(['city', 'mining', 'generator', 'agriculture'] as DistrictType[]).map((dType) => {
+                    const stats = DISTRICT_STATS[dType];
+                    const count = districts[dType] || 0;
+                    const canAfford =
+                      currentPlanet.resources.ore >= stats.cost.ore &&
+                      currentPlanet.resources.crystal >= stats.cost.crystal &&
+                      currentPlanet.resources.fuel >= stats.cost.fuel;
+                    const isQueueActive = currentPlanet.districtQueue?.type === dType;
+                    const canBuild = canAfford && !hasQueue && totalBuilt < maxDistricts;
+
+                    const icons: Record<DistrictType, string> = {
+                      city: '🏙️',
+                      mining: '⛏️',
+                      generator: '⚡',
+                      agriculture: '🌱',
+                    };
+
+                    const benefits: Record<DistrictType, string> = {
+                      city: '+5 Konut, +5 Hizmet, +1 İş',
+                      mining: '+2 Konut, +120 Cevher/s',
+                      generator: '+2 Konut, +80 Yakıt/s',
+                      agriculture: '+2 Konut, +60 Kristal/s',
+                    };
+
+                    return (
+                      <div
+                        key={dType}
+                        className={`p-2.5 rounded-sm stellaris-item-card transition-all ${
+                          isQueueActive ? '!border-purple-400/80 shadow-sm shadow-purple-950/40' : ''
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1.5">
+                          <div className="flex items-center gap-2">
+                            <span className="text-base">{icons[dType]}</span>
+                            <div>
+                              <div className="text-xs font-bold text-white font-display flex items-center gap-1.5">
+                                <span>{stats.nameTr}</span>
+                                <span className="text-[10px] font-mono text-cyan-300 font-bold bg-[#07101a] px-1.5 py-0.2 rounded-sm border border-[#19384c]">
+                                  {count} İlçe
+                                </span>
+                              </div>
+                              <div className="text-[9.5px] font-mono text-emerald-400 font-medium">
+                                {benefits[dType]}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Action Buttons: Build (+) & Demolish (-) */}
+                          <div className="flex items-center gap-1">
+                            {count > 0 && onDemolishDistrict && (
+                              <button
+                                onClick={() => {
+                                  sound.playClick();
+                                  onDemolishDistrict(currentPlanet.id, dType);
+                                }}
+                                className="p-1 rounded-sm text-slate-400 hover:text-rose-400 hover:bg-rose-950/40 border border-transparent hover:border-rose-500/40 transition-all cursor-pointer"
+                                title={`${stats.nameTr} Yık: Hurda kaynakları geri al.`}
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+
+                            <button
+                              disabled={!canBuild}
+                              onClick={() => {
+                                sound.playConstruction();
+                                if (onBuildDistrict) {
+                                  onBuildDistrict(currentPlanet.id, dType);
+                                }
+                              }}
+                              className={`flex items-center gap-1 px-2.5 py-1 rounded-sm text-[11px] font-mono font-medium transition-all ${
+                                canBuild
+                                  ? 'stellaris-btn-metallic text-cyan-300 cursor-pointer shadow-sm'
+                                  : 'bg-slate-900/40 border border-slate-800 text-slate-500 cursor-not-allowed opacity-60'
+                              }`}
+                            >
+                              <Plus className="w-3 h-3" />
+                              <span>İnşa Et</span>
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Cost Requirement Badges */}
+                        <div className="flex items-center gap-2 mt-1 text-[10.5px] font-mono font-medium">
+                          <span className={currentPlanet.resources.ore >= stats.cost.ore ? 'text-slate-300' : 'text-rose-400 font-bold'}>
+                            {stats.cost.ore} Cevher
+                          </span>
+                          {stats.cost.crystal > 0 && (
+                            <>
+                              <span className="text-slate-600">•</span>
+                              <span className={currentPlanet.resources.crystal >= stats.cost.crystal ? 'text-cyan-300' : 'text-rose-400 font-bold'}>
+                                {stats.cost.crystal} Kristal
+                              </span>
+                            </>
+                          )}
+                          {stats.cost.fuel > 0 && (
+                            <>
+                              <span className="text-slate-600">•</span>
+                              <span className={currentPlanet.resources.fuel >= stats.cost.fuel ? 'text-amber-300' : 'text-rose-400 font-bold'}>
+                                {stats.cost.fuel} Yakıt
+                              </span>
+                            </>
+                          )}
+                          <span className="text-slate-600">•</span>
+                          <span className="text-slate-400 flex items-center gap-0.5">
+                            <Clock className="w-2.5 h-2.5 text-slate-500" />
+                            {Math.round(stats.buildTimeMs / 1000)}s
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
+        </div>
+      )}
+
       {/* Buildings List (Scrollable) */}
+      {activeTab === 'buildings' && (
       <div className="flex-1 overflow-y-auto p-3.5 pb-6 space-y-2 text-xs font-mono scrollbar-none">
         <div className="text-[10px] font-mono stellaris-gold uppercase font-bold tracking-wider mb-1">
           GEZEGEN ALTYAPISI & ÜRETİM
@@ -664,6 +1075,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
           </div>
         </div>
       </div>
+      )}
     </aside>
   );
 };

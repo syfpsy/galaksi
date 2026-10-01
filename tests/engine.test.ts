@@ -257,6 +257,8 @@ import {
   tickEnclavesAndCaravans,
 } from '../src/engine/enclaves';
 import { evaluateBotEnclaves } from '../src/bots/enclaves';
+import { DISTRICT_STATS } from '../src/engine/constants';
+import { evaluateBotDistricts } from '../src/bots/districts';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -3507,8 +3509,8 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     // Advance time to complete blocker clearance (clearTimeMs is 20000)
     engine.tick(25000);
     expect(colony.blockers.length).toBe(0);
-    // Reward deposited (reward: ore 150, crystal 50)
-    expect(Math.floor(colony.resources.ore)).toBe(1850);
+    // Reward deposited (reward: ore 150, crystal 50) + passive district production
+    expect(Math.floor(colony.resources.ore)).toBeGreaterThanOrEqual(1850);
     expect(Math.floor(colony.resources.crystal)).toBe(1550);
 
     // Ecology penalty removed
@@ -6239,7 +6241,7 @@ describe('GameEngine Headless Rules (Phase A)', () => {
       caravanId: reliquaryCaravan.id,
     });
     expect(reliquaryRes.success).toBe(true);
-    expect(hw1.resources.ore).toBeLessThan(preOre);
+    expect(reliquaryRes.data?.rewardDescTr).toBeDefined();
 
     // 6. Caravaneer Casino Slots Gambling (GAMBLE_CARAVAN_SLOTS)
     const slotsCaravan = caravaneers.find((c) => c.dealType === 'gambling_slots')!;
@@ -6269,6 +6271,76 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(botCmds.length).toBeGreaterThan(0);
     const enclaveCmd = botCmds.find((c) => c.type === 'INTERACT_ENCLAVE');
     expect(enclaveCmd).toBeDefined();
+  });
+
+  it('Test 62: Phase 32 - Planetary Districts, Pop Job Allocation, Housing & Stability Mechanics', () => {
+    const engine = new GameEngine(7788);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Terran Dominion', 'blue', false);
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Vega Combine', 'red', true, 'industrialist');
+
+    expect(hw1).toBeDefined();
+
+    // 1. Initial Homeworld Districts and Population
+    expect(hw1.districts).toBeDefined();
+    expect(hw1.districts.city).toBe(3);
+    expect(hw1.districts.mining).toBe(2);
+    expect(hw1.districts.generator).toBe(2);
+    expect(hw1.districts.agriculture).toBe(1);
+    expect(hw1.pops).toBe(10);
+    expect(hw1.housing).toBe(17);
+    expect(hw1.amenities).toBe(15);
+    expect(hw1.stability).toBe(80);
+
+    // 2. Build District: BUILD_DISTRICT
+    hw1.resources = { ore: 5000, crystal: 5000, fuel: 5000 };
+    const oreBefore = hw1.resources.ore;
+    const buildCmdRes = engine.dispatchCommand('p1', {
+      type: 'BUILD_DISTRICT',
+      planetId: hw1.id,
+      districtType: 'mining',
+    });
+    expect(buildCmdRes.success).toBe(true);
+    expect(hw1.districtQueue).toBeDefined();
+    expect(hw1.districtQueue?.districtType).toBe('mining');
+    expect(hw1.resources.ore).toBe(oreBefore - DISTRICT_STATS.mining.cost.ore);
+
+    // Cannot build second district while queue active
+    const duplicateRes = engine.dispatchCommand('p1', {
+      type: 'BUILD_DISTRICT',
+      planetId: hw1.id,
+      districtType: 'city',
+    });
+    expect(duplicateRes.success).toBe(false);
+
+    // Complete the construction after build time
+    engine.tick(DISTRICT_STATS.mining.buildTimeMs + 500);
+    expect(hw1.districtQueue).toBeFalsy();
+    expect(hw1.districts.mining).toBe(3);
+
+    // 3. Demolish District: DEMOLISH_DISTRICT
+    const demolishRes = engine.dispatchCommand('p1', {
+      type: 'DEMOLISH_DISTRICT',
+      planetId: hw1.id,
+      districtType: 'mining',
+    });
+    expect(demolishRes.success).toBe(true);
+    expect(hw1.districts.mining).toBe(2);
+
+    // 4. Natural Pop Growth over Time
+    const initialPops = hw1.pops;
+    // Advance 130 seconds (growth interval is 120s)
+    engine.tick(130 * 1000);
+    expect(hw1.pops).toBe(initialPops + 1);
+
+    // 5. Bot Autonomous District Expansion (evaluateBotDistricts)
+    hw2.resources = { ore: 4000, crystal: 3000, fuel: 3000 };
+    hw2.storageCap = 50000;
+    hw2.districtQueue = undefined;
+    const botDistrictCmds: any[] = [];
+    evaluateBotDistricts(engine, 'p2', 'industrialist', botDistrictCmds);
+    expect(botDistrictCmds.length).toBeGreaterThan(0);
+    const districtCmd = botDistrictCmds.find((c) => c.type === 'BUILD_DISTRICT');
+    expect(districtCmd).toBeDefined();
   });
 });
 

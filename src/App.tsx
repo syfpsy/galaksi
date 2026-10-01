@@ -12,6 +12,7 @@ import {
   BuildingType,
   CouncilPosition,
   DefenseStructureType,
+  DistrictType,
   EmpireArtifactId,
   EspionageOpType,
   FactionType,
@@ -565,6 +566,50 @@ export function App() {
       planetId,
       buildingType,
     });
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleBuildDistrict = (planetId: string, districtType: DistrictType) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'BUILD_DISTRICT',
+      planetId,
+      districtType,
+    });
+    if (!res.success && res.error) {
+      sound.playError();
+      setTacticalToasts((prev) => [
+        ...prev.slice(-3),
+        {
+          id: `toast_${Date.now()}`,
+          text: `❌ İlçe İnşa Hatası: ${res.error}`,
+          color: '#ef4444',
+          timestamp: Date.now(),
+        },
+      ]);
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDemolishDistrict = (planetId: string, districtType: DistrictType) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DEMOLISH_DISTRICT',
+      planetId,
+      districtType,
+    });
+    if (!res.success && res.error) {
+      sound.playError();
+      setTacticalToasts((prev) => [
+        ...prev.slice(-3),
+        {
+          id: `toast_${Date.now()}`,
+          text: `❌ İlçe Yıkım Hatası: ${res.error}`,
+          color: '#ef4444',
+          timestamp: Date.now(),
+        },
+      ]);
+    }
     setEngineState({ ...engineRef.current.state });
   };
 
@@ -2856,6 +2901,8 @@ export function App() {
                 }}
                 onOpenTerraform={() => setActiveLeftPanel('terraform')}
                 onDispatchSupplyConvoy={handleDispatchSupplyConvoy}
+                onBuildDistrict={handleBuildDistrict}
+                onDemolishDistrict={handleDemolishDistrict}
                 onClose={() => setActiveLeftPanel(null)}
               />
             )}

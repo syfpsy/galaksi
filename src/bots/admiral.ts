@@ -24,6 +24,7 @@ import { evaluateBotHyperRelays } from './hyperRelays';
 import { evaluateBotShadowOps } from './shadowOps';
 import { evaluateBotGroundWarfare } from './groundWarfare';
 import { evaluateBotEnclaves } from './enclaves';
+import { evaluateBotDistricts } from './districts';
 import { IBotAgent } from './types';
 
 /**
@@ -317,6 +318,9 @@ export class AdmiralBot implements IBotAgent {
 
     // 28. Galactic Enclaves, Caravaneers & Shroud Factions (Phase 31)
     evaluateBotEnclaves(engine, this.playerId, this.archetype, executedCommands);
+
+    // 29. Planetary Districts & Pops (Phase 32)
+    evaluateBotDistricts(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

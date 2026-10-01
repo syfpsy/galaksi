@@ -3,6 +3,7 @@ import {
   BuildingType,
   DefenseStats,
   DefenseStructureType,
+  DistrictType,
   ResearchStats,
   ResearchType,
   Resources,
@@ -335,3 +336,68 @@ export function getDefenseBuildDurationMs(defenseType: DefenseStructureType, shi
   const speedup = 1 + (Math.max(1, shipyardLevel) * 0.12);
   return Math.round((stats.buildTimeSec / speedup) * 1000);
 }
+
+// Phase 32: Planetary Surface District Stats & Costs
+export interface DistrictStats {
+  id: DistrictType;
+  nameTr: string;
+  descTr: string;
+  icon: string;
+  cost: Resources;
+  buildTimeMs: number;
+  housing: number;
+  amenities: number;
+  jobs: string;
+  hourlyProduction: Resources;
+}
+
+export const DISTRICT_STATS: Record<DistrictType, DistrictStats> = {
+  city: {
+    id: 'city',
+    nameTr: 'Şehir Bölgesi',
+    descTr: '+5 Konut, +5 Hizmet ve çalışan nüfus için geniş yaşam alanı sağlar.',
+    icon: '🏙️',
+    cost: { ore: 300, crystal: 0, fuel: 0 },
+    buildTimeMs: 20_000,
+    housing: 5,
+    amenities: 5,
+    jobs: '2 Bürokrat',
+    hourlyProduction: { ore: 0, crystal: 0, fuel: 0 },
+  },
+  mining: {
+    id: 'mining',
+    nameTr: 'Maden Bölgesi',
+    descTr: '+2 Madenci iş kolu ve saatlik +120 Cevher taban üretimi sağlar.',
+    icon: '⛏️',
+    cost: { ore: 300, crystal: 0, fuel: 0 },
+    buildTimeMs: 20_000,
+    housing: 2,
+    amenities: 0,
+    jobs: '2 Madenci',
+    hourlyProduction: { ore: 120, crystal: 0, fuel: 0 },
+  },
+  generator: {
+    id: 'generator',
+    nameTr: 'Jeneratör Bölgesi',
+    descTr: '+2 Enerji teknisyeni iş kolu ve saatlik +80 Yakıt üretimi sağlar.',
+    icon: '⚡',
+    cost: { ore: 300, crystal: 100, fuel: 0 },
+    buildTimeMs: 20_000,
+    housing: 2,
+    amenities: 0,
+    jobs: '2 Teknisyen',
+    hourlyProduction: { ore: 0, crystal: 0, fuel: 80 },
+  },
+  agriculture: {
+    id: 'agriculture',
+    nameTr: 'Tarım & Sentez Bölgesi',
+    descTr: '+2 Sentez uzmanı iş kolu ve saatlik +60 Kristal üretimi sağlar.',
+    icon: '🌱',
+    cost: { ore: 200, crystal: 200, fuel: 0 },
+    buildTimeMs: 20_000,
+    housing: 2,
+    amenities: 0,
+    jobs: '2 Sentezci',
+    hourlyProduction: { ore: 0, crystal: 60, fuel: 0 },
+  },
+};
