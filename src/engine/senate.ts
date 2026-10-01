@@ -242,7 +242,13 @@ export function calculateDiplomaticWeight(
   const hasHarmonyT2 = state.traditions?.[playerId]?.trees.harmony?.unlockedTiers.includes(2) ?? false;
   const harmonyTraditionBonus = hasHarmonyT2 ? Math.round(baseWeight * 0.25) : 0;
 
-  const total = Math.max(10, baseWeight + custodianBonus - sanctionsPenalty + harmonyTraditionBonus);
+  // 8. Relic Active Triumph (Omniscient Archive: +100% Diplomatic Weight)
+  const hasOmniscientTriumph = state.activeRelicTriumphs?.[playerId]?.some(
+    (t) => t.relicId === 'omniscient_archive' && state.timeMs < t.expiresAtMs
+  ) ?? false;
+  const relicTriumphBonus = hasOmniscientTriumph ? Math.round(baseWeight * 1.0) : 0;
+
+  const total = Math.max(10, baseWeight + custodianBonus - sanctionsPenalty + harmonyTraditionBonus + relicTriumphBonus);
 
   return {
     total,

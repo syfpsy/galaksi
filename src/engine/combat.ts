@@ -22,6 +22,8 @@ export interface CombatFleetInput {
   traditionDefenseMultiplier?: number;
   traditionEvasionBonus?: number;
   shipLoadouts?: ShipLoadoutMap;
+  relicDamageReduction?: number;
+  relicEvasionBonus?: number;
 }
 
 export interface CombatResult {
@@ -221,12 +223,22 @@ export function resolveCombat(
       }
     }
 
-    // Defender Evasion check (including transcendence / tradition evasion bonus)
+    // Defender Evasion check (including transcendence / tradition / relic evasion bonus)
     const defEvasionChance =
       (defender.admiral && defender.admiral.traitId === 'evasion_master' ? 0.18 : 0) +
-      (defender.traditionEvasionBonus ?? 0);
+      (defender.traditionEvasionBonus ?? 0) +
+      (defender.relicEvasionBonus ?? 0);
     if (defEvasionChance > 0 && prng.next() < defEvasionChance) {
       attDmg = Math.round(attDmg * 0.65);
+    }
+
+    // Attacker Evasion check (including transcendence / tradition / relic evasion bonus)
+    const attEvasionChance =
+      (attacker.admiral && attacker.admiral.traitId === 'evasion_master' ? 0.18 : 0) +
+      (attacker.traditionEvasionBonus ?? 0) +
+      (attacker.relicEvasionBonus ?? 0);
+    if (attEvasionChance > 0 && prng.next() < attEvasionChance) {
+      defDmg = Math.round(defDmg * 0.65);
     }
 
     // Iron discipline damage reductions
@@ -268,6 +280,14 @@ export function resolveCombat(
     if (defender.artifacts?.includes('dreadnought_plating')) {
       defDmg = Math.round(defDmg * 1.10); // +10% offensive firepower
       attDmg = Math.round(attDmg * 0.90); // -10% damage taken
+    }
+
+    // 4. Relic Active Triumph (Dreadnought Plating Triumph: +30% damage reduction)
+    if (attacker.relicDamageReduction) {
+      defDmg = Math.round(defDmg * (1 - attacker.relicDamageReduction));
+    }
+    if (defender.relicDamageReduction) {
+      attDmg = Math.round(attDmg * (1 - defender.relicDamageReduction));
     }
 
     // Starbase damage absorption: absorbs up to 40% of incoming attack damage

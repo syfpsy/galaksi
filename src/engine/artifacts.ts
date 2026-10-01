@@ -37,4 +37,22 @@ export const EMPIRE_ARTIFACTS: Record<EmpireArtifactId, EmpireArtifact> = {
     descriptionTr: 'Alt-uzay frekanslarındaki bükülmeleri ışık hızının katbekat üzerinde algılayan takyonik alıcı kulesi.',
     effectTr: '+1 Galaktik Sensör Görüş Menzili',
   },
+  omniscient_archive: {
+    id: 'omniscient_archive',
+    nameTr: 'Külli Galaktik Arşiv',
+    categoryTr: 'Prekürsör Evren Kütüphanesi',
+    icon: '📜',
+    color: '#3b82f6',
+    descriptionTr: 'Sayısız galaktik döngünün tarihsel, kültürel ve felsefi mirasını barındıran kuantum hafıza monolitleri.',
+    effectTr: '+%20 Kültürel Birlik (Unity) Artışı ve Senato Diplomatik Ağırlığı',
+  },
+  chronos_core: {
+    id: 'chronos_core',
+    nameTr: 'Zaman Motoru Çekirdeği',
+    categoryTr: 'Kronometrik Alan Jeneratörü',
+    icon: '⏳',
+    color: '#ec4899',
+    descriptionTr: 'Lokal uzay-zaman eğriliğini mikro ölçekte bükerek üretim ve donatım çevrimlerini katbekat hızlandıran kadim çekirdek.',
+    effectTr: '+%25 Yıldız Üssü Ateş Gücü ve Aktif Üretim Hızı',
+  },
 };

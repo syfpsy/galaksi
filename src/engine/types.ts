@@ -456,7 +456,9 @@ export type EmpireArtifactId =
   | 'progenitor_matrix'
   | 'rift_hyperdrive'
   | 'dreadnought_plating'
-  | 'subspace_tachyon_array';
+  | 'subspace_tachyon_array'
+  | 'omniscient_archive'
+  | 'chronos_core';
 
 export interface EmpireArtifact {
   id: EmpireArtifactId;
@@ -468,6 +470,69 @@ export interface EmpireArtifact {
   effectTr: string;
   discoveredAtMs?: number;
   originSystemName?: string;
+}
+
+// ==========================================
+// Phase 18: Archaeology Sites & Relic Triumphs
+// ==========================================
+export interface RelicTriumphConfig {
+  nameTr: string;
+  descriptionTr: string;
+  minorArtifactsCost: number;
+  durationMs: number;
+  cooldownMs: number;
+}
+
+export interface ActiveRelicTriumph {
+  relicId: EmpireArtifactId;
+  activatedAtMs: number;
+  expiresAtMs: number;
+  cooldownUntilMs: number;
+}
+
+export interface ArchaeologyChapterChoice {
+  textTr: string;
+  descriptionTr: string;
+  outcomeTr: string;
+  minorArtifactsBonus?: number;
+  resourceBonus?: Partial<Resources>;
+  xpBonus?: number;
+}
+
+export interface ArchaeologyChapter {
+  chapterNumber: number;
+  titleTr: string;
+  textTr: string;
+  durationMs: number;
+  hasChoice?: boolean;
+  choices?: ArchaeologyChapterChoice[];
+  rewardMinorArtifacts: number;
+  rewardResources?: Partial<Resources>;
+  rewardXP?: number;
+}
+
+export interface ArchaeologySite {
+  id: string;
+  systemId: string;
+  systemName: string;
+  nameTr: string;
+  descriptionTr: string;
+  totalChapters: number;
+  currentChapter: number;
+  chapterProgressMs: number;
+  status: 'available' | 'excavating' | 'choice_pending' | 'completed';
+  assignedFleetId?: string | null;
+  excavatingPlayerId?: string | null;
+  pendingChoiceChapter?: number;
+  completedAtMs?: number;
+  rewardArtifactId?: EmpireArtifactId;
+  discoveredByPlayerIds: string[];
+  log: {
+    chapter: number;
+    titleTr: string;
+    choiceMadeTr?: string;
+    completedAtMs: number;
+  }[];
 }
 
 export type POIType =
@@ -730,6 +795,8 @@ export interface Player {
   espionageReports?: EspionageReport[];
   claimedDirectives?: string[]; // IDs of claimed empire directives
   artifacts?: EmpireArtifactId[]; // Discovered ancient relics and artifacts
+  minorArtifacts?: number; // Phase 18: Strategic minor artifacts from excavations
+  relicCooldowns?: Record<string, number>; // Phase 18: relicId -> cooldownExpiresAtMs
 }
 
 export type EmpireDirectiveId =
@@ -869,6 +936,8 @@ export interface GameState {
   shipLoadouts?: Record<string, ShipLoadoutMap>; // key: playerId
   crisis?: GalacticCrisisState | null;
   traditions?: Record<string, EmpireTraditionsState>; // key: playerId
+  archaeologySites?: Record<string, ArchaeologySite>; // key: siteId (Phase 18)
+  activeRelicTriumphs?: Record<string, ActiveRelicTriumph[]>; // key: playerId (Phase 18)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1137,6 +1206,29 @@ export type GameCommand =
   | {
       type: 'SELECT_ASCENSION_PERK';
       perkId: AscensionPerkId;
+    }
+  | {
+      type: 'EXCAVATE_SITE';
+      siteId: string;
+      fleetId: string;
+    }
+  | {
+      type: 'ABANDON_EXCAVATION';
+      siteId: string;
+    }
+  | {
+      type: 'RESOLVE_ARCHAEOLOGY_CHOICE';
+      siteId: string;
+      choiceIndex: number;
+    }
+  | {
+      type: 'ACTIVATE_RELIC_TRIUMPH';
+      relicId: EmpireArtifactId;
+    }
+  | {
+      type: 'REVERSE_ENGINEER_ARTIFACTS';
+      actionType: 'tech_boost' | 'cultural_festival';
+      targetPlanetId?: string;
     };
 
 export interface CommandReceipt {

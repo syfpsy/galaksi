@@ -9,6 +9,7 @@ import { evaluateBotCouncil } from './council';
 import { evaluateBotShipDesign } from './shipDesign';
 import { evaluateBotCrisisResponse } from './crisis';
 import { evaluateBotTraditions } from './traditions';
+import { evaluateBotArchaeology } from './archaeology';
 import { IBotAgent } from './types';
 
 export class ExplorerBot implements IBotAgent {
@@ -179,6 +180,9 @@ export class ExplorerBot implements IBotAgent {
 
     // 12. Empire Traditions & Ascension Perks (Phase 17)
     evaluateBotTraditions(engine, this.playerId, this.archetype, executedCommands);
+
+    // 13. Archaeology Sites, Relic Triumphs & Minor Artifacts (Phase 18)
+    evaluateBotArchaeology(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

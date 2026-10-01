@@ -60,6 +60,18 @@ import {
   getTraditionStorageCapMultiplier,
 } from '../src/engine/traditions';
 import { evaluateBotTraditions } from '../src/bots/traditions';
+import {
+  RELIC_TRIUMPH_CONFIGS,
+  canActivateRelicTriumph,
+  canExcavateSite,
+  hasActiveRelicTriumph,
+  getRelicDiplomaticWeightMultiplier,
+  getRelicSpeedMultiplier,
+  getRelicFuelCostMultiplier,
+  getRelicSensorBonus,
+  getRelicConstructionMultiplier,
+} from '../src/engine/archaeology';
+import { evaluateBotArchaeology } from '../src/bots/archaeology';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -3021,6 +3033,197 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(botCmds.length).toBeGreaterThanOrEqual(1);
     // Raider prioritizes supremacy -> should have adopted supremacy T1
     expect(botTraditions.trees.supremacy.unlockedTiers).toContain(1);
+  });
+
+  it('handles Phase 18: Archaeological Dig Sites, Minor Artifacts Economy & Active Relic Triumphs', () => {
+    const engine = new GameEngine(777);
+    const { player, homeworld } = engine.addPlayer('player_arch', 'Arkeoloji İmparatorluğu', '#06b6d4');
+
+    // 1. Initialization checks
+    expect(engine.state.archaeologySites).toBeDefined();
+    const siteIds = Object.keys(engine.state.archaeologySites!);
+    expect(siteIds.length).toBeGreaterThanOrEqual(3);
+    expect(player.minorArtifacts).toBe(0);
+    expect(player.relicCooldowns).toEqual({});
+
+    // Filtered player visible state contains archaeology data
+    const view = engine.getPlayerView(player.id);
+    expect(view.myMinorArtifacts).toBe(0);
+    expect(view.archaeologySites).toBeDefined();
+
+    // 2. Scout fleet requirement for excavation
+    const targetSite = Object.values(engine.state.archaeologySites!)[0];
+    const canExcavateCheckNoFleet = canExcavateSite(engine.state, player.id, targetSite.id, 'invalid_fleet');
+    expect(canExcavateCheckNoFleet.canExcavate).toBe(false);
+
+    // Create a fleet with 1 scout orbiting in the target site system
+    const scoutFleetId = 'fleet_scout_arch_1';
+    engine.state.fleets[scoutFleetId] = {
+      id: scoutFleetId,
+      ownerId: player.id,
+      name: 'Kaşif Keşif Filosu',
+      ships: { scout: 1, transport: 0, fighter: 0, battleship: 0 },
+      originPlanetId: homeworld.id,
+      targetPlanetId: null,
+      targetSystemId: targetSite.systemId,
+      departureTime: 0,
+      arrivalTime: 0,
+      status: 'orbiting',
+      mission: 'support',
+      speed: 100,
+      path: [targetSite.systemId],
+    };
+
+    // Can now excavate
+    const canExcavateCheck = canExcavateSite(engine.state, player.id, targetSite.id, scoutFleetId);
+    expect(canExcavateCheck.canExcavate).toBe(true);
+
+    const startRes = engine.dispatchCommand(player.id, {
+      type: 'EXCAVATE_SITE',
+      siteId: targetSite.id,
+      fleetId: scoutFleetId,
+    });
+    expect(startRes.success).toBe(true);
+    expect(targetSite.status).toBe('excavating');
+    expect(targetSite.excavatingPlayerId).toBe(player.id);
+    expect(targetSite.assignedFleetId).toBe(scoutFleetId);
+
+    // 3. Advancing excavation: Chapter 1 completion awards minor artifacts
+    const initialMinorArtifacts = player.minorArtifacts || 0;
+    engine.tick(35 * 1000); // 35 seconds (chapter 1 requires 30s)
+    expect(targetSite.currentChapter).toBe(2);
+    expect(player.minorArtifacts).toBeGreaterThan(initialMinorArtifacts);
+
+    // 4. Chapter 2 has choices: site transitions to choice_pending
+    engine.tick(40 * 1000); // 40s (chapter 2 requires 35s)
+    expect(targetSite.status).toBe('choice_pending');
+    expect(targetSite.pendingChoiceChapter).toBe(2);
+
+    // Resolving choice
+    const resolveRes = engine.dispatchCommand(player.id, {
+      type: 'RESOLVE_ARCHAEOLOGY_CHOICE',
+      siteId: targetSite.id,
+      choiceIndex: 0, // Option 0: Preservation / Scientific bonus
+    });
+    expect(resolveRes.success).toBe(true);
+    expect(targetSite.status).toBe('excavating');
+    expect(targetSite.currentChapter).toBe(3);
+    expect(targetSite.log.length).toBeGreaterThanOrEqual(2);
+
+    // 5. Chapter 3: Site Completion & Major Relic Award
+    const initialHegemonyPoints = engine.state.relay.weeklyPoints[player.id] || 0;
+    engine.tick(45 * 1000); // 45s (chapter 3 requires 40s)
+    expect(targetSite.status).toBe('completed');
+    expect(player.artifacts).toContain(targetSite.rewardArtifactId);
+    expect(engine.state.relay.weeklyPoints[player.id]).toBe(initialHegemonyPoints + 100);
+
+    // 6. Minor Artifacts Economy & Reverse Engineering
+    player.minorArtifacts = 10;
+    const poorRevRes = engine.dispatchCommand(player.id, {
+      type: 'REVERSE_ENGINEER_ARTIFACTS',
+      actionType: 'tech_boost',
+    });
+    expect(poorRevRes.success).toBe(false);
+
+    // Provide 60 minor artifacts
+    player.minorArtifacts = 60;
+    const techBoostRes = engine.dispatchCommand(player.id, {
+      type: 'REVERSE_ENGINEER_ARTIFACTS',
+      actionType: 'tech_boost',
+    });
+    expect(techBoostRes.success).toBe(true);
+    expect(player.minorArtifacts).toBe(35); // 60 - 25 = 35
+
+    const festRes = engine.dispatchCommand(player.id, {
+      type: 'REVERSE_ENGINEER_ARTIFACTS',
+      actionType: 'cultural_festival',
+    });
+    expect(festRes.success).toBe(true);
+    expect(player.minorArtifacts).toBe(5); // 35 - 30 = 5
+
+    // 7. Active Relic Triumphs
+    const ownedRelic = targetSite.rewardArtifactId!;
+    // Cannot activate without 30 minor artifacts
+    const poorTriRes = engine.dispatchCommand(player.id, {
+      type: 'ACTIVATE_RELIC_TRIUMPH',
+      relicId: ownedRelic,
+    });
+    expect(poorTriRes.success).toBe(false);
+
+    player.minorArtifacts = 50;
+    const triumphRes = engine.dispatchCommand(player.id, {
+      type: 'ACTIVATE_RELIC_TRIUMPH',
+      relicId: ownedRelic,
+    });
+    expect(triumphRes.success).toBe(true);
+    expect(player.minorArtifacts).toBe(20); // 50 - 30 = 20
+    expect(hasActiveRelicTriumph(engine.state, player.id, ownedRelic)).toBe(true);
+    expect(player.relicCooldowns?.[ownedRelic]).toBeGreaterThan(engine.state.timeMs);
+
+    // Cannot activate while on cooldown
+    player.minorArtifacts = 50;
+    const cooldownRes = engine.dispatchCommand(player.id, {
+      type: 'ACTIVATE_RELIC_TRIUMPH',
+      relicId: ownedRelic,
+    });
+    expect(cooldownRes.success).toBe(false);
+
+    // Active triumph duration and expiration in game loop
+    const triumphConfig = RELIC_TRIUMPH_CONFIGS[ownedRelic];
+    engine.tick(triumphConfig.durationMs + 1000);
+    expect(hasActiveRelicTriumph(engine.state, player.id, ownedRelic)).toBe(false);
+
+    // Test other triumphs via helper functions:
+    // Dreadnought plating combat modifiers
+    engine.state.activeRelicTriumphs![player.id] = [
+      {
+        relicId: 'dreadnought_plating',
+        activatedAtMs: engine.state.timeMs,
+        expiresAtMs: engine.state.timeMs + 60000,
+      },
+    ];
+    expect(hasActiveRelicTriumph(engine.state, player.id, 'dreadnought_plating')).toBe(true);
+
+    // Rift hyperdrive speed & fuel modifiers
+    engine.state.activeRelicTriumphs![player.id] = [
+      {
+        relicId: 'rift_hyperdrive',
+        activatedAtMs: engine.state.timeMs,
+        expiresAtMs: engine.state.timeMs + 60000,
+      },
+    ];
+    expect(getRelicSpeedMultiplier(engine.state, player.id)).toBe(2.0);
+    expect(getRelicFuelCostMultiplier(engine.state, player.id)).toBe(0.0);
+
+    // Subspace tachyon array sensor bonus
+    engine.state.activeRelicTriumphs![player.id] = [
+      {
+        relicId: 'subspace_tachyon_array',
+        activatedAtMs: engine.state.timeMs,
+        expiresAtMs: engine.state.timeMs + 60000,
+      },
+    ];
+    expect(getRelicSensorBonus(engine.state, player.id)).toBe(2);
+
+    // Chronos core / progenitor matrix construction multiplier
+    engine.state.activeRelicTriumphs![player.id] = [
+      {
+        relicId: 'progenitor_matrix',
+        activatedAtMs: engine.state.timeMs,
+        expiresAtMs: engine.state.timeMs + 60000,
+      },
+    ];
+    expect(getRelicConstructionMultiplier(engine.state, player.id)).toBe(0.5);
+
+    // 8. Bot AI Archaeology Evaluator
+    const { player: botPlayer } = engine.addPlayer('bot_arch_test', 'Arkeolog Bot', '#ec4899', true, 'explorer');
+    botPlayer.artifacts = ['subspace_tachyon_array'];
+    botPlayer.minorArtifacts = 60; // Enough for triumph and reverse engineer
+
+    const botCmds: any[] = [];
+    evaluateBotArchaeology(engine, botPlayer.id, 'explorer', botCmds);
+    expect(botCmds.length).toBeGreaterThanOrEqual(1);
+    expect(botCmds[0].type).toBe('ACTIVATE_RELIC_TRIUMPH');
   });
 });
 

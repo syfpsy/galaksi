@@ -7,6 +7,7 @@ import {
   ChevronDown,
   CircleDot,
   Coins,
+  Compass,
   Crown,
   Eye,
   EyeOff,
@@ -64,6 +65,7 @@ interface TopBarProps {
   onOpenAlliance?: () => void;
   onOpenVictory?: () => void;
   onOpenTraditions?: () => void;
+  onOpenArchaeology?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -97,6 +99,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenAlliance,
   onOpenVictory,
   onOpenTraditions,
+  onOpenArchaeology,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -671,6 +674,48 @@ const TopBarComponent: React.FC<TopBarProps> = ({
             </div>
           </div>
         )}
+
+        {/* 6.5. MINOR ARTIFACTS & RELICS QUICK CHIP (Phase 18) */}
+        <div className="relative group hidden md:block">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenArchaeology) onOpenArchaeology();
+            }}
+            className="stellaris-resource-pod px-2.5 py-1.5 rounded-sm text-cyan-300 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer hover:border-cyan-400"
+            title="Arkeoloji & Kadim Yadigârlar"
+          >
+            <Compass className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+            <span className="font-bold text-white text-xs">
+              {activePlayer?.minorArtifacts || 0}
+            </span>
+            <span className="text-[10px] text-cyan-400 font-sans uppercase">💎</span>
+            {(state.activeRelicTriumphs?.[activePlayerId]?.length || 0) > 0 && (
+              <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+            )}
+          </button>
+
+          {/* Archaeology Tooltip */}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+            <span className="font-bold text-cyan-300 text-xs block mb-1">🏛️ Arkeoloji & Kadim Yadigârlar</span>
+            <p className="text-[11px] text-slate-300 leading-snug">
+              Kadim öncül teknolojilerini keşfedin, kalıntı parçacıklarını dönüştürün ve zafer güçlerini serbest bırakın.
+            </p>
+            <div className="mt-2 pt-1.5 border-t border-slate-800 text-[11px] text-slate-200 flex justify-between font-mono">
+              <span>Kadim Parçacık:</span>
+              <span className="text-purple-300 font-bold">{activePlayer?.minorArtifacts || 0} 💎</span>
+            </div>
+            <div className="text-[11px] text-slate-300 flex justify-between font-mono mt-0.5">
+              <span>Kazanılan Yadigârlar:</span>
+              <span className="text-amber-300 font-bold">{activePlayer?.artifacts?.length || 0} / 6</span>
+            </div>
+            {(state.activeRelicTriumphs?.[activePlayerId]?.length || 0) > 0 && (
+              <div className="mt-1 text-[10px] text-amber-300 font-bold font-mono">
+                ✨ {state.activeRelicTriumphs![activePlayerId].length} Aktif Yadigâr Zaferi Devrede!
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* 7. GALACTIC MARKET QUICK CHIP */}
         <div className="relative group hidden lg:block">

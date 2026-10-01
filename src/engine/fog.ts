@@ -25,6 +25,8 @@ import {
   ShipLoadoutMap,
   GalacticCrisisState,
   EmpireTraditionsState,
+  ActiveRelicTriumph,
+  ArchaeologySite,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -88,6 +90,9 @@ export interface PlayerVisibleState {
   myShipLoadouts?: ShipLoadoutMap;
   myCrisis?: GalacticCrisisState | null;
   myTraditions?: EmpireTraditionsState;
+  myMinorArtifacts?: number;
+  myActiveRelicTriumphs?: ActiveRelicTriumph[];
+  archaeologySites?: Record<string, ArchaeologySite>;
 }
 
 /**
@@ -123,6 +128,11 @@ export function getPlayerSensorCoverage(
       const sensorLevel = planet.buildings.sensor_array || 0;
       const researchLevel = state.players[planet.ownerId]?.research.sensors || 0;
       const relicSensorBonus = state.players[planet.ownerId]?.artifacts?.includes('subspace_tachyon_array') ? 1 : 0;
+      const relicTriumphSensorBonus = state.activeRelicTriumphs?.[planet.ownerId]?.some(
+        (t) => t.relicId === 'subspace_tachyon_array' && state.timeMs < t.expiresAtMs
+      )
+        ? 2
+        : 0;
       const senateSensorBonus = state.senate?.activeResolutions.some(
         (r) => r.resolutionType === 'scientific_cooperative'
       )
@@ -134,6 +144,7 @@ export function getPlayerSensorCoverage(
         Math.floor(sensorLevel / 2) +
         Math.floor(researchLevel / 2) +
         relicSensorBonus +
+        relicTriumphSensorBonus +
         senateSensorBonus +
         traditionSensorBonus;
 
@@ -423,5 +434,8 @@ export function filterGameStateForPlayer(
     myShipLoadouts: state.shipLoadouts?.[playerId] || DEFAULT_LOADOUTS,
     myCrisis: state.crisis || null,
     myTraditions: state.traditions?.[playerId],
+    myMinorArtifacts: player?.minorArtifacts || 0,
+    myActiveRelicTriumphs: state.activeRelicTriumphs?.[playerId] || [],
+    archaeologySites: state.archaeologySites,
   };
 }

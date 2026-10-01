@@ -12,6 +12,7 @@ import {
   BuildingType,
   CouncilPosition,
   DefenseStructureType,
+  EmpireArtifactId,
   EspionageOpType,
   FactionType,
   Fleet,
@@ -44,6 +45,7 @@ import { MegastructureModal } from './ui/components/MegastructureModal';
 import { CouncilModal } from './ui/components/CouncilModal';
 import { CrisisModal } from './ui/components/CrisisModal';
 import { TraditionsModal } from './ui/components/TraditionsModal';
+import { ArchaeologyModal } from './ui/components/ArchaeologyModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -84,6 +86,7 @@ type LeftPanelType =
   | 'megastructures'
   | 'council'
   | 'traditions'
+  | 'archaeology'
   | 'crisis'
   | 'relay'
   | 'gallery'
@@ -1008,6 +1011,79 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleExcavateSite = (siteId: string, fleetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'EXCAVATE_SITE',
+      siteId,
+      fleetId,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAbandonExcavation = (siteId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ABANDON_EXCAVATION',
+      siteId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleResolveSiteChoice = (siteId: string, choiceIndex: number) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RESOLVE_ARCHAEOLOGY_CHOICE',
+      siteId,
+      choiceIndex,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleActivateRelicTriumph = (relicId: EmpireArtifactId) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ACTIVATE_RELIC_TRIUMPH',
+      relicId,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleReverseEngineer = (actionType: 'tech_boost' | 'cultural_festival', targetPlanetId?: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'REVERSE_ENGINEER_ARTIFACTS',
+      actionType,
+      targetPlanetId,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1295,6 +1371,7 @@ export function App() {
         onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
         onOpenVictory={() => setIsVictoryModalOpen(true)}
         onOpenTraditions={() => setActiveLeftPanel((prev) => (prev === 'traditions' ? null : 'traditions'))}
+        onOpenArchaeology={() => setActiveLeftPanel((prev) => (prev === 'archaeology' ? null : 'archaeology'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -1331,6 +1408,7 @@ export function App() {
           onOpenMegastructures={() => setActiveLeftPanel((prev) => (prev === 'megastructures' ? null : 'megastructures'))}
           onOpenCouncil={() => setActiveLeftPanel((prev) => (prev === 'council' ? null : 'council'))}
           onOpenTraditions={() => setActiveLeftPanel((prev) => (prev === 'traditions' ? null : 'traditions'))}
+          onOpenArchaeology={() => setActiveLeftPanel((prev) => (prev === 'archaeology' ? null : 'archaeology'))}
           onOpenCrisis={() => setActiveLeftPanel((prev) => (prev === 'crisis' ? null : 'crisis'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
@@ -1346,6 +1424,11 @@ export function App() {
           activeMegastructuresCount={Object.keys(engineState.megastructures || {}).length}
           stabilityPercent={engineState.councils?.[activePlayerId]?.stabilityPercent}
           availableTraditionPerksCount={engineState.traditions?.[activePlayerId]?.availablePerkSlots || 0}
+          archaeologyPendingCount={
+            Object.values(engineState.archaeologySites || {}).filter(
+              (s) => s.status === 'choice_pending' && s.excavatingPlayerId === activePlayerId
+            ).length
+          }
           planetsCount={myPlanets.length}
           godMode={godMode}
           onToggleGodMode={() => setGodMode(!godMode)}
@@ -1824,6 +1907,19 @@ export function App() {
         activePlayerId={activePlayerId}
         onAdoptTradition={handleAdoptTradition}
         onSelectAscensionPerk={handleSelectAscensionPerk}
+      />
+
+      {/* Archaeological Excavation Sites & Relic Triumphs Modal (Phase 18) */}
+      <ArchaeologyModal
+        isOpen={activeLeftPanel === 'archaeology'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        onExcavateSite={handleExcavateSite}
+        onAbandonExcavation={handleAbandonExcavation}
+        onResolveSiteChoice={handleResolveSiteChoice}
+        onActivateRelicTriumph={handleActivateRelicTriumph}
+        onReverseEngineer={handleReverseEngineer}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

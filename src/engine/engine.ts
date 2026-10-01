@@ -135,6 +135,25 @@ import {
   getTraditionBuildingTimeModifier,
   getTraditionStorageCapMultiplier,
 } from './traditions';
+import {
+  initializeSectorArchaeologySites,
+  canExcavateSite,
+  startSiteExcavation,
+  abandonSiteExcavation,
+  resolveSiteChoice,
+  tickArchaeologySites,
+  canActivateRelicTriumph,
+  activateRelicTriumph,
+  hasActiveRelicTriumph,
+  canReverseEngineer,
+  reverseEngineerArtifacts,
+  getRelicConstructionMultiplier,
+  getRelicSpeedMultiplier,
+  getRelicFuelCostMultiplier,
+  getRelicSensorBonus,
+  getRelicDiplomaticWeightMultiplier,
+  RELIC_TRIUMPH_CONFIGS,
+} from './archaeology';
 
 export class GameEngine {
   public state: GameState;
@@ -143,6 +162,7 @@ export class GameEngine {
   private lastMarketUpdateMs: number = 0;
   private lastSectorEventSpawnMs: number = 0;
   private lastUnityUpdateMs: number = 0;
+  private lastArchaeologyTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -164,6 +184,8 @@ export class GameEngine {
       shipLoadouts: {},
       crisis: null,
       traditions: {},
+      archaeologySites: initializeSectorArchaeologySites(map.systems),
+      activeRelicTriumphs: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -251,6 +273,8 @@ export class GameEngine {
       },
       espionageReports: [],
       artifacts: [],
+      minorArtifacts: 0,
+      relicCooldowns: {},
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -563,6 +587,15 @@ export class GameEngine {
     // Process Galactic Crisis simulation tick (Phase 16)
     if (this.state.crisis) {
       tickGalacticCrisis(this.state, nowMs);
+    }
+
+    // Archaeology sites and relic triumphs tick (Phase 18)
+    const archaeologyElapsedMs = Math.max(0, nowMs - this.lastArchaeologyTickMs);
+    this.lastArchaeologyTickMs = nowMs;
+    if (archaeologyElapsedMs > 0) {
+      tickArchaeologySites(this.state, nowMs, archaeologyElapsedMs, (type: string, desc: string, pId?: string, meta?: Record<string, unknown>) => {
+        this.logEvent(type, desc, pId, meta);
+      });
     }
   }
 
@@ -1325,6 +1358,8 @@ export class GameEngine {
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
               traditionAttackMultiplier: tradCombat.attackerMult,
               traditionEvasionBonus: tradCombat.attackerEvasionBonus,
+              relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
+              relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
               shipLoadouts: attackerLoadouts,
             },
             {
@@ -1340,6 +1375,8 @@ export class GameEngine {
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(targetPlanet.ownerId),
               traditionAttackMultiplier: tradCombat.defenderMult,
               traditionEvasionBonus: tradCombat.defenderEvasionBonus,
+              relicDamageReduction: hasActiveRelicTriumph(this.state, targetPlanet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
+              relicEvasionBonus: hasActiveRelicTriumph(this.state, targetPlanet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
               shipLoadouts: defenderLoadouts,
             },
             targetSystem.id,
@@ -1432,6 +1469,8 @@ export class GameEngine {
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+              relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
+              relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
               shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
             },
             {
@@ -1545,6 +1584,8 @@ export class GameEngine {
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
               traditionAttackMultiplier: tradPirateCombat.attackerMult,
               traditionEvasionBonus: tradPirateCombat.attackerEvasionBonus,
+              relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
+              relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
               shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
             },
             {
@@ -1654,6 +1695,8 @@ export class GameEngine {
             doctrine: fleet.doctrine || 'balanced',
             artifacts: player?.artifacts,
             senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+            relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
+            relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
             shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
           },
           {
@@ -1666,6 +1709,8 @@ export class GameEngine {
             artifacts: defenderPlayer?.artifacts,
             starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetFleet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
             senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(targetFleet.ownerId),
+            relicDamageReduction: hasActiveRelicTriumph(this.state, targetFleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
+            relicEvasionBonus: hasActiveRelicTriumph(this.state, targetFleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
             shipLoadouts: targetFleet.loadouts || this.state.shipLoadouts?.[targetFleet.ownerId],
           },
           targetSystem.id,
@@ -1739,6 +1784,8 @@ export class GameEngine {
                 doctrine: fleet.doctrine || 'balanced',
                 artifacts: player?.artifacts,
                 senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+                relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
+                relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
                 shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
               },
               {
@@ -1753,6 +1800,8 @@ export class GameEngine {
                 senateAttackMultiplier: this.state.relay.controllingPlayerId
                   ? this.getPlayerSenateAttackMultiplier(this.state.relay.controllingPlayerId)
                   : 1.0,
+                relicDamageReduction: this.state.relay.controllingPlayerId && hasActiveRelicTriumph(this.state, this.state.relay.controllingPlayerId, 'dreadnought_plating') ? 0.30 : undefined,
+                relicEvasionBonus: this.state.relay.controllingPlayerId && hasActiveRelicTriumph(this.state, this.state.relay.controllingPlayerId, 'dreadnought_plating') ? 0.15 : undefined,
                 shipLoadouts: this.state.relay.controllingPlayerId
                   ? this.state.shipLoadouts?.[this.state.relay.controllingPlayerId]
                   : undefined,
@@ -2163,7 +2212,8 @@ export class GameEngine {
 
         const rawDurationMs = getBuildingUpgradeDurationMs(cmd.buildingType, currentLvl);
         const timeMod = getTraditionBuildingTimeModifier(this.state, playerId);
-        const durationMs = Math.max(1000, Math.round(rawDurationMs * timeMod));
+        const relicConstMod = getRelicConstructionMultiplier(this.state, playerId);
+        const durationMs = Math.max(1000, Math.round(rawDurationMs * timeMod * relicConstMod));
         const finishTime = this.state.timeMs + durationMs;
 
         planet.buildingQueue = {
@@ -2327,6 +2377,10 @@ export class GameEngine {
         const traditionShipTimeMod = getTraditionShipyardTimeModifier(this.state, playerId);
         if (traditionShipTimeMod < 1.0) {
           unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs * traditionShipTimeMod));
+        }
+        const relicConstMod = getRelicConstructionMultiplier(this.state, playerId);
+        if (relicConstMod < 1.0) {
+          unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs * relicConstMod));
         }
         const nextFinish = (planet.shipyardQueue.length === 0)
           ? this.state.timeMs + unitBuildTimeMs
@@ -2618,6 +2672,17 @@ export class GameEngine {
         // Synthetic Evolution Ascension Perk: -30% fleet fuel consumption
         if (hasAscensionPerk(this.state, playerId, 'synthetic_evolution')) {
           effectiveFuelCost = Math.max(1, Math.round(effectiveFuelCost * 0.70));
+        }
+
+        // Relic Active Triumph (Phase 18)
+        const relicSpeedMult = getRelicSpeedMultiplier(this.state, playerId);
+        if (relicSpeedMult > 1.0) {
+          effectiveSpeed = Math.round(effectiveSpeed * relicSpeedMult);
+          effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / relicSpeedMult));
+        }
+        const relicFuelMult = getRelicFuelCostMultiplier(this.state, playerId);
+        if (relicFuelMult < 1.0) {
+          effectiveFuelCost = Math.round(effectiveFuelCost * relicFuelMult);
         }
 
         // Cargo validation
@@ -4821,6 +4886,85 @@ export class GameEngine {
           timeMs: this.state.timeMs,
         };
       }
+
+      case 'EXCAVATE_SITE': {
+        const canRes = canExcavateSite(this.state, playerId, cmd.siteId, cmd.fleetId);
+        if (!canRes.canExcavate) {
+          return { success: false, commandType: cmd.type, error: canRes.reason, timeMs: this.state.timeMs };
+        }
+        const startRes = startSiteExcavation(this.state, playerId, cmd.siteId, cmd.fleetId);
+        if (!startRes.success) {
+          return { success: false, commandType: cmd.type, error: startRes.error, timeMs: this.state.timeMs };
+        }
+        const site = this.state.archaeologySites?.[cmd.siteId];
+        this.logEvent(
+          'archaeology_started',
+          `🏛️ KAZI BAŞLATILDI: ${player.name}, ${site?.nameTr || cmd.siteId} alanında arkeolojik kazı başlattı.`,
+          playerId,
+          { siteId: cmd.siteId, fleetId: cmd.fleetId }
+        );
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { siteId: cmd.siteId } };
+      }
+
+      case 'ABANDON_EXCAVATION': {
+        const abRes = abandonSiteExcavation(this.state, playerId, cmd.siteId);
+        if (!abRes.success) {
+          return { success: false, commandType: cmd.type, error: abRes.error, timeMs: this.state.timeMs };
+        }
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { siteId: cmd.siteId } };
+      }
+
+      case 'RESOLVE_ARCHAEOLOGY_CHOICE': {
+        const resChoice = resolveSiteChoice(this.state, playerId, cmd.siteId, cmd.choiceIndex);
+        if (!resChoice.success) {
+          return { success: false, commandType: cmd.type, error: resChoice.error, timeMs: this.state.timeMs };
+        }
+        const site = this.state.archaeologySites?.[cmd.siteId];
+        this.logEvent(
+          'archaeology_choice_resolved',
+          `📜 KAZI KARARI: ${player.name}, ${site?.nameTr || cmd.siteId} kazısında bir seçim yaptı.`,
+          playerId,
+          { siteId: cmd.siteId, choiceIndex: cmd.choiceIndex }
+        );
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { siteId: cmd.siteId, choiceIndex: cmd.choiceIndex } };
+      }
+
+      case 'ACTIVATE_RELIC_TRIUMPH': {
+        const canTri = canActivateRelicTriumph(this.state, playerId, cmd.relicId);
+        if (!canTri.canActivate) {
+          return { success: false, commandType: cmd.type, error: canTri.reason, timeMs: this.state.timeMs };
+        }
+        const actRes = activateRelicTriumph(this.state, playerId, cmd.relicId);
+        if (!actRes.success) {
+          return { success: false, commandType: cmd.type, error: actRes.error, timeMs: this.state.timeMs };
+        }
+        const triumphConfig = RELIC_TRIUMPH_CONFIGS[cmd.relicId];
+        this.logEvent(
+          'relic_triumph_activated',
+          `✨ YADİGÂR ZAFERİ: ${player.name}, [${triumphConfig?.nameTr || cmd.relicId}] kadim yadigâr zaferini aktive etti!`,
+          playerId,
+          { relicId: cmd.relicId }
+        );
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { relicId: cmd.relicId } };
+      }
+
+      case 'REVERSE_ENGINEER_ARTIFACTS': {
+        const canRev = canReverseEngineer(this.state, playerId, cmd.actionType);
+        if (!canRev.canReverseEngineer) {
+          return { success: false, commandType: cmd.type, error: canRev.reason, timeMs: this.state.timeMs };
+        }
+        const revRes = reverseEngineerArtifacts(this.state, playerId, cmd.actionType, cmd.targetPlanetId);
+        if (!revRes.success) {
+          return { success: false, commandType: cmd.type, error: revRes.error, timeMs: this.state.timeMs };
+        }
+        this.logEvent(
+          'artifacts_reverse_engineered',
+          `🔬 KADİM TERSİNE MÜHENDİSLİK: ${player.name}, ${revRes.summaryTr || 'kadim parçacıkları analiz etti.'}`,
+          playerId,
+          { actionType: cmd.actionType }
+        );
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { actionType: cmd.actionType, summaryTr: revRes.summaryTr } };
+      }
     }
   }
 
@@ -5029,6 +5173,8 @@ export class GameEngine {
       shipLoadouts: {},
       crisis: null,
       traditions: {},
+      archaeologySites: initializeSectorArchaeologySites(map.systems),
+      activeRelicTriumphs: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -5076,6 +5222,7 @@ export class GameEngine {
 
     // Schedule initial relay point tick
     this.scheduleEvent(GAME_CONSTANTS.RELAY_POINT_INTERVAL_MS, 'relay_point_tick', {});
+    this.lastArchaeologyTickMs = 0;
 
     this.logEvent(
       'season_reset',
