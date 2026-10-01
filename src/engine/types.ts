@@ -1480,6 +1480,8 @@ export interface Player {
   shroudBoon?: ShroudBoon | null;
   momentum?: number; // 0 to 100 Strategic Momentum (Phase 34: Strategic Momentum & Slipways Flow)
   surgeActiveUntilMs?: number; // Golden Surge / Hyper-Drive boost active until timeMs
+  supplyChains?: SupplyChainSynergy[]; // Phase 35: Inter-colony supply chain synergies
+  activeSynergyTier?: number; // Phase 35: 0 = None, 1 = Pair, 2 = Tri-Sector
 }
 
 export type ShroudBoonType = 'speed' | 'shield' | 'evasion' | 'research';
@@ -1516,6 +1518,24 @@ export interface StrategicOpportunity {
   };
   canExecuteNow: boolean;
   cost?: Partial<Resources>;
+}
+
+// ==========================================
+// Phase 35: Galactic Supply Chains & Tri-Sector Synergy (Slipways Flow)
+// ==========================================
+
+export type ColonyRole = 'extractor' | 'industrial' | 'research';
+
+export interface SupplyChainSynergy {
+  id: string;
+  playerId: string;
+  tier: 1 | 2; // 1 = 2-Colony Pair, 2 = 3-Colony Tri-Sector Resonance
+  connectedPlanetIds: string[];
+  connectedSystemIds: string[];
+  roles: ColonyRole[];
+  productionMultiplier: number; // e.g. 1.10 (Tier 1) or 1.25 (Tier 2)
+  researchMultiplier: number;   // e.g. 1.00 (Tier 1) or 1.15 (Tier 2)
+  passiveMomentumPerMin: number; // e.g. 15 (Tier 1) or 35 (Tier 2)
 }
 
 export type EmpireDirectiveId =

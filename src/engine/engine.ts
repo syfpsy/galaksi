@@ -318,6 +318,7 @@ import {
   gambleCaravanSlots,
   tickEnclavesAndCaravans,
 } from './enclaves';
+import { updateSupplyChains, getSupplyChainProductionMultiplier } from './supplyChain';
 
 export class GameEngine {
   public state: GameState;
@@ -641,6 +642,11 @@ export class GameEngine {
 
     this.state.timeMs = targetTime;
     this.updatePassiveProduction(targetTime);
+
+    // Phase 35: Inter-colony supply chains and passive momentum
+    const deltaSec = deltaMs / 1000;
+    updateSupplyChains(this.state, deltaSec);
+
     this.evaluateVictoryConditions();
   }
 
@@ -780,6 +786,14 @@ export class GameEngine {
         oreProd *= 1.20;
         crystalProd *= 1.20;
         fuelProd *= 1.20;
+      }
+
+      // Phase 35: Inter-colony Supply Chain Synergy (+10% or +25% boost)
+      const supplyChainMult = getSupplyChainProductionMultiplier(owner, planet.id);
+      if (supplyChainMult !== 1.0) {
+        oreProd *= supplyChainMult;
+        crystalProd *= supplyChainMult;
+        fuelProd *= supplyChainMult;
       }
 
       // Planetary Terraforming, Blockers & Decisions (Phase 19)

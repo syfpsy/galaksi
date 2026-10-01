@@ -1898,10 +1898,15 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           }
         });
 
+        const triSectorSynergy = activePlayer?.supplyChains?.find((s) => s.tier === 2);
+        const triSystemIds = new Set(triSectorSynergy?.connectedSystemIds || []);
+
         laneVisuals.forEach((lv) => {
           const k = `${lv.fromSystemId}_${lv.toSystemId}`;
           const isColonySynergyLane =
             myColonySystemIds.has(lv.fromSystemId) && myColonySystemIds.has(lv.toSystemId);
+          const isTriSectorLane =
+            triSystemIds.has(lv.fromSystemId) && triSystemIds.has(lv.toSystemId);
           const relays = (stateRef.current as any).hyperRelays;
           const isRelayCorridor =
             relays &&
@@ -1914,6 +1919,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             const p = (Math.sin(currentTimeMs * 0.009) + 1) * 0.5;
             lv.mat.color.setHex(0xf43f5e);
             lv.mat.opacity = 0.55 + p * 0.4;
+          } else if (isTriSectorLane) {
+            // Radiant Tri-Sector Resonance Laser (Golden Emerald Beam)
+            const p = (Math.sin(currentTimeMs * 0.010) + 1) * 0.5;
+            lv.mat.color.setHex(0x10b981);
+            lv.mat.opacity = 0.90 + p * 0.10;
           } else if (isSurgeActive && (activeLanesWithOwnFleet.has(k) || isColonySynergyLane)) {
             // Golden Surge Hyper-Speed Stream (Radiant Amber Gold)
             const p = (Math.sin(currentTimeMs * 0.012) + 1) * 0.5;

@@ -260,6 +260,7 @@ import { evaluateBotEnclaves } from '../src/bots/enclaves';
 import { DISTRICT_STATS } from '../src/engine/constants';
 import { evaluateBotDistricts } from '../src/bots/districts';
 import { evaluatePlayerOpportunities } from '../src/engine/opportunities';
+import { evaluateColonyRole, findPlayerSupplyChains, updateSupplyChains } from '../src/engine/supplyChain';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -6525,6 +6526,114 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     // 7. Fast-forward past 90 seconds -> Golden Surge expires
     engine.tick(95000);
     expect(engine.state.timeMs).toBeGreaterThan(player.surgeActiveUntilMs!);
+  });
+
+  it('Test 65: Phase 35 - Galactic Supply Chains, Tri-Sector Synergy & Inter-Colony Resonance', () => {
+    const engine = new GameEngine(3535);
+    const { player, homeworld } = engine.addPlayer('p_syn', 'Lojistik Komutanı', '#10b981');
+
+    // 1. Single Homeworld: No Supply Chain (< 2 colonies)
+    expect(findPlayerSupplyChains(engine.state, 'p_syn')).toEqual([]);
+
+    // 2. Colony Roles evaluation
+    homeworld.specialization = 'mining_hub';
+    expect(evaluateColonyRole(homeworld)).toBe('extractor');
+
+    // 3. Find connected neighbor systems for expansion
+    const lanes = engine.state.map.lanes;
+    const neighborLanes = lanes.filter(
+      (l) => l.fromSystemId === homeworld.systemId || l.toSystemId === homeworld.systemId
+    );
+    expect(neighborLanes.length).toBeGreaterThanOrEqual(1);
+
+    const neighborSysId1 =
+      neighborLanes[0].fromSystemId === homeworld.systemId
+        ? neighborLanes[0].toSystemId
+        : neighborLanes[0].fromSystemId;
+
+    // Establish 2nd Colony (Industrial Bastion)
+    const colony1Id = 'planet_colony_ind';
+    engine.state.planets[colony1Id] = {
+      id: colony1Id,
+      name: 'Sanayi Dünyası Alpha',
+      ownerId: 'p_syn',
+      systemId: neighborSysId1,
+      slotIndex: 0,
+      isHomeworld: false,
+      resources: { ore: 1000, crystal: 500, fuel: 500 },
+      storageCap: 5000,
+      protectedCapacity: 500,
+      buildings: { ore_mine: 1, crystal_synth: 0, fuel_refinery: 0, shipyard: 2, research_lab: 0, sensor_array: 0 },
+      specialization: 'military_bastion',
+      garrison: { scout: 1, transport: 1, fighter: 2, battleship: 0 },
+      lastResourceUpdate: engine.state.timeMs,
+      stance: 'hold_position',
+    };
+    expect(evaluateColonyRole(engine.state.planets[colony1Id])).toBe('industrial');
+
+    // 4. Evaluate Tier 1 Pair Synergy (Extractor + Industrial)
+    const pairSynergies = findPlayerSupplyChains(engine.state, 'p_syn');
+    expect(pairSynergies.length).toBe(1);
+    expect(pairSynergies[0].tier).toBe(1);
+    expect(pairSynergies[0].productionMultiplier).toBe(1.10);
+    expect(pairSynergies[0].passiveMomentumPerMin).toBe(15);
+
+    // Tick simulation to apply synergy to player state
+    engine.tick(20000); // 20s
+    expect(player.supplyChains?.length).toBe(1);
+    expect(player.activeSynergyTier).toBe(1);
+    expect(player.momentum).toBeGreaterThan(0); // Passive momentum accumulated!
+
+    // 5. Establish 3rd Colony (Research Haven) connected to the network
+    const secondNeighborLane = lanes.find(
+      (l) =>
+        (l.fromSystemId === neighborSysId1 && l.toSystemId !== homeworld.systemId) ||
+        (l.toSystemId === neighborSysId1 && l.fromSystemId !== homeworld.systemId) ||
+        (l.fromSystemId === homeworld.systemId && l.toSystemId !== neighborSysId1)
+    );
+    expect(secondNeighborLane).toBeDefined();
+
+    const neighborSysId2 =
+      secondNeighborLane!.fromSystemId === neighborSysId1 || secondNeighborLane!.fromSystemId === homeworld.systemId
+        ? secondNeighborLane!.toSystemId
+        : secondNeighborLane!.fromSystemId;
+
+    const colony2Id = 'planet_colony_sci';
+    engine.state.planets[colony2Id] = {
+      id: colony2Id,
+      name: 'Bilim Cenneti Nova',
+      ownerId: 'p_syn',
+      systemId: neighborSysId2,
+      slotIndex: 1,
+      isHomeworld: false,
+      resources: { ore: 800, crystal: 800, fuel: 400 },
+      storageCap: 5000,
+      protectedCapacity: 500,
+      buildings: { ore_mine: 0, crystal_synth: 0, fuel_refinery: 0, shipyard: 0, research_lab: 2, sensor_array: 1 },
+      specialization: 'tech_haven',
+      garrison: { scout: 1, transport: 0, fighter: 0, battleship: 0 },
+      lastResourceUpdate: engine.state.timeMs,
+      stance: 'hold_position',
+    };
+    expect(evaluateColonyRole(engine.state.planets[colony2Id])).toBe('research');
+
+    // 6. Evaluate Tier 2 Tri-Sector Resonance (Extractor + Industrial + Research)
+    const triSynergies = findPlayerSupplyChains(engine.state, 'p_syn');
+    expect(triSynergies.length).toBe(1);
+    const tri = triSynergies[0];
+    expect(tri.tier).toBe(2);
+    expect(tri.productionMultiplier).toBe(1.25); // +25% all resources
+    expect(tri.researchMultiplier).toBe(1.15);   // +15% research speed
+    expect(tri.passiveMomentumPerMin).toBe(35);  // +35 momentum per min!
+
+    // 7. Verify simulation tick updates player state and production yields
+    const oreBefore = homeworld.resources.ore;
+    engine.tick(60000); // 1 minute with Tri-Sector Resonance!
+    expect(player.activeSynergyTier).toBe(2);
+    expect(player.momentum).toBeGreaterThanOrEqual(35);
+
+    const oreGain = homeworld.resources.ore - oreBefore;
+    expect(oreGain).toBeGreaterThan(0);
   });
 });
 

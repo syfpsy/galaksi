@@ -98,6 +98,27 @@ export const StrategicMomentumHUD: React.FC<StrategicMomentumHUDProps> = ({
                 <span>STRATEJİK MOMENTUM</span>
               </span>
             )}
+
+            {/* Phase 35: Inter-Colony Supply Chain Synergy Badge */}
+            {player.supplyChains && player.supplyChains.length > 0 && (
+              <span
+                className={`text-[10px] font-bold px-2 py-0.5 rounded-sm border flex items-center gap-1 ${
+                  player.activeSynergyTier === 2
+                    ? 'bg-amber-950/80 border-amber-400/80 text-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.3)] animate-pulse'
+                    : 'bg-emerald-950/80 border-emerald-500/70 text-emerald-300'
+                }`}
+                title={
+                  player.activeSynergyTier === 2
+                    ? '⚡ Tri-Sektör Hiper Sinerjisi Aktif: +%25 Üretim, +%15 Ar-Ge, +35 Momentum/dk'
+                    : '🔗 İkili Koloni İkmal Hattı Aktif: +%10 Üretim, +15 Momentum/dk'
+                }
+              >
+                <span>{player.activeSynergyTier === 2 ? '⚡ Tri-Sinerji' : '🔗 İkmal Ağı'}</span>
+                <span className="text-[9px] opacity-80">
+                  {player.activeSynergyTier === 2 ? '+%25' : '+%10'}
+                </span>
+              </span>
+            )}
           </div>
 
           {/* Progress Bar & Perks Indicator */}
