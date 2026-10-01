@@ -291,8 +291,20 @@ import {
   SHADOW_OP_CONFIGS,
   SECRET_AGENT_TRAIT_CONFIGS,
 } from './shadowOps';
-
-
+import {
+  ARMY_CONFIGS,
+  BOMBARDMENT_CONFIGS,
+  canRecruitArmy,
+  startRecruitArmy,
+  canEmbarkArmies,
+  embarkArmies,
+  canLandArmies,
+  landArmies,
+  setBombardmentStance,
+  dismissArmy,
+  liberatePlanet,
+  updateGroundWarfare,
+} from './groundWarfare';
 
 export class GameEngine {
   public state: GameState;
@@ -312,6 +324,7 @@ export class GameEngine {
   private lastParagonsTickMs: number = 0;
   private lastHyperRelaysTickMs: number = 0;
   private lastShadowOpsTickMs: number = 0;
+  private lastGroundWarfareTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -332,6 +345,8 @@ export class GameEngine {
       intelligenceDirectorates: {},
       secretAgents: {},
       shadowOperations: {},
+      armies: {},
+      groundBattles: {},
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},
@@ -554,6 +569,31 @@ export class GameEngine {
     }
     this.state.traditions[id] = initializeEmpireTraditions(id);
 
+    // Initialize starter garrison defense army (Phase 30)
+    if (!this.state.armies) {
+      this.state.armies = {};
+    }
+    const starterMilitiaId = `army_${this.state.nextId++}`;
+    this.state.armies[starterMilitiaId] = {
+      id: starterMilitiaId,
+      name: `${homeworld.name} Savunma Milisleri`,
+      ownerId: id,
+      type: 'defense_militia',
+      rank: 'recruit',
+      experience: 0,
+      health: 120,
+      maxHealth: 120,
+      morale: 90,
+      maxMorale: 90,
+      attackPower: 14,
+      defensePower: 28,
+      planetId: homeworld.id,
+      fleetId: null,
+      isDisrouted: false,
+      isGarrisonOnly: true,
+      recruitedAtMs: this.state.timeMs,
+    };
+
     this.logEvent('player_joined', `${name} galaksiye katıldı (${targetSys.name}).`, id);
 
     return { player, homeworld };
@@ -729,6 +769,41 @@ export class GameEngine {
       oreProd *= paragonBonuses.oreMultiplier;
       crystalProd *= paragonBonuses.crystalMultiplier;
       fuelProd *= paragonBonuses.fuelMultiplier;
+
+      // 7. Apply Devastation penalty & Occupation tribute (Phase 30)
+      if (planet.devastation && planet.devastation > 0) {
+        const devMultiplier = Math.max(0.1, 1 - (planet.devastation / 100) * 0.9);
+        oreProd *= devMultiplier;
+        crystalProd *= devMultiplier;
+        fuelProd *= devMultiplier;
+      }
+
+      // If planet is occupied by foreign force, 50% tribute goes to occupier homeworld
+      if (planet.occupierId && planet.occupierId !== planet.ownerId) {
+        const occupierHomeworld = Object.values(this.state.planets).find(
+          (p) => p.ownerId === planet.occupierId && p.isHomeworld
+        );
+        if (occupierHomeworld) {
+          const tributeOre = oreProd * 0.5 * elapsedHours;
+          const tributeCrystal = crystalProd * 0.5 * elapsedHours;
+          const tributeFuel = fuelProd * 0.5 * elapsedHours;
+          occupierHomeworld.resources.ore = Math.min(
+            occupierHomeworld.storageCap,
+            occupierHomeworld.resources.ore + tributeOre
+          );
+          occupierHomeworld.resources.crystal = Math.min(
+            occupierHomeworld.storageCap,
+            occupierHomeworld.resources.crystal + tributeCrystal
+          );
+          occupierHomeworld.resources.fuel = Math.min(
+            occupierHomeworld.storageCap,
+            occupierHomeworld.resources.fuel + tributeFuel
+          );
+        }
+        oreProd *= 0.5;
+        crystalProd *= 0.5;
+        fuelProd *= 0.5;
+      }
 
       const traditionStorageCapMult = getTraditionStorageCapMultiplier(this.state, planet.ownerId);
       const effectiveCap = Math.round(planet.storageCap * traditionStorageCapMult);
@@ -912,6 +987,15 @@ export class GameEngine {
     this.lastShadowOpsTickMs = nowMs;
     if (shadowOpsElapsedMs > 0) {
       updateShadowOps(this.state, shadowOpsElapsedMs);
+    }
+
+    // Planetary Invasions, Ground Armies & Orbital Bombardment tick (Phase 30)
+    const groundWarfareElapsedMs = Math.max(0, nowMs - this.lastGroundWarfareTickMs);
+    this.lastGroundWarfareTickMs = nowMs;
+    if (groundWarfareElapsedMs > 0) {
+      updateGroundWarfare(this.state, groundWarfareElapsedMs, (type, desc, pId, meta) => {
+        this.logEvent(type, desc, pId, meta);
+      });
     }
   }
 
@@ -6299,6 +6383,87 @@ export class GameEngine {
           data: { operation: res.operation },
         };
       }
+
+      // ==========================================
+      // Phase 30: Ground Warfare, Bombardment & Invasions
+      // ==========================================
+      case 'RECRUIT_ARMY': {
+        const res = startRecruitArmy(this.state, cmd.planetId, cmd.armyType, cmd.customName);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId, armyType: cmd.armyType },
+        };
+      }
+
+      case 'EMBARK_ARMIES': {
+        const res = embarkArmies(this.state, cmd.planetId, cmd.fleetId, cmd.armyIds);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { fleetId: res.fleetId, embarkedCount: res.embarkedCount },
+        };
+      }
+
+      case 'LAND_ARMIES': {
+        const res = landArmies(this.state, cmd.fleetId, cmd.targetPlanetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { isInvasion: res.isInvasion, battleId: res.battleId },
+        };
+      }
+
+      case 'SET_BOMBARDMENT_STANCE': {
+        const res = setBombardmentStance(this.state, cmd.fleetId, cmd.stance, cmd.targetPlanetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { fleetId: cmd.fleetId, stance: cmd.stance },
+        };
+      }
+
+      case 'DISMISS_ARMY': {
+        const res = dismissArmy(this.state, cmd.armyId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { armyId: cmd.armyId },
+        };
+      }
+
+      case 'LIBERATE_PLANET': {
+        const res = liberatePlanet(this.state, cmd.planetId, playerId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { planetId: cmd.planetId },
+        };
+      }
     }
   }
 
@@ -6507,6 +6672,8 @@ export class GameEngine {
       intelligenceDirectorates: {},
       secretAgents: {},
       shadowOperations: {},
+      armies: {},
+      groundBattles: {},
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},

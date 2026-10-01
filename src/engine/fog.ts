@@ -39,6 +39,8 @@ import {
   IntelligenceDirectorate,
   SecretAgent,
   ShadowOperation,
+  Army,
+  GroundCombatBattle,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -120,6 +122,9 @@ export interface PlayerVisibleState {
   myDirectorate?: IntelligenceDirectorate | null;
   mySecretAgents?: SecretAgent[];
   myShadowOperations?: ShadowOperation[];
+  myArmies?: Army[];
+  activeGroundBattles?: GroundCombatBattle[];
+  occupiedPlanets?: { planetId: string; name: string; ownerId: string; occupierId: string; systemId: string }[];
 }
 
 /**
@@ -510,5 +515,23 @@ export function filterGameStateForPlayer(
     myDirectorate: state.intelligenceDirectorates?.[playerId] || null,
     mySecretAgents: Object.values(state.secretAgents || {}).filter((a) => a.ownerId === playerId),
     myShadowOperations: Object.values(state.shadowOperations || {}).filter((o) => o.initiatorId === playerId),
+    myArmies: Object.values(state.armies || {}).filter((a) => a.ownerId === playerId),
+    activeGroundBattles: Object.values(state.groundBattles || {}).filter(
+      (b) => b.attackerId === playerId || b.defenderId === playerId || sensorCoverage.has(b.systemId)
+    ),
+    occupiedPlanets: Object.values(state.planets)
+      .filter(
+        (p) =>
+          p.occupierId &&
+          p.occupierId !== p.ownerId &&
+          (p.ownerId === playerId || p.occupierId === playerId || sensorCoverage.has(p.systemId))
+      )
+      .map((p) => ({
+        planetId: p.id,
+        name: p.name,
+        ownerId: p.ownerId,
+        occupierId: p.occupierId!,
+        systemId: p.systemId,
+      })),
   };
 }

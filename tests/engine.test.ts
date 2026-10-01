@@ -230,6 +230,23 @@ import {
   SECRET_AGENT_TRAIT_CONFIGS,
 } from '../src/engine/shadowOps';
 import { evaluateBotShadowOps } from '../src/bots/shadowOps';
+import {
+  ARMY_CONFIGS,
+  BOMBARDMENT_CONFIGS,
+  getRankMultiplier,
+  getRankFromExperience,
+  canRecruitArmy,
+  startRecruitArmy,
+  canEmbarkArmies,
+  embarkArmies,
+  canLandArmies,
+  landArmies,
+  setBombardmentStance,
+  dismissArmy,
+  liberatePlanet,
+  updateGroundWarfare,
+} from '../src/engine/groundWarfare';
+import { evaluateBotGroundWarfare } from '../src/bots/groundWarfare';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -5928,6 +5945,205 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const recruitedBotAgent = botCmds.find((c) => c.type === 'RECRUIT_SECRET_AGENT');
     expect(recruitedBotAgent).toBeDefined();
     expect(['saboteur', 'provocateur']).toContain(recruitedBotAgent.trait);
+  });
+
+  it('Test 60: Phase 30 - Planetary Invasions, Ground Armies & Orbital Bombardment Doctrines', () => {
+    const engine = new GameEngine(7777);
+    const p1 = engine.addPlayer('p1', 'Terran Hegemony', '#38bdf8').player;
+    const p2 = engine.addPlayer('p2', 'Crimson Dominon', '#f43f5e').player;
+
+    const hw1 = Object.values(engine.state.planets).find((p) => p.ownerId === p1.id)!;
+    const hw2 = Object.values(engine.state.planets).find((p) => p.ownerId === p2.id)!;
+
+    // 1. Starter Garrison Defense Militia Check
+    expect(engine.state.armies).toBeDefined();
+    const p1Armies = Object.values(engine.state.armies || {}).filter((a) => a.ownerId === p1.id);
+    expect(p1Armies.length).toBeGreaterThanOrEqual(1);
+    expect(p1Armies[0].type).toBe('defense_militia');
+    expect(p1Armies[0].isGarrisonOnly).toBe(true);
+
+    // 2. Army Recruitment (RECRUIT_ARMY)
+    hw1.resources = { ore: 2000, crystal: 1500, fuel: 1000 };
+    const recruitInfantryRes = engine.dispatchCommand('p1', {
+      type: 'RECRUIT_ARMY',
+      planetId: hw1.id,
+      armyType: 'assault_infantry',
+    });
+    expect(recruitInfantryRes.success).toBe(true);
+    expect(hw1.armyQueue).toBeDefined();
+    expect(hw1.armyQueue!.armyType).toBe('assault_infantry');
+
+    // Tick to complete training
+    engine.tick(ARMY_CONFIGS.assault_infantry.buildTimeMs + 500);
+    expect(hw1.armyQueue).toBeNull();
+    const newArmies = Object.values(engine.state.armies || {}).filter((a) => a.ownerId === p1.id);
+    const assaultArmy = newArmies.find((a) => a.type === 'assault_infantry');
+    expect(assaultArmy).toBeDefined();
+    expect(assaultArmy!.isGarrisonOnly).toBe(false);
+    expect(assaultArmy!.rank).toBe('recruit');
+
+    // Train second assault unit: xenomorph_swarm
+    const recruitXenoRes = engine.dispatchCommand('p1', {
+      type: 'RECRUIT_ARMY',
+      planetId: hw1.id,
+      armyType: 'xenomorph_swarm',
+    });
+    expect(recruitXenoRes.success).toBe(true);
+    engine.tick(ARMY_CONFIGS.xenomorph_swarm.buildTimeMs + 500);
+    const xenoArmy = Object.values(engine.state.armies || {}).find(
+      (a) => a.ownerId === p1.id && a.type === 'xenomorph_swarm'
+    );
+    expect(xenoArmy).toBeDefined();
+
+    // 3. Army Embarkation (EMBARK_ARMIES)
+    // Create an orbiting fleet for p1 in hw1 system
+    const fleetId = `fleet_transport_${engine.state.nextId++}`;
+    engine.state.fleets[fleetId] = {
+      id: fleetId,
+      name: '1. Çıkarma Görev Kuvveti',
+      ownerId: p1.id,
+      ships: { scout: 1, transport: 2, fighter: 4, battleship: 1 },
+      cargo: { ore: 0, crystal: 0, fuel: 500 },
+      originSystemId: hw1.systemId,
+      targetSystemId: hw1.systemId,
+      path: [hw1.systemId],
+      pathIndex: 0,
+      mission: 'transport',
+      departureTime: engine.state.timeMs,
+      arrivalTime: engine.state.timeMs,
+      totalDistance: 0,
+      speed: 10,
+      fuelCost: 0,
+      recallLockedAfterTime: 0,
+      isReturning: false,
+      status: 'orbiting',
+      embarkedArmyIds: [],
+    };
+
+    // Try embarking garrison militia -> must fail
+    const militiaArmy = newArmies.find((a) => a.type === 'defense_militia')!;
+    const failEmbark = engine.dispatchCommand('p1', {
+      type: 'EMBARK_ARMIES',
+      planetId: hw1.id,
+      fleetId,
+      armyIds: [militiaArmy.id],
+    });
+    expect(failEmbark.success).toBe(false);
+
+    // Embark assault armies -> succeeds
+    const embarkRes = engine.dispatchCommand('p1', {
+      type: 'EMBARK_ARMIES',
+      planetId: hw1.id,
+      fleetId,
+      armyIds: [assaultArmy!.id, xenoArmy!.id],
+    });
+    expect(embarkRes.success).toBe(true);
+    const transportFleet = engine.state.fleets[fleetId];
+    expect(transportFleet.embarkedArmyIds).toContain(assaultArmy!.id);
+    expect(transportFleet.embarkedArmyIds).toContain(xenoArmy!.id);
+    expect(assaultArmy!.planetId).toBeNull();
+    expect(assaultArmy!.fleetId).toBe(fleetId);
+
+    // 4. Move Fleet to enemy system (hw2.systemId)
+    transportFleet.targetSystemId = hw2.systemId;
+    transportFleet.originSystemId = hw2.systemId;
+    transportFleet.status = 'orbiting';
+
+    // Verify starbase shields system until neutralized
+    expect(engine.state.starbases?.[hw2.systemId]?.hull).toBeGreaterThan(0);
+    engine.state.starbases![hw2.systemId].hull = 0; // Neutralized starbase
+
+    // 5. Orbital Bombardment (SET_BOMBARDMENT_STANCE)
+    const setStanceRes = engine.dispatchCommand('p1', {
+      type: 'SET_BOMBARDMENT_STANCE',
+      fleetId,
+      stance: 'indiscriminate',
+      targetPlanetId: hw2.id,
+    });
+    expect(setStanceRes.success).toBe(true);
+    expect(transportFleet.bombardmentStance).toBe('indiscriminate');
+    expect(transportFleet.bombardmentTargetPlanetId).toBe(hw2.id);
+
+    // Tick bombardment for 10 seconds -> increases devastation and weakens defender garrison
+    const preDevastation = hw2.devastation || 0;
+    const p2Garrison = Object.values(engine.state.armies || {}).find((a) => a.planetId === hw2.id);
+    const preGarrisonHp = p2Garrison ? p2Garrison.health : 100;
+    engine.tick(10000);
+
+    expect(hw2.devastation).toBeGreaterThan(preDevastation);
+    if (p2Garrison && engine.state.armies?.[p2Garrison.id]) {
+      expect(engine.state.armies[p2Garrison.id].health).toBeLessThan(preGarrisonHp);
+    }
+
+    // Stop bombardment
+    engine.dispatchCommand('p1', {
+      type: 'SET_BOMBARDMENT_STANCE',
+      fleetId,
+      stance: 'none',
+    });
+    expect(transportFleet.bombardmentStance).toBe('none');
+
+    // 6. Planetary Landing & Ground Combat Battle (LAND_ARMIES)
+    const landRes = engine.dispatchCommand('p1', {
+      type: 'LAND_ARMIES',
+      fleetId,
+      targetPlanetId: hw2.id,
+    });
+    expect(landRes.success).toBe(true);
+    expect(landRes.data?.isInvasion).toBe(true);
+
+    const activeBattles = Object.values(engine.state.groundBattles || {}).filter(
+      (b) => b.planetId === hw2.id && b.status === 'active'
+    );
+
+    if (activeBattles.length > 0) {
+      const battle = activeBattles[0];
+      expect(battle.attackerId).toBe('p1');
+      expect(battle.defenderId).toBe('p2');
+      expect(battle.frontlineWidth).toBe(4);
+
+      // Tick battle until resolution
+      for (let i = 0; i < 20; i++) {
+        if (battle.status !== 'active') break;
+        engine.tick(2000);
+      }
+    }
+
+    // At the end, planet is occupied by p1
+    expect(hw2.occupierId).toBe('p1');
+    expect(hw2.occupiedAtMs).toBeDefined();
+
+    // 7. Economic impact: Devastation & Occupation Tribute Flow
+    // Ticking 1 hour should generate resources with 50% tribute flowing to p1's homeworld
+    const p1PreOre = hw1.resources.ore;
+    engine.tick(3600 * 1000);
+    expect(hw1.resources.ore).toBeGreaterThan(p1PreOre);
+
+    // 8. Planet Liberation (LIBERATE_PLANET)
+    // Remove occupying armies from hw2
+    for (const a of Object.values(engine.state.armies || {})) {
+      if (a.planetId === hw2.id) {
+        delete engine.state.armies![a.id];
+      }
+    }
+    const libRes = engine.dispatchCommand('p2', {
+      type: 'LIBERATE_PLANET',
+      planetId: hw2.id,
+    });
+    expect(libRes.success).toBe(true);
+    expect(hw2.occupierId).toBeNull();
+
+    // 9. Autonomous Bot AI (evaluateBotGroundWarfare)
+    const botAdmiral = engine.addPlayer('bot_admiral', 'Admiral Krieg', '#3b82f6', true, 'admiral').player;
+    const botHw2 = Object.values(engine.state.planets).find((p) => p.ownerId === botAdmiral.id)!;
+    botHw2.resources = { ore: 4000, crystal: 3000, fuel: 2000 };
+
+    const botCmds: any[] = [];
+    evaluateBotGroundWarfare(engine, botAdmiral.id, 'admiral', botCmds);
+    expect(botCmds.length).toBeGreaterThan(0);
+    const recruitedArmyCmd = botCmds.find((c) => c.type === 'RECRUIT_ARMY');
+    expect(recruitedArmyCmd).toBeDefined();
+    expect(recruitedArmyCmd.planetId).toBe(botHw2.id);
   });
 });
 

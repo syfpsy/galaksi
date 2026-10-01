@@ -70,7 +70,8 @@ import { SyntheticDawnModal } from './ui/components/SyntheticDawnModal';
 import { ParagonModal } from './ui/components/ParagonModal';
 import { HyperRelayModal } from './ui/components/HyperRelayModal';
 import { ShadowOpsModal } from './ui/components/ShadowOpsModal';
-import { HyperRelayPolicy, SecretAgentTrait, ShadowOpType } from './engine/types';
+import { GroundInvasionModal } from './ui/components/GroundInvasionModal';
+import { HyperRelayPolicy, SecretAgentTrait, ShadowOpType, ArmyType, BombardmentStance } from './engine/types';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -123,6 +124,7 @@ type LeftPanelType =
   | 'paragons'
   | 'hyperRelays'
   | 'shadowOps'
+  | 'groundWarfare'
   | 'relay'
   | 'gallery'
   | null;
@@ -1963,6 +1965,98 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  // Phase 30: Ground Warfare, Bombardment & Invasions Handlers
+  const handleRecruitArmy = (planetId: string, armyType: ArmyType, customName?: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RECRUIT_ARMY',
+      planetId,
+      armyType,
+      customName,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleEmbarkArmies = (planetId: string, fleetId?: string, armyIds?: string[]) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'EMBARK_ARMIES',
+      planetId,
+      fleetId,
+      armyIds,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleLandArmies = (fleetId: string, targetPlanetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'LAND_ARMIES',
+      fleetId,
+      targetPlanetId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSetBombardmentStance = (fleetId: string, stance: BombardmentStance, targetPlanetId?: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SET_BOMBARDMENT_STANCE',
+      fleetId,
+      stance,
+      targetPlanetId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismissArmy = (armyId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMISS_ARMY',
+      armyId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleLiberatePlanet = (planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'LIBERATE_PLANET',
+      planetId,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -2433,6 +2527,9 @@ export function App() {
           onOpenShadowOps={() => setActiveLeftPanel((prev) => (prev === 'shadowOps' ? null : 'shadowOps'))}
           shadowOpsTier={engineState.intelligenceDirectorates?.[activePlayerId]?.tier || 1}
           activeShadowOpsCount={Object.values(engineState.shadowOperations || {}).filter((o) => o.initiatorId === activePlayerId).length}
+          onOpenGroundWarfare={() => setActiveLeftPanel((prev) => (prev === 'groundWarfare' ? null : 'groundWarfare'))}
+          activeGroundBattlesCount={Object.values(engineState.groundBattles || {}).filter((b) => b.status === 'active').length}
+          totalArmiesCount={Object.values(engineState.armies || {}).filter((a) => a.ownerId === activePlayerId).length}
           paragonsCount={activePlayer?.paragonIds?.length || 0}
           availableParagonsCount={engineState.galacticParagonPool?.length || 0}
           isColossusActive={isColossusActive}
@@ -3147,6 +3244,20 @@ export function App() {
         onDismissAgent={handleDismissAgent}
         onDispatchFalseFlagFleet={handleDispatchFalseFlagFleet}
         onLaunchShadowOp={handleLaunchShadowOp}
+      />
+
+      {/* Planetary Invasions, Ground Armies & Orbital Bombardment Modal (Phase 30) */}
+      <GroundInvasionModal
+        isOpen={activeLeftPanel === 'groundWarfare'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        playerId={activePlayerId}
+        onRecruitArmy={handleRecruitArmy}
+        onEmbarkArmies={handleEmbarkArmies}
+        onLandArmies={handleLandArmies}
+        onSetBombardmentStance={handleSetBombardmentStance}
+        onDismissArmy={handleDismissArmy}
+        onLiberatePlanet={handleLiberatePlanet}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

@@ -22,6 +22,7 @@ import { evaluateBotSynthetics } from './synthetics';
 import { evaluateBotParagons } from './paragons';
 import { evaluateBotHyperRelays } from './hyperRelays';
 import { evaluateBotShadowOps } from './shadowOps';
+import { evaluateBotGroundWarfare } from './groundWarfare';
 import { IBotAgent } from './types';
 
 /**
@@ -309,6 +310,9 @@ export class AdmiralBot implements IBotAgent {
 
     // 26. Galactic Intelligence Directorate, False Flag Operations & Shadow Coups (Phase 29)
     evaluateBotShadowOps(engine, this.playerId, this.archetype, executedCommands);
+
+    // 27. Planetary Invasions, Ground Armies & Orbital Bombardment (Phase 30)
+    evaluateBotGroundWarfare(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

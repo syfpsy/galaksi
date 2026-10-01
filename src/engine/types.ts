@@ -406,6 +406,15 @@ export interface Planet {
   isAssemblyActive?: boolean;
   hasMachineMatrix?: boolean;
   assignedParagonId?: string; // Phase 27: Assigned Paragon Governor
+  devastation?: number; // Phase 30: 0 to 100 percentage
+  occupierId?: string | null; // Phase 30: playerId of occupying force
+  occupiedAtMs?: number | null; // Phase 30: timestamp when planet was occupied
+  armyQueue?: {
+    armyType: ArmyType;
+    startTime: number;
+    finishTime: number;
+    name?: string;
+  } | null;
 }
 
 export type StarbaseTier = 'outpost' | 'starbase' | 'citadel';
@@ -594,6 +603,59 @@ export interface IntelligenceDirectorate {
   totalFalseFlagsConducted?: number;
   totalCompromisedOps?: number;
   upgradeFinishTimeMs?: number;
+}
+
+// ========================================================
+// Phase 30: Planetary Invasions, Ground Armies & Orbital Bombardment
+// ========================================================
+export type ArmyType =
+  | 'defense_militia'
+  | 'assault_infantry'
+  | 'mechanized_armor'
+  | 'xenomorph_swarm'
+  | 'gene_warriors'
+  | 'robotic_warforms';
+
+export type ArmyRank = 'recruit' | 'veteran' | 'elite' | 'legendary';
+
+export interface Army {
+  id: string;
+  name: string;
+  ownerId: string;
+  type: ArmyType;
+  rank: ArmyRank;
+  experience: number; // 0 to 1000
+  health: number;
+  maxHealth: number;
+  morale: number; // 0 to 100 percentage
+  maxMorale: number;
+  attackPower: number;
+  defensePower: number;
+  planetId: string | null; // Stationed on planet
+  fleetId: string | null;  // Embarked on fleet transport
+  isDisrouted: boolean;    // Broken when morale reaches 0
+  isGarrisonOnly: boolean; // defense_militia cannot embark
+  recruitedAtMs: number;
+}
+
+export type BombardmentStance = 'none' | 'selective' | 'indiscriminate' | 'armageddon' | 'raiding';
+
+export interface GroundCombatBattle {
+  id: string;
+  planetId: string;
+  planetName: string;
+  systemId: string;
+  attackerId: string;
+  defenderId: string;
+  attackerArmyIds: string[];
+  defenderArmyIds: string[];
+  frontlineWidth: number;
+  startedAtMs: number;
+  lastTickMs: number;
+  status: 'active' | 'attacker_victory' | 'defender_victory';
+  attackerCasualties: number;
+  defenderCasualties: number;
+  combatLog: string[];
 }
 
 export type CouncilPosition =
@@ -919,6 +981,9 @@ export interface Fleet {
     isDisguised: boolean;
     isCompromised: boolean;
   };
+  bombardmentStance?: BombardmentStance; // Phase 30: Orbital bombardment doctrine
+  bombardmentTargetPlanetId?: string | null; // Phase 30: Planet being bombarded
+  embarkedArmyIds?: string[]; // Phase 30: Armies transported by this fleet
 }
 
 export interface RelayContest {
@@ -1491,6 +1556,8 @@ export interface GameState {
   intelligenceDirectorates?: Record<string, IntelligenceDirectorate>; // key: playerId (Phase 29)
   secretAgents?: Record<string, SecretAgent>; // key: agentId (Phase 29)
   shadowOperations?: Record<string, ShadowOperation>; // key: operationId (Phase 29)
+  armies?: Record<string, Army>; // key: armyId (Phase 30)
+  groundBattles?: Record<string, GroundCombatBattle>; // key: battleId (Phase 30)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -2086,6 +2153,37 @@ export type GameCommand =
       assignedAgentId?: string;
       fundingPlanetId?: string;
       disguisedAsFactionId?: string;
+    }
+  | {
+      type: 'RECRUIT_ARMY';
+      planetId: string;
+      armyType: ArmyType;
+      customName?: string;
+    }
+  | {
+      type: 'EMBARK_ARMIES';
+      planetId: string;
+      armyIds?: string[];
+      fleetId?: string;
+    }
+  | {
+      type: 'LAND_ARMIES';
+      fleetId: string;
+      targetPlanetId: string;
+    }
+  | {
+      type: 'SET_BOMBARDMENT_STANCE';
+      fleetId: string;
+      stance: BombardmentStance;
+      targetPlanetId?: string | null;
+    }
+  | {
+      type: 'DISMISS_ARMY';
+      armyId: string;
+    }
+  | {
+      type: 'LIBERATE_PLANET';
+      planetId: string;
     };
 
 export interface CommandReceipt {
