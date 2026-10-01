@@ -1855,11 +1855,22 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           }
         });
 
+        const activePlayer = stateRef.current.players[activePlayerIdRef.current];
+        const isSurgeActive = Boolean(
+          activePlayer?.surgeActiveUntilMs && currentTimeMs < activePlayer.surgeActiveUntilMs
+        );
+
         lanePulses.forEach((pulse) => {
-          pulse.progress += delta * pulse.speed;
+          const speedMultiplier = isSurgeActive ? 2.2 : 1.0;
+          pulse.progress += delta * pulse.speed * speedMultiplier;
           if (pulse.progress > 1) pulse.progress = 0;
           pulse.sprite.position.lerpVectors(pulse.from, pulse.to, pulse.progress);
           pulse.sprite.position.z = 2;
+          if (isSurgeActive) {
+            pulse.sprite.scale.set(7.5, 7.5, 1);
+          } else {
+            pulse.sprite.scale.set(5, 5, 1);
+          }
         });
 
         const activeFleets = Object.values(stateRef.current.fleets);
@@ -1889,6 +1900,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
         laneVisuals.forEach((lv) => {
           const k = `${lv.fromSystemId}_${lv.toSystemId}`;
+          const isColonySynergyLane =
+            myColonySystemIds.has(lv.fromSystemId) && myColonySystemIds.has(lv.toSystemId);
           const relays = (stateRef.current as any).hyperRelays;
           const isRelayCorridor =
             relays &&
@@ -1901,9 +1914,19 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             const p = (Math.sin(currentTimeMs * 0.009) + 1) * 0.5;
             lv.mat.color.setHex(0xf43f5e);
             lv.mat.opacity = 0.55 + p * 0.4;
+          } else if (isSurgeActive && (activeLanesWithOwnFleet.has(k) || isColonySynergyLane)) {
+            // Golden Surge Hyper-Speed Stream (Radiant Amber Gold)
+            const p = (Math.sin(currentTimeMs * 0.012) + 1) * 0.5;
+            lv.mat.color.setHex(0xfbbf24);
+            lv.mat.opacity = 0.85 + p * 0.15;
           } else if (activeLanesWithOwnFleet.has(k)) {
             lv.mat.color.setHex(0x00f3ff);
             lv.mat.opacity = 0.85;
+          } else if (isColonySynergyLane) {
+            // Slipways Colony Trade & Supply Synergy Stream (Emerald glow)
+            const p = (Math.sin(currentTimeMs * 0.007) + 1) * 0.5;
+            lv.mat.color.setHex(0x10b981);
+            lv.mat.opacity = 0.75 + p * 0.25;
           } else if (isRelayCorridor) {
             // Radiant Hyper Relay Transit Highway Corridor Pulse
             const p = (Math.sin(currentTimeMs * 0.006) + 1) * 0.5;
@@ -3023,6 +3046,100 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                     </>
                   )}
                 </div>
+
+                {/* Slipways Quick Action Radial Dock (Visible when system is selected) */}
+                {selectedTarget?.systemId === lbl.id && (
+                  <div className="flex items-center gap-1 mt-1.5 animate-in fade-in zoom-in-95 duration-150 pointer-events-auto">
+                    {/* 1. Quick Explore */}
+                    {(lbl.intelLevel === 'unexplored' || lbl.hasPoi) && onDirectOrder && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sound.playLaunch();
+                          onDirectOrder({
+                            type: 'system',
+                            systemId: lbl.id,
+                          });
+                        }}
+                        className="px-2 py-0.5 rounded-sm bg-cyan-950/90 border border-cyan-400 hover:bg-cyan-500 hover:text-black text-cyan-200 text-[10px] font-mono font-bold shadow-lg shadow-cyan-950/80 transition-all flex items-center gap-1 cursor-pointer"
+                        title="Başkentten 1x Keşif Gemisi Fırlat"
+                      >
+                        <span>🔭</span>
+                        <span>Keşfet</span>
+                      </button>
+                    )}
+
+                    {/* 2. Quick Supply Convoy (if player has a colony here that is not homeworld) */}
+                    {(() => {
+                      const myColonyInSys = Object.values(state.planets).find(
+                        (p) => p.systemId === lbl.id && p.ownerId === activePlayerId && !p.isHomeworld
+                      );
+                      if (myColonyInSys && onDirectOrder) {
+                        return (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              sound.playLaunch();
+                              onDirectOrder({
+                                type: 'planet',
+                                systemId: lbl.id,
+                                planetId: myColonyInSys.id,
+                              });
+                            }}
+                            className="px-2 py-0.5 rounded-sm bg-amber-950/90 border border-amber-400 hover:bg-amber-500 hover:text-black text-amber-200 text-[10px] font-mono font-bold shadow-lg shadow-amber-950/80 transition-all flex items-center gap-1 cursor-pointer"
+                            title="Başkente İkmal Konvoyu Fırlat"
+                          >
+                            <span>🚛</span>
+                            <span>İkmal</span>
+                          </button>
+                        );
+                      }
+                      return null;
+                    })()}
+
+                    {/* 3. Quick Attack / Defense Intercept */}
+                    {(lbl.hasHostileThreat || lbl.isRecentBattle) && onDirectOrder && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sound.playLaser();
+                          onDirectOrder({
+                            type: 'system',
+                            systemId: lbl.id,
+                          });
+                        }}
+                        className="px-2 py-0.5 rounded-sm bg-rose-950/90 border border-rose-500 hover:bg-rose-600 hover:text-white text-rose-200 text-[10px] font-mono font-bold shadow-lg shadow-rose-950/80 transition-all flex items-center gap-1 cursor-pointer animate-pulse"
+                        title="Taarruz Filosu Sevk Et"
+                      >
+                        <span>⚔️</span>
+                        <span>Saldır</span>
+                      </button>
+                    )}
+
+                    {/* 4. Quick Colonize */}
+                    {lbl.openSlotsCount && lbl.openSlotsCount > 0 && !lbl.hasHostileThreat && onDirectOrder && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sound.playLaunch();
+                          onDirectOrder({
+                            type: 'system',
+                            systemId: lbl.id,
+                          });
+                        }}
+                        className="px-2 py-0.5 rounded-sm bg-emerald-950/90 border border-emerald-400 hover:bg-emerald-500 hover:text-black text-emerald-200 text-[10px] font-mono font-bold shadow-lg shadow-emerald-950/80 transition-all flex items-center gap-1 cursor-pointer"
+                        title="Koloni Seferi Fırlat"
+                      >
+                        <span>🪐</span>
+                        <span>Kolonileştir</span>
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
             ) : lbl.type === 'jump_gate' ? (
               <div className="px-2 py-0.5 rounded-sm bg-[#091322]/95 border border-cyber-cyan/60 text-[10px] font-mono font-bold text-cyber-cyan shadow-lg shadow-cyan-950/50 backdrop-blur-md hover:bg-cyber-cyan hover:text-[#091322] transition-all flex items-center gap-1">
