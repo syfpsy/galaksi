@@ -37,6 +37,7 @@ interface TacticalBottomDockProps {
   onSetStance?: (planetId: string, stance: PlanetStance) => void;
   onBuildShips?: (planetId: string, shipType: ShipType, count: number) => void;
   onToggleAutoSupply?: (planetId: string, enabled: boolean) => void;
+  onRapidIntercept?: (targetSystemId?: string, targetFleetId?: string) => void;
 }
 
 export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
@@ -53,6 +54,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
   onSetStance,
   onBuildShips,
   onToggleAutoSupply,
+  onRapidIntercept,
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -149,8 +151,8 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
               </div>
             </div>
 
-            {/* Quick Stance / Recall for My Fleet */}
-            {isMyFleet && selectedFleet.status === 'in_transit' && (
+            {/* Quick Stance / Recall for My Fleet or 1-Click Rapid Intercept for Hostile Fleet */}
+            {isMyFleet && selectedFleet.status === 'in_transit' ? (
               <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-end">
                 <button
                   onClick={() => {
@@ -163,7 +165,25 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                   <span>Geri Çağır</span>
                 </button>
               </div>
-            )}
+            ) : !isMyFleet && onRapidIntercept ? (
+              <div className="mt-2 pt-1.5 border-t border-slate-800 flex items-center justify-between">
+                <span className="text-[10px] text-rose-400 font-bold flex items-center gap-1">
+                  <ShieldAlert className="w-3.5 h-3.5 text-rose-500 animate-pulse" />
+                  <span>TEHDİT HEDEFİ</span>
+                </span>
+                <button
+                  onClick={() => {
+                    sound.playLaunch();
+                    onRapidIntercept(undefined, selectedFleet.id);
+                  }}
+                  className="px-2.5 py-1 bg-rose-600 hover:bg-rose-500 border border-rose-400 text-white text-[10.5px] rounded-sm flex items-center gap-1.5 font-bold cursor-pointer transition-all shadow-[0_0_10px_rgba(244,63,94,0.4)]"
+                  title="En yakın müsait üssünüzden derhal taarruz kolu sevk edin (Sıfır Menü)"
+                >
+                  <Zap className="w-3 h-3 text-amber-300" />
+                  <span>⚡ 1-Tıkla Önle</span>
+                </button>
+              </div>
+            ) : null}
           </div>
         ) : selectedPlanet ? (
           <div className="bg-[#070c14] border border-[#26374a] rounded-sm p-2.5 min-w-[260px] max-w-[340px] flex flex-col justify-between">
@@ -305,6 +325,18 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                 >
                   <Wrench className="w-3 h-3" />
                   <span>Tersane</span>
+                </button>
+              ) : !isMyPlanet && onRapidIntercept ? (
+                <button
+                  onClick={() => {
+                    sound.playLaunch();
+                    onRapidIntercept(selectedPlanet.systemId);
+                  }}
+                  className="px-2 py-0.5 bg-rose-600 hover:bg-rose-500 border border-rose-400 text-white text-[10px] font-bold rounded-sm flex items-center gap-1 cursor-pointer transition-all shadow-[0_0_8px_rgba(244,63,94,0.4)]"
+                  title="En yakın müsait üssünüzden bu sisteme derhal taarruz kolu sevk edin (Sıfır Menü)"
+                >
+                  <Zap className="w-3 h-3 text-amber-300" />
+                  <span>⚡ 1-Tıkla Taarruz</span>
                 </button>
               ) : null}
             </div>

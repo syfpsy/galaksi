@@ -696,6 +696,40 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleRapidIntercept = (targetSystemId?: string, targetFleetId?: string, preferredPlanetId?: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RAPID_INTERCEPT',
+      targetSystemId,
+      targetFleetId,
+      preferredPlanetId,
+    });
+    if (!res.success && res.error) {
+      sound.playError();
+      setTacticalToasts((prev) => [
+        ...prev.slice(-3),
+        {
+          id: `toast_${Date.now()}`,
+          text: `❌ Hızlı Önleme Hatası: ${res.error}`,
+          color: '#ef4444',
+          timestamp: Date.now(),
+        },
+      ]);
+    } else if (res.success) {
+      sound.playLaunch();
+      setTacticalToasts((prev) => [
+        ...prev.slice(-3),
+        {
+          id: `toast_${Date.now()}`,
+          text: `⚡ Hızlı Önleme: Taarruz filosu derhal intikale geçti!`,
+          color: '#06b6d4',
+          timestamp: Date.now(),
+        },
+      ]);
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleBuildDefense = (planetId: string, defenseType: DefenseStructureType, count: number) => {
     if (!engineRef.current) return;
     engineRef.current.dispatchCommand(activePlayerId, {
@@ -3403,6 +3437,7 @@ export function App() {
             onSetStance={handleSetStance}
             onBuildShips={handleBuildShip}
             onToggleAutoSupply={handleToggleAutoSupply}
+            onRapidIntercept={handleRapidIntercept}
           />
 
           {/* Slipways Flow: Contextual Strategic Momentum & Opportunity HUD */}

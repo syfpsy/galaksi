@@ -6901,6 +6901,88 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     engine.tick(fleet.arrivalTime - engine.state.timeMs + 1000);
     expect(player.momentum).toBeGreaterThan(momBeforeExplore);
   });
+
+  it('Phase 39: Zero-Menu Rapid Combat Interception & Smart Defense', () => {
+    const engine = new GameEngine(778899);
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p_interceptor', 'Defensive Guard', '#00f0ff', undefined, false);
+    const { player: p2, homeworld: hw2 } = engine.addPlayer('p_raider', 'Hostile Raider', '#ef4444', undefined, false);
+
+    // 1. Initial State: no combat ships on interceptor base -> rapid intercept should fail gracefully
+    hw1.garrison.fighter = 0;
+    hw1.garrison.battleship = 0;
+    hw1.resources.fuel = 500;
+
+    const noShipsRes = engine.dispatchCommand('p_interceptor', {
+      type: 'RAPID_INTERCEPT',
+      targetSystemId: hw2.systemId,
+    });
+    expect(noShipsRes.success).toBe(false);
+    expect(noShipsRes.error).toContain('muharip geminiz');
+
+    // 2. Supply garrison with fighters and fuel
+    hw1.garrison.fighter = 12;
+    hw1.garrison.battleship = 2;
+    hw1.resources.fuel = 1000;
+
+    // 3. Dispatch hostile fleet from p2 towards a target system
+    hw2.garrison.scout = 2;
+    hw2.resources.fuel = 500;
+    const raidRes = engine.dispatchCommand('p_raider', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw2.id,
+      targetSystemId: hw1.systemId,
+      ships: { scout: 1, transport: 0, fighter: 0, battleship: 0 },
+      cargo: { ore: 0, crystal: 0, fuel: 0 },
+      mission: 'attack',
+    });
+    expect(raidRes.success).toBe(true);
+    const hostileFleetId = (raidRes.data as any).fleetId;
+
+    // 4. Execute 1-Click RAPID_INTERCEPT targeting the hostile fleet!
+    const interceptRes = engine.dispatchCommand('p_interceptor', {
+      type: 'RAPID_INTERCEPT',
+      targetFleetId: hostileFleetId,
+    });
+    expect(interceptRes.success).toBe(true);
+    expect(interceptRes.data).toBeDefined();
+
+    const interceptFleetId = (interceptRes.data as any).fleetId;
+    const interceptFleet = engine.state.fleets[interceptFleetId];
+    expect(interceptFleet).toBeDefined();
+    expect(interceptFleet.mission).toBe('intercept');
+    expect(interceptFleet.doctrine).toBe('spearhead');
+    expect(interceptFleet.targetSystemId).toBe(hw1.systemId);
+    expect(interceptFleet.targetFleetId).toBe(hostileFleetId);
+    // Strike force capped at 10 fighters and all 2 battleships
+    expect(interceptFleet.ships.fighter).toBe(10);
+    expect(interceptFleet.ships.battleship).toBe(2);
+    expect(hw1.garrison.fighter).toBe(2); // 12 - 10 = 2 left
+    expect(hw1.garrison.battleship).toBe(0); // 2 - 2 = 0 left
+
+    // 5. Verify player stats & directive progression
+    expect(p1.rapidInterceptionsCount).toBe(1);
+    let directives = evaluatePlayerDirectives(engine.state, 'p_interceptor');
+    let dir = directives.find((d) => d.id === 'rapid_interception');
+    expect(dir).toBeDefined();
+    expect(dir!.currentValue).toBe(1);
+    expect(dir!.isCompleted).toBe(true);
+
+    // Claim directive reward
+    const claimRes = engine.dispatchCommand('p_interceptor', {
+      type: 'CLAIM_DIRECTIVE_REWARD',
+      directiveId: 'rapid_interception',
+    });
+    expect(claimRes.success).toBe(true);
+    expect(p1.claimedDirectives).toContain('rapid_interception');
+    expect(engine.state.relay.weeklyPoints['p_interceptor']).toBeGreaterThanOrEqual(50);
+
+    // 6. Fast-forward until intercept fleet arrives at rendezvous and battle takes place
+    const initialMomentum = p1.momentum || 0;
+    engine.tick(interceptFleet.arrivalTime - engine.state.timeMs + 2000);
+
+    // Interceptor wins combat and receives +25 combat momentum reward!
+    expect(p1.momentum).toBeGreaterThanOrEqual(initialMomentum + 25);
+  });
 });
 
 

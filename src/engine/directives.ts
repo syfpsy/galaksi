@@ -128,6 +128,14 @@ export const DIRECTIVE_DEFINITIONS: DirectiveDefinition[] = [
     targetValue: 2,
     reward: { ore: 750, crystal: 500, fuel: 400, hegemonyPoints: 60 },
   },
+  {
+    id: 'rapid_interception',
+    phase: 2,
+    title: 'Taktik Önleme Harekâtı',
+    description: 'Düşman veya korsan tehdidine karşı 1-Tıkla Hızlı Önleme Harekâtı icra ederek sektörü savunun.',
+    targetValue: 1,
+    reward: { ore: 500, crystal: 500, fuel: 300, hegemonyPoints: 50 },
+  },
 ];
 
 /**
@@ -261,6 +269,9 @@ export function evaluatePlayerDirectives(state: GameState, playerId: string): Em
       }
       case 'breakthrough_mastery':
         currentValue = player.unlockedBreakthroughs?.length || 0;
+        break;
+      case 'rapid_interception':
+        currentValue = player.rapidInterceptionsCount || 0;
         break;
     }
 

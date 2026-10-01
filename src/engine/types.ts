@@ -1488,6 +1488,8 @@ export interface Player {
   // Phase 38: Imperial Breakthrough Codex (Zero-Menu Innovation Choices)
   unlockedBreakthroughs?: BreakthroughId[];
   availableBreakthroughs?: BreakthroughId[];
+  // Phase 39: Zero-Menu Rapid Combat Interception
+  rapidInterceptionsCount?: number;
 }
 
 export type BreakthroughId =
@@ -1568,7 +1570,8 @@ export type EmpireDirectiveId =
   | 'supply_chain_resonance'
   | 'golden_surge_trigger'
   | 'automated_supply_conduits'
-  | 'breakthrough_mastery';
+  | 'breakthrough_mastery'
+  | 'rapid_interception';
 
 export interface EmpireDirective {
   id: EmpireDirectiveId;
@@ -2391,6 +2394,12 @@ export type GameCommand =
   | {
       type: 'CHOOSE_BREAKTHROUGH';
       breakthroughId: BreakthroughId;
+    }
+  | {
+      type: 'RAPID_INTERCEPT';
+      targetSystemId?: string;
+      targetFleetId?: string;
+      preferredPlanetId?: string;
     };
 
 export interface CommandReceipt {

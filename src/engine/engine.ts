@@ -499,6 +499,8 @@ export class GameEngine {
       hasColossusProject: false,
       renown: 100,
       paragonIds: [],
+      momentum: 0,
+      rapidInterceptionsCount: 0,
       unlockedBreakthroughs: [],
       availableBreakthroughs: rollBreakthroughChoices([]),
     };
@@ -2033,6 +2035,18 @@ export class GameEngine {
             fleet.ownerId
           );
 
+          const winnerPlayerId = combatResult.report.winner === 'attacker' ? fleet.ownerId : targetPlanet.ownerId;
+          const winPlayer = this.state.players[winnerPlayerId];
+          if (winPlayer) {
+            const newMom = (winPlayer.momentum || 0) + 25;
+            if (newMom >= 100 && !winPlayer.surgeActiveUntilMs) {
+              winPlayer.momentum = 0;
+              winPlayer.surgeActiveUntilMs = this.state.timeMs + 90000;
+            } else if (newMom < 100) {
+              winPlayer.momentum = Math.min(99.9, newMom);
+            }
+          }
+
           const survivingCount = Object.values(fleet.ships).reduce((a, b) => a + b, 0);
           if (survivingCount > 0) {
             this.orderFleetReturn(fleet);
@@ -2343,6 +2357,18 @@ export class GameEngine {
 
         fleet.ships = combatResult.remainingAttacker;
         targetFleet.ships = combatResult.remainingDefender;
+
+        const winnerPlayerId = combatResult.report.winner === 'attacker' ? fleet.ownerId : targetFleet.ownerId;
+        const winPlayer = this.state.players[winnerPlayerId];
+        if (winPlayer) {
+          const newMom = (winPlayer.momentum || 0) + 25;
+          if (newMom >= 100 && !winPlayer.surgeActiveUntilMs) {
+            winPlayer.momentum = 0;
+            winPlayer.surgeActiveUntilMs = this.state.timeMs + 90000;
+          } else if (newMom < 100) {
+            winPlayer.momentum = Math.min(99.9, newMom);
+          }
+        }
 
         if (Object.values(targetFleet.ships).reduce((a, b) => a + b, 0) === 0) {
           targetFleet.status = 'destroyed';
@@ -3130,6 +3156,192 @@ export class GameEngine {
           success: true,
           commandType: cmd.type,
           data: { breakthroughId: cmd.breakthroughId, unlockedBreakthroughs: p.unlockedBreakthroughs },
+          timeMs: this.state.timeMs,
+        };
+      }
+
+      case 'RAPID_INTERCEPT': {
+        const player = this.state.players[playerId];
+        if (!player) {
+          return { success: false, commandType: cmd.type, error: 'Oyuncu bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        // 1. Determine target system ID
+        let targetSysId = cmd.targetSystemId;
+        let targetDesc = '';
+
+        if (cmd.targetFleetId && this.state.fleets[cmd.targetFleetId]) {
+          const tf = this.state.fleets[cmd.targetFleetId];
+          targetSysId = tf.targetSystemId;
+          targetDesc = tf.name;
+        }
+
+        if (!targetSysId || !this.state.map.systems[targetSysId]) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Geçerli bir hedef sistem veya filo bulunamadı.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        const targetSys = this.state.map.systems[targetSysId];
+        if (!targetDesc) targetDesc = targetSys.name;
+
+        // 2. Find eligible origin planets owned by player with combat ships
+        const myPlanets = Object.values(this.state.planets).filter((p) => p.ownerId === playerId);
+        const candidates = myPlanets.filter((p) => (p.garrison.fighter || 0) > 0 || (p.garrison.battleship || 0) > 0);
+
+        if (candidates.length === 0) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Önleme harekâtı yapacak hazır muharip geminiz (Avcı/Zırhlı) bulunmuyor.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // 3. Score candidates by shortest flight time and sufficient fuel
+        const engineLevel = player.research.engines || 0;
+        const activeGateways = this.getActiveGatewaySystemIds(playerId);
+        const activeRelays = getActiveHyperRelaySystemIds(this.state, playerId);
+        const playerLoadouts = this.state.shipLoadouts?.[playerId];
+
+        let bestPlanet: Planet | null = null;
+        let bestRoute: any = null;
+        let bestDurationMs = Infinity;
+
+        const orderedCandidates = cmd.preferredPlanetId
+          ? [...candidates.filter((p) => p.id === cmd.preferredPlanetId), ...candidates.filter((p) => p.id !== cmd.preferredPlanetId)]
+          : candidates;
+
+        for (const pl of orderedCandidates) {
+          if (pl.systemId === targetSysId) {
+            bestPlanet = pl;
+            bestDurationMs = 5000;
+            bestRoute = {
+              path: [pl.systemId],
+              totalDistance: 0,
+              durationMs: 5000,
+              fuelCost: 5,
+              speed: 250,
+            };
+            break;
+          }
+
+          const route = calculateRouteInfo(
+            pl.systemId,
+            targetSysId,
+            { scout: 0, transport: 0, fighter: Math.min(pl.garrison.fighter || 0, 5), battleship: Math.min(pl.garrison.battleship || 0, 2) },
+            this.state.map.lanes,
+            engineLevel,
+            activeGateways,
+            playerLoadouts,
+            activeRelays
+          );
+
+          if (route && pl.resources.fuel >= route.fuelCost) {
+            let dur = route.durationMs;
+            const breakthroughSpeedMult = getBreakthroughSpeedMultiplier(player);
+            if (breakthroughSpeedMult > 1.0) dur = Math.round(dur / breakthroughSpeedMult);
+            if (player.surgeActiveUntilMs && this.state.timeMs < player.surgeActiveUntilMs) dur = Math.round(dur / 1.35);
+
+            if (dur < bestDurationMs) {
+              bestDurationMs = dur;
+              bestPlanet = pl;
+              bestRoute = route;
+            }
+          }
+        }
+
+        if (!bestPlanet || !bestRoute) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Hedef sisteme intikal edebilecek yakıta ve açık rotaya sahip bir üs bulunamadı.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // 4. Assemble Strike Force (up to 10 fighters, 3 battleships, or all available)
+        const takeFighters = Math.min(bestPlanet.garrison.fighter || 0, 10);
+        const takeBattleships = Math.min(bestPlanet.garrison.battleship || 0, 3);
+
+        if (takeFighters <= 0 && takeBattleships <= 0) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Üste konuşlu muharip gemi kalmadı.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        const strikeShips = {
+          scout: 0,
+          transport: 0,
+          fighter: takeFighters,
+          battleship: takeBattleships,
+        };
+
+        bestPlanet.garrison.fighter -= takeFighters;
+        bestPlanet.garrison.battleship -= takeBattleships;
+        bestPlanet.resources.fuel -= Math.min(bestPlanet.resources.fuel, bestRoute.fuelCost);
+
+        const fleetId = `fleet_${this.state.nextId++}`;
+        const arrivalTime = this.state.timeMs + bestDurationMs;
+
+        const targetEnemyPlanet = !cmd.targetFleetId
+          ? Object.values(this.state.planets).find((p) => p.systemId === targetSysId && p.ownerId !== playerId)
+          : undefined;
+
+        const recallLockedAfterTime = this.state.timeMs + (bestDurationMs * GAME_CONSTANTS.RECALL_LOCK_RATIO);
+
+        const newFleet: Fleet = {
+          id: fleetId,
+          name: `Önleme Taarruz Kolu #${fleetId.split('_')[1]}`,
+          ownerId: playerId,
+          ships: strikeShips,
+          cargo: { ore: 0, crystal: 0, fuel: 0 },
+          originSystemId: bestPlanet.systemId,
+          targetSystemId: targetSysId,
+          targetPlanetId: targetEnemyPlanet?.id,
+          departureTime: this.state.timeMs,
+          arrivalTime,
+          path: bestRoute.path,
+          pathIndex: 0,
+          totalDistance: bestRoute.totalDistance || 0,
+          fuelCost: bestRoute.fuelCost || 5,
+          recallLockedAfterTime,
+          status: 'in_transit',
+          isReturning: false,
+          speed: bestRoute.speed,
+          mission: cmd.targetFleetId ? 'intercept' : 'attack',
+          targetFleetId: cmd.targetFleetId,
+          doctrine: 'spearhead',
+        };
+
+        this.state.fleets[fleetId] = newFleet;
+        this.scheduleEvent(bestDurationMs, 'fleet_arrival', { fleetId });
+
+        player.rapidInterceptionsCount = (player.rapidInterceptionsCount || 0) + 1;
+
+        this.logEvent(
+          'rapid_intercept_dispatched',
+          `⚡ HIZLI ÖNLEME: ${bestPlanet.name} üssünden ${targetDesc} mevkiine ${takeFighters} Avcı, ${takeBattleships} Zırhlı ile taarruz kolu sevk edildi! (Varış: ${Math.round(bestDurationMs / 1000)}s)`,
+          playerId,
+          { fleetId, originPlanetId: bestPlanet.id, targetSystemId: targetSysId, durationMs: bestDurationMs }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          data: {
+            fleetId,
+            originPlanetId: bestPlanet.id,
+            targetSystemId: targetSysId,
+            durationMs: bestDurationMs,
+            ships: strikeShips,
+          },
           timeMs: this.state.timeMs,
         };
       }
