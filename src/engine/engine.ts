@@ -2745,7 +2745,7 @@ export class GameEngine {
           return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
         }
 
-        if (trans.type === 'truce_offer' && trans.truceDurationMs) {
+        if ((trans.type === 'truce_offer' || trans.type === 'coalition_proposal') && trans.truceDurationMs) {
           if (!this.state.truces) this.state.truces = {};
           const key = this.getTruceKey(trans.senderId, playerId);
           const expiresAtMs = this.state.timeMs + trans.truceDurationMs;
@@ -2753,11 +2753,14 @@ export class GameEngine {
           trans.status = 'accepted';
 
           const durationMin = Math.round(trans.truceDurationMs / 60000);
+          const isCoalition = trans.type === 'coalition_proposal';
           this.logEvent(
-            'truce_established',
-            `BARIŞ PAKTI İMZALANDI: ${responder?.name || playerId} ve ${trans.senderName} ${durationMin} dakika boyunca saldırmazlık ilan etti.`,
+            isCoalition ? 'coalition_pact_established' : 'truce_established',
+            isCoalition
+              ? `KARŞI KOALİSYON PAKTI İMZALANDI: ${responder?.name || playerId} ve ${trans.senderName} hegemonya tehdidine karşı ${durationMin} dakika boyunca saldırmazlık paktı kurdu.`
+              : `BARIŞ PAKTI İMZALANDI: ${responder?.name || playerId} ve ${trans.senderName} ${durationMin} dakika boyunca saldırmazlık ilan etti.`,
             playerId,
-            { transmissionId: trans.id, expiresAtMs }
+            { transmissionId: trans.id, expiresAtMs, isCoalition }
           );
           return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { expiresAtMs } };
         }

@@ -1,7 +1,7 @@
 import { SHIP_STATS } from '../engine/constants';
 import { GameEngine } from '../engine/engine';
 import { checkInterceptionFeasibility } from '../engine/flight';
-import { GameCommand, ShipType } from '../engine/types';
+import { FleetDoctrine, GameCommand, ShipType } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
 import { IBotAgent } from './types';
 
@@ -50,6 +50,20 @@ export class AdmiralBot implements IBotAgent {
         );
 
         if (interceptCheck.canIntercept && homeworld.resources.fuel >= 60) {
+          const myAdmiral = Object.values(engine.state.admirals || {}).find(
+            (a) => a.ownerId === this.playerId && !a.assignedFleetId
+          );
+
+          // Counter-doctrine analysis against opponent fleet
+          let counterDoctrine: FleetDoctrine = 'spearhead';
+          if (enemyFleet.doctrine === 'spearhead' || (enemyFleet.ships.battleship || 0) >= 2) {
+            counterDoctrine = 'fortress'; // Absorb their +15% heavy firepower
+          } else if (enemyFleet.doctrine === 'fortress') {
+            counterDoctrine = 'spearhead'; // Crack fortress defense with +15% firepower
+          } else if (enemyFleet.ships.scout > enemyFleet.ships.fighter) {
+            counterDoctrine = 'hit_and_run';
+          }
+
           const cmd: GameCommand = {
             type: 'DISPATCH_FLEET',
             originPlanetId: homeworld.id,
@@ -62,6 +76,8 @@ export class AdmiralBot implements IBotAgent {
               battleship: homeworld.garrison.battleship,
             },
             mission: 'intercept',
+            doctrine: counterDoctrine,
+            admiralId: myAdmiral?.id,
           };
           const res = engine.dispatchCommand(this.playerId, cmd);
           if (res.success) {
@@ -91,6 +107,7 @@ export class AdmiralBot implements IBotAgent {
           battleship: 0,
         },
         mission: 'transport',
+        doctrine: 'fortress',
       };
       const res = engine.dispatchCommand(this.playerId, cmd);
       if (res.success) {
@@ -102,6 +119,9 @@ export class AdmiralBot implements IBotAgent {
     const relay = view.relayContest;
     if (relay.controllerId !== this.playerId && homeworld.garrison.battleship >= 1 && homeworld.garrison.fighter >= 3) {
       if (homeworld.resources.fuel >= 120) {
+        const myAdmiral = Object.values(engine.state.admirals || {}).find(
+          (a) => a.ownerId === this.playerId && !a.assignedFleetId
+        );
         const cmd: GameCommand = {
           type: 'DISPATCH_FLEET',
           originPlanetId: homeworld.id,
@@ -113,12 +133,27 @@ export class AdmiralBot implements IBotAgent {
             battleship: 1,
           },
           mission: 'support',
+          doctrine: 'fortress',
+          admiralId: myAdmiral?.id,
         };
         const res = engine.dispatchCommand(this.playerId, cmd);
         if (res.success) {
           executedCommands.push(cmd);
           return executedCommands;
         }
+      }
+    }
+
+    // Specialization for colonies: military_bastion or forge_world
+    for (const p of view.myPlanets) {
+      if (!p.isHomeworld && (!p.specialization || p.specialization === 'balanced')) {
+        const specCmd: GameCommand = {
+          type: 'SET_PLANET_SPECIALIZATION',
+          planetId: p.id,
+          specialization: 'military_bastion',
+        };
+        const receipt = engine.dispatchCommand(this.playerId, specCmd);
+        if (receipt.success) executedCommands.push(specCmd);
       }
     }
 

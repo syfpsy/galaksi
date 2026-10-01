@@ -6,6 +6,9 @@ import { getPlayerSensorCoverage } from '../src/engine/fog';
 import { evaluateBotDiplomacy, resetBotDiplomacyCooldowns } from '../src/bots/diplomacy';
 import { ExplorerBot } from '../src/bots/explorer';
 import { IndustrialistBot } from '../src/bots/industrialist';
+import { RaiderBot } from '../src/bots/raider';
+import { GuardianBot } from '../src/bots/guardian';
+import { AdmiralBot } from '../src/bots/admiral';
 import { GAME_CONSTANTS, getDefenseBuildDurationMs, getShipBuildDurationMs } from '../src/engine/constants';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -1666,6 +1669,85 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const visible = engine.getPlayerView('p1');
     expect(visible.myArtifacts).toContain('progenitor_matrix');
     expect(visible.myArtifacts).toContain('rift_hyperdrive');
+  });
+
+  it('evaluates adaptive bot tactical reactions, counter-coalition diplomacy, and hegemony pressure (Phase 10)', () => {
+    resetBotDiplomacyCooldowns();
+    const engine = new GameEngine(1042);
+    const human = engine.addPlayer('human_1', 'İmparator Kaelen', '#00f3ff', false).player;
+    const botRaider = engine.addPlayer('bot_raider', 'Kızıl Akın', '#f43f5e', true, 'raider').player;
+    const botGuardian = engine.addPlayer('bot_guardian', 'Nexus Muhafızları', '#3b82f6', true, 'guardian').player;
+
+    // 1. Hegemony Warning when human approaches victory threshold
+    engine.state.relay.weeklyPoints[human.id] = 250;
+    const raiderDiplo = evaluateBotDiplomacy(engine, botRaider.id);
+    expect(raiderDiplo.length).toBe(1);
+    expect(raiderDiplo[0].type).toBe('SEND_TRANSMISSION');
+    if (raiderDiplo[0].type === 'SEND_TRANSMISSION') {
+      expect(raiderDiplo[0].transmissionType).toBe('hegemony_warning');
+      expect(raiderDiplo[0].title).toContain('Hegemonya Tehdidi İkazı');
+    }
+
+    // 2. Counter-Coalition proposal when a rival bot is hegemony leader
+    resetBotDiplomacyCooldowns();
+    delete engine.state.relay.weeklyPoints[human.id];
+    engine.state.relay.weeklyPoints[botGuardian.id] = 260; // Guardian dominating
+    const raiderCoalition = evaluateBotDiplomacy(engine, botRaider.id);
+    expect(raiderCoalition.length).toBe(1);
+    expect(raiderCoalition[0].type).toBe('SEND_TRANSMISSION');
+    if (raiderCoalition[0].type === 'SEND_TRANSMISSION') {
+      expect(raiderCoalition[0].transmissionType).toBe('coalition_proposal');
+      expect(raiderCoalition[0].truceDurationMs).toBe(25 * 60 * 1000);
+
+      // Dispatch transmission
+      const sendRes = engine.dispatchCommand(botRaider.id, raiderCoalition[0]);
+      expect(sendRes.success).toBe(true);
+
+      const transId = Object.keys(engine.state.transmissions || {})[0];
+      expect(transId).toBeDefined();
+
+      // Human accepts coalition proposal
+      const acceptRes = engine.dispatchCommand(human.id, {
+        type: 'RESPOND_TRANSMISSION',
+        transmissionId: transId,
+        action: 'accept',
+      });
+      expect(acceptRes.success).toBe(true);
+
+      // Check truce established between human and raider
+      expect(engine.hasActiveTruce(human.id, botRaider.id)).toBe(true);
+      expect(engine.state.eventLog.some(e => e.type === 'coalition_pact_established')).toBe(true);
+    }
+
+    // 3. Ancient Relic envy reaction
+    resetBotDiplomacyCooldowns();
+    delete engine.state.relay.weeklyPoints[botGuardian.id];
+    human.artifacts = ['dreadnought_plating'];
+    const relicDiplo = evaluateBotDiplomacy(engine, botRaider.id);
+    expect(relicDiplo.length).toBe(1);
+    if (relicDiplo[0].type === 'SEND_TRANSMISSION') {
+      expect(relicDiplo[0].transmissionType).toBe('relic_envy');
+      expect(relicDiplo[0].title).toBe('Kadim Yadigar İstihbaratı');
+    }
+
+    // 4. Test Bot Tactical Doctrines on dispatches & colony specializations
+    const guardianAgent = new GuardianBot('bot_guardian');
+
+    // Give bot_guardian colony and check military_bastion specialization
+    const botGuardHw = Object.values(engine.state.planets).find(p => p.ownerId === 'bot_guardian')!;
+    const colonyId = 'bot_guard_colony_1';
+    const guardColony = {
+      ...botGuardHw,
+      id: colonyId,
+      name: 'Bastion Prime',
+      isHomeworld: false,
+      specialization: 'balanced' as const,
+    };
+    engine.state.planets[colonyId] = guardColony;
+
+    const guardCmds = guardianAgent.update(engine);
+    expect(guardCmds.some(c => c.type === 'SET_PLANET_SPECIALIZATION' && c.specialization === 'military_bastion')).toBe(true);
+    expect(guardColony.specialization).toBe('military_bastion');
   });
 });
 

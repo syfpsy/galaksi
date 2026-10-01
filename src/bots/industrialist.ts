@@ -124,6 +124,7 @@ export class IndustrialistBot implements IBotAgent {
           },
           cargo: { ...GAME_CONSTANTS.COLONY_COST },
           mission: 'colonize',
+          doctrine: 'fortress',
         };
         const receipt = engine.dispatchCommand(this.playerId, cmd);
         if (receipt.success) executedCommands.push(cmd);
@@ -142,6 +143,36 @@ export class IndustrialistBot implements IBotAgent {
         };
         const receipt = engine.dispatchCommand(this.playerId, cmd);
         if (receipt.success) executedCommands.push(cmd);
+      }
+    }
+
+    // Specialization for colonies: mining_hub (+20% mineral extraction)
+    for (const p of view.myPlanets) {
+      if (!p.isHomeworld && (!p.specialization || p.specialization === 'balanced')) {
+        const specCmd: GameCommand = {
+          type: 'SET_PLANET_SPECIALIZATION',
+          planetId: p.id,
+          specialization: 'mining_hub',
+        };
+        const receipt = engine.dispatchCommand(this.playerId, specCmd);
+        if (receipt.success) executedCommands.push(specCmd);
+      }
+    }
+
+    // Defenses: Industrialist installs missile batteries on rich resource worlds
+    for (const p of view.myPlanets) {
+      if (p.buildings.shipyard >= 1 && (p.defenseQueue?.length ?? 0) === 0) {
+        const totalBatteries = p.defenses?.missile_battery ?? 0;
+        if (totalBatteries < 2 && p.resources.ore >= 300 && p.resources.crystal >= 100) {
+          const defCmd: GameCommand = {
+            type: 'BUILD_DEFENSES',
+            planetId: p.id,
+            defenseType: 'missile_battery',
+            count: 1,
+          };
+          const receipt = engine.dispatchCommand(this.playerId, defCmd);
+          if (receipt.success) executedCommands.push(defCmd);
+        }
       }
     }
 

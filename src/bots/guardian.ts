@@ -37,6 +37,7 @@ export class GuardianBot implements IBotAgent {
             battleship: homeworld.garrison.battleship,
           },
           mission: 'support',
+          doctrine: 'fortress',
         };
         const receipt = engine.dispatchCommand(this.playerId, cmd);
         if (receipt.success) {
@@ -78,13 +79,44 @@ export class GuardianBot implements IBotAgent {
           },
           cargo: { ...GAME_CONSTANTS.COLONY_COST },
           mission: 'colonize',
+          doctrine: 'fortress',
         };
         const receipt = engine.dispatchCommand(this.playerId, cmd);
         if (receipt.success) executedCommands.push(cmd);
       }
     }
 
-    // 2. Build Battleships and Fighters
+    // Specialization for colonies: military_bastion (+25% defense HP, defenses absorb 60% damage)
+    for (const p of view.myPlanets) {
+      if (!p.isHomeworld && (!p.specialization || p.specialization === 'balanced')) {
+        const specCmd: GameCommand = {
+          type: 'SET_PLANET_SPECIALIZATION',
+          planetId: p.id,
+          specialization: 'military_bastion',
+        };
+        const receipt = engine.dispatchCommand(this.playerId, specCmd);
+        if (receipt.success) executedCommands.push(specCmd);
+      }
+    }
+
+    // 3. Planetary Defenses: Build missile batteries to protect garrisons
+    for (const p of view.myPlanets) {
+      if (p.buildings.shipyard >= 1 && (p.defenseQueue?.length ?? 0) === 0) {
+        const totalBatteries = p.defenses?.missile_battery ?? 0;
+        if (totalBatteries < 3 && p.resources.ore >= 200 && p.resources.crystal >= 50) {
+          const defCmd: GameCommand = {
+            type: 'BUILD_DEFENSES',
+            planetId: p.id,
+            defenseType: 'missile_battery',
+            count: 1,
+          };
+          const receipt = engine.dispatchCommand(this.playerId, defCmd);
+          if (receipt.success) executedCommands.push(defCmd);
+        }
+      }
+    }
+
+    // 4. Build Battleships and Fighters
     if (homeworld.buildings.shipyard >= 1 && homeworld.shipyardQueue.length === 0) {
       if (homeworld.buildings.shipyard >= 3 && homeworld.resources.ore >= SHIP_STATS.battleship.cost.ore) {
         const cmd: GameCommand = {

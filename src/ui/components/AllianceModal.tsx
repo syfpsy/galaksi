@@ -427,8 +427,11 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                       >
                         <option value="warning">⚠️ Sınır / Tehdit Uyarısı</option>
                         <option value="truce_offer">🤝 Saldırmazlık Ateşkesi Teklifi</option>
+                        <option value="coalition_proposal">🛡️ Hegemonyaya Karşı Koalisyon Paktı</option>
                         <option value="trade_proposal">⚖️ İkili Kaynak Takası Teklifi</option>
                         <option value="intel_sharing">🔭 İstihbarat & Anomali Paylaşımı</option>
+                        <option value="hegemony_warning">👑 Hegemonya Tehdidi İkazı</option>
+                        <option value="relic_envy">🏛️ Kadim Yadigar Bildirisi</option>
                         <option value="bravado">⚔️ Diplomatik Meydan Okuma</option>
                       </select>
                     </div>
@@ -460,11 +463,11 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                     />
                   </div>
 
-                  {/* Conditional Truce Duration */}
-                  {commsType === 'truce_offer' && (
+                  {/* Conditional Truce / Coalition Duration */}
+                  {(commsType === 'truce_offer' || commsType === 'coalition_proposal') && (
                     <div>
                       <label className="text-[10px] font-mono text-slate-400 block mb-1">
-                        Önerilen Ateşkes Süresi
+                        Önerilen Saldırmazlık Süresi
                       </label>
                       <div className="flex gap-2">
                         {[10, 15, 30, 60].map((mins) => (
@@ -577,7 +580,9 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                               receive: { ore: receiveOre, crystal: receiveCrystal, fuel: receiveFuel },
                             }
                           : undefined,
-                        commsType === 'truce_offer' ? truceDurationMinutes * 60 * 1000 : undefined
+                        commsType === 'truce_offer' || commsType === 'coalition_proposal'
+                          ? truceDurationMinutes * 60 * 1000
+                          : undefined
                       );
                       setCommsTitle('');
                       setCommsMessage('');
@@ -628,6 +633,21 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                       bgClass = 'bg-emerald-950/20';
                       typeLabel = 'Ateşkes Teklifi';
                       typeBadgeColor = 'text-emerald-300 border-emerald-500/40 bg-emerald-950/60';
+                    } else if (t.type === 'coalition_proposal') {
+                      borderClass = 'border-purple-500/50';
+                      bgClass = 'bg-purple-950/30';
+                      typeLabel = 'Koalisyon Paktı';
+                      typeBadgeColor = 'text-purple-300 border-purple-500/50 bg-purple-950/70';
+                    } else if (t.type === 'hegemony_warning') {
+                      borderClass = 'border-rose-500/60';
+                      bgClass = 'bg-rose-950/30';
+                      typeLabel = 'Hegemonya İkazı';
+                      typeBadgeColor = 'text-rose-200 border-rose-500/60 bg-rose-950/80';
+                    } else if (t.type === 'relic_envy') {
+                      borderClass = 'border-amber-500/50';
+                      bgClass = 'bg-amber-950/25';
+                      typeLabel = 'Kadim Yadigar';
+                      typeBadgeColor = 'text-amber-200 border-amber-500/50 bg-amber-950/70';
                     } else if (t.type === 'trade_proposal') {
                       borderClass = 'border-amber-500/40';
                       bgClass = 'bg-amber-950/20';

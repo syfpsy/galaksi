@@ -30,6 +30,7 @@ export class ExplorerBot implements IBotAgent {
           targetSystemId: target.system.id,
           ships: { scout: 1, transport: 0, fighter: 0, battleship: 0 },
           mission: 'explore',
+          doctrine: 'hit_and_run',
         };
         const receipt = engine.dispatchCommand(this.playerId, cmd);
         if (receipt.success) executedCommands.push(cmd);
@@ -78,9 +79,23 @@ export class ExplorerBot implements IBotAgent {
         },
         cargo: { ...GAME_CONSTANTS.COLONY_COST },
         mission: 'colonize',
+        doctrine: 'balanced',
       };
       const receipt = engine.dispatchCommand(this.playerId, cmd);
       if (receipt.success) executedCommands.push(cmd);
+    }
+
+    // Specialization for colonies: tech_haven for fast science breakthroughs
+    for (const p of view.myPlanets) {
+      if (!p.isHomeworld && (!p.specialization || p.specialization === 'balanced')) {
+        const specCmd: GameCommand = {
+          type: 'SET_PLANET_SPECIALIZATION',
+          planetId: p.id,
+          specialization: 'tech_haven',
+        };
+        const receipt = engine.dispatchCommand(this.playerId, specCmd);
+        if (receipt.success) executedCommands.push(specCmd);
+      }
     }
 
     // 3. Build Scouts and Transports in shipyard

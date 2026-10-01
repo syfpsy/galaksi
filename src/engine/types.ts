@@ -503,7 +503,10 @@ export type TransmissionType =
   | 'truce_offer'
   | 'trade_proposal'
   | 'bravado'
-  | 'intel_sharing';
+  | 'intel_sharing'
+  | 'hegemony_warning'
+  | 'coalition_proposal'
+  | 'relic_envy';
 
 export interface RadioTransmission {
   id: string;

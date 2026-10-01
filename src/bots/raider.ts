@@ -26,6 +26,7 @@ export class RaiderBot implements IBotAgent {
         targetFleetId: targetFleet.id,
         ships: { scout: 1, transport: 0, fighter: Math.min(homeworld.garrison.fighter, 4), battleship: 0 },
         mission: 'intercept',
+        doctrine: 'spearhead',
       };
       const receipt = engine.dispatchCommand(this.playerId, cmd);
       if (receipt.success) {
@@ -59,9 +60,23 @@ export class RaiderBot implements IBotAgent {
         targetPlanetId: target.planet.id,
         ships: shipsToSend,
         mission: 'attack',
+        doctrine: shipsToSend.battleship > 0 ? 'spearhead' : 'hit_and_run',
       };
       const receipt = engine.dispatchCommand(this.playerId, cmd);
       if (receipt.success) executedCommands.push(cmd);
+    }
+
+    // Specialization for colonies: military_bastion for combat fortress
+    for (const p of view.myPlanets) {
+      if (!p.isHomeworld && (!p.specialization || p.specialization === 'balanced')) {
+        const specCmd: GameCommand = {
+          type: 'SET_PLANET_SPECIALIZATION',
+          planetId: p.id,
+          specialization: 'military_bastion',
+        };
+        const receipt = engine.dispatchCommand(this.playerId, specCmd);
+        if (receipt.success) executedCommands.push(specCmd);
+      }
     }
 
     // 3. Build Fighters continuously
