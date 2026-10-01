@@ -7,6 +7,7 @@ import { evaluateBotSenate } from './senate';
 import { evaluateBotMegastructures } from './megastructures';
 import { evaluateBotCouncil } from './council';
 import { evaluateBotShipDesign } from './shipDesign';
+import { evaluateBotCrisisResponse } from './crisis';
 import { IBotAgent } from './types';
 
 export class RaiderBot implements IBotAgent {
@@ -139,6 +140,9 @@ export class RaiderBot implements IBotAgent {
 
     // 10. Modular Ship Design & Fleet Refit (Phase 15)
     evaluateBotShipDesign(engine, this.playerId, this.archetype, executedCommands);
+
+    // 11. Galactic Crisis & GDF Response (Phase 16)
+    evaluateBotCrisisResponse(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

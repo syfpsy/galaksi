@@ -54,7 +54,9 @@ export function evaluateBotSenate(
         break;
 
       case 'custodian_election':
-        if (currentSession.targetPlayerId === playerId) {
+        if (state.crisis && state.crisis.stage !== 'dormant' && state.crisis.stage !== 'defeated' && archetype !== 'raider') {
+          desiredVote = 'for'; // Rally behind Galactic Custodian during apocalyptic threat!
+        } else if (currentSession.targetPlayerId === playerId) {
           desiredVote = 'for'; // Always vote for self as Custodian!
         } else if (archetype === 'raider') {
           desiredVote = 'against'; // Opposes galactic order

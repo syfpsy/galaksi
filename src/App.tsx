@@ -39,6 +39,7 @@ import { StarbaseModal } from './ui/components/StarbaseModal';
 import { SenateModal } from './ui/components/SenateModal';
 import { MegastructureModal } from './ui/components/MegastructureModal';
 import { CouncilModal } from './ui/components/CouncilModal';
+import { CrisisModal } from './ui/components/CrisisModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -78,6 +79,7 @@ type LeftPanelType =
   | 'senate'
   | 'megastructures'
   | 'council'
+  | 'crisis'
   | 'relay'
   | 'gallery'
   | null;
@@ -886,6 +888,92 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handlePurifyPlanet = (planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'PURIFY_INFESTED_PLANET',
+      planetId,
+    });
+    if (res.success) {
+      sound.playConstruction();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDonateToGDF = (planetId: string, ships: Record<ShipType, number>) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DONATE_TO_GDF',
+      planetId,
+      ships,
+    });
+    if (res.success) {
+      sound.playNotification();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDispatchGDFFleet = (targetSystemId: string, ships: Record<ShipType, number>) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISPATCH_GDF_FLEET',
+      targetSystemId,
+      ships,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAssaultAnchor = (anchorId: string, fleetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ASSAULT_VOID_ANCHOR',
+      anchorId,
+      fleetId,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAssaultRift = (fleetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ASSAULT_VOID_RIFT',
+      fleetId,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleTriggerTestCrisis = () => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'TRIGGER_CRISIS_TEST',
+    });
+    if (res.success) {
+      sound.playNotification();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1207,8 +1295,11 @@ export function App() {
           onOpenSenate={() => setActiveLeftPanel((prev) => (prev === 'senate' ? null : 'senate'))}
           onOpenMegastructures={() => setActiveLeftPanel((prev) => (prev === 'megastructures' ? null : 'megastructures'))}
           onOpenCouncil={() => setActiveLeftPanel((prev) => (prev === 'council' ? null : 'council'))}
+          onOpenCrisis={() => setActiveLeftPanel((prev) => (prev === 'crisis' ? null : 'crisis'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
+          isCrisisActive={Boolean(engineState.crisis && engineState.crisis.stage !== 'dormant' && engineState.crisis.stage !== 'defeated')}
+          crisisStage={engineState.crisis?.stage}
           movingFleetsCount={movingFleetsCount}
           threatsCount={threatsCount}
           unreadBattlesCount={engineState.battleReports.length}
@@ -1476,6 +1567,7 @@ export function App() {
               setActiveLeftPanel('alliance');
             }}
             onOpenSenate={() => setActiveLeftPanel('senate')}
+            onOpenCrisis={() => setActiveLeftPanel('crisis')}
           />
 
           <GalaxyMap
@@ -1670,6 +1762,21 @@ export function App() {
         onDismissCouncilor={handleDismissCouncilor}
         onRecruitCouncilLeader={handleRecruitCouncilLeader}
         onPromoteFactionAgenda={handlePromoteFactionAgenda}
+      />
+
+      {/* Galactic Crisis & Void Incursions Modal (Phase 16) */}
+      <CrisisModal
+        isOpen={activeLeftPanel === 'crisis'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        activePlanetId={activePlanet?.id}
+        onPurifyPlanet={handlePurifyPlanet}
+        onDonateToGDF={handleDonateToGDF}
+        onDispatchGDFFleet={handleDispatchGDFFleet}
+        onAssaultAnchor={handleAssaultAnchor}
+        onAssaultRift={handleAssaultRift}
+        onTriggerTestCrisis={handleTriggerTestCrisis}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

@@ -360,6 +360,53 @@ export interface ImperialCouncilState {
   lastCandidateRefreshMs?: number;
 }
 
+// ==========================================
+// Phase 16: Endgame Galactic Crisis & GDF
+// ==========================================
+export type CrisisType = 'void_incursion';
+export type CrisisStage = 'dormant' | 'breaching' | 'active' | 'apex' | 'defeated';
+
+export interface VoidAnchor {
+  id: string;
+  name: string;
+  systemId: string;
+  hp: number;
+  maxHp: number;
+  shield: number;
+  maxShield: number;
+  defenseFleet: Record<ShipType, number>;
+  destroyed: boolean;
+}
+
+export interface CrisisFleet {
+  id: string;
+  name: string;
+  systemId: string;
+  targetSystemId?: string;
+  ships: Record<ShipType, number>;
+  power: number;
+  status: 'patrolling' | 'besieging' | 'hunting';
+}
+
+export interface GalacticCrisisState {
+  type: CrisisType;
+  stage: CrisisStage;
+  epicenterSystemId: string;
+  riftIntegrity: number; // 0 to 100%
+  voidAnchors: VoidAnchor[];
+  infestedPlanetIds: string[];
+  crisisFleets: CrisisFleet[];
+  behemothHp: number;
+  behemothMaxHp: number;
+  behemothShield: number;
+  behemothMaxShield: number;
+  behemothDefeated: boolean;
+  slayerPlayerId: string | null;
+  gdfFleetUnits: Record<ShipType, number>;
+  gdfDonations: Record<string, number>; // playerId -> total ship power donated
+  lastSpawnTimeMs: number;
+  startedAtMs: number;
+}
 
 export type EmpireArtifactId =
   | 'progenitor_matrix'
@@ -478,7 +525,7 @@ export interface BattleReport {
   attackerName: string;
   defenderId: string;
   defenderName: string;
-  context: 'planet_raid' | 'fleet_interception' | 'relay_contest' | 'pirate_lair';
+  context: 'planet_raid' | 'fleet_interception' | 'relay_contest' | 'pirate_lair' | 'void_anchor' | 'void_rift';
   rounds: CombatRound[];
   initialAttacker: Record<ShipType, number>;
   initialDefender: Record<ShipType, number>;
@@ -776,6 +823,7 @@ export interface GameState {
   senate?: SenateState;
   councils?: Record<string, ImperialCouncilState>; // key: playerId
   shipLoadouts?: Record<string, ShipLoadoutMap>; // key: playerId
+  crisis?: GalacticCrisisState | null;
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -813,7 +861,9 @@ export type ScheduledEventType =
   | 'starbase_module_completed'
   | 'senate_session_concluded'
   | 'megastructure_stage_completed'
-  | 'gateway_activated';
+  | 'gateway_activated'
+  | 'crisis_tick'
+  | 'crisis_breached';
 
 export interface ScheduledEvent {
   id: string;
@@ -1006,6 +1056,33 @@ export type GameCommand =
       planetId: string;
       shipType: ShipType;
       count: number;
+    }
+  | {
+      type: 'DONATE_TO_GDF';
+      planetId: string;
+      ships: Record<ShipType, number>;
+    }
+  | {
+      type: 'DISPATCH_GDF_FLEET';
+      targetSystemId: string;
+      ships: Record<ShipType, number>;
+    }
+  | {
+      type: 'PURIFY_INFESTED_PLANET';
+      planetId: string;
+    }
+  | {
+      type: 'ASSAULT_VOID_ANCHOR';
+      anchorId: string;
+      fleetId: string;
+    }
+  | {
+      type: 'ASSAULT_VOID_RIFT';
+      fleetId: string;
+    }
+  | {
+      type: 'TRIGGER_CRISIS_TEST';
+      epicenterSystemId?: string;
     };
 
 export interface CommandReceipt {

@@ -43,6 +43,7 @@ interface StellarisNotificationStripProps {
   onOpenTransitRadar?: () => void;
   onOpenAlliance?: (tab?: string) => void;
   onOpenSenate?: () => void;
+  onOpenCrisis?: () => void;
 }
 
 const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripProps> = ({
@@ -56,6 +57,7 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
   onOpenTransitRadar,
   onOpenAlliance,
   onOpenSenate,
+  onOpenCrisis,
 }) => {
   const [notifications, setNotifications] = useState<EmpireNotification[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -133,7 +135,19 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
       });
     }
 
-    // 3. Scan recent event log for significant events
+    // 4. Galactic Endgame Crisis (Phase 16)
+    if (state.crisis && state.crisis.stage !== 'dormant' && state.crisis.stage !== 'defeated') {
+      notifs.unshift({
+        id: `galactic_crisis_${state.crisis.stage}`,
+        type: 'crisis',
+        title: '🚨 BOYUTLARARASI HİÇLİK İSTİLASI',
+        description: `Kriz Aşaması: ${state.crisis.stage.toUpperCase()} | Kalkan: %${state.crisis.riftIntegrity} | Tıklayarak Kriz Merkezini açın!`,
+        timestampMs: state.crisis.startedAtMs,
+        systemId: state.crisis.epicenterSystemId,
+      });
+    }
+
+    // 5. Scan recent event log for significant events
     const recentEvents = state.eventLog
       .filter((e) => !e.playerId || e.playerId === activePlayerId)
       .slice(-12)
@@ -310,7 +324,9 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
     } else if (notif.type === 'senate') {
       if (onOpenSenate) onOpenSenate();
     } else if (notif.type === 'crisis') {
-      if (notif.systemId) {
+      if (notif.id.startsWith('galactic_crisis_') && onOpenCrisis) {
+        onOpenCrisis();
+      } else if (notif.systemId) {
         onFocusSystem(notif.systemId);
       } else {
         onOpenSituationLog();

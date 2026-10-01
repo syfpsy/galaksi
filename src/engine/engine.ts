@@ -110,6 +110,16 @@ import {
   getModifiedShipStats,
   calculateRefitCost,
 } from './shipDesign';
+import {
+  CRISIS_CONFIGS,
+  initializeGalacticCrisis,
+  tickGalacticCrisis,
+  purifyInfestedPlanet,
+  donateShipsToGDF,
+  dispatchGDFFleet,
+  resolveVoidAnchorAssault,
+  resolveVoidRiftAssault,
+} from './crisis';
 
 export class GameEngine {
   public state: GameState;
@@ -136,6 +146,7 @@ export class GameEngine {
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},
+      crisis: null,
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -412,6 +423,13 @@ export class GameEngine {
         fuelProd *= councilBonuses.resourceProductionMultiplier;
       }
 
+      // Void Incursion Infestation Penalty (-50% production due to dark void blight)
+      if (this.state.crisis?.infestedPlanetIds?.includes(planet.id)) {
+        oreProd *= 0.50;
+        crystalProd *= 0.50;
+        fuelProd *= 0.50;
+      }
+
       planet.resources.ore = Math.min(
         planet.storageCap,
         planet.resources.ore + oreProd * elapsedHours
@@ -487,6 +505,11 @@ export class GameEngine {
           this.logEvent('sector_event_expired', `Sektör Olayı Sona Erdi: ${evt.title}`);
         }
       }
+    }
+
+    // Process Galactic Crisis simulation tick (Phase 16)
+    if (this.state.crisis) {
+      tickGalacticCrisis(this.state, nowMs);
     }
   }
 
@@ -766,6 +789,25 @@ export class GameEngine {
             `🌀 ALT-UZAY AĞ GEÇİDİ AKTİF: ${sysName} sistemindeki Ağ Geçidi devreye girdi! Galaktik transit ağına bağlandı.`,
             gw.ownerId || undefined,
             { systemId }
+          );
+        }
+        break;
+      }
+
+      case 'crisis_tick': {
+        if (this.state.crisis) {
+          tickGalacticCrisis(this.state, this.state.timeMs);
+          this.scheduleEvent(CRISIS_CONFIGS.CRISIS_TICK_INTERVAL_MS, 'crisis_tick', {});
+        }
+        break;
+      }
+
+      case 'crisis_breached': {
+        if (this.state.crisis && this.state.crisis.stage === 'breaching') {
+          this.state.crisis.stage = 'active';
+          this.logEvent(
+            'crisis_breached',
+            '🚨 BOYUTLARARASI HİÇLİK YARIĞI AÇILDI! Hiçlik Çıpaları galaksiyi kilitledi!'
           );
         }
         break;
@@ -4556,6 +4598,80 @@ export class GameEngine {
           data: { planetId: cmd.planetId, shipType: cmd.shipType, count: cmd.count, cost: refitCost },
         };
       }
+
+      case 'DONATE_TO_GDF': {
+        const result = donateShipsToGDF(this.state, playerId, cmd.planetId, cmd.ships);
+        if (!result.success) {
+          return { success: false, commandType: cmd.type, error: result.error, timeMs: this.state.timeMs };
+        }
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
+
+      case 'DISPATCH_GDF_FLEET': {
+        const result = dispatchGDFFleet(this.state, playerId, cmd.targetSystemId, cmd.ships);
+        if (!result.success) {
+          return { success: false, commandType: cmd.type, error: result.error, timeMs: this.state.timeMs };
+        }
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { fleetId: result.fleetId } };
+      }
+
+      case 'PURIFY_INFESTED_PLANET': {
+        const result = purifyInfestedPlanet(this.state, playerId, cmd.planetId);
+        if (!result.success) {
+          return { success: false, commandType: cmd.type, error: result.error, timeMs: this.state.timeMs };
+        }
+        this.evaluateVictoryConditions();
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
+
+      case 'ASSAULT_VOID_ANCHOR': {
+        const result = resolveVoidAnchorAssault(this.state, playerId, cmd.anchorId, cmd.fleetId);
+        if (!result.success) {
+          return { success: false, commandType: cmd.type, error: result.error, timeMs: this.state.timeMs };
+        }
+        this.evaluateVictoryConditions();
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { victory: result.victory } };
+      }
+
+      case 'ASSAULT_VOID_RIFT': {
+        const result = resolveVoidRiftAssault(this.state, playerId, cmd.fleetId);
+        if (!result.success) {
+          return { success: false, commandType: cmd.type, error: result.error, timeMs: this.state.timeMs };
+        }
+        this.evaluateVictoryConditions();
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { victory: result.victory } };
+      }
+
+      case 'TRIGGER_CRISIS_TEST': {
+        if (!this.state.crisis) {
+          this.state.crisis = initializeGalacticCrisis(this.state, cmd.epicenterSystemId);
+          this.state.crisis.stage = 'active';
+          this.scheduleEvent(CRISIS_CONFIGS.CRISIS_TICK_INTERVAL_MS, 'crisis_tick', {});
+          this.logEvent(
+            'crisis_triggered',
+            '⚡ TEST KRİZİ TETİKLENDİ: Boyutlararası Hiçlik İstilası aktif aşamada başladı!'
+          );
+        } else if (this.state.crisis.stage === 'breaching') {
+          this.state.crisis.stage = 'active';
+        } else if (this.state.crisis.stage === 'active') {
+          for (const a of this.state.crisis.voidAnchors) {
+            a.destroyed = true;
+            a.hp = 0;
+            a.shield = 0;
+          }
+          this.state.crisis.stage = 'apex';
+          this.state.crisis.riftIntegrity = 0;
+          this.logEvent('crisis_apex', '⚡ TEST KRİZİ: Tüm çıpalar düşürüldü, Kadim Behemot belirdi!');
+        } else if (this.state.crisis.stage === 'apex') {
+          this.state.crisis.behemothHp = 0;
+          this.state.crisis.behemothShield = 0;
+          this.state.crisis.behemothDefeated = true;
+          this.state.crisis.slayerPlayerId = playerId;
+          this.state.crisis.stage = 'defeated';
+          this.logEvent('crisis_defeated', '🌟 TEST KRİZİ: Hiçlik İstilası püskürtüldü!');
+        }
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { stage: this.state.crisis.stage } };
+      }
     }
   }
 
@@ -4762,6 +4878,7 @@ export class GameEngine {
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},
+      crisis: null,
       sectorEvents: {},
       transmissions: {},
       truces: {},

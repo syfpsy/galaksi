@@ -353,11 +353,13 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
 
   if (!isOpen) return null;
 
-  const contextTitles: Record<'planet_raid' | 'fleet_interception' | 'relay_contest' | 'pirate_lair', string> = {
+  const contextTitles: Record<'planet_raid' | 'fleet_interception' | 'relay_contest' | 'pirate_lair' | 'void_anchor' | 'void_rift', string> = {
     planet_raid: 'GEZEGEN BASKINI',
     fleet_interception: 'FİLO ÖNLEME ÇATIŞMASI',
     relay_contest: 'NEXUS RÖLESİ HAKİMİYET SAVAŞI',
     pirate_lair: 'KORSAN SIĞINAĞI TAARRUZU',
+    void_anchor: 'HİÇLİK ÇIPASI TAARRUZU',
+    void_rift: 'HİÇLİK YARIĞI & BEHEMOT MUHAREBESİ',
   };
 
   // Fleet power ratings for simulation preview

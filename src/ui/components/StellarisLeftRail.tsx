@@ -7,6 +7,7 @@ import {
   Crown,
   Eye,
   EyeOff,
+  Flame,
   Globe,
   HelpCircle,
   Landmark,
@@ -46,7 +47,10 @@ interface StellarisLeftRailProps {
   onOpenSenate?: () => void;
   onOpenMegastructures?: () => void;
   onOpenCouncil?: () => void;
+  onOpenCrisis?: () => void;
   onOpenGallery: () => void;
+  isCrisisActive?: boolean;
+  crisisStage?: string;
   movingFleetsCount?: number;
   threatsCount?: number;
   unreadBattlesCount: number;
@@ -86,7 +90,10 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenSenate,
   onOpenMegastructures,
   onOpenCouncil,
+  onOpenCrisis,
   onOpenGallery,
+  isCrisisActive = false,
+  crisisStage,
   movingFleetsCount = 0,
   threatsCount = 0,
   unreadBattlesCount,
@@ -651,6 +658,54 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Bakanlık atamaları, lider yetenekleri, halk memnuniyeti ve iç siyasi istikrar dengesi.
             </p>
+          </div>
+        </div>
+
+        {/* Galactic Crisis & Void Incursions (Phase 16) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenCrisis) onOpenCrisis();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'crisis'
+                ? 'active'
+                : isCrisisActive
+                ? '!border-rose-500 !bg-rose-950/80 animate-pulse text-rose-300'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Flame
+              className={`w-5 h-5 transition-transform group-hover:scale-110 ${
+                isCrisisActive ? 'text-rose-400 animate-pulse' : 'text-rose-500'
+              }`}
+            />
+            {isCrisisActive && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center border border-rose-400 shadow-md animate-pulse">
+                !
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-400 group-hover:text-rose-300">
+              KRİZ
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-rose-400 tracking-wide">GALAKTİK KRİZ // HİÇLİK İSTİLASI</span>
+              <span className="text-[10px] font-mono text-rose-300 bg-rose-950/80 border border-rose-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 16
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Boyutlararası Hiçlik Yarığı, Hiçlik Çıpaları, Kadim Behemot ve Galaktik Savunma Filosu (GDF).
+            </p>
+            {isCrisisActive && (
+              <div className="mt-2 pt-1.5 border-t border-rose-900/60 text-[10px] font-mono text-rose-300 font-bold uppercase animate-pulse">
+                🚨 Kriz Aşaması: {crisisStage || 'AKTİF İSTİLA'}
+              </div>
+            )}
           </div>
         </div>
 

@@ -23,6 +23,7 @@ import {
   Gateway,
   ImperialCouncilState,
   ShipLoadoutMap,
+  GalacticCrisisState,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -84,6 +85,7 @@ export interface PlayerVisibleState {
   gateways?: Record<string, Gateway>;
   myCouncil?: ImperialCouncilState;
   myShipLoadouts?: ShipLoadoutMap;
+  myCrisis?: GalacticCrisisState | null;
 }
 
 /**
@@ -415,5 +417,6 @@ export function filterGameStateForPlayer(
     gateways: state.gateways,
     myCouncil: state.councils?.[playerId],
     myShipLoadouts: state.shipLoadouts?.[playerId] || DEFAULT_LOADOUTS,
+    myCrisis: state.crisis || null,
   };
 }

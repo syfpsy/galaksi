@@ -41,6 +41,13 @@ import {
   UTILITY_MODULES,
 } from '../src/engine/shipDesign';
 import { evaluateBotShipDesign } from '../src/bots/shipDesign';
+import {
+  CRISIS_CONFIGS,
+  calculateCrisisCombatModifier,
+  canAssaultVoidRift,
+  initializeGalacticCrisis,
+} from '../src/engine/crisis';
+import { evaluateBotCrisisResponse } from '../src/bots/crisis';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -2693,6 +2700,177 @@ describe('GameEngine Headless Rules (Phase A)', () => {
 
     // Explorer specializes in evasion thrusters for transports
     expect(engine.state.shipLoadouts![botExp.id].transport.defense).toBe('evasion_thrusters');
+  });
+
+  it('manages Endgame Galactic Crisis, Void Incursions, Void Anchors, planetary infestations, GDF pooling, and Custodianship (Phase 16)', () => {
+    const engine = new GameEngine(1600);
+    const { player: human, homeworld: humanHw } = engine.addPlayer('human', 'Galactic Core', '#38bdf8');
+    const { player: ally, homeworld: allyHw } = engine.addPlayer('ally', 'Allied Front', '#10b981');
+
+    // 1. Initial Crisis State: Null by default
+    expect(engine.state.crisis).toBeNull();
+    const view = engine.getPlayerView(human.id);
+    expect(view.myCrisis).toBeNull();
+
+    // 2. Trigger Galactic Crisis via Command
+    const trigRes = engine.dispatchCommand(human.id, {
+      type: 'TRIGGER_CRISIS_TEST',
+      epicenterSystemId: engine.state.map.relaySystemId,
+    });
+    expect(trigRes.success).toBe(true);
+    const crisis = engine.state.crisis!;
+    expect(crisis).toBeDefined();
+    expect(crisis.stage).toBe('active');
+    expect(crisis.voidAnchors.length).toBe(3);
+    expect(crisis.riftIntegrity).toBe(100);
+    expect(crisis.infestedPlanetIds.length).toBeGreaterThanOrEqual(1);
+
+    // Fog of war projection
+    const updatedView = engine.getPlayerView(human.id);
+    expect(updatedView.myCrisis).toBeDefined();
+    expect(updatedView.myCrisis?.stage).toBe('active');
+
+    // 3. Planetary Infestation & Void Blight
+    const infestedPlanetId = crisis.infestedPlanetIds[0];
+    const infestedPlanet = engine.state.planets[infestedPlanetId];
+    expect(infestedPlanet).toBeDefined();
+
+    // Give infested planet to human for testing purification
+    infestedPlanet.ownerId = human.id;
+    infestedPlanet.resources = { ore: 2000, crystal: 2000, fuel: 2000 };
+
+    // Hourly production penalty check (-50%)
+    const prevOre = infestedPlanet.resources.ore;
+    engine.tick(3600 * 1000); // 1 hour tick
+    expect(infestedPlanet.resources.ore).toBeGreaterThan(prevOre);
+
+    // Purify infested planet
+    const purifyRes = engine.dispatchCommand(human.id, {
+      type: 'PURIFY_INFESTED_PLANET',
+      planetId: infestedPlanetId,
+    });
+    expect(purifyRes.success).toBe(true);
+    expect(crisis.infestedPlanetIds.includes(infestedPlanetId)).toBe(false);
+
+    // 4. Galactic Defense Force (GDF) Pooling
+    humanHw.garrison.fighter = 10;
+    humanHw.garrison.battleship = 3;
+
+    const donateRes = engine.dispatchCommand(human.id, {
+      type: 'DONATE_TO_GDF',
+      planetId: humanHw.id,
+      ships: { scout: 0, transport: 0, fighter: 4, battleship: 1 },
+    });
+    expect(donateRes.success).toBe(true);
+    expect(humanHw.garrison.fighter).toBe(6);
+    expect(humanHw.garrison.battleship).toBe(2);
+    expect(crisis.gdfFleetUnits.fighter).toBe(4);
+    expect(crisis.gdfFleetUnits.battleship).toBe(1);
+    expect(crisis.gdfDonations[human.id]).toBeGreaterThan(0);
+
+    // 5. Custodian Command & GDF Dispatch
+    // Non-custodian dispatch should fail
+    const nonCustodianDispatch = engine.dispatchCommand(human.id, {
+      type: 'DISPATCH_GDF_FLEET',
+      targetSystemId: crisis.voidAnchors[0].systemId,
+      ships: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+    });
+    expect(nonCustodianDispatch.success).toBe(false);
+
+    // Appoint human as Galactic Custodian in Senate
+    engine.state.senate!.custodianPlayerId = human.id;
+    expect(calculateCrisisCombatModifier(human.id, engine.state)).toBe(1.20); // +20% bonus
+
+    // Now Custodian dispatch succeeds
+    const custodianDispatch = engine.dispatchCommand(human.id, {
+      type: 'DISPATCH_GDF_FLEET',
+      targetSystemId: crisis.voidAnchors[0].systemId,
+      ships: { scout: 0, transport: 0, fighter: 2, battleship: 0 },
+    });
+    expect(custodianDispatch.success).toBe(true);
+    expect(crisis.gdfFleetUnits.fighter).toBe(2);
+    const gdfFleetId = (custodianDispatch.data as { fleetId: string }).fleetId;
+    expect(engine.state.fleets[gdfFleetId]).toBeDefined();
+
+    // 6. Assault Void Anchor
+    const anchor1 = crisis.voidAnchors[0];
+    const fleetId = `human_strike_fleet`;
+    engine.state.fleets[fleetId] = {
+      id: fleetId,
+      name: 'Muhafız Öncü Filosu',
+      ownerId: human.id,
+      ships: { scout: 0, transport: 0, fighter: 30, battleship: 10 },
+      cargo: { ore: 0, crystal: 0, fuel: 0 },
+      originSystemId: anchor1.systemId,
+      targetSystemId: anchor1.systemId,
+      path: [anchor1.systemId],
+      pathIndex: 0,
+      mission: 'recon',
+      departureTime: 0,
+      arrivalTime: 0,
+      totalDistance: 0,
+      speed: 1,
+      fuelCost: 0,
+      recallLockedAfterTime: 0,
+      isReturning: false,
+      status: 'orbiting',
+    };
+
+    const anchorAssaultRes = engine.dispatchCommand(human.id, {
+      type: 'ASSAULT_VOID_ANCHOR',
+      anchorId: anchor1.id,
+      fleetId,
+    });
+    expect(anchorAssaultRes.success).toBe(true);
+    expect(anchor1.destroyed).toBe(true);
+    expect(crisis.riftIntegrity).toBe(67); // 2/3 remaining -> 67%
+
+    // Rift cannot be assaulted yet while anchors remain
+    expect(canAssaultVoidRift(crisis)).toBe(false);
+    const prematureRiftAssault = engine.dispatchCommand(human.id, {
+      type: 'ASSAULT_VOID_RIFT',
+      fleetId,
+    });
+    expect(prematureRiftAssault.success).toBe(false);
+
+    // Destroy remaining anchors
+    crisis.voidAnchors[1].destroyed = true;
+    crisis.voidAnchors[2].destroyed = true;
+    // Trigger simulation tick to advance to apex
+    engine.tick(CRISIS_CONFIGS.CRISIS_TICK_INTERVAL_MS);
+    expect(crisis.stage).toBe('apex');
+    expect(crisis.riftIntegrity).toBe(0);
+    expect(canAssaultVoidRift(crisis)).toBe(true);
+
+    // 7. Final Showdown: Assault Void Rift & Defeat Behemoth Boss
+    engine.state.fleets[fleetId].originSystemId = crisis.epicenterSystemId;
+    engine.state.fleets[fleetId].targetSystemId = crisis.epicenterSystemId;
+    engine.state.fleets[fleetId].ships = { scout: 0, transport: 0, fighter: 60, battleship: 25 };
+
+    const riftAssaultRes = engine.dispatchCommand(human.id, {
+      type: 'ASSAULT_VOID_RIFT',
+      fleetId,
+    });
+    expect(riftAssaultRes.success).toBe(true);
+    expect(crisis.behemothDefeated).toBe(true);
+    expect(crisis.stage).toBe('defeated');
+    expect(crisis.slayerPlayerId).toBe(human.id);
+
+    // Hegemony Points check (+250 to slayer)
+    expect(engine.state.relay.weeklyPoints[human.id]).toBeGreaterThanOrEqual(250);
+
+    // 8. Bot Crisis Response Evaluation
+    const { player: botGuard, homeworld: botGuardHw } = engine.addPlayer('bot_guard_test', 'Guard Bot', '#ef4444', true, 'guardian');
+    botGuardHw.garrison.fighter = 6;
+    botGuardHw.resources = { ore: 2000, crystal: 2000, fuel: 2000 };
+
+    // Re-trigger crisis in active stage for bot test
+    engine.state.crisis = initializeGalacticCrisis(engine.state);
+    engine.state.crisis.stage = 'active';
+    const executedCmds: any[] = [];
+    evaluateBotCrisisResponse(engine, botGuard.id, 'guardian', executedCmds);
+    expect(executedCmds.length).toBeGreaterThanOrEqual(1);
+    expect(executedCmds[0].type).toBe('DONATE_TO_GDF');
   });
 });
 

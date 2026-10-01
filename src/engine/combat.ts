@@ -96,7 +96,7 @@ export function resolveCombat(
   defender: CombatFleetInput,
   systemId: string,
   systemName: string,
-  context: 'planet_raid' | 'fleet_interception' | 'relay_contest' | 'pirate_lair',
+  context: 'planet_raid' | 'fleet_interception' | 'relay_contest' | 'pirate_lair' | 'void_anchor' | 'void_rift',
   availablePlanetResources?: Resources,
   protectedCapacity: number = 1000,
   timestamp: number = Date.now(),
@@ -182,7 +182,7 @@ export function resolveCombat(
     // Admiral bonuses
     const attAdmiralMult = attacker.admiral ? 1 + (attacker.admiral.level - 1) * 0.05 : 1.0;
     const attTraitMult = attacker.admiral
-      ? attacker.admiral.traitId === 'siege_breaker' && (context === 'planet_raid' || context === 'relay_contest' || context === 'pirate_lair')
+      ? attacker.admiral.traitId === 'siege_breaker' && (context === 'planet_raid' || context === 'relay_contest' || context === 'pirate_lair' || context === 'void_anchor' || context === 'void_rift')
         ? 1.30
         : ADMIRAL_TRAITS[attacker.admiral.traitId].attackMultiplier
       : 1.0;
