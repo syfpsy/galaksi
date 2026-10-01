@@ -7077,6 +7077,99 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(colony.resources.ore).toBeLessThan(2000); // Transfer resumed!
     expect(hw.resources.ore).toBeGreaterThan(hwOreBeforeBlockade);
   });
+
+  it('Phase 41: AI Synergies, Auto-Supply & Breakthrough Codex Adaptation', () => {
+    const engine = new GameEngine(123890);
+    const { player: pInd, homeworld: hwInd } = engine.addPlayer('bot_ind', 'Nexus Industrialist', '#00f0ff', 'industrialist', true);
+    const { player: pExp, homeworld: hwExp } = engine.addPlayer('bot_exp', 'Starlight Explorer', '#10b981', 'explorer', true);
+    const { player: pRaid, homeworld: hwRaid } = engine.addPlayer('bot_raid', 'Void Corsairs', '#ef4444', 'raider', true);
+
+    const indBot = new IndustrialistBot('bot_ind');
+    const expBot = new ExplorerBot('bot_exp');
+    const raidBot = new RaiderBot('bot_raid');
+
+    // 1. Verify bots have initial rolled breakthroughs
+    expect(pInd.availableBreakthroughs?.length).toBe(3);
+    expect(pInd.unlockedBreakthroughs?.length).toBe(0);
+
+    // 2. Run bot update: bots autonomously choose archetype-aligned breakthrough!
+    indBot.update(engine);
+    expect(pInd.unlockedBreakthroughs?.length).toBe(1);
+    expect(pInd.availableBreakthroughs?.length).toBe(0);
+
+    expBot.update(engine);
+    expect(pExp.unlockedBreakthroughs?.length).toBe(1);
+    expect(pExp.availableBreakthroughs?.length).toBe(0);
+
+    // 3. Establish a colony for industrialist bot
+    const candidateSys = Object.values(engine.state.map.systems).find(
+      (s) => s.id !== hwInd.systemId && !s.hasRelay && s.slots.some((sl) => sl.ownerId === null)
+    )!;
+    const slot = candidateSys.slots.find((sl) => sl.ownerId === null)!;
+    const colId = `planet_ind_col_${candidateSys.id}`;
+    slot.ownerId = 'bot_ind';
+    slot.planetId = colId;
+    engine.state.planets[colId] = {
+      ...hwInd,
+      id: colId,
+      name: `${candidateSys.name} Kolonisi`,
+      systemId: candidateSys.id,
+      slotIndex: slot.slotIndex,
+      ownerId: 'bot_ind',
+      isHomeworld: false,
+      resources: { ore: 1000, crystal: 500, fuel: 500 },
+      storageCap: 5000,
+      autoSupplyEnabled: false,
+      specialization: undefined,
+    };
+
+    // Run indBot update: should automatically enable autoSupply and set specialization!
+    indBot.update(engine);
+    const updatedCol = engine.state.planets[colId];
+    expect(updatedCol.autoSupplyEnabled).toBe(true);
+    expect(updatedCol.specialization).toBeDefined();
+
+    // 4. Test Autonomous Rapid Interception by bot:
+    // Give raidBot combat ships and fuel
+    hwRaid.garrison.fighter = 8;
+    hwRaid.garrison.battleship = 2;
+    hwRaid.resources.fuel = 1000;
+
+    // Dispatch hostile fleet targeting raidBot's homeworld from an outsider
+    const threatFleetId = 'fleet_threat_to_raidbot';
+    engine.state.fleets[threatFleetId] = {
+      id: threatFleetId,
+      name: 'Yabancı İstilacı',
+      ownerId: 'bot_exp',
+      ships: { scout: 2, transport: 0, fighter: 0, battleship: 0 },
+      cargo: { ore: 0, crystal: 0, fuel: 0 },
+      originSystemId: hwExp.systemId,
+      targetSystemId: hwRaid.systemId,
+      path: [hwExp.systemId, hwRaid.systemId],
+      pathIndex: 0,
+      totalDistance: 100,
+      speed: 200,
+      fuelCost: 10,
+      recallLockedAfterTime: 0,
+      departureTime: engine.state.timeMs,
+      arrivalTime: engine.state.timeMs + 60000,
+      status: 'in_transit',
+      isReturning: false,
+      mission: 'attack',
+    };
+
+    // Run raidBot update: should autonomously detect incoming threat and launch RAPID_INTERCEPT!
+    const raidInitialInterceptions = pRaid.rapidInterceptionsCount || 0;
+    raidBot.update(engine);
+    expect(pRaid.rapidInterceptionsCount).toBe(raidInitialInterceptions + 1);
+
+    const interceptFleet = Object.values(engine.state.fleets).find(
+      (f) => f.ownerId === 'bot_raid' && f.targetFleetId === threatFleetId
+    );
+    expect(interceptFleet).toBeDefined();
+    expect(interceptFleet!.mission).toBe('intercept');
+    expect(interceptFleet!.doctrine).toBe('spearhead');
+  });
 });
 
 

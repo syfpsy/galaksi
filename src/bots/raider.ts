@@ -24,6 +24,7 @@ import { evaluateBotShadowOps } from './shadowOps';
 import { evaluateBotGroundWarfare } from './groundWarfare';
 import { evaluateBotEnclaves } from './enclaves';
 import { evaluateBotDistricts } from './districts';
+import { evaluateBotWedgeSynergies } from './wedgeAI';
 import { IBotAgent } from './types';
 
 export class RaiderBot implements IBotAgent {
@@ -207,6 +208,9 @@ export class RaiderBot implements IBotAgent {
 
     // 27. Planetary Districts & Pops (Phase 32)
     evaluateBotDistricts(engine, this.playerId, this.archetype, executedCommands);
+
+    // 28. Slipways Wedge Synergies, Breakthroughs & Auto-Supply (Phases 38-41)
+    evaluateBotWedgeSynergies(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }
