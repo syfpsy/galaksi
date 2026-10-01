@@ -3,6 +3,7 @@ import * as THREE from 'three';
 import { calculatePlanetOrbit } from '../../engine/orbital';
 import { getFleetCurrentPosition } from '../../engine/flight';
 import { Fleet, GameState, SectorEventType, StarSystem } from '../../engine/types';
+import { getCivilianSupplyConduits } from '../../engine/supplyChain';
 import { SelectedTarget } from '../types';
 import {
   getAtmosphereTexture,
@@ -613,6 +614,37 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         speed: 0.15 + (lIdx % 4) * 0.03,
         sprite: pulseSprite,
       });
+    });
+
+    // 2.42 Living Trade Lanes & Civilian Freighters (Phase 40)
+    const civilianFreighterGroup = new THREE.Group();
+    galaxyMacroGroup.add(civilianFreighterGroup);
+
+    interface CivilianFreighterDrone {
+      sprite: THREE.Sprite;
+      conduitKey: string;
+      from: THREE.Vector3;
+      to: THREE.Vector3;
+      progress: number;
+      speed: number;
+      isBlockaded: boolean;
+    }
+    const civilianDrones: CivilianFreighterDrone[] = [];
+
+    const amberFreighterMat = new THREE.SpriteMaterial({
+      map: getShipEngineGlowTexture('#fbbf24'),
+      transparent: true,
+      opacity: 0.9,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
+    const redAlertFreighterMat = new THREE.SpriteMaterial({
+      map: getShipEngineGlowTexture('#ef4444'),
+      transparent: true,
+      opacity: 0.95,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
     });
 
     // 2.45 Battle FX Shockwaves
@@ -1905,6 +1937,78 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         );
         const autoSupplySystemIds = new Set(autoSupplyColonies.map((c) => c.systemId));
 
+        // Living Civilian Freighters Update (Phase 40)
+        const conduits = getCivilianSupplyConduits(stateRef.current, activePlayerIdRef.current);
+        const activeConduitKeys = new Set(conduits.map((c) => `${c.colonySystemId}_${c.homeworldSystemId}`));
+        const blockadedConduitSystemIds = new Set<string>();
+        conduits.forEach((c) => {
+          if (c.isBlockaded) {
+            c.path.forEach((sysId) => blockadedConduitSystemIds.add(sysId));
+          }
+        });
+
+        // 1. Prune stale drones
+        for (let i = civilianDrones.length - 1; i >= 0; i--) {
+          const drone = civilianDrones[i];
+          if (!activeConduitKeys.has(drone.conduitKey)) {
+            civilianFreighterGroup.remove(drone.sprite);
+            civilianDrones.splice(i, 1);
+          }
+        }
+
+        // 2. Spawn missing drones (2 per active conduit)
+        conduits.forEach((cond) => {
+          const key = `${cond.colonySystemId}_${cond.homeworldSystemId}`;
+          const existing = civilianDrones.filter((d) => d.conduitKey === key);
+          const fromPos = systemPositions.get(cond.colonySystemId);
+          const toPos = systemPositions.get(cond.homeworldSystemId);
+          if (!fromPos || !toPos) return;
+
+          while (existing.length < 2) {
+            const sprite = new THREE.Sprite(cond.isBlockaded ? redAlertFreighterMat : amberFreighterMat);
+            sprite.scale.set(6, 6, 1);
+            sprite.position.copy(fromPos);
+            sprite.raycast = () => {};
+            civilianFreighterGroup.add(sprite);
+
+            const newDrone: CivilianFreighterDrone = {
+              sprite,
+              conduitKey: key,
+              from: fromPos,
+              to: toPos,
+              progress: existing.length === 0 ? 0.15 : 0.65,
+              speed: 0.12 + Math.random() * 0.04,
+              isBlockaded: cond.isBlockaded,
+            };
+            civilianDrones.push(newDrone);
+            existing.push(newDrone);
+          }
+
+          existing.forEach((d) => {
+            d.isBlockaded = cond.isBlockaded;
+            d.sprite.material = cond.isBlockaded ? redAlertFreighterMat : amberFreighterMat;
+          });
+        });
+
+        // 3. Animate civilian drones
+        civilianDrones.forEach((drone) => {
+          if (drone.isBlockaded) {
+            // Panic jitter / hold pattern when blockaded
+            drone.sprite.position.lerpVectors(drone.from, drone.to, drone.progress);
+            drone.sprite.position.x += (Math.random() - 0.5) * 1.5;
+            drone.sprite.position.y += (Math.random() - 0.5) * 1.5;
+            drone.sprite.position.z = 2.5;
+            const pulse = (Math.sin(currentTimeMs * 0.015) + 1) * 0.5;
+            drone.sprite.scale.set(6 + pulse * 3, 6 + pulse * 3, 1);
+          } else {
+            drone.progress += delta * drone.speed * (isSurgeActive ? 2.0 : 1.0);
+            if (drone.progress > 1) drone.progress = 0;
+            drone.sprite.position.lerpVectors(drone.from, drone.to, drone.progress);
+            drone.sprite.position.z = 2.5;
+            drone.sprite.scale.set(5.5, 5.5, 1);
+          }
+        });
+
         laneVisuals.forEach((lv) => {
           const k = `${lv.fromSystemId}_${lv.toSystemId}`;
           const isColonySynergyLane =
@@ -1935,6 +2039,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             // Golden Surge Hyper-Speed Stream (Radiant Amber Gold)
             const p = (Math.sin(currentTimeMs * 0.012) + 1) * 0.5;
             lv.mat.color.setHex(0xfbbf24);
+            lv.mat.opacity = 0.85 + p * 0.15;
+          } else if (isAutoSupplyLane && (blockadedConduitSystemIds.has(lv.fromSystemId) || blockadedConduitSystemIds.has(lv.toSystemId))) {
+            // Blockaded Supply Conduit under siege (Flashing Warning Crimson)
+            const p = (Math.sin(currentTimeMs * 0.016) + 1) * 0.5;
+            lv.mat.color.setHex(0xef4444);
             lv.mat.opacity = 0.85 + p * 0.15;
           } else if (isAutoSupplyLane) {
             // Slipways Automated High-Capacity Logistics Conduit (Pulsing Emerald Flow)

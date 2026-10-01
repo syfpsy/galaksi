@@ -261,7 +261,7 @@ import { DISTRICT_STATS } from '../src/engine/constants';
 import { evaluateBotDistricts } from '../src/bots/districts';
 import { evaluatePlayerOpportunities } from '../src/engine/opportunities';
 import { evaluatePlayerDirectives } from '../src/engine/directives';
-import { evaluateColonyRole, findPlayerSupplyChains, updateSupplyChains } from '../src/engine/supplyChain';
+import { evaluateColonyRole, findPlayerSupplyChains, updateSupplyChains, getCivilianSupplyConduits, updateAutomatedSupplyConduits } from '../src/engine/supplyChain';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -6982,6 +6982,100 @@ describe('GameEngine Headless Rules (Phase A)', () => {
 
     // Interceptor wins combat and receives +25 combat momentum reward!
     expect(p1.momentum).toBeGreaterThanOrEqual(initialMomentum + 25);
+  });
+
+  it('Phase 40: Living Trade Lanes & Blockade Dynamics', () => {
+    const engine = new GameEngine(998877);
+    const { player: p1, homeworld: hw } = engine.addPlayer('p_conduit', 'Logistics Empire', '#00f0ff', undefined, false);
+    const { player: p2, homeworld: hw2 } = engine.addPlayer('p_blockader', 'Corsair Fleet', '#ef4444', undefined, false);
+
+    // 1. Establish an automated colony for p1
+    const targetSys = Object.values(engine.state.map.systems).find(
+      (s) => s.id !== hw.systemId && !s.hasRelay && s.slots.some((sl) => sl.ownerId === null)
+    )!;
+    const slot = targetSys.slots.find((sl) => sl.ownerId === null)!;
+    const colonyId = `planet_col_${targetSys.id}`;
+    const colony = {
+      ...hw,
+      id: colonyId,
+      name: `${targetSys.name} Kolonisi`,
+      systemId: targetSys.id,
+      slotIndex: slot.slotIndex,
+      ownerId: 'p_conduit',
+      isHomeworld: false,
+      resources: { ore: 2000, crystal: 1500, fuel: 800 },
+      storageCap: 5000,
+      autoSupplyEnabled: true,
+      lastAutoSupplyTimeMs: 0,
+      isConduitBlockaded: false,
+    };
+    slot.ownerId = 'p_conduit';
+    slot.planetId = colonyId;
+    engine.state.planets[colonyId] = colony;
+
+    // 2. Query civilian supply conduits: should be active and unblockaded
+    let conduits = getCivilianSupplyConduits(engine.state, 'p_conduit');
+    expect(conduits.length).toBe(1);
+    expect(conduits[0].colonyPlanetId).toBe(colonyId);
+    expect(conduits[0].isBlockaded).toBe(false);
+    expect(conduits[0].path.length).toBeGreaterThanOrEqual(2);
+
+    // Initial supply run: succeeds and transfers surplus to homeworld
+    const initialHwOre = hw.resources.ore;
+    updateAutomatedSupplyConduits(engine.state, 30000);
+    expect(colony.isConduitBlockaded).toBe(false);
+    expect(hw.resources.ore).toBeGreaterThan(initialHwOre);
+
+    // 3. Spawn/Dispatch hostile combat fleet to blockade the conduit system
+    const hostileFleetId = 'fleet_hostile_siege';
+    engine.state.fleets[hostileFleetId] = {
+      id: hostileFleetId,
+      name: 'Korsan Abluka Filosu',
+      ownerId: 'p_blockader',
+      ships: { scout: 0, transport: 0, fighter: 5, battleship: 2 },
+      cargo: { ore: 0, crystal: 0, fuel: 0 },
+      originSystemId: hw2.systemId,
+      targetSystemId: targetSys.id,
+      path: [hw2.systemId, targetSys.id],
+      pathIndex: 1,
+      totalDistance: 100,
+      speed: 200,
+      fuelCost: 10,
+      recallLockedAfterTime: 0,
+      departureTime: 30000,
+      arrivalTime: 90000,
+      status: 'in_transit',
+      isReturning: false,
+      mission: 'attack',
+    };
+
+    // 4. Conduits now detect the active blockade!
+    conduits = getCivilianSupplyConduits(engine.state, 'p_conduit');
+    expect(conduits[0].isBlockaded).toBe(true);
+    expect(conduits[0].blockadedSystemId).toBe(targetSys.id);
+
+    // When updateAutomatedSupplyConduits runs during blockade:
+    // Colony resources are locked/protected, transfer is suspended!
+    colony.lastAutoSupplyTimeMs = 30000;
+    colony.resources.ore = 2000;
+    const hwOreBeforeBlockade = hw.resources.ore;
+
+    updateAutomatedSupplyConduits(engine.state, 60000); // 30s later
+    expect(colony.isConduitBlockaded).toBe(true);
+    expect(colony.resources.ore).toBe(2000); // Unchanged: transfer blocked
+    expect(hw.resources.ore).toBe(hwOreBeforeBlockade);
+
+    // 5. Eliminate the hostile threat (e.g. intercepted and destroyed)
+    delete engine.state.fleets[hostileFleetId];
+
+    // 6. Blockade lifts: traffic clears and automated conduit resumes
+    conduits = getCivilianSupplyConduits(engine.state, 'p_conduit');
+    expect(conduits[0].isBlockaded).toBe(false);
+
+    updateAutomatedSupplyConduits(engine.state, 90000);
+    expect(colony.isConduitBlockaded).toBe(false);
+    expect(colony.resources.ore).toBeLessThan(2000); // Transfer resumed!
+    expect(hw.resources.ore).toBeGreaterThan(hwOreBeforeBlockade);
   });
 });
 

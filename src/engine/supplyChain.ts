@@ -1,5 +1,6 @@
-import { GameState, Planet, Player, SupplyChainSynergy, ColonyRole } from './types';
+import { GameState, Planet, Player, SupplyChainSynergy, ColonyRole, CivilianConduitInfo } from './types';
 import { getBreakthroughAutoSupplyCapacityMultiplier } from './breakthroughs';
+import { findShortestRoute } from './flight';
 
 /**
  * Determines the primary economic/strategic role of a planet in the supply network.
@@ -164,10 +165,96 @@ export function updateSupplyChains(state: GameState, deltaSec: number): void {
 }
 
 /**
+ * Checks if a hyperlane path is blockaded by hostile combat fleets.
+ */
+export function checkPathBlockade(
+  state: GameState,
+  path: string[],
+  ownerId: string
+): { isBlockaded: boolean; blockadedSystemId?: string } {
+  const player = state.players[ownerId];
+  const hostileFleets = Object.values(state.fleets).filter((f) => {
+    if (f.ownerId === ownerId) return false;
+    // Check alliance
+    if (player?.allianceId) {
+      const otherPlayer = state.players[f.ownerId];
+      if (otherPlayer?.allianceId === player.allianceId) return false;
+    }
+    // Only combat missions blockade civilian corridors
+    if (f.mission !== 'attack' && f.mission !== 'intercept') return false;
+    return true;
+  });
+
+  for (const sysId of path) {
+    const isThreatPresent = hostileFleets.some((f) => {
+      if (f.status === 'in_transit') {
+        return f.targetSystemId === sysId;
+      }
+      return f.targetSystemId === sysId;
+    });
+
+    if (isThreatPresent) {
+      return { isBlockaded: true, blockadedSystemId: sysId };
+    }
+  }
+
+  return { isBlockaded: false };
+}
+
+/**
+ * Returns all active civilian supply conduits with real-time blockade and traffic status.
+ */
+export function getCivilianSupplyConduits(state: GameState, playerId?: string): CivilianConduitInfo[] {
+  const conduits: CivilianConduitInfo[] = [];
+  const targetPlayers = playerId
+    ? (state.players[playerId] ? [state.players[playerId]] : [])
+    : Object.values(state.players);
+
+  for (const player of targetPlayers) {
+    const myPlanets = Object.values(state.planets).filter((p) => p.ownerId === player.id);
+    const hw = myPlanets.find((p) => p.isHomeworld);
+    if (!hw) continue;
+
+    for (const colony of myPlanets) {
+      if (colony.isHomeworld || !colony.autoSupplyEnabled) continue;
+
+      const route = findShortestRoute(colony.systemId, hw.systemId, state.map.lanes);
+      const path = route?.path || [colony.systemId, hw.systemId];
+
+      const blockade = checkPathBlockade(state, path, player.id);
+
+      const isTriResonance = player.activeSynergyTier === 2;
+      const breakthroughMult = getBreakthroughAutoSupplyCapacityMultiplier(player);
+      const baseTransfer = isTriResonance ? 900 : 600;
+      const cargoTransferRate = baseTransfer * breakthroughMult;
+
+      conduits.push({
+        colonyPlanetId: colony.id,
+        colonyPlanetName: colony.name,
+        colonySystemId: colony.systemId,
+        homeworldPlanetId: hw.id,
+        homeworldPlanetName: hw.name,
+        homeworldSystemId: hw.systemId,
+        ownerId: player.id,
+        ownerColor: player.color,
+        isBlockaded: blockade.isBlockaded,
+        blockadedSystemId: blockade.blockadedSystemId,
+        path,
+        cargoTransferRate,
+        lastAutoSupplyTimeMs: colony.lastAutoSupplyTimeMs,
+      });
+    }
+  }
+
+  return conduits;
+}
+
+/**
  * Automatically transfers surplus resources from colonies with autoSupplyEnabled to homeworld.
  * Occurs periodically (every 20 seconds).
  * Preserves a safety reserve buffer on each colony (250 ore, 150 crystal, 100 fuel).
  * Consumes 5 fuel per delivery (free / 0 fuel if Tri-Sector Resonance is active).
+ * Detects blockade by hostile fleets and suspends transport during siege.
  * Boosts player momentum by +2 per successful batch delivery.
  */
 export function updateAutomatedSupplyConduits(state: GameState, nowMs: number): void {
@@ -182,6 +269,20 @@ export function updateAutomatedSupplyConduits(state: GameState, nowMs: number): 
 
     for (const colony of myPlanets) {
       if (colony.isHomeworld || !colony.autoSupplyEnabled) continue;
+
+      const route = findShortestRoute(colony.systemId, hw.systemId, state.map.lanes);
+      const path = route?.path || [colony.systemId, hw.systemId];
+
+      // Blockade detection: check if hostile fleet is operating along conduit path
+      const blockade = checkPathBlockade(state, path, player.id);
+      if (blockade.isBlockaded) {
+        colony.isConduitBlockaded = true;
+        colony.blockadedSinceMs = colony.blockadedSinceMs || nowMs;
+        continue; // Civilian freight halted under siege
+      } else {
+        colony.isConduitBlockaded = false;
+        delete colony.blockadedSinceMs;
+      }
 
       if ((colony.lastAutoSupplyTimeMs || 0) + SUPPLY_INTERVAL_MS > nowMs) {
         continue;

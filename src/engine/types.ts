@@ -443,6 +443,25 @@ export interface Planet {
   // Phase 37: Automated Slipways Supply Conduits (Auto-Convoys)
   autoSupplyEnabled?: boolean;
   lastAutoSupplyTimeMs?: number;
+  // Phase 40: Living Trade Lanes & Blockade Dynamics
+  isConduitBlockaded?: boolean;
+  blockadedSinceMs?: number;
+}
+
+export interface CivilianConduitInfo {
+  colonyPlanetId: string;
+  colonyPlanetName: string;
+  colonySystemId: string;
+  homeworldPlanetId: string;
+  homeworldPlanetName: string;
+  homeworldSystemId: string;
+  ownerId: string;
+  ownerColor: string;
+  isBlockaded: boolean;
+  blockadedSystemId?: string;
+  path: string[];
+  cargoTransferRate: number;
+  lastAutoSupplyTimeMs?: number;
 }
 
 export type StarbaseTier = 'outpost' | 'starbase' | 'citadel';
