@@ -215,6 +215,21 @@ import {
   getHyperRelaySystemBonuses,
 } from '../src/engine/hyperRelays';
 import { evaluateBotHyperRelays } from '../src/bots/hyperRelays';
+import {
+  getOrCreateDirectorate,
+  canUpgradeDirectorate,
+  upgradeDirectorate,
+  canRecruitAgent,
+  recruitAgent,
+  assignAgent,
+  dismissAgent,
+  canLaunchShadowOp,
+  launchShadowOp,
+  DIRECTORATE_TIER_CONFIGS,
+  SHADOW_OP_CONFIGS,
+  SECRET_AGENT_TRAIT_CONFIGS,
+} from '../src/engine/shadowOps';
+import { evaluateBotShadowOps } from '../src/bots/shadowOps';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -5750,6 +5765,169 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(policyBotCmd).toBeDefined();
     expect(policyBotCmd.policy).toBe('commercial_freight');
     expect(engine.state.hyperRelays![botHw.systemId].policy).toBe('commercial_freight');
+  });
+
+  it('Test 59: Galactic Intelligence Directorate, False Flag Operations & Shadow Coups (Phase 29)', () => {
+    const engine = new GameEngine(777);
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p1', 'Shadow Hegemony', '#a855f7');
+    const { player: p2, homeworld: hw2 } = engine.addPlayer('p2', 'Victim Republic', '#38bdf8');
+
+    // 1. Initial State Verification
+    expect(engine.state.intelligenceDirectorates).toBeDefined();
+    const dir1 = getOrCreateDirectorate(engine.state, 'p1');
+    expect(dir1.tier).toBe(1);
+    expect(dir1.cryptoDecryption).toBe(15);
+    expect(dir1.counterIntelScore).toBe(10);
+    expect(dir1.maxAgents).toBe(2);
+
+    // 2. Directorate Upgrade (UPGRADE_INTELLIGENCE_DIRECTORATE)
+    hw1.resources = { ore: 2000, crystal: 1500, fuel: 1000 };
+    const upgRes = engine.dispatchCommand('p1', {
+      type: 'UPGRADE_INTELLIGENCE_DIRECTORATE',
+      fundingPlanetId: hw1.id,
+    });
+    expect(upgRes.success).toBe(true);
+    expect(dir1.isUpgrading).toBe(true);
+
+    // Advance time to complete Tier 2 (Subspace SIGINT)
+    engine.tick(35_000);
+    expect(dir1.isUpgrading).toBe(false);
+    expect(dir1.tier).toBe(2);
+    expect(dir1.maxAgents).toBe(3);
+    expect(dir1.cryptoDecryption).toBe(30);
+
+    // 3. Secret Agent Recruitment & Traits (RECRUIT_SECRET_AGENT)
+    const recruitRes = engine.dispatchCommand('p1', {
+      type: 'RECRUIT_SECRET_AGENT',
+      fundingPlanetId: hw1.id,
+      name: 'Agent Zero',
+      trait: 'ghost',
+    });
+    expect(recruitRes.success).toBe(true);
+
+    const myAgents = Object.values(engine.state.secretAgents || {}).filter((a) => a.ownerId === 'p1');
+    expect(myAgents.length).toBe(1);
+    const agent0 = myAgents[0];
+    expect(agent0.name).toBe('Agent Zero');
+    expect(agent0.trait).toBe('ghost');
+    expect(agent0.status).toBe('idle');
+
+    // Recruit second agent: Saboteur
+    const recruitRes2 = engine.dispatchCommand('p1', {
+      type: 'RECRUIT_SECRET_AGENT',
+      fundingPlanetId: hw1.id,
+      name: 'Agent Vesper',
+      trait: 'saboteur',
+    });
+    expect(recruitRes2.success).toBe(true);
+
+    // 4. Infiltration & Spy Network Assignment (ASSIGN_SECRET_AGENT)
+    const assignRes = engine.dispatchCommand('p1', {
+      type: 'ASSIGN_SECRET_AGENT',
+      agentId: agent0.id,
+      targetFactionId: 'p2',
+    });
+    expect(assignRes.success).toBe(true);
+    expect(agent0.status).toBe('infiltrating');
+
+    const networkKey = `p1_p2`;
+    expect(engine.state.spyNetworks?.[networkKey]).toBeDefined();
+    expect(engine.state.spyNetworks![networkKey].infiltrationLevel).toBeGreaterThanOrEqual(10);
+
+    // 5. False Flag Fleet Raids (DISPATCH_FALSE_FLAG_FLEET)
+    // Create a fleet for p1 in orbit
+    const fleetId = `fleet_p1_strike`;
+    engine.state.fleets[fleetId] = {
+      id: fleetId,
+      name: '7th Covert Strike Wing',
+      ownerId: 'p1',
+      status: 'orbiting',
+      originSystemId: hw1.systemId,
+      targetSystemId: hw1.systemId,
+      departureTime: 0,
+      arrivalTime: 0,
+      isReturning: false,
+      ships: { scout: 0, transport: 0, fighter: 10, battleship: 2 },
+    };
+
+    const disguiseRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FALSE_FLAG_FLEET',
+      fleetId,
+      disguisedAsFactionId: 'pirates',
+    });
+    expect(disguiseRes.success).toBe(true);
+
+    const disguisedFleet = engine.state.fleets[fleetId];
+    expect(disguisedFleet.falseFlag).toBeDefined();
+    expect(disguisedFleet.falseFlag!.isDisguised).toBe(true);
+    expect(disguisedFleet.falseFlag!.disguisedAsFactionId).toBe('pirates');
+    expect(disguisedFleet.falseFlag!.isCompromised).toBe(false);
+
+    // 6. Launch Shadow Operation (LAUNCH_SHADOW_OPERATION)
+    // Setup target starbase in p2 system
+    if (!engine.state.starbases) engine.state.starbases = {};
+    const sb2Id = `sb_${hw2.systemId}`;
+    engine.state.starbases[sb2Id] = {
+      id: sb2Id,
+      systemId: hw2.systemId,
+      ownerId: 'p2',
+      tier: 'citadel',
+      modules: ['defense_platform'],
+      hull: 5000,
+      maxHull: 5000,
+      shield: 2000,
+      maxShield: 2000,
+      upgradeQueue: undefined,
+    };
+
+    // Ensure infiltration points for sabotage
+    engine.state.spyNetworks![networkKey].infiltrationLevel = 60;
+
+    const opRes = engine.dispatchCommand('p1', {
+      type: 'LAUNCH_SHADOW_OPERATION',
+      targetFactionId: 'p2',
+      opType: 'sabotage_starbase_grid',
+      assignedAgentId: myAgents.find((a) => a.id !== agent0.id)?.id,
+      targetStarbaseId: sb2Id,
+      fundingPlanetId: hw1.id,
+    });
+    expect(opRes.success).toBe(true);
+
+    const activeOps = Object.values(engine.state.shadowOperations || {}).filter((o) => o.ownerId === 'p1');
+    expect(activeOps.length).toBe(1);
+    expect(activeOps[0].opType).toBe('sabotage_starbase_grid');
+    expect(activeOps[0].status).toBe('in_progress');
+
+    // Tick operation duration to resolve
+    engine.tick(SHADOW_OP_CONFIGS.sabotage_starbase_grid.durationMs + 1000);
+    const resolvedOp = activeOps[0];
+    expect(resolvedOp.status).not.toBe('in_progress');
+    if (resolvedOp.status === 'succeeded') {
+      expect(engine.state.starbases[sb2Id].hull).toBeLessThan(5000);
+      expect(engine.state.starbases[sb2Id].shield).toBe(0);
+    }
+
+    // 7. Agent Dismissal (DISMISS_SECRET_AGENT)
+    const prevOre = hw1.resources.ore;
+    const dismissRes = engine.dispatchCommand('p1', {
+      type: 'DISMISS_SECRET_AGENT',
+      agentId: agent0.id,
+    });
+    expect(dismissRes.success).toBe(true);
+    expect(engine.state.secretAgents?.[agent0.id]).toBeUndefined();
+    expect(hw1.resources.ore).toBeGreaterThan(prevOre); // partial refund
+
+    // 8. Autonomous Bot AI (evaluateBotShadowOps)
+    const botRaider = engine.addPlayer('bot_raider', 'Shadow Corsairs', '#f43f5e', true, 'raider').player;
+    const botHw = Object.values(engine.state.planets).find((p) => p.ownerId === botRaider.id)!;
+    botHw.resources = { ore: 3000, crystal: 2500, fuel: 2000 };
+
+    const botCmds: any[] = [];
+    evaluateBotShadowOps(engine, botRaider.id, 'raider', botCmds);
+    expect(botCmds.length).toBeGreaterThan(0);
+    const recruitedBotAgent = botCmds.find((c) => c.type === 'RECRUIT_SECRET_AGENT');
+    expect(recruitedBotAgent).toBeDefined();
+    expect(['saboteur', 'provocateur']).toContain(recruitedBotAgent.trait);
   });
 });
 

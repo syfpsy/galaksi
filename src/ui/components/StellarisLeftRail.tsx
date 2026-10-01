@@ -72,6 +72,9 @@ interface StellarisLeftRailProps {
   onOpenHyperRelays?: () => void;
   hyperRelaysCount?: number;
   activeHighwayLinksCount?: number;
+  onOpenShadowOps?: () => void;
+  shadowOpsTier?: number;
+  activeShadowOpsCount?: number;
   onOpenGallery: () => void;
   isColossusActive?: boolean;
   isColossusCharging?: boolean;
@@ -144,6 +147,9 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenHyperRelays,
   hyperRelaysCount = 0,
   activeHighwayLinksCount = 0,
+  onOpenShadowOps,
+  shadowOpsTier = 1,
+  activeShadowOpsCount = 0,
   onOpenGallery,
   isColossusActive = false,
   isColossusCharging = false,
@@ -1254,6 +1260,53 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             <div className="mt-2 pt-1.5 border-t border-cyan-900/60 text-[10px] font-mono text-cyan-300 flex items-center justify-between">
               <span>Röle / Otoyol:</span>
               <span className="font-bold">{hyperRelaysCount} Röle · {activeHighwayLinksCount} Transit Hattı</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Galactic Intelligence Directorate, False Flag Operations & Shadow Coups (Phase 29) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenShadowOps) onOpenShadowOps();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'shadowOps'
+                ? 'active'
+                : activeShadowOpsCount > 0
+                ? 'text-purple-400 hover:text-purple-200 border-purple-900/50'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Eye
+              className={`w-5 h-5 transition-transform group-hover:scale-110 ${
+                activeShadowOpsCount > 0 ? 'text-purple-400 animate-pulse' : 'text-purple-300'
+              }`}
+            />
+            {activeShadowOpsCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-purple-600 text-white text-[9px] font-bold flex items-center justify-center border border-purple-400 shadow-md">
+                {activeShadowOpsCount}
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-purple-400/80 group-hover:text-purple-300">
+              SHD
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-purple-400 tracking-wide">İSTİHBARAT TEŞKİLATI & GÖLGE OPERASYONLARI</span>
+              <span className="text-[10px] font-mono text-purple-300 bg-purple-950/80 border border-purple-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 29
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Kuantum kripto matrisi, sahte bayrak filo akınları, suikastler ve gölge hükümet darbeleri.
+            </p>
+            <div className="mt-2 pt-1.5 border-t border-purple-900/60 text-[10px] font-mono text-purple-300 flex items-center justify-between">
+              <span>Kademe / Operasyon:</span>
+              <span className="font-bold">K{shadowOpsTier} · {activeShadowOpsCount} Aktif Görev</span>
             </div>
           </div>
         </div>

@@ -276,6 +276,22 @@ import {
   updateHyperRelays,
   getHyperRelaySystemBonuses,
 } from './hyperRelays';
+import {
+  getOrCreateDirectorate,
+  canUpgradeDirectorate,
+  upgradeDirectorate,
+  canRecruitAgent,
+  recruitAgent,
+  assignAgent,
+  dismissAgent,
+  canLaunchShadowOp,
+  launchShadowOp,
+  updateShadowOps,
+  DIRECTORATE_TIER_CONFIGS,
+  SHADOW_OP_CONFIGS,
+  SECRET_AGENT_TRAIT_CONFIGS,
+} from './shadowOps';
+
 
 
 export class GameEngine {
@@ -295,6 +311,7 @@ export class GameEngine {
   private lastSyntheticsTickMs: number = 0;
   private lastParagonsTickMs: number = 0;
   private lastHyperRelaysTickMs: number = 0;
+  private lastShadowOpsTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -312,6 +329,9 @@ export class GameEngine {
       megastructures: {},
       gateways: {},
       hyperRelays: {},
+      intelligenceDirectorates: {},
+      secretAgents: {},
+      shadowOperations: {},
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},
@@ -885,6 +905,13 @@ export class GameEngine {
     this.lastHyperRelaysTickMs = nowMs;
     if (hyperRelaysElapsedMs > 0) {
       updateHyperRelays(this.state, hyperRelaysElapsedMs);
+    }
+
+    // Galactic Intelligence Directorate, False Flag Operations & Shadow Coups tick (Phase 29)
+    const shadowOpsElapsedMs = Math.max(0, nowMs - this.lastShadowOpsTickMs);
+    this.lastShadowOpsTickMs = nowMs;
+    if (shadowOpsElapsedMs > 0) {
+      updateShadowOps(this.state, shadowOpsElapsedMs);
     }
   }
 
@@ -6166,6 +6193,112 @@ export class GameEngine {
           data: { systemId: cmd.systemId },
         };
       }
+
+      case 'UPGRADE_INTELLIGENCE_DIRECTORATE': {
+        const res = upgradeDirectorate(this.state, playerId, cmd.fundingPlanetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { tier: res.tier },
+        };
+      }
+
+      case 'RECRUIT_SECRET_AGENT': {
+        const agentName = cmd.name || cmd.customName;
+        const res = recruitAgent(this.state, playerId, cmd.fundingPlanetId, agentName, cmd.trait);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { agent: res.agent },
+        };
+      }
+
+      case 'ASSIGN_SECRET_AGENT': {
+        const targetFaction = cmd.targetFactionId || cmd.targetPlayerId || '';
+        const res = assignAgent(this.state, playerId, cmd.agentId, targetFaction);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { agentId: cmd.agentId, targetFactionId: targetFaction },
+        };
+      }
+
+      case 'DISMISS_SECRET_AGENT': {
+        const res = dismissAgent(this.state, playerId, cmd.agentId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { agentId: cmd.agentId },
+        };
+      }
+
+      case 'DISPATCH_FALSE_FLAG_FLEET': {
+        const fleetId = cmd.fleetId;
+        if (!fleetId) {
+          return { success: false, commandType: cmd.type, error: 'Fleet ID required', timeMs: this.state.timeMs };
+        }
+        const fleet = this.state.fleets[fleetId];
+        if (!fleet || fleet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Fleet not found or unauthorized', timeMs: this.state.timeMs };
+        }
+        if (fleet.status !== 'orbiting') {
+          return { success: false, commandType: cmd.type, error: 'Fleet must be in orbit to prepare false flag operation', timeMs: this.state.timeMs };
+        }
+        const directorate = getOrCreateDirectorate(this.state, playerId);
+        if (directorate.tier < 2) {
+          return { success: false, commandType: cmd.type, error: 'Tier 2 Directorate (Subspace SIGINT) required for false flag operations', timeMs: this.state.timeMs };
+        }
+        fleet.falseFlag = {
+          disguisedAsFactionId: cmd.disguisedAsFactionId,
+          isDisguised: true,
+          isCompromised: false,
+        };
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { fleetId, disguisedAsFactionId: cmd.disguisedAsFactionId },
+        };
+      }
+
+      case 'LAUNCH_SHADOW_OPERATION': {
+        const targetFaction = cmd.targetFactionId || cmd.targetPlayerId || '';
+        const res = launchShadowOp(
+          this.state,
+          playerId,
+          targetFaction,
+          cmd.opType,
+          cmd.assignedAgentId,
+          cmd.targetPlanetId,
+          cmd.targetStarbaseId,
+          cmd.fundingPlanetId
+        );
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { operation: res.operation },
+        };
+      }
     }
   }
 
@@ -6371,6 +6504,9 @@ export class GameEngine {
       megastructures: {},
       gateways: {},
       hyperRelays: {},
+      intelligenceDirectorates: {},
+      secretAgents: {},
+      shadowOperations: {},
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},
@@ -6442,6 +6578,7 @@ export class GameEngine {
     this.lastSyntheticsTickMs = 0;
     this.lastParagonsTickMs = 0;
     this.lastHyperRelaysTickMs = 0;
+    this.lastShadowOpsTickMs = 0;
 
     this.logEvent(
       'season_reset',

@@ -36,6 +36,9 @@ import {
   SyntheticEmpireState,
   ParagonLeader,
   HyperRelay,
+  IntelligenceDirectorate,
+  SecretAgent,
+  ShadowOperation,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -114,6 +117,9 @@ export interface PlayerVisibleState {
   myParagons?: ParagonLeader[];
   availableParagons?: ParagonLeader[];
   myRenown?: number;
+  myDirectorate?: IntelligenceDirectorate | null;
+  mySecretAgents?: SecretAgent[];
+  myShadowOperations?: ShadowOperation[];
 }
 
 /**
@@ -398,10 +404,16 @@ export function filterGameStateForPlayer(
         if (count > 0) roles.push(type);
       }
 
+      // False flag disguise: if disguised and not compromised, mask actual owner
+      let effectiveOwnerId = fleet.ownerId;
+      if (fleet.falseFlag?.isDisguised && !fleet.falseFlag.isCompromised) {
+        effectiveOwnerId = fleet.falseFlag.disguisedAsFactionId;
+      }
+
       visibleFleets.push({
         id: fleet.id,
         name: `Bilinmeyen Filo #${fleet.id.slice(-4)}`,
-        ownerId: fleet.ownerId,
+        ownerId: effectiveOwnerId,
         isHostile: true,
         intelLevel: hasDeepIntel ? 'deep_intel' : 'sensor_contact',
         approxSize,
@@ -495,5 +507,8 @@ export function filterGameStateForPlayer(
     myParagons: Object.values(state.paragons || {}).filter((p) => p.ownerId === playerId),
     availableParagons: Object.values(state.paragons || {}).filter((p) => p.ownerId === null),
     myRenown: player?.renown || 0,
+    myDirectorate: state.intelligenceDirectorates?.[playerId] || null,
+    mySecretAgents: Object.values(state.secretAgents || {}).filter((a) => a.ownerId === playerId),
+    myShadowOperations: Object.values(state.shadowOperations || {}).filter((o) => o.initiatorId === playerId),
   };
 }

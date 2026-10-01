@@ -527,6 +527,75 @@ export interface HyperRelay {
   policy: HyperRelayPolicy;
 }
 
+// ========================================================
+// Phase 29: Galactic Intelligence Directorate & Shadow Ops
+// ========================================================
+export type DirectorateTier = 1 | 2 | 3 | 4 | 5;
+
+export type SecretAgentTrait = 'master_infiltrator' | 'saboteur' | 'provocateur' | 'ghost';
+
+export interface SecretAgent {
+  id: string;
+  name: string;
+  codename: string;
+  avatar: string;
+  trait: SecretAgentTrait;
+  ownerId: string;
+  level: number;
+  xp: number;
+  experience?: number;
+  assignedNetworkId?: string | null;
+  status: 'idle' | 'infiltrating' | 'executing_op' | 'captured';
+  recruitedAtMs: number;
+}
+
+export type ShadowOpType =
+  | 'false_flag_raid'
+  | 'incite_rebellion'
+  | 'assassinate_councilor'
+  | 'orchestrate_shadow_coup'
+  | 'sabotage_starbase_grid';
+
+export interface ShadowOperation {
+  id: string;
+  opType: ShadowOpType;
+  ownerId: string;
+  initiatorId: string;
+  targetPlayerId: string;
+  targetFactionId: string;
+  targetSystemId?: string;
+  targetPlanetId?: string;
+  targetStarbaseId?: string;
+  assignedAgentId?: string;
+  disguisedAsFactionId?: string;
+  startTimeMs: number;
+  durationMs: number;
+  finishTimeMs: number;
+  infiltrationCost: number;
+  successChance: number;
+  detectionRisk?: number;
+  progress?: number;
+  isCompromised: boolean;
+  status: 'in_progress' | 'succeeded' | 'failed' | 'compromised';
+}
+
+export interface IntelligenceDirectorate {
+  playerId: string;
+  level: DirectorateTier;
+  tier: DirectorateTier;
+  cryptoDecryption: number;
+  counterIntelScore: number;
+  maxAgents: number;
+  agentIds: string[];
+  activeShadowOpIds: string[];
+  isUpgrading: boolean;
+  upgradeStartTimeMs?: number;
+  totalOpsSucceeded?: number;
+  totalFalseFlagsConducted?: number;
+  totalCompromisedOps?: number;
+  upgradeFinishTimeMs?: number;
+}
+
 export type CouncilPosition =
   | 'ruler'
   | 'defense_minister'
@@ -845,6 +914,11 @@ export interface Fleet {
   paragonId?: string; // Phase 27: Assigned Paragon Leader
   doctrine?: FleetDoctrine;
   loadouts?: ShipLoadoutMap;
+  falseFlag?: {
+    disguisedAsFactionId: string; // 'pirate' or playerId
+    isDisguised: boolean;
+    isCompromised: boolean;
+  };
 }
 
 export interface RelayContest {
@@ -1414,6 +1488,9 @@ export interface GameState {
   paragons?: Record<string, ParagonLeader>; // key: paragonId (Phase 27)
   galacticParagonPool?: string[]; // array of paragonIds in galactic pool (Phase 27)
   hyperRelays?: Record<string, HyperRelay>; // key: systemId (Phase 28)
+  intelligenceDirectorates?: Record<string, IntelligenceDirectorate>; // key: playerId (Phase 29)
+  secretAgents?: Record<string, SecretAgent>; // key: agentId (Phase 29)
+  shadowOperations?: Record<string, ShadowOperation>; // key: operationId (Phase 29)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1967,6 +2044,48 @@ export type GameCommand =
   | {
       type: 'DISMANTLE_HYPER_RELAY';
       systemId: string;
+    }
+  | {
+      type: 'UPGRADE_INTELLIGENCE_DIRECTORATE';
+      fundingPlanetId: string;
+    }
+  | {
+      type: 'RECRUIT_SECRET_AGENT';
+      fundingPlanetId: string;
+      trait: SecretAgentTrait;
+      name?: string;
+      customName?: string;
+    }
+  | {
+      type: 'ASSIGN_SECRET_AGENT';
+      agentId: string;
+      targetPlayerId?: string;
+      targetFactionId?: string;
+      assignedOperationId?: string;
+    }
+  | {
+      type: 'DISMISS_SECRET_AGENT';
+      agentId: string;
+    }
+  | {
+      type: 'DISPATCH_FALSE_FLAG_FLEET';
+      fleetId?: string;
+      originPlanetId?: string;
+      targetSystemId?: string;
+      ships?: Record<ShipType, number>;
+      disguisedAsFactionId: string;
+    }
+  | {
+      type: 'LAUNCH_SHADOW_OPERATION';
+      opType: ShadowOpType;
+      targetPlayerId?: string;
+      targetFactionId?: string;
+      targetSystemId?: string;
+      targetPlanetId?: string;
+      targetStarbaseId?: string;
+      assignedAgentId?: string;
+      fundingPlanetId?: string;
+      disguisedAsFactionId?: string;
     };
 
 export interface CommandReceipt {

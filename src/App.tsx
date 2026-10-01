@@ -69,7 +69,8 @@ import { ColossusModal } from './ui/components/ColossusModal';
 import { SyntheticDawnModal } from './ui/components/SyntheticDawnModal';
 import { ParagonModal } from './ui/components/ParagonModal';
 import { HyperRelayModal } from './ui/components/HyperRelayModal';
-import { HyperRelayPolicy } from './engine/types';
+import { ShadowOpsModal } from './ui/components/ShadowOpsModal';
+import { HyperRelayPolicy, SecretAgentTrait, ShadowOpType } from './engine/types';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -121,6 +122,7 @@ type LeftPanelType =
   | 'synthetics'
   | 'paragons'
   | 'hyperRelays'
+  | 'shadowOps'
   | 'relay'
   | 'gallery'
   | null;
@@ -1860,6 +1862,107 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleUpgradeDirectorate = (fundingPlanetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'UPGRADE_INTELLIGENCE_DIRECTORATE',
+      fundingPlanetId,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleRecruitAgent = (fundingPlanetId: string, name: string, trait: SecretAgentTrait) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RECRUIT_SECRET_AGENT',
+      fundingPlanetId,
+      name,
+      trait,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAssignAgent = (agentId: string, targetFactionId?: string, assignedOperationId?: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ASSIGN_SECRET_AGENT',
+      agentId,
+      targetFactionId,
+      assignedOperationId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismissAgent = (agentId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMISS_SECRET_AGENT',
+      agentId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDispatchFalseFlagFleet = (fleetId: string, disguisedAsFactionId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISPATCH_FALSE_FLAG_FLEET',
+      fleetId,
+      disguisedAsFactionId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleLaunchShadowOp = (
+    targetFactionId: string,
+    opType: ShadowOpType,
+    assignedAgentId?: string,
+    targetPlanetId?: string,
+    targetStarbaseId?: string,
+    fundingPlanetId?: string
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'LAUNCH_SHADOW_OPERATION',
+      targetFactionId,
+      opType,
+      assignedAgentId,
+      targetPlanetId,
+      targetStarbaseId,
+      fundingPlanetId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -2327,6 +2430,9 @@ export function App() {
             }
             return count;
           })()}
+          onOpenShadowOps={() => setActiveLeftPanel((prev) => (prev === 'shadowOps' ? null : 'shadowOps'))}
+          shadowOpsTier={engineState.intelligenceDirectorates?.[activePlayerId]?.tier || 1}
+          activeShadowOpsCount={Object.values(engineState.shadowOperations || {}).filter((o) => o.initiatorId === activePlayerId).length}
           paragonsCount={activePlayer?.paragonIds?.length || 0}
           availableParagonsCount={engineState.galacticParagonPool?.length || 0}
           isColossusActive={isColossusActive}
@@ -3027,6 +3133,20 @@ export function App() {
         onConstructRelay={handleConstructHyperRelay}
         onSetPolicy={handleSetHyperRelayPolicy}
         onDismantleRelay={handleDismantleHyperRelay}
+      />
+
+      {/* Galactic Intelligence Directorate, False Flag Operations & Shadow Coups Modal (Phase 29) */}
+      <ShadowOpsModal
+        isOpen={activeLeftPanel === 'shadowOps'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        playerId={activePlayerId}
+        onUpgradeDirectorate={handleUpgradeDirectorate}
+        onRecruitAgent={handleRecruitAgent}
+        onAssignAgent={handleAssignAgent}
+        onDismissAgent={handleDismissAgent}
+        onDispatchFalseFlagFleet={handleDispatchFalseFlagFleet}
+        onLaunchShadowOp={handleLaunchShadowOp}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}
