@@ -9,6 +9,8 @@ export interface RouteInfo {
   fuelCost: number;
   speed: number;
   usedGateway?: boolean;
+  hyperRelaySegmentsCount?: number;
+  hyperRelaySpeedMultiplier?: number;
 }
 
 export interface InterceptCheckResult {
@@ -143,7 +145,8 @@ export function calculateRouteInfo(
   lanes: FlightLane[],
   engineResearchLevel: number = 0,
   activeGatewaySystemIds?: Set<string> | string[],
-  loadouts?: ShipLoadoutMap
+  loadouts?: ShipLoadoutMap,
+  hyperRelaySystemIds?: Set<string> | string[]
 ): RouteInfo | null {
   // Check direct Subspace Gateway Conduit jump
   if (
@@ -166,6 +169,8 @@ export function calculateRouteInfo(
         fuelCost: 50,      // Fixed Gateway nominal jump cost
         speed,
         usedGateway: true,
+        hyperRelaySegmentsCount: 0,
+        hyperRelaySpeedMultiplier: 1.0,
       };
     }
   }
@@ -179,8 +184,41 @@ export function calculateRouteInfo(
   // A 200 distance jump takes ~31 min for Battleship (spd 95), ~13.6 min for Fighter (spd 220).
   // This allows fast fighters to detect and intercept slower attack fleets mid-flight.
   const scaledDistanceSec = (route.totalDistance / speed) * 900;
-  const durationMs = Math.max(30000, Math.round(scaledDistanceSec * 1000));
-  const fuelCost = calculateFuelCost(ships, route.totalDistance);
+  const baseDurationMs = Math.max(30000, Math.round(scaledDistanceSec * 1000));
+  const baseFuelCost = calculateFuelCost(ships, route.totalDistance);
+
+  // Hyper Relay Transit Highway Calculation (Phase 28)
+  let hyperRelaySegmentsCount = 0;
+  const totalSegments = Math.max(1, route.path.length - 1);
+
+  if (hyperRelaySystemIds && route.path.length >= 2) {
+    const hasRelay = (sysId: string) =>
+      hyperRelaySystemIds instanceof Set
+        ? hyperRelaySystemIds.has(sysId)
+        : hyperRelaySystemIds.includes(sysId);
+
+    for (let i = 0; i < route.path.length - 1; i++) {
+      if (hasRelay(route.path[i]) && hasRelay(route.path[i + 1])) {
+        hyperRelaySegmentsCount++;
+      }
+    }
+  }
+
+  let durationMs = baseDurationMs;
+  let fuelCost = baseFuelCost;
+  let hyperRelaySpeedMultiplier = 1.0;
+
+  if (hyperRelaySegmentsCount > 0) {
+    // 3.0x speed on relay segments (takes 1/3 of the time)
+    const relayRatio = hyperRelaySegmentsCount / totalSegments;
+    const durationFactor = (1 - relayRatio) + (relayRatio / 3.0);
+    durationMs = Math.max(10000, Math.round(baseDurationMs * durationFactor));
+
+    // 50% fuel discount across relay segments
+    const fuelFactor = (1 - relayRatio) + (relayRatio * 0.50);
+    fuelCost = Math.max(1, Math.round(baseFuelCost * fuelFactor));
+    hyperRelaySpeedMultiplier = Math.round((baseDurationMs / durationMs) * 100) / 100;
+  }
 
   return {
     path: route.path,
@@ -189,6 +227,8 @@ export function calculateRouteInfo(
     fuelCost,
     speed,
     usedGateway: false,
+    hyperRelaySegmentsCount,
+    hyperRelaySpeedMultiplier,
   };
 }
 

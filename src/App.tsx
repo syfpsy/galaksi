@@ -68,6 +68,8 @@ import { MegacorpModal } from './ui/components/MegacorpModal';
 import { ColossusModal } from './ui/components/ColossusModal';
 import { SyntheticDawnModal } from './ui/components/SyntheticDawnModal';
 import { ParagonModal } from './ui/components/ParagonModal';
+import { HyperRelayModal } from './ui/components/HyperRelayModal';
+import { HyperRelayPolicy } from './engine/types';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -118,6 +120,7 @@ type LeftPanelType =
   | 'colossus'
   | 'synthetics'
   | 'paragons'
+  | 'hyperRelays'
   | 'relay'
   | 'gallery'
   | null;
@@ -1813,6 +1816,50 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleConstructHyperRelay = (systemId: string, fundingPlanetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CONSTRUCT_HYPER_RELAY',
+      systemId,
+      fundingPlanetId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSetHyperRelayPolicy = (systemId: string, policy: HyperRelayPolicy) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SET_HYPER_RELAY_POLICY',
+      systemId,
+      policy,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismantleHyperRelay = (systemId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMANTLE_HYPER_RELAY',
+      systemId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -2217,6 +2264,7 @@ export function App() {
         onOpenColossus={() => setActiveLeftPanel((prev) => (prev === 'colossus' ? null : 'colossus'))}
         onOpenSynthetics={() => setActiveLeftPanel((prev) => (prev === 'synthetics' ? null : 'synthetics'))}
         onOpenParagons={() => setActiveLeftPanel((prev) => (prev === 'paragons' ? null : 'paragons'))}
+        onOpenHyperRelays={() => setActiveLeftPanel((prev) => (prev === 'hyperRelays' ? null : 'hyperRelays'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -2262,6 +2310,23 @@ export function App() {
           onOpenColossus={() => setActiveLeftPanel((prev) => (prev === 'colossus' ? null : 'colossus'))}
           onOpenSynthetics={() => setActiveLeftPanel((prev) => (prev === 'synthetics' ? null : 'synthetics'))}
           onOpenParagons={() => setActiveLeftPanel((prev) => (prev === 'paragons' ? null : 'paragons'))}
+          onOpenHyperRelays={() => setActiveLeftPanel((prev) => (prev === 'hyperRelays' ? null : 'hyperRelays'))}
+          hyperRelaysCount={Object.values(engineState.hyperRelays || {}).filter((r) => r.ownerId === activePlayerId).length}
+          activeHighwayLinksCount={(() => {
+            const relays = engineState.hyperRelays || {};
+            let count = 0;
+            const proc = new Set<string>();
+            for (const l of engineState.map.lanes) {
+              const k = `${l.fromSystemId}_${l.toSystemId}`;
+              if (proc.has(k)) continue;
+              proc.add(k);
+              proc.add(`${l.toSystemId}_${l.fromSystemId}`);
+              if (relays[l.fromSystemId] && !relays[l.fromSystemId].isConstructing && relays[l.toSystemId] && !relays[l.toSystemId].isConstructing) {
+                count++;
+              }
+            }
+            return count;
+          })()}
           paragonsCount={activePlayer?.paragonIds?.length || 0}
           availableParagonsCount={engineState.galacticParagonPool?.length || 0}
           isColossusActive={isColossusActive}
@@ -2951,6 +3016,17 @@ export function App() {
         onUnassignParagon={handleUnassignParagon}
         onDismissParagon={handleDismissParagon}
         onCommissionFlagship={handleCommissionParagonFlagship}
+      />
+
+      {/* Hyper Relays, Transit Highway Networks & Subspace Logistics Modal (Phase 28) */}
+      <HyperRelayModal
+        isOpen={activeLeftPanel === 'hyperRelays'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        playerId={activePlayerId}
+        onConstructRelay={handleConstructHyperRelay}
+        onSetPolicy={handleSetHyperRelayPolicy}
+        onDismantleRelay={handleDismantleHyperRelay}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

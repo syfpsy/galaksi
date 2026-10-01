@@ -19,6 +19,7 @@ import { evaluateBotMegacorp } from './megacorp';
 import { evaluateBotColossus } from './colossus';
 import { evaluateBotSynthetics } from './synthetics';
 import { evaluateBotParagons } from './paragons';
+import { evaluateBotHyperRelays } from './hyperRelays';
 import { IBotAgent } from './types';
 
 export class IndustrialistBot implements IBotAgent {
@@ -270,6 +271,9 @@ export class IndustrialistBot implements IBotAgent {
 
     // 21. Paragon Leaders, Renowned Heroes & Council Destiny (Phase 27)
     evaluateBotParagons(engine, this.playerId, this.archetype, executedCommands);
+
+    // 22. Hyper Relays, Transit Highway Networks & Subspace Logistics (Phase 28)
+    evaluateBotHyperRelays(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

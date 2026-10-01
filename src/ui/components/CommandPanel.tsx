@@ -26,6 +26,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { calculateRouteInfo, checkInterceptionFeasibility } from '../../engine/flight';
+import { getActiveHyperRelaySystemIds } from '../../engine/hyperRelays';
 import { calculatePlanetOrbit } from '../../engine/orbital';
 import { getRouteCrisisModifiers } from '../../engine/events';
 import { ADMIRAL_TRAITS } from '../../engine/admirals';
@@ -123,12 +124,21 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
   // Pre-flight calculation (incorporating admiral flight traits and sector crisis modifiers)
   const routeInfo = useMemo(() => {
     if (!activePlanet || !targetSystem) return null;
+    const activeGateways = state.gateways
+      ? Object.values(state.gateways).filter(gw => gw.status === 'active' && (gw.ownerId === activePlayerId || !gw.ownerId)).map(gw => gw.systemId)
+      : undefined;
+    const activeRelays = (state as any).hyperRelays
+      ? getActiveHyperRelaySystemIds(state as any, activePlayerId)
+      : undefined;
     const baseRoute = calculateRouteInfo(
       activePlanet.systemId,
       targetSystem.id,
       ships,
       state.map.lanes,
-      engineTech
+      engineTech,
+      activeGateways,
+      (state as any).myShipLoadouts || (state as any).shipLoadouts?.[activePlayerId],
+      activeRelays
     );
     if (!baseRoute) return null;
 
@@ -1074,6 +1084,19 @@ const CommandPanelComponent: React.FC<CommandPanelProps> = ({
                   {routeInfo.fuelCost} / {Math.floor(activePlanet?.resources.fuel || 0)}
                 </span>
               </div>
+
+              {/* Hyper Relay Transit Highway Corridor Badge */}
+              {routeInfo.hyperRelaySegmentsCount && routeInfo.hyperRelaySegmentsCount > 0 ? (
+                <div className="mt-2 p-2 rounded-sm text-[11px] border bg-cyan-950/40 border-cyan-500/40 text-cyan-300 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-cyan-400 animate-pulse" />
+                    <span>Hiper-Röle Transit Otoyolu ({routeInfo.hyperRelaySegmentsCount} koridor)</span>
+                  </div>
+                  <span className="font-bold text-cyan-200">
+                    {routeInfo.hyperRelaySpeedMultiplier}x Hız / -50% Yakıt
+                  </span>
+                </div>
+              ) : null}
 
               {/* Interception Feasibility Warning / Notice */}
               {selectedMission === 'intercept' && interceptCheck && (

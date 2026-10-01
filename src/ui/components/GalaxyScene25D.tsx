@@ -1727,6 +1727,14 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
         laneVisuals.forEach((lv) => {
           const k = `${lv.fromSystemId}_${lv.toSystemId}`;
+          const relays = (stateRef.current as any).hyperRelays;
+          const isRelayCorridor =
+            relays &&
+            relays[lv.fromSystemId] &&
+            !relays[lv.fromSystemId].isConstructing &&
+            relays[lv.toSystemId] &&
+            !relays[lv.toSystemId].isConstructing;
+
           if (activeLanesWithHostileFleet.has(k)) {
             const p = (Math.sin(currentTimeMs * 0.009) + 1) * 0.5;
             lv.mat.color.setHex(0xf43f5e);
@@ -1734,6 +1742,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           } else if (activeLanesWithOwnFleet.has(k)) {
             lv.mat.color.setHex(0x00f3ff);
             lv.mat.opacity = 0.85;
+          } else if (isRelayCorridor) {
+            // Radiant Hyper Relay Transit Highway Corridor Pulse
+            const p = (Math.sin(currentTimeMs * 0.006) + 1) * 0.5;
+            lv.mat.color.setHex(0x38bdf8);
+            lv.mat.opacity = 0.80 + p * 0.20;
           } else {
             lv.mat.color.setHex(0x0284c7);
             lv.mat.opacity = 0.45;

@@ -128,6 +128,14 @@ export function calculatePlanetTradeValue(
     tv *= (1 + player.commercialPacts.length * 0.10);
   }
 
+  // Hyper Relay commercial freight corridor doctrine bonus (Phase 28)
+  if (state?.hyperRelays && state.hyperRelays[planet.systemId] && !state.hyperRelays[planet.systemId].isConstructing) {
+    const relay = state.hyperRelays[planet.systemId];
+    if (relay.policy === 'commercial_freight') {
+      tv *= 1.20;
+    }
+  }
+
   return Math.max(5, Math.round(tv));
 }
 
@@ -310,6 +318,15 @@ export function updateTradeNetworks(state: GameState, deltaMs: number): void {
         if (state.systemTrade[coveredId]) {
           state.systemTrade[coveredId].tradeProtection += protection;
         }
+      }
+    }
+  }
+
+  // 2b. Project Hyper Relay Trade Protection (Phase 28)
+  if (state.hyperRelays) {
+    for (const relay of Object.values(state.hyperRelays)) {
+      if (!relay.isConstructing && state.systemTrade[relay.systemId]) {
+        state.systemTrade[relay.systemId].tradeProtection += 100; // Complete immunity against piracy accumulation
       }
     }
   }

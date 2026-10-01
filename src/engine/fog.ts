@@ -35,6 +35,7 @@ import {
   ColossusShip,
   SyntheticEmpireState,
   ParagonLeader,
+  HyperRelay,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -94,6 +95,7 @@ export interface PlayerVisibleState {
   senate?: SenateState;
   megastructures?: Record<string, Megastructure>;
   gateways?: Record<string, Gateway>;
+  hyperRelays?: Record<string, HyperRelay>;
   myCouncil?: ImperialCouncilState;
   myShipLoadouts?: ShipLoadoutMap;
   myCrisis?: GalacticCrisisState | null;
@@ -472,6 +474,7 @@ export function filterGameStateForPlayer(
     senate: state.senate,
     megastructures: state.megastructures,
     gateways: state.gateways,
+    hyperRelays: state.hyperRelays,
     myCouncil: state.councils?.[playerId],
     myShipLoadouts: state.shipLoadouts?.[playerId] || DEFAULT_LOADOUTS,
     myCrisis: state.crisis || null,

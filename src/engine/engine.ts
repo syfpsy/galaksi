@@ -264,6 +264,18 @@ import {
   updateParagons,
   PARAGON_CONSTANTS,
 } from './paragons';
+import {
+  HYPER_RELAY_CONFIG,
+  HYPER_RELAY_POLICY_CONFIGS,
+  canConstructHyperRelay,
+  constructHyperRelay,
+  setHyperRelayPolicy,
+  dismantleHyperRelay,
+  getActiveHyperRelaySystemIds,
+  isHyperRelayNetworkLink,
+  updateHyperRelays,
+  getHyperRelaySystemBonuses,
+} from './hyperRelays';
 
 
 export class GameEngine {
@@ -282,6 +294,7 @@ export class GameEngine {
   private lastColossusTickMs: number = 0;
   private lastSyntheticsTickMs: number = 0;
   private lastParagonsTickMs: number = 0;
+  private lastHyperRelaysTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -298,6 +311,7 @@ export class GameEngine {
       starbases: {},
       megastructures: {},
       gateways: {},
+      hyperRelays: {},
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},
@@ -864,6 +878,13 @@ export class GameEngine {
     this.lastParagonsTickMs = nowMs;
     if (paragonsElapsedMs > 0) {
       updateParagons(this.state, paragonsElapsedMs);
+    }
+
+    // Hyper Relays, Transit Highway Networks & Subspace Logistics tick (Phase 28)
+    const hyperRelaysElapsedMs = Math.max(0, nowMs - this.lastHyperRelaysTickMs);
+    this.lastHyperRelaysTickMs = nowMs;
+    if (hyperRelaysElapsedMs > 0) {
+      updateHyperRelays(this.state, hyperRelaysElapsedMs);
     }
   }
 
@@ -2942,6 +2963,7 @@ export class GameEngine {
         // Route check
         const engineLevel = player.research.engines || 0;
         const activeGateways = this.getActiveGatewaySystemIds(playerId);
+        const activeRelays = getActiveHyperRelaySystemIds(this.state, playerId);
         const route = calculateRouteInfo(
           originPlanet.systemId,
           cmd.targetSystemId,
@@ -2949,7 +2971,8 @@ export class GameEngine {
           this.state.map.lanes,
           engineLevel,
           activeGateways,
-          playerLoadouts
+          playerLoadouts,
+          activeRelays
         );
 
         if (!route) {
@@ -4118,6 +4141,7 @@ export class GameEngine {
         // Estimate route fuel consumption
         const engineLevel = player.research.engines || 0;
         const activeGateways = this.getActiveGatewaySystemIds(playerId);
+        const activeRelays = getActiveHyperRelaySystemIds(this.state, playerId);
         const playerLoadouts = this.state.shipLoadouts?.[playerId];
         const testRoute = calculateRouteInfo(
           colony.systemId,
@@ -4126,7 +4150,8 @@ export class GameEngine {
           this.state.map.lanes,
           engineLevel,
           activeGateways,
-          playerLoadouts
+          playerLoadouts,
+          activeRelays
         );
 
         if (!testRoute) {
@@ -4150,7 +4175,8 @@ export class GameEngine {
           this.state.map.lanes,
           engineLevel,
           activeGateways,
-          playerLoadouts
+          playerLoadouts,
+          activeRelays
         );
 
         if (!actualRoute) {
@@ -6101,6 +6127,45 @@ export class GameEngine {
           data: { paragonId: cmd.paragonId, planetId: cmd.planetId },
         };
       }
+
+      case 'CONSTRUCT_HYPER_RELAY': {
+        const res = constructHyperRelay(this.state, playerId, cmd.systemId, cmd.fundingPlanetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { systemId: cmd.systemId, fundingPlanetId: cmd.fundingPlanetId },
+        };
+      }
+
+      case 'SET_HYPER_RELAY_POLICY': {
+        const res = setHyperRelayPolicy(this.state, playerId, cmd.systemId, cmd.policy);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { systemId: cmd.systemId, policy: cmd.policy },
+        };
+      }
+
+      case 'DISMANTLE_HYPER_RELAY': {
+        const res = dismantleHyperRelay(this.state, playerId, cmd.systemId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { systemId: cmd.systemId },
+        };
+      }
     }
   }
 
@@ -6305,6 +6370,7 @@ export class GameEngine {
       starbases: {},
       megastructures: {},
       gateways: {},
+      hyperRelays: {},
       senate: createInitialSenateState(),
       councils: {},
       shipLoadouts: {},
@@ -6375,6 +6441,7 @@ export class GameEngine {
     this.lastArchaeologyTickMs = 0;
     this.lastSyntheticsTickMs = 0;
     this.lastParagonsTickMs = 0;
+    this.lastHyperRelaysTickMs = 0;
 
     this.logEvent(
       'season_reset',

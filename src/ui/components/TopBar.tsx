@@ -77,6 +77,7 @@ interface TopBarProps {
   onOpenColossus?: () => void;
   onOpenSynthetics?: () => void;
   onOpenParagons?: () => void;
+  onOpenHyperRelays?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -119,6 +120,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenColossus,
   onOpenSynthetics,
   onOpenParagons,
+  onOpenHyperRelays,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -1119,6 +1121,55 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 </p>
                 <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono text-center">
                   Lider istihdamı, sancak gemileri ve konsey görevleri için tıklayın
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* HYPER RELAYS QUICK CHIP (Phase 28) */}
+        {(() => {
+          const relays = (state as any).hyperRelays || {};
+          const myRelayList = Object.values(relays).filter((r: any) => r.ownerId === activePlayerId);
+          const activeRelayCount = myRelayList.filter((r: any) => !r.isConstructing).length;
+          const underConstCount = myRelayList.length - activeRelayCount;
+
+          return (
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenHyperRelays) onOpenHyperRelays();
+                }}
+                className={`stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer border-cyan-900/50 text-cyan-300 hover:border-cyan-400 ${
+                  activeRelayCount > 0 ? 'bg-cyan-950/20' : ''
+                }`}
+                title="Hiper-Röle Transit Otoyolları & Altuzay Lojistiği"
+              >
+                <Zap className={`w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform ${activeRelayCount > 0 ? 'animate-pulse' : ''}`} />
+                <span className="font-bold text-white text-xs truncate max-w-[85px]">
+                  {activeRelayCount} <span className="text-[10px] text-cyan-400 font-normal">RÖLE</span>
+                </span>
+                {underConstCount > 0 && (
+                  <span className="text-[10px] text-amber-300 font-mono font-bold bg-amber-950/60 px-1 rounded border border-amber-500/40">
+                    +{underConstCount}
+                  </span>
+                )}
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[260px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+                <div className="flex items-center justify-between text-xs font-bold mb-1">
+                  <span className="text-cyan-400 tracking-wide">HİPER-RÖLE TRANSİT AĞI</span>
+                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                    FAZ 28
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  Aktif İstasyonlar: <span className="text-cyan-300 font-bold">{activeRelayCount}</span> {underConstCount > 0 ? `(${underConstCount} inşaat sürüyor)` : ''}.
+                  3.0x intikal hızı, -%50 yakıt tüketimi ve +100 korsanlık koruması sağlar.
+                </p>
+                <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-cyan-400 font-mono text-center">
+                  Transit otoyolları ve sektör doktrinleri için tıklayın
                 </div>
               </div>
             </div>

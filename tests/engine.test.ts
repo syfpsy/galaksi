@@ -202,6 +202,19 @@ import {
   updateParagons,
 } from '../src/engine/paragons';
 import { evaluateBotParagons } from '../src/bots/paragons';
+import {
+  HYPER_RELAY_CONFIG,
+  HYPER_RELAY_POLICY_CONFIGS,
+  canConstructHyperRelay,
+  constructHyperRelay,
+  setHyperRelayPolicy,
+  dismantleHyperRelay,
+  getActiveHyperRelaySystemIds,
+  isHyperRelayNetworkLink,
+  updateHyperRelays,
+  getHyperRelaySystemBonuses,
+} from '../src/engine/hyperRelays';
+import { evaluateBotHyperRelays } from '../src/bots/hyperRelays';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -5506,6 +5519,237 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(botCmds.length).toBeGreaterThan(0);
     const recruitCmd = botCmds.find((c) => c.type === 'RECRUIT_PARAGON');
     expect(recruitCmd).toBeDefined();
+  });
+
+  it('Test 58: Hyper Relays, Transit Highway Networks & Subspace Logistics (Phase 28)', () => {
+    const engine = new GameEngine(100);
+    const { player: p1, homeworld } = engine.addPlayer('p1', 'Terran Union', '#00f3ff');
+    const sys1 = homeworld.systemId;
+
+    // 1. Initial State & Validation
+    expect(engine.state.hyperRelays).toBeDefined();
+    expect(Object.keys(engine.state.hyperRelays || {}).length).toBe(0);
+
+    // Find connected neighbor system
+    const neighborLane = engine.state.map.lanes.find(
+      (l) => l.fromSystemId === sys1 || l.toSystemId === sys1
+    );
+    expect(neighborLane).toBeDefined();
+    const sys2 = neighborLane!.fromSystemId === sys1 ? neighborLane!.toSystemId : neighborLane!.fromSystemId;
+
+    // Fail: Cannot construct in sys2 without presence
+    const failPres = canConstructHyperRelay(engine.state, 'p1', sys2, homeworld.id);
+    expect(failPres.success).toBe(false);
+    expect(failPres.error).toContain('en az bir koloniniz veya yıldız üssünüz');
+
+    // Fail: Insufficient resources
+    homeworld.resources = { ore: 100, crystal: 50, fuel: 50 };
+    const failRes = canConstructHyperRelay(engine.state, 'p1', sys1, homeworld.id);
+    expect(failRes.success).toBe(false);
+    expect(failRes.error).toContain('Yetersiz hammadde');
+
+    // 2. Construction of First Hyper Relay (CONSTRUCT_HYPER_RELAY)
+    homeworld.resources = { ore: 2000, crystal: 1500, fuel: 1000 };
+    const constRes = engine.dispatchCommand('p1', {
+      type: 'CONSTRUCT_HYPER_RELAY',
+      systemId: sys1,
+      fundingPlanetId: homeworld.id,
+    });
+    expect(constRes.success).toBe(true);
+
+    // Resources deducted (Cost: 600 ore, 400 crystal, 300 fuel)
+    expect(homeworld.resources.ore).toBe(1400);
+    expect(homeworld.resources.crystal).toBe(1100);
+    expect(homeworld.resources.fuel).toBe(700);
+
+    const relay1 = engine.state.hyperRelays![sys1];
+    expect(relay1).toBeDefined();
+    expect(relay1.isConstructing).toBe(true);
+    expect(relay1.policy).toBe('military_priority');
+    expect(relay1.constructionFinishTimeMs).toBe(engine.state.timeMs + HYPER_RELAY_CONFIG.CONSTRUCTION_TIME_MS);
+
+    // Duplicate build rejected
+    const dupRes = engine.dispatchCommand('p1', {
+      type: 'CONSTRUCT_HYPER_RELAY',
+      systemId: sys1,
+      fundingPlanetId: homeworld.id,
+    });
+    expect(dupRes.success).toBe(false);
+
+    // 3. Construction Progression and Completion
+    engine.tick(15_000);
+    expect(engine.state.hyperRelays![sys1].isConstructing).toBe(true);
+
+    engine.tick(16_000); // 31 seconds total
+    expect(engine.state.hyperRelays![sys1].isConstructing).toBe(false);
+    expect(getActiveHyperRelaySystemIds(engine.state, 'p1').has(sys1)).toBe(true);
+
+    // Single relay does not form a corridor yet
+    expect(isHyperRelayNetworkLink(engine.state, sys1, sys2, 'p1')).toBe(false);
+
+    // 4. Establish Presence and Build Second Relay in Adjacent System
+    if (!engine.state.starbases) engine.state.starbases = {};
+    engine.state.starbases[sys2] = {
+      systemId: sys2,
+      tier: 'outpost',
+      ownerId: 'p1',
+      modules: [],
+      currentHealth: 1000,
+      maxHealth: 1000,
+      upgradeQueue: null,
+      lastHealthRegen: engine.state.timeMs,
+    };
+
+    homeworld.resources = { ore: 2000, crystal: 1500, fuel: 1000 };
+    const constRes2 = engine.dispatchCommand('p1', {
+      type: 'CONSTRUCT_HYPER_RELAY',
+      systemId: sys2,
+      fundingPlanetId: homeworld.id,
+    });
+    expect(constRes2.success).toBe(true);
+
+    // Finish construction of second relay
+    engine.tick(HYPER_RELAY_CONFIG.CONSTRUCTION_TIME_MS + 1000);
+    expect(engine.state.hyperRelays![sys2].isConstructing).toBe(false);
+
+    // 5. Active Transit Highway Corridor Verification
+    expect(getActiveHyperRelaySystemIds(engine.state, 'p1').has(sys2)).toBe(true);
+    expect(isHyperRelayNetworkLink(engine.state, sys1, sys2, 'p1')).toBe(true);
+
+    // 6. Route Calculation & Speedup / Fuel Savings
+    const activeRelays = getActiveHyperRelaySystemIds(engine.state, 'p1');
+    const playerLoadouts = engine.state.shipLoadouts?.['p1'];
+    const routeWithoutRelays = calculateRouteInfo(
+      sys1,
+      sys2,
+      { scout: 0, transport: 0, fighter: 5, battleship: 0 },
+      engine.state.map.lanes,
+      0,
+      undefined,
+      playerLoadouts
+    );
+    expect(routeWithoutRelays).toBeDefined();
+
+    const routeWithRelays = calculateRouteInfo(
+      sys1,
+      sys2,
+      { scout: 0, transport: 0, fighter: 5, battleship: 0 },
+      engine.state.map.lanes,
+      0,
+      undefined,
+      playerLoadouts,
+      activeRelays
+    );
+    expect(routeWithRelays).toBeDefined();
+    expect(routeWithRelays!.hyperRelaySegmentsCount).toBe(1);
+    expect(routeWithRelays!.hyperRelaySpeedMultiplier).toBe(3.0);
+
+    // 3.0x speed means duration is 1/3 (durationMs / 3)
+    expect(routeWithRelays!.durationMs).toBe(Math.round(routeWithoutRelays!.durationMs / 3.0));
+    // 50% fuel discount
+    expect(routeWithRelays!.fuelCost).toBe(Math.round(routeWithoutRelays!.fuelCost * 0.50));
+
+    // 7. Dispatch Fleet with Hyper Relay Transit Highway
+    homeworld.garrison.fighter = 5;
+    homeworld.resources.fuel = 5000;
+    const dispatchRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: homeworld.id,
+      targetSystemId: sys2,
+      mission: 'transfer',
+      ships: { scout: 0, transport: 0, fighter: 5, battleship: 0 },
+    });
+    expect(dispatchRes.success).toBe(true);
+    const dispatchedFleet = Object.values(engine.state.fleets).find(
+      (f) => f.ownerId === 'p1' && f.targetSystemId === sys2
+    );
+    expect(dispatchedFleet).toBeDefined();
+    expect(dispatchedFleet!.arrivalTime - dispatchedFleet!.departureTime).toBe(routeWithRelays!.durationMs);
+
+    // 8. Policy & Doctrine Customization (SET_HYPER_RELAY_POLICY)
+    const policyRes = engine.dispatchCommand('p1', {
+      type: 'SET_HYPER_RELAY_POLICY',
+      systemId: sys1,
+      policy: 'commercial_freight',
+    });
+    expect(policyRes.success).toBe(true);
+    expect(engine.state.hyperRelays![sys1].policy).toBe('commercial_freight');
+
+    // Bonuses
+    const bonuses = getHyperRelaySystemBonuses(engine.state, sys1);
+    expect(bonuses.tradeValueMultiplier).toBe(1.20);
+    expect(bonuses.productionMultiplier).toBe(1.10);
+    expect(bonuses.stabilityBonus).toBe(HYPER_RELAY_CONFIG.PLANET_STABILITY_BONUS);
+    expect(bonuses.tradeProtection).toBe(HYPER_RELAY_CONFIG.TRADE_PROTECTION_BONUS);
+
+    // Non-owner cannot change policy
+    const unauthorizedPolicy = engine.dispatchCommand('p2', {
+      type: 'SET_HYPER_RELAY_POLICY',
+      systemId: sys1,
+      policy: 'rapid_civilian',
+    });
+    expect(unauthorizedPolicy.success).toBe(false);
+
+    // 9. Galactic Trade Protection & Piracy Immunity
+    updateTradeNetworks(engine.state, 1000);
+    expect(engine.state.systemTrade[sys1].tradeProtection).toBeGreaterThanOrEqual(100);
+    expect(engine.state.systemTrade[sys2].tradeProtection).toBeGreaterThanOrEqual(100);
+
+    // Planet Trade Value in Commercial Freight System receives +20% bonus
+    const tv = calculatePlanetTradeValue(homeworld, p1, engine.state);
+    expect(tv).toBeGreaterThan(0);
+
+    // 10. Dismantle Hyper Relay (DISMANTLE_HYPER_RELAY)
+    const oreBefore = homeworld.resources.ore;
+    const crystalBefore = homeworld.resources.crystal;
+    const fuelBefore = homeworld.resources.fuel;
+
+    const dismantleRes = engine.dispatchCommand('p1', {
+      type: 'DISMANTLE_HYPER_RELAY',
+      systemId: sys2,
+    });
+    expect(dismantleRes.success).toBe(true);
+    expect(engine.state.hyperRelays![sys2]).toBeUndefined();
+
+    // 40% refund
+    const refundOre = Math.round(HYPER_RELAY_CONFIG.CONSTRUCTION_COST.ore * 0.40);
+    const refundCrystal = Math.round(HYPER_RELAY_CONFIG.CONSTRUCTION_COST.crystal * 0.40);
+    const refundFuel = Math.round(HYPER_RELAY_CONFIG.CONSTRUCTION_COST.fuel * 0.40);
+    expect(homeworld.resources.ore).toBe(oreBefore + refundOre);
+    expect(homeworld.resources.crystal).toBe(crystalBefore + refundCrystal);
+    expect(homeworld.resources.fuel).toBe(fuelBefore + refundFuel);
+
+    // Corridor is severed
+    expect(isHyperRelayNetworkLink(engine.state, sys1, sys2, 'p1')).toBe(false);
+
+    // 11. Autonomous Bot AI (evaluateBotHyperRelays)
+    const { player: botInd, homeworld: botHw } = engine.addPlayer(
+      'bot_industrialist',
+      'Cyborg Forge',
+      '#10b981',
+      true,
+      'industrialist'
+    );
+    botHw.resources = { ore: 5000, crystal: 4000, fuel: 3000 };
+
+    const botCmds: any[] = [];
+    evaluateBotHyperRelays(engine, botInd.id, 'industrialist', botCmds);
+    expect(botCmds.length).toBeGreaterThan(0);
+    const constBotCmd = botCmds.find((c) => c.type === 'CONSTRUCT_HYPER_RELAY');
+    expect(constBotCmd).toBeDefined();
+    expect(constBotCmd.systemId).toBe(botHw.systemId);
+
+    // Complete bot relay
+    engine.tick(HYPER_RELAY_CONFIG.CONSTRUCTION_TIME_MS + 1000);
+    expect(engine.state.hyperRelays![botHw.systemId].isConstructing).toBe(false);
+
+    // Evaluate again -> Industrialist bot switches doctrine to commercial_freight
+    const botPolicyCmds: any[] = [];
+    evaluateBotHyperRelays(engine, botInd.id, 'industrialist', botPolicyCmds);
+    const policyBotCmd = botPolicyCmds.find((c) => c.type === 'SET_HYPER_RELAY_POLICY');
+    expect(policyBotCmd).toBeDefined();
+    expect(policyBotCmd.policy).toBe('commercial_freight');
+    expect(engine.state.hyperRelays![botHw.systemId].policy).toBe('commercial_freight');
   });
 });
 

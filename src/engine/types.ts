@@ -512,6 +512,21 @@ export interface Gateway {
   activationFinishTimeMs?: number;
 }
 
+// ==========================================
+// Phase 28: Hyper Relays & Transit Highway Networks
+// ==========================================
+export type HyperRelayPolicy = 'military_priority' | 'commercial_freight' | 'rapid_civilian';
+
+export interface HyperRelay {
+  id: string; // e.g. `hyper_relay_${systemId}`
+  systemId: string;
+  ownerId: string;
+  isConstructing: boolean;
+  constructionStartTimeMs: number;
+  constructionFinishTimeMs: number;
+  policy: HyperRelayPolicy;
+}
+
 export type CouncilPosition =
   | 'ruler'
   | 'defense_minister'
@@ -1398,6 +1413,7 @@ export interface GameState {
   synthetics?: Record<string, SyntheticEmpireState>; // key: playerId (Phase 26)
   paragons?: Record<string, ParagonLeader>; // key: paragonId (Phase 27)
   galacticParagonPool?: string[]; // array of paragonIds in galactic pool (Phase 27)
+  hyperRelays?: Record<string, HyperRelay>; // key: systemId (Phase 28)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1937,6 +1953,20 @@ export type GameCommand =
       type: 'COMMISSION_PARAGON_FLAGSHIP';
       paragonId: string;
       planetId: string;
+    }
+  | {
+      type: 'CONSTRUCT_HYPER_RELAY';
+      systemId: string;
+      fundingPlanetId: string;
+    }
+  | {
+      type: 'SET_HYPER_RELAY_POLICY';
+      systemId: string;
+      policy: HyperRelayPolicy;
+    }
+  | {
+      type: 'DISMANTLE_HYPER_RELAY';
+      systemId: string;
     };
 
 export interface CommandReceipt {
