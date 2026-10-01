@@ -76,6 +76,7 @@ import { HyperRelayPolicy, SecretAgentTrait, ShadowOpType, ArmyType, Bombardment
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
+import { DirectOrderPayload, TacticalPingResult } from './ui/components/GalaxyScene25D';
 import { IncomingThreatBanner } from './ui/components/IncomingThreatBanner';
 import { PlanetPanel } from './ui/components/PlanetPanel';
 import { ResearchModal } from './ui/components/ResearchModal';
@@ -204,6 +205,24 @@ export function App() {
       setIsVictoryModalOpen(true);
     }
   }, [engineState.victory]);
+
+  // RTS Direct Fleet Dispatch HUD Controls & Toast feedback
+  const [directDispatchMode, setDirectDispatchMode] = useState<'all' | 'half' | 'scout'>('all');
+  interface TacticalToast {
+    id: string;
+    text: string;
+    color: string;
+    timestamp: number;
+  }
+  const [tacticalToasts, setTacticalToasts] = useState<TacticalToast[]>([]);
+
+  useEffect(() => {
+    if (tacticalToasts.length === 0) return;
+    const timer = setTimeout(() => {
+      setTacticalToasts((prev) => prev.slice(1));
+    }, 4500);
+    return () => clearTimeout(timer);
+  }, [tacticalToasts]);
 
   const activePlanetIdRef = useRef(activePlanetId);
   activePlanetIdRef.current = activePlanetId;
@@ -2456,6 +2475,190 @@ export function App() {
     setInspectedSystemId(null);
   };
 
+  const handleDirectOrder = useCallback(
+    (target: DirectOrderPayload): boolean | TacticalPingResult => {
+      if (!engineRef.current) return false;
+
+      // 1. Resolve origin planet (activePlanet or first owned planet)
+      const currentPlanet =
+        activePlanet ||
+        Object.values(engineState.planets).find((p) => p.ownerId === activePlayerId);
+
+      if (!currentPlanet) {
+        sound.playError();
+        return false;
+      }
+
+      const garrison = currentPlanet.garrison || ({} as Record<ShipType, number>);
+      const totalAvailable = Object.values(garrison).reduce((acc, count) => acc + (count || 0), 0);
+
+      if (totalAvailable <= 0) {
+        sound.playError();
+        setTacticalToasts((prev) => [
+          ...prev.slice(-3),
+          {
+            id: `toast_${Date.now()}`,
+            text: `⚠️ [${currentPlanet.name}] Üssünde hazır gemi yok! Tersaneden gemi inşa edin.`,
+            color: '#ef4444',
+            timestamp: Date.now(),
+          },
+        ]);
+        return false;
+      }
+
+      // 2. Select ships based on directDispatchMode
+      const selectedShips: Record<ShipType, number> = {
+        scout: 0,
+        transport: 0,
+        fighter: 0,
+        battleship: 0,
+      };
+
+      if (directDispatchMode === 'scout') {
+        const priority: ShipType[] = ['scout', 'fighter', 'transport', 'battleship'];
+        for (const type of priority) {
+          if ((garrison[type] || 0) > 0) {
+            selectedShips[type] = 1;
+            break;
+          }
+        }
+      } else if (directDispatchMode === 'half') {
+        for (const [st, count] of Object.entries(garrison)) {
+          if (count && count > 0) {
+            selectedShips[st as ShipType] = Math.ceil(count / 2);
+          }
+        }
+      } else {
+        // 'all'
+        for (const [st, count] of Object.entries(garrison)) {
+          if (count && count > 0) {
+            selectedShips[st as ShipType] = count;
+          }
+        }
+      }
+
+      const totalSelected = Object.values(selectedShips).reduce((acc, c) => acc + c, 0);
+      if (totalSelected <= 0) {
+        sound.playError();
+        return false;
+      }
+
+      // 3. Determine Contextual Smart Mission & Colors
+      const targetSys = engineState.map.systems[target.systemId];
+      const targetPlanet = target.planetId ? engineState.planets[target.planetId] : null;
+      const targetFleet = target.fleetId ? engineState.fleets[target.fleetId] : null;
+
+      let mission: MissionType = 'explore';
+      let color = '#10b981'; // Emerald default
+      let label = 'Keşif / Devriye';
+      let targetName = targetSys?.name || 'Sektör';
+
+      if (targetFleet && targetFleet.ownerId !== activePlayerId) {
+        mission = 'intercept';
+        color = '#ef4444';
+        label = 'Düşman Filo Önleme';
+        targetName = targetFleet.name || 'Düşman Filosu';
+      } else if (targetPlanet && targetPlanet.ownerId && targetPlanet.ownerId !== activePlayerId) {
+        mission = 'attack';
+        color = '#ef4444';
+        label = 'Kuşatma & Taarruz';
+        targetName = targetPlanet.name;
+      } else {
+        const hostileColony = Object.values(engineState.planets).find(
+          (p) => p.systemId === target.systemId && p.ownerId && p.ownerId !== activePlayerId
+        );
+        if (hostileColony) {
+          mission = 'attack';
+          color = '#ef4444';
+          label = 'Düşman Kolonisine Taarruz';
+          targetName = hostileColony.name;
+        } else if (target.systemId === 'sys_relay' && engineState.relay?.controllingPlayerId !== activePlayerId) {
+          mission = 'attack';
+          color = '#f59e0b';
+          label = 'Nexus Röle Harekâtı';
+          targetName = 'Nexus Rölesi';
+        } else if (targetSys?.hasDebris && ((targetSys.hasDebris.ore || 0) > 0 || (targetSys.hasDebris.crystal || 0) > 0 || (targetSys.hasDebris.fuel || 0) > 0)) {
+          mission = 'explore';
+          color = '#06b6d4';
+          label = 'Enkaz Kurtarma';
+          targetName = `${targetSys.name} Enkazı`;
+        } else if (
+          (targetPlanet && targetPlanet.ownerId === activePlayerId && targetPlanet.id !== currentPlanet.id) ||
+          Object.values(engineState.planets).some(
+            (p) => p.systemId === target.systemId && p.ownerId === activePlayerId && p.id !== currentPlanet.id
+          )
+        ) {
+          mission = 'transport';
+          color = '#38bdf8';
+          label = 'Dost Koloniye İntikal';
+          targetName = targetPlanet?.name || targetSys?.name || 'Koloni';
+        } else if (!engineState.players[activePlayerId]?.intel?.discoveredSystems?.[target.systemId] ||
+                   engineState.players[activePlayerId]?.intel?.discoveredSystems?.[target.systemId] === 'unexplored') {
+          mission = 'explore';
+          color = '#10b981';
+          label = 'Sistem Keşfi';
+          targetName = targetSys?.name || 'Bilinmeyen Sistem';
+        } else {
+          mission = 'explore';
+          color = '#10b981';
+          label = 'Devriye';
+        }
+      }
+
+      // 4. Dispatch the fleet
+      const res = engineRef.current.dispatchCommand(activePlayerId, {
+        type: 'DISPATCH_FLEET',
+        originPlanetId: currentPlanet.id,
+        targetSystemId: target.systemId,
+        targetPlanetId: target.planetId || targetPlanet?.id,
+        targetFleetId: target.fleetId,
+        ships: selectedShips,
+        cargo: {},
+        mission,
+      });
+
+      if (res.success) {
+        if (mission === 'attack' || mission === 'intercept') {
+          sound.playLaser();
+        } else {
+          sound.playLaunch();
+        }
+
+        setEngineState({ ...engineRef.current.state });
+
+        setTacticalToasts((prev) => [
+          ...prev.slice(-3),
+          {
+            id: `toast_${Date.now()}`,
+            text: `🎯 [${currentPlanet.name}] ➔ [${targetName}]: ${totalSelected} Gemi Yola Çıktı (${label})`,
+            color,
+            timestamp: Date.now(),
+          },
+        ]);
+
+        return {
+          success: true,
+          color,
+          mission,
+          label,
+        };
+      } else {
+        sound.playError();
+        setTacticalToasts((prev) => [
+          ...prev.slice(-3),
+          {
+            id: `toast_${Date.now()}`,
+            text: `❌ Sevk Hatası: ${res.error || 'İntikal Reddedildi'}`,
+            color: '#ef4444',
+            timestamp: Date.now(),
+          },
+        ]);
+        return false;
+      }
+    },
+    [engineState, activePlanet, activePlayerId, directDispatchMode]
+  );
+
   const handleContextMenuTarget = useCallback((target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => {
     sound.playClick();
     setSelectedTarget({
@@ -2898,6 +3101,17 @@ export function App() {
               setSelectedTarget({ type: 'system', systemId });
             }}
             onContextMenuTarget={handleContextMenuTarget}
+            onDirectOrder={handleDirectOrder}
+            activePlanetId={activePlanet?.id}
+            onSelectPlanetById={(planetId) => {
+              setActivePlanetId(planetId);
+              const p = engineState.planets[planetId];
+              if (p) {
+                setSelectedTarget({ type: 'planet', systemId: p.systemId, planetId: p.id });
+              }
+            }}
+            directDispatchMode={directDispatchMode}
+            onSetDirectDispatchMode={setDirectDispatchMode}
             onSelectFleet={(fleetId) => {
               const fl = engineState.fleets[fleetId];
               if (fl) {
@@ -2928,6 +3142,22 @@ export function App() {
             onOpenBattles={() => setActiveLeftPanel('battles')}
             onOpenStarbase={(sysId) => setActiveStarbaseSystemId(sysId)}
           />
+
+          {/* Tactical RTS Order Feedback Toast Overlay */}
+          {tacticalToasts.length > 0 && (
+            <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-1.5 pointer-events-none items-center">
+              {tacticalToasts.map((toast) => (
+                <div
+                  key={toast.id}
+                  style={{ borderColor: `${toast.color}77` }}
+                  className="px-3.5 py-1.5 rounded-sm bg-[#06101c]/95 border shadow-2xl backdrop-blur-md font-mono text-xs text-slate-100 flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200"
+                >
+                  <span className="w-2 h-2 rounded-full animate-ping" style={{ backgroundColor: toast.color }} />
+                  <span className="font-semibold">{toast.text}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Stellaris Fleet Inspector Bottom Card HUD */}
           {selectedTarget?.type === 'fleet' && selectedTarget.fleetId && (

@@ -71,9 +71,27 @@ export interface GalaxyScene25DProps {
   onSelectFleet: (fleetId: string) => void;
   onHoverPlanet?: (planetId: string | null) => void;
   onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
+  onDirectOrder?: (payload: DirectOrderPayload) => boolean | TacticalPingResult;
   mapMode?: MapMode;
   onOpenBattles?: () => void;
   onOpenStarbase?: (systemId: string) => void;
+}
+
+export interface TacticalPingResult {
+  success: boolean;
+  color?: number | string;
+  mission?: string;
+  label?: string;
+}
+
+export interface DirectOrderPayload {
+  type: 'system' | 'planet' | 'fleet';
+  systemId: string;
+  planetId?: string;
+  fleetId?: string;
+  shiftKey?: boolean;
+  altKey?: boolean;
+  worldPos?: { x: number; y: number; z: number };
 }
 
 interface ScreenLabel {
@@ -130,6 +148,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onSelectFleet,
   onHoverPlanet,
   onContextMenuTarget,
+  onDirectOrder,
   mapMode = 'default',
   onOpenBattles,
   onOpenStarbase,
@@ -140,6 +159,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onHoverPlanetRef.current = onHoverPlanet;
   const onContextMenuTargetRef = useRef(onContextMenuTarget);
   onContextMenuTargetRef.current = onContextMenuTarget;
+  const onDirectOrderRef = useRef(onDirectOrder);
+  onDirectOrderRef.current = onDirectOrder;
   const onOpenBattlesRef = useRef(onOpenBattles);
   onOpenBattlesRef.current = onOpenBattles;
   const onOpenStarbaseRef = useRef(onOpenStarbase);
@@ -1513,6 +1534,86 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }
     };
 
+    // =========================================================================
+    // Tactical Order Ping FX (RTS Direct Command Holographic Rings & Reticle)
+    // =========================================================================
+    interface TacticalPingFX {
+      group: THREE.Group;
+      outerRing: THREE.Mesh;
+      innerRing: THREE.Mesh;
+      material: THREE.MeshBasicMaterial;
+      ticks: THREE.Mesh[];
+      createdAt: number;
+      duration: number; // ms
+      initialScale: number;
+      targetScale: number;
+    }
+    const activePings: TacticalPingFX[] = [];
+
+    const triggerTacticalPing = (x: number, y: number, z: number, hexColor: number = 0x10b981) => {
+      const pingGroup = new THREE.Group();
+      pingGroup.position.set(x, y, z + 2.5);
+
+      const mat = new THREE.MeshBasicMaterial({
+        color: hexColor,
+        transparent: true,
+        opacity: 0.95,
+        side: THREE.DoubleSide,
+        depthTest: false,
+        blending: THREE.AdditiveBlending,
+      });
+
+      // Outer expanding ring
+      const outerGeo = new THREE.RingGeometry(2.2, 2.7, 32);
+      const outerMesh = new THREE.Mesh(outerGeo, mat);
+      pingGroup.add(outerMesh);
+
+      // Inner counter-rotating tactical ring
+      const innerGeo = new THREE.RingGeometry(0.8, 1.1, 24);
+      const innerMesh = new THREE.Mesh(innerGeo, mat);
+      pingGroup.add(innerMesh);
+
+      // 4-point crosshair ticks (North, South, East, West)
+      const tickGeo = new THREE.PlaneGeometry(0.35, 1.4);
+      const ticks: THREE.Mesh[] = [];
+
+      const tickN = new THREE.Mesh(tickGeo, mat);
+      tickN.position.set(0, 3.4, 0);
+      pingGroup.add(tickN);
+      ticks.push(tickN);
+
+      const tickS = new THREE.Mesh(tickGeo, mat);
+      tickS.position.set(0, -3.4, 0);
+      pingGroup.add(tickS);
+      ticks.push(tickS);
+
+      const tickE = new THREE.Mesh(tickGeo, mat);
+      tickE.position.set(3.4, 0, 0);
+      tickE.rotation.z = Math.PI / 2;
+      pingGroup.add(tickE);
+      ticks.push(tickE);
+
+      const tickW = new THREE.Mesh(tickGeo, mat);
+      tickW.position.set(-3.4, 0, 0);
+      tickW.rotation.z = Math.PI / 2;
+      pingGroup.add(tickW);
+      ticks.push(tickW);
+
+      scene.add(pingGroup);
+
+      activePings.push({
+        group: pingGroup,
+        outerRing: outerMesh,
+        innerRing: innerMesh,
+        material: mat,
+        ticks,
+        createdAt: performance.now(),
+        duration: 850,
+        initialScale: 0.35,
+        targetScale: 3.8,
+      });
+    };
+
     const onContextMenu = (e: MouseEvent) => {
       e.preventDefault();
       if (!container) return;
@@ -1526,6 +1627,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const targetGroup = isSystemMode ? systemOrreryGroup : galaxyMacroGroup;
       const intersects = raycaster.intersectObjects(targetGroup.children, true);
 
+      // Alt key forces drawer panel open instead of direct RTS dispatch
+      const forceDrawer = e.altKey;
+
       for (const hit of intersects) {
         const udata = (hit.object as any).userData;
         if (udata) {
@@ -1536,29 +1640,63 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             }
             return;
           }
+
+          let orderTarget: DirectOrderPayload | null = null;
           if (udata.type === 'fleet' && udata.fleetId) {
             const fl = stateRef.current.fleets[udata.fleetId];
+            orderTarget = {
+              type: 'fleet',
+              systemId: fl?.targetSystemId || fl?.originSystemId || 'sys_relay',
+              fleetId: udata.fleetId,
+              shiftKey: e.shiftKey,
+              altKey: e.altKey,
+              worldPos: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
+            };
+          } else if (udata.type === 'system' || udata.type === 'star') {
+            orderTarget = {
+              type: 'system',
+              systemId: udata.systemId,
+              shiftKey: e.shiftKey,
+              altKey: e.altKey,
+              worldPos: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
+            };
+          } else if (udata.type === 'planet') {
+            orderTarget = {
+              type: 'planet',
+              systemId: udata.systemId,
+              planetId: udata.planetId,
+              shiftKey: e.shiftKey,
+              altKey: e.altKey,
+              worldPos: { x: hit.point.x, y: hit.point.y, z: hit.point.z },
+            };
+          }
+
+          if (orderTarget) {
+            // Attempt RTS direct order dispatch first
+            if (!forceDrawer && onDirectOrderRef.current) {
+              const res = onDirectOrderRef.current(orderTarget);
+              const isSuccess = typeof res === 'boolean' ? res : res.success;
+              if (isSuccess) {
+                let colorHex = 0x10b981; // emerald default
+                if (typeof res === 'object' && res.color) {
+                  colorHex = typeof res.color === 'string'
+                    ? parseInt(res.color.replace('#', '0x'), 16)
+                    : res.color;
+                }
+                triggerTacticalPing(hit.point.x, hit.point.y, hit.point.z, colorHex);
+                return;
+              }
+            }
+
+            // Fallback: open command drawer modal/panel
             sound.playClick();
             if (onContextMenuTargetRef.current) {
               onContextMenuTargetRef.current({
-                type: 'fleet',
-                systemId: fl?.targetSystemId || fl?.originSystemId || 'sys_relay',
-                fleetId: udata.fleetId,
+                type: orderTarget.type,
+                systemId: orderTarget.systemId,
+                planetId: orderTarget.planetId,
+                fleetId: orderTarget.fleetId,
               });
-            }
-            return;
-          }
-          if (udata.type === 'system' || udata.type === 'star') {
-            sound.playClick();
-            if (onContextMenuTargetRef.current) {
-              onContextMenuTargetRef.current({ type: 'system', systemId: udata.systemId });
-            }
-            return;
-          }
-          if (udata.type === 'planet') {
-            sound.playClick();
-            if (onContextMenuTargetRef.current) {
-              onContextMenuTargetRef.current({ type: 'planet', systemId: udata.systemId, planetId: udata.planetId });
             }
             return;
           }
@@ -1626,6 +1764,30 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       // 6.3 Cosmic Background Motion
       spiralGroup.rotation.z += 0.00018;
       starField.rotation.z += 0.00008;
+
+      // 6.3.1 Tactical Order Ping FX Update
+      const now = performance.now();
+      for (let i = activePings.length - 1; i >= 0; i--) {
+        const ping = activePings[i];
+        const elapsed = now - ping.createdAt;
+        const progress = Math.min(1, elapsed / ping.duration);
+
+        if (progress >= 1) {
+          scene.remove(ping.group);
+          ping.outerRing.geometry.dispose();
+          ping.innerRing.geometry.dispose();
+          ping.ticks.forEach((t) => t.geometry.dispose());
+          ping.material.dispose();
+          activePings.splice(i, 1);
+        } else {
+          const currentScale =
+            ping.initialScale + (ping.targetScale - ping.initialScale) * Math.sin((progress * Math.PI) / 2);
+          ping.group.scale.set(currentScale, currentScale, 1);
+          ping.material.opacity = Math.max(0, 1 - Math.pow(progress, 1.4));
+          ping.outerRing.rotation.z += delta * 1.5;
+          ping.innerRing.rotation.z -= delta * 2.5;
+        }
+      }
 
       const currentCoverage = sensorCoverageRef.current;
       const isGodMode = godModeRef.current;
@@ -2589,6 +2751,15 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         vis.burstMat.dispose();
       });
       battleVisuals.clear();
+
+      activePings.forEach((p) => {
+        scene.remove(p.group);
+        p.outerRing.geometry.dispose();
+        p.innerRing.geometry.dispose();
+        p.ticks.forEach((t) => t.geometry.dispose());
+        p.material.dispose();
+      });
+      activePings.length = 0;
 
       if (container && renderer.domElement) {
         container.removeChild(renderer.domElement);

@@ -18,7 +18,7 @@ import { calculatePlanetOrbit } from '../../engine/orbital';
 import { GameState, StarSystem } from '../../engine/types';
 import { SelectedTarget } from '../types';
 import { sound } from '../sound';
-import { GalaxyScene25D, MapMode } from './GalaxyScene25D';
+import { GalaxyScene25D, MapMode, DirectOrderPayload, TacticalPingResult } from './GalaxyScene25D';
 import { StellarisBottomDeck } from './StellarisBottomDeck';
 
 interface GalaxyMapProps {
@@ -35,6 +35,11 @@ interface GalaxyMapProps {
   onOpenResearch?: () => void;
   onOpenTransitRadar?: () => void;
   onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
+  onDirectOrder?: (payload: DirectOrderPayload) => boolean | TacticalPingResult;
+  activePlanetId?: string;
+  onSelectPlanetById?: (planetId: string) => void;
+  directDispatchMode?: 'all' | 'half' | 'scout';
+  onSetDirectDispatchMode?: (mode: 'all' | 'half' | 'scout') => void;
   onFocusHomeworld?: () => void;
   onFocusRelay?: () => void;
   onCycleColonies?: () => void;
@@ -56,6 +61,11 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
   onOpenResearch,
   onOpenTransitRadar,
   onContextMenuTarget,
+  onDirectOrder,
+  activePlanetId,
+  onSelectPlanetById,
+  directDispatchMode = 'all',
+  onSetDirectDispatchMode,
   onFocusHomeworld,
   onFocusRelay,
   onCycleColonies,
@@ -78,6 +88,24 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
   const sensorCoverage = useMemo(() => {
     return getPlayerSensorCoverage(state, activePlayerId);
   }, [state, activePlayerId]);
+
+  // Active player colonies and fleet capacity for RTS Direct Orders
+  const playerColonies = useMemo(() => {
+    return Object.values(state.planets).filter((p) => p.ownerId === activePlayerId);
+  }, [state.planets, activePlayerId]);
+
+  const activeColony = useMemo(() => {
+    return (
+      playerColonies.find((p) => p.id === activePlanetId) ||
+      playerColonies[0] ||
+      null
+    );
+  }, [playerColonies, activePlanetId]);
+
+  const garrisonFleetCount = useMemo(() => {
+    if (!activeColony || !activeColony.garrison) return 0;
+    return Object.values(activeColony.garrison).reduce((acc, count) => acc + (count || 0), 0);
+  }, [activeColony]);
 
   // Systems intel mapping
   const systems = useMemo(() => {
@@ -196,6 +224,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
           onSelectFleet={onSelectFleet}
           onHoverPlanet={setHoveredPlanetSlotId}
           onContextMenuTarget={onContextMenuTarget}
+          onDirectOrder={onDirectOrder}
           mapMode={mapMode}
           onOpenBattles={onOpenBattles}
           onOpenStarbase={onOpenStarbase}
@@ -205,6 +234,96 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
       {/* ========================================================================= */}
       {/* FLOATING HUD CONTROLS & STELLARIS-STYLE VIEW SWITCHER                    */}
       {/* ========================================================================= */}
+
+      {/* RTS Direct Fleet Command Dock (Top-Center Floating Quick Control HUD) */}
+      {activeColony && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 flex items-center gap-1.5 bg-[#070e17]/95 border border-[#18374b] rounded-sm px-3 py-1.5 shadow-2xl backdrop-blur-md font-mono text-xs select-none">
+          {/* Base Colony Selector */}
+          <div className="flex items-center gap-1.5 pr-2.5 border-r border-[#18374b]">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 shadow-[0_0_8px_#10b981]" />
+            <span className="text-slate-400 text-[10px] uppercase font-bold tracking-wider">ÜS:</span>
+            {playerColonies.length > 1 ? (
+              <select
+                value={activeColony.id}
+                onChange={(e) => {
+                  sound.playClick();
+                  onSelectPlanetById?.(e.target.value);
+                }}
+                className="bg-[#0b1b2b] text-cyan-200 border border-[#18374b] rounded px-1.5 py-0.5 text-xs font-semibold focus:outline-none focus:border-cyan-500 cursor-pointer"
+              >
+                {playerColonies.map((col) => {
+                  const ships = Object.values(col.garrison || {}).reduce((a, b) => a + (b || 0), 0);
+                  return (
+                    <option key={col.id} value={col.id}>
+                      {col.name} ({ships} Gemi)
+                    </option>
+                  );
+                })}
+              </select>
+            ) : (
+              <span className="font-bold text-cyan-200">{activeColony.name}</span>
+            )}
+            <span className="text-[11px] font-bold px-1.5 py-0.5 rounded bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
+              {garrisonFleetCount} Gemi
+            </span>
+          </div>
+
+          {/* Mode Selector Buttons */}
+          <div className="flex items-center gap-1 px-1">
+            <button
+              onClick={() => {
+                sound.playClick();
+                onSetDirectDispatchMode?.('all');
+              }}
+              className={`px-2 py-1 rounded text-[10.5px] font-bold transition-all cursor-pointer ${
+                directDispatchMode === 'all'
+                  ? 'bg-cyan-500/30 text-cyan-200 border border-cyan-400/80 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+              }`}
+              title="Sağ tıklandığında seçili üssün tüm hazır savaş filosunu sevk et (%100)"
+            >
+              ⚔️ %100 Filo
+            </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                onSetDirectDispatchMode?.('half');
+              }}
+              className={`px-2 py-1 rounded text-[10.5px] font-bold transition-all cursor-pointer ${
+                directDispatchMode === 'half'
+                  ? 'bg-amber-500/30 text-amber-200 border border-amber-400/80 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+              }`}
+              title="Sağ tıklandığında hazır filonun yarısını sevk et (%50)"
+            >
+              🛡️ %50 Filo
+            </button>
+            <button
+              onClick={() => {
+                sound.playClick();
+                onSetDirectDispatchMode?.('scout');
+              }}
+              className={`px-2 py-1 rounded text-[10.5px] font-bold transition-all cursor-pointer ${
+                directDispatchMode === 'scout'
+                  ? 'bg-emerald-500/30 text-emerald-200 border border-emerald-400/80 shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800/40'
+              }`}
+              title="Sağ tıklandığında sadece 1 hızlı öncü/gözcü gemisi sevk et"
+            >
+              🚀 1 Gözcü
+            </button>
+          </div>
+
+          {/* Contextual RTS Quick Tip */}
+          <div className="hidden lg:flex items-center gap-1.5 pl-2.5 border-l border-[#18374b] text-[10px] text-slate-400">
+            <span className="text-emerald-400 font-bold">Sağ Tık:</span>
+            <span>Doğrudan Sevk</span>
+            <span className="text-slate-600">|</span>
+            <span className="text-amber-400 font-bold">Alt+Sağ Tık:</span>
+            <span>Menü</span>
+          </div>
+        </div>
+      )}
 
       {/* Top Left: Sleek Stellaris System Breadcrumb Badge (Only in system view) */}
       {viewMode === 'system' && (
