@@ -15,6 +15,7 @@ import { evaluateBotTerraforming } from './terraforming';
 import { evaluateBotTrade } from './trade';
 import { evaluateBotWarfare } from './wars';
 import { evaluateBotFederations } from './federations';
+import { evaluateBotEspionage } from './espionage';
 import { IBotAgent } from './types';
 
 /**
@@ -281,6 +282,9 @@ export class AdmiralBot implements IBotAgent {
 
     // 19. Galactic Federations, Federal Fleets & Centralization Laws (Phase 22)
     evaluateBotFederations(engine, this.playerId, this.archetype, executedCommands);
+
+    // 20. Galactic Espionage, Covert Operations & Counter-Intelligence (Phase 23)
+    evaluateBotEspionage(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

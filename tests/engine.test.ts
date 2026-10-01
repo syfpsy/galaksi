@@ -129,6 +129,18 @@ import {
   updateFederations,
 } from '../src/engine/federations';
 import { evaluateBotFederations } from '../src/bots/federations';
+import {
+  COVERT_OP_CONFIGS,
+  SPY_ASSET_CONFIGS,
+  COUNTER_ESPIONAGE_CONFIGS,
+  getSpyNetworkKey,
+  calculateInfiltrationCap,
+  calculateCounterIntelScore,
+  calculateInfiltrationGrowthPerSec,
+  getTieredIntel,
+  updateEspionageNetworks,
+} from '../src/engine/espionage';
+import { evaluateBotEspionage } from '../src/bots/espionage';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -4487,6 +4499,180 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const acceptCmd = botCmds.find((c) => c.type === 'RESPOND_FEDERATION_INVITE');
     expect(acceptCmd).toBeDefined();
     expect(acceptCmd.accept).toBe(true);
+  });
+
+  it('manages Galactic Espionage, Spy Networks, Infiltration Levels, Covert Assets & Sabotage Operations (Phase 23)', () => {
+    const engine = new GameEngine(777);
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p_spy_1', 'Shadow Syndicate', '#8b5cf6');
+    const { player: p2, homeworld: hw2 } = engine.addPlayer('p_spy_2', 'Solar Hegemony', '#f59e0b');
+
+    // Fund p1 homeworld
+    hw1.resources.ore = 5000;
+    hw1.resources.crystal = 5000;
+    hw1.resources.fuel = 5000;
+
+    // 1. ESTABLISH_SPY_NETWORK
+    const netKey = getSpyNetworkKey(p1.id, p2.id);
+    const initialOre = hw1.resources.ore;
+
+    const estRes = engine.dispatchCommand(p1.id, {
+      type: 'ESTABLISH_SPY_NETWORK',
+      targetPlayerId: p2.id,
+    });
+    expect(estRes.success).toBe(true);
+    expect(engine.state.spyNetworks?.[netKey]).toBeDefined();
+
+    const net = engine.state.spyNetworks![netKey];
+    expect(net.ownerId).toBe(p1.id);
+    expect(net.targetPlayerId).toBe(p2.id);
+    expect(net.infiltrationLevel).toBe(5); // initial headstart
+    expect(net.assignedEnvoys).toBe(1); // default 1 envoy
+    expect(net.infiltrationCap).toBeGreaterThanOrEqual(20);
+    // Cost deducted (60 ore, 40 crystal, 40 fuel)
+    expect(hw1.resources.ore).toBe(initialOre - 60);
+
+    // Duplicate establishment rejected
+    const dupRes = engine.dispatchCommand(p1.id, {
+      type: 'ESTABLISH_SPY_NETWORK',
+      targetPlayerId: p2.id,
+    });
+    expect(dupRes.success).toBe(false);
+
+    // Self establishment rejected
+    const selfRes = engine.dispatchCommand(p1.id, {
+      type: 'ESTABLISH_SPY_NETWORK',
+      targetPlayerId: p1.id,
+    });
+    expect(selfRes.success).toBe(false);
+
+    // 2. ASSIGN_SPYMASTER_ENVOY
+    const envoyRes = engine.dispatchCommand(p1.id, {
+      type: 'ASSIGN_SPYMASTER_ENVOY',
+      networkId: net.id,
+      envoys: 2,
+    });
+    expect(envoyRes.success).toBe(true);
+    expect(net.assignedEnvoys).toBe(2);
+
+    // 3. Passive Infiltration Growth
+    const prevLevel = net.infiltrationLevel;
+    updateEspionageNetworks(engine.state, 20_000); // 20s
+    expect(net.infiltrationLevel).toBeGreaterThan(prevLevel);
+
+    // 4. Infiltration Decay when 0 envoys
+    net.assignedEnvoys = 0;
+    const levelBeforeDecay = net.infiltrationLevel;
+    updateEspionageNetworks(engine.state, 10_000); // 10s
+    expect(net.infiltrationLevel).toBeLessThan(levelBeforeDecay);
+    net.assignedEnvoys = 1;
+
+    // 5. ACQUIRE_SPY_ASSET
+    const assetRes = engine.dispatchCommand(p1.id, {
+      type: 'ACQUIRE_SPY_ASSET',
+      networkId: net.id,
+      assetType: 'corrupt_dockworker',
+    });
+    expect(assetRes.success).toBe(true);
+    expect(net.assets.length).toBe(1);
+    expect(net.assets[0].type).toBe('corrupt_dockworker');
+    expect(net.assets[0].bonusDescriptionTr).toBeDefined();
+
+    // Cannot acquire duplicate asset of same type in same network
+    const dupAssetRes = engine.dispatchCommand(p1.id, {
+      type: 'ACQUIRE_SPY_ASSET',
+      networkId: net.id,
+      assetType: 'corrupt_dockworker',
+    });
+    expect(dupAssetRes.success).toBe(false);
+
+    // 6. Tiered Intel Visibility & Sensor Vision
+    // Set level to 95 (Full infiltration)
+    net.infiltrationLevel = 95;
+    const fullIntel = getTieredIntel(engine.state, p1.id, p2.id);
+    expect(fullIntel.tier).toBe('full');
+    expect(fullIntel.intelDetailsTr.length).toBeGreaterThan(0);
+
+    // Check fog sensor coverage includes p2's planet system
+    const sensors = getPlayerSensorCoverage(engine.state, p1.id);
+    expect(sensors.has(hw2.systemId)).toBe(true);
+
+    // 7. LAUNCH_COVERT_OPERATION
+    // Test gathering intel (required: 15, cost: 5)
+    net.infiltrationLevel = 50;
+    const opRes = engine.dispatchCommand(p1.id, {
+      type: 'LAUNCH_COVERT_OPERATION',
+      networkId: net.id,
+      opType: 'gather_intel',
+      assignedAssetId: net.assets[0].id,
+    });
+    expect(opRes.success).toBe(true);
+    const opId = (opRes.data as any).operationId;
+    expect(engine.state.covertOperations?.[opId]).toBeDefined();
+
+    const op = engine.state.covertOperations![opId];
+    expect(op.status).toBe('in_progress');
+    // Infiltration cost deducted (5)
+    expect(net.infiltrationLevel).toBe(45);
+
+    // 8. Progress and Resolution of Operation
+    // Fast-forward operation duration
+    updateEspionageNetworks(engine.state, op.durationMs + 1000);
+    expect(op.status).not.toBe('in_progress');
+    expect(['succeeded', 'failed', 'compromised']).toContain(op.status);
+
+    // 9. SET_COUNTER_ESPIONAGE_STANCE
+    expect(p2.counterEspionageStance).toBe('relaxed');
+    const stanceRes = engine.dispatchCommand(p2.id, {
+      type: 'SET_COUNTER_ESPIONAGE_STANCE',
+      stance: 'police_state',
+    });
+    expect(stanceRes.success).toBe(true);
+    expect(p2.counterEspionageStance).toBe('police_state');
+
+    // police_state severely reduces enemy infiltration cap
+    const capAfterPoliceState = calculateInfiltrationCap(engine.state, p1.id, p2.id);
+    expect(capAfterPoliceState).toBeLessThan(net.infiltrationCap + 1);
+    const counterScore = calculateCounterIntelScore(engine.state, p2.id);
+    expect(counterScore).toBeGreaterThanOrEqual(60);
+
+    // 10. CANCEL_COVERT_OPERATION
+    net.infiltrationLevel = 60;
+    const launch2 = engine.dispatchCommand(p1.id, {
+      type: 'LAUNCH_COVERT_OPERATION',
+      networkId: net.id,
+      opType: 'gather_intel',
+    });
+    expect(launch2.success).toBe(true);
+    const op2Id = (launch2.data as any).operationId;
+    const cancelRes = engine.dispatchCommand(p1.id, {
+      type: 'CANCEL_COVERT_OPERATION',
+      operationId: op2Id,
+    });
+    expect(cancelRes.success).toBe(true);
+    expect(engine.state.covertOperations![op2Id].status).toBe('failed');
+
+    // 11. RECALL_SPY_NETWORK
+    const recallRes = engine.dispatchCommand(p1.id, {
+      type: 'RECALL_SPY_NETWORK',
+      networkId: net.id,
+    });
+    expect(recallRes.success).toBe(true);
+    expect(engine.state.spyNetworks?.[net.id]).toBeUndefined();
+
+    // 12. Bot AI Autonomous Espionage (evaluateBotEspionage)
+    const { player: botGuardian } = engine.addPlayer('bot_guard_esp', 'Guardian Enclave', '#10b981', true, 'guardian');
+    const botCmds: any[] = [];
+    evaluateBotEspionage(engine, botGuardian.id, 'guardian', botCmds);
+
+    // Guardian bot sets police_state stance
+    const stanceCmd = botCmds.find((c) => c.type === 'SET_COUNTER_ESPIONAGE_STANCE');
+    expect(stanceCmd).toBeDefined();
+    expect(stanceCmd.stance).toBe('police_state');
+
+    // Guardian bot establishes a spy network on available rival
+    const estCmd = botCmds.find((c) => c.type === 'ESTABLISH_SPY_NETWORK');
+    expect(estCmd).toBeDefined();
+    expect(estCmd.targetPlayerId).toBeDefined();
   });
 });
 

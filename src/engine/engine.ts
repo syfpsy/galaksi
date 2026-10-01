@@ -211,6 +211,16 @@ import {
   dispatchFederalFleet,
   updateFederations,
 } from './federations';
+import {
+  updateEspionageNetworks,
+  establishSpyNetwork,
+  recallSpyNetwork,
+  assignSpymasterEnvoy,
+  acquireSpyAsset,
+  launchCovertOperation,
+  cancelCovertOperation,
+  setCounterEspionageStance,
+} from './espionage';
 
 
 export class GameEngine {
@@ -224,6 +234,7 @@ export class GameEngine {
   private lastTradeTickMs: number = 0;
   private lastWarTickMs: number = 0;
   private lastFederationTickMs: number = 0;
+  private lastEspionageTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -272,6 +283,8 @@ export class GameEngine {
         transactionHistory: [],
       },
       espionageOps: [],
+      spyNetworks: {},
+      covertOperations: {},
       battleReports: [],
       eventLog: [],
       victory: null,
@@ -347,6 +360,7 @@ export class GameEngine {
       subjects: [],
       federationId: null,
       assignedFederationEnvoys: 0,
+      counterEspionageStance: 'relaxed',
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -738,6 +752,13 @@ export class GameEngine {
     this.lastFederationTickMs = nowMs;
     if (fedElapsedMs > 0) {
       updateFederations(this.state, fedElapsedMs);
+    }
+
+    // Covert Infiltration & Espionage Networks tick (Phase 23)
+    const espElapsedMs = Math.max(0, nowMs - this.lastEspionageTickMs);
+    this.lastEspionageTickMs = nowMs;
+    if (espElapsedMs > 0) {
+      updateEspionageNetworks(this.state, espElapsedMs);
     }
   }
 
@@ -5515,6 +5536,104 @@ export class GameEngine {
           data: { federationId: cmd.federationId, targetSystemId: cmd.targetSystemId },
         };
       }
+
+      case 'ESTABLISH_SPY_NETWORK': {
+        const res = establishSpyNetwork(this.state, playerId, cmd.targetPlayerId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { networkId: res.networkId, targetPlayerId: cmd.targetPlayerId },
+        };
+      }
+
+      case 'RECALL_SPY_NETWORK': {
+        const res = recallSpyNetwork(this.state, playerId, cmd.networkId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { networkId: cmd.networkId },
+        };
+      }
+
+      case 'ASSIGN_SPYMASTER_ENVOY': {
+        const res = assignSpymasterEnvoy(this.state, playerId, cmd.networkId, cmd.envoys);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { networkId: cmd.networkId, envoys: cmd.envoys },
+        };
+      }
+
+      case 'ACQUIRE_SPY_ASSET': {
+        const res = acquireSpyAsset(this.state, playerId, cmd.networkId, cmd.assetType);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { networkId: cmd.networkId, asset: res.asset },
+        };
+      }
+
+      case 'LAUNCH_COVERT_OPERATION': {
+        const res = launchCovertOperation(
+          this.state,
+          playerId,
+          cmd.networkId,
+          cmd.opType,
+          cmd.targetPlanetId,
+          cmd.assignedAssetId
+        );
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { operationId: res.operationId, opType: cmd.opType },
+        };
+      }
+
+      case 'CANCEL_COVERT_OPERATION': {
+        const res = cancelCovertOperation(this.state, playerId, cmd.operationId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { operationId: cmd.operationId },
+        };
+      }
+
+      case 'SET_COUNTER_ESPIONAGE_STANCE': {
+        const res = setCounterEspionageStance(this.state, playerId, cmd.stance);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { stance: cmd.stance },
+        };
+      }
     }
   }
 
@@ -5750,6 +5869,8 @@ export class GameEngine {
         transactionHistory: [],
       },
       espionageOps: [],
+      spyNetworks: {},
+      covertOperations: {},
       battleReports: [],
       eventLog: [],
       victory: null,

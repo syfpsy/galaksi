@@ -38,6 +38,9 @@ import {
   SubjectType,
   WarGoalType,
   FederationType,
+  CounterEspionageStance,
+  CovertOpType,
+  SpyAssetType,
 } from './engine/types';
 import { evaluatePlayerDirectives } from './engine/directives';
 import { AllianceModal, AllianceTab } from './ui/components/AllianceModal';
@@ -1663,6 +1666,114 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleEstablishSpyNetwork = (targetPlayerId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ESTABLISH_SPY_NETWORK',
+      targetPlayerId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleRecallSpyNetwork = (networkId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RECALL_SPY_NETWORK',
+      networkId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAssignSpymasterEnvoy = (networkId: string, envoys: number) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ASSIGN_SPYMASTER_ENVOY',
+      networkId,
+      envoys,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAcquireSpyAsset = (networkId: string, assetType: SpyAssetType) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ACQUIRE_SPY_ASSET',
+      networkId,
+      assetType,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleLaunchCovertOperation = (
+    networkId: string,
+    opType: CovertOpType,
+    targetPlanetId?: string,
+    assignedAssetId?: string
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'LAUNCH_COVERT_OPERATION',
+      networkId,
+      opType,
+      targetPlanetId,
+      assignedAssetId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleCancelCovertOperation = (operationId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CANCEL_COVERT_OPERATION',
+      operationId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleSetCounterEspionageStance = (stance: CounterEspionageStance) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'SET_COUNTER_ESPIONAGE_STANCE',
+      stance,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleAssaultRelay = () => {
     if (!engineState) return;
     setSelectedTarget({
@@ -2002,6 +2113,13 @@ export function App() {
                   setActiveLeftPanel(null);
                 }}
                 onLaunchOp={handleLaunchEspionageOp}
+                onEstablishNetwork={handleEstablishSpyNetwork}
+                onRecallNetwork={handleRecallSpyNetwork}
+                onAssignEnvoy={handleAssignSpymasterEnvoy}
+                onAcquireAsset={handleAcquireSpyAsset}
+                onLaunchCovertOp={handleLaunchCovertOperation}
+                onCancelCovertOp={handleCancelCovertOperation}
+                onSetCounterStance={handleSetCounterEspionageStance}
               />
             )}
 

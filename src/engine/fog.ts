@@ -27,6 +27,9 @@ import {
   EmpireTraditionsState,
   ActiveRelicTriumph,
   ArchaeologySite,
+  SpyNetwork,
+  CovertOperation,
+  CounterEspionageStance,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -93,6 +96,9 @@ export interface PlayerVisibleState {
   myMinorArtifacts?: number;
   myActiveRelicTriumphs?: ActiveRelicTriumph[];
   archaeologySites?: Record<string, ArchaeologySite>;
+  mySpyNetworks?: SpyNetwork[];
+  myCovertOperations?: CovertOperation[];
+  myCounterEspionageStance?: CounterEspionageStance;
 }
 
 /**
@@ -209,6 +215,19 @@ export function getPlayerSensorCoverage(
         coveredSystems.add(mega.systemId);
         if (megaBonuses.additionalSensorHops > 0) {
           addNeighborSystemsWithinHops(mega.systemId, megaBonuses.additionalSensorHops, state.map, coveredSystems);
+        }
+      }
+    }
+  }
+
+  // 6. Deep Infiltration (>= 90): Systems containing infiltrated target's colonies
+  if (state.spyNetworks) {
+    for (const net of Object.values(state.spyNetworks)) {
+      if (net.ownerId === playerId && net.infiltrationLevel >= 90) {
+        for (const targetPlanet of Object.values(state.planets)) {
+          if (targetPlanet.ownerId === net.targetPlayerId) {
+            coveredSystems.add(targetPlanet.systemId);
+          }
         }
       }
     }
@@ -447,5 +466,8 @@ export function filterGameStateForPlayer(
     myMinorArtifacts: player?.minorArtifacts || 0,
     myActiveRelicTriumphs: state.activeRelicTriumphs?.[playerId] || [],
     archaeologySites: state.archaeologySites,
+    mySpyNetworks: Object.values(state.spyNetworks || {}).filter((n) => n.ownerId === playerId),
+    myCovertOperations: Object.values(state.covertOperations || {}).filter((o) => o.infiltratorId === playerId),
+    myCounterEspionageStance: player?.counterEspionageStance || 'relaxed',
   };
 }

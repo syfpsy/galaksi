@@ -983,6 +983,64 @@ export interface EspionageReport {
   };
 }
 
+// --- Phase 23: Galactic Espionage & Covert Infiltration ---
+export type CovertOpType =
+  | 'gather_intel'
+  | 'steal_technology'
+  | 'sabotage_starbase'
+  | 'destabilize_economy'
+  | 'diplomatic_incident'
+  | 'arm_insurgents'
+  | 'extort_favor';
+
+export type SpyAssetType =
+  | 'corrupt_dockworker'
+  | 'disaffected_scientist'
+  | 'disgruntled_bureaucrat'
+  | 'shadow_smuggler';
+
+export interface SpyAsset {
+  id: string;
+  targetPlayerId: string;
+  type: SpyAssetType;
+  name: string;
+  acquiredAtMs: number;
+  bonusDescriptionTr: string;
+}
+
+export interface SpyNetwork {
+  id: string; // key: `${ownerId}_${targetPlayerId}`
+  ownerId: string;
+  targetPlayerId: string;
+  infiltrationLevel: number; // 0 to 100
+  infiltrationCap: number; // 20 to 100
+  assignedEnvoys: number; // 0 to 3
+  establishedAtMs: number;
+  lastUpdateMs: number;
+  assets: SpyAsset[];
+}
+
+export type CovertOpStatus = 'in_progress' | 'succeeded' | 'failed' | 'compromised';
+
+export interface CovertOperation {
+  id: string;
+  networkId: string;
+  infiltratorId: string;
+  targetPlayerId: string;
+  targetPlanetId?: string;
+  opType: CovertOpType;
+  assignedAssetId?: string;
+  startedAtMs: number;
+  durationMs: number;
+  progressPercent: number; // 0 to 100
+  requiredInfiltration: number;
+  infiltrationCost: number;
+  status: CovertOpStatus;
+  resultReportId?: string;
+}
+
+export type CounterEspionageStance = 'relaxed' | 'surveillance' | 'police_state';
+
 export interface Player {
   id: string;
   name: string;
@@ -1011,6 +1069,7 @@ export interface Player {
   subjects?: string[]; // Phase 21: Array of subject playerIds
   federationId?: string | null; // Phase 22: ID of the federation this player belongs to
   assignedFederationEnvoys?: number; // Phase 22: Envoys assigned to federation to maintain cohesion
+  counterEspionageStance?: CounterEspionageStance; // Phase 23: Counter-intelligence posture
 }
 
 export type EmpireDirectiveId =
@@ -1157,6 +1216,8 @@ export interface GameState {
   wars?: Record<string, WarState>; // key: warId (Phase 21)
   subjects?: Record<string, SubjectAgreement>; // key: subjectId (Phase 21)
   federations?: Record<string, FederationState>; // key: federationId (Phase 22)
+  spyNetworks?: Record<string, SpyNetwork>; // key: `${ownerId}_${targetPlayerId}` (Phase 23)
+  covertOperations?: Record<string, CovertOperation>; // key: operationId (Phase 23)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1553,6 +1614,39 @@ export type GameCommand =
       originPlanetId: string;
       targetSystemId: string;
       ships: Record<ShipType, number>;
+    }
+  | {
+      type: 'ESTABLISH_SPY_NETWORK';
+      targetPlayerId: string;
+    }
+  | {
+      type: 'RECALL_SPY_NETWORK';
+      networkId: string;
+    }
+  | {
+      type: 'ASSIGN_SPYMASTER_ENVOY';
+      networkId: string;
+      envoys: number;
+    }
+  | {
+      type: 'ACQUIRE_SPY_ASSET';
+      networkId: string;
+      assetType: SpyAssetType;
+    }
+  | {
+      type: 'LAUNCH_COVERT_OPERATION';
+      networkId: string;
+      opType: CovertOpType;
+      targetPlanetId?: string;
+      assignedAssetId?: string;
+    }
+  | {
+      type: 'CANCEL_COVERT_OPERATION';
+      operationId: string;
+    }
+  | {
+      type: 'SET_COUNTER_ESPIONAGE_STANCE';
+      stance: CounterEspionageStance;
     };
 
 export interface CommandReceipt {

@@ -21,15 +21,41 @@ import {
   ShieldCheck,
   Sparkles,
   TrendingDown,
+  TrendingUp,
+  UserCheck,
+  UserPlus,
   Users,
   Wrench,
   X,
   Zap,
 } from 'lucide-react';
-import { EspionageOpType, EspionageReport, GameState, Planet, ShipType } from '../../engine/types';
+import {
+  CounterEspionageStance,
+  CovertOpType,
+  CovertOperation,
+  EspionageOpType,
+  EspionageReport,
+  GameState,
+  Planet,
+  ShipType,
+  SpyAsset,
+  SpyAssetType,
+  SpyNetwork,
+} from '../../engine/types';
 import { SHIP_STATS } from '../../engine/constants';
 import { formatSimClock } from '../timeUtils';
 import { sound } from '../sound';
+import {
+  COVERT_OP_CONFIGS,
+  COUNTER_ESPIONAGE_CONFIGS,
+  ESPIONAGE_CONSTANTS,
+  SPY_ASSET_CONFIGS,
+  calculateCounterIntelScore,
+  calculateInfiltrationCap,
+  calculateInfiltrationGrowthPerSec,
+  getSpyNetworkKey,
+  getTieredIntel,
+} from '../../engine/espionage';
 
 interface EspionageModalProps {
   state: GameState;
@@ -43,51 +69,19 @@ interface EspionageModalProps {
     opType: EspionageOpType,
     scoutCount: number
   ) => void;
+  onEstablishNetwork?: (targetPlayerId: string) => void;
+  onRecallNetwork?: (networkId: string) => void;
+  onAssignEnvoy?: (networkId: string, envoys: number) => void;
+  onAcquireAsset?: (networkId: string, assetType: SpyAssetType) => void;
+  onLaunchCovertOp?: (
+    networkId: string,
+    opType: CovertOpType,
+    targetPlanetId?: string,
+    assignedAssetId?: string
+  ) => void;
+  onCancelCovertOp?: (operationId: string) => void;
+  onSetCounterStance?: (stance: CounterEspionageStance) => void;
 }
-
-interface OpTypeMeta {
-  type: EspionageOpType;
-  titleTr: string;
-  badge: string;
-  icon: React.ReactNode;
-  descTr: string;
-  rewardDescTr: string;
-}
-
-const OP_TYPES: OpTypeMeta[] = [
-  {
-    type: 'infiltrate_intel',
-    titleTr: 'Taktik İstihbarat Sızması',
-    badge: 'KEŞİF & ANALİZ',
-    icon: <Search className="w-4 h-4 text-cyan-400" />,
-    descTr: 'Düşman kolonisine sızarak tüm tesis seviyelerini, konuşlu filoyu, savunma platformlarını ve Ar-Ge durumunu deşifre eder.',
-    rewardDescTr: 'Ayrıntılı askeri istihbarat dosyası elde edilir.',
-  },
-  {
-    type: 'sabotage_shipyard',
-    titleTr: 'Tersane & Savunma Sabotajı',
-    badge: 'OPERASYONEL SABOTAJ',
-    icon: <Wrench className="w-4 h-4 text-rose-400" />,
-    descTr: 'Düşman tersanesine sızıp montaj hatlarını bozar, gemi veya savunma tareti inşasını 60 saniye geciktirir.',
-    rewardDescTr: 'Hedefin askeri üretim hattı sekteye uğrar.',
-  },
-  {
-    type: 'tech_espionage',
-    titleTr: 'Teknoloji Hırsızlığı',
-    badge: 'TERSİNE MÜHENDİSLİK',
-    icon: <Binary className="w-4 h-4 text-purple-400" />,
-    descTr: 'Düşman Ar-Ge sunucularından gizli askeri şemaları kopyalar ve üssünüze yüksek değerli kaynak aktarır.',
-    rewardDescTr: '+350 Cevher, +250 Kristal, +150 Yakıt değerinde veri çalınır.',
-  },
-  {
-    type: 'destabilize_production',
-    titleTr: 'Üretim & Enerji Sabotajı',
-    badge: 'KAYNAK SIZINTISI',
-    icon: <Zap className="w-4 h-4 text-amber-400" />,
-    descTr: 'Maden ve rafineri dağıtım şebekesini kısa devre yaptırarak hedef koloniden ciddi kaynak sızıntısına yol açar.',
-    rewardDescTr: 'Hedefin depolanmış kaynaklarının %25\'e kadarı buharlaşır.',
-  },
-];
 
 export const EspionageModal: React.FC<EspionageModalProps> = ({
   state,
@@ -96,94 +90,99 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
   initialTargetPlanetId,
   onClose,
   onLaunchOp,
+  onEstablishNetwork,
+  onRecallNetwork,
+  onAssignEnvoy,
+  onAcquireAsset,
+  onLaunchCovertOp,
+  onCancelCovertOp,
+  onSetCounterStance,
 }) => {
-  const [activeTab, setActiveTab] = useState<'launch' | 'dossiers' | 'counterIntel'>('launch');
-  const [selectedOpType, setSelectedOpType] = useState<EspionageOpType>('infiltrate_intel');
-  const [scoutCount, setScoutCount] = useState<number>(1);
-  const [selectedTargetId, setSelectedTargetId] = useState<string>(() => {
-    if (initialTargetPlanetId) return initialTargetPlanetId;
-    // Default to first foreign planet found
-    const foreign = Object.values(state.planets).find(p => p.ownerId !== activePlayerId);
-    return foreign ? foreign.id : '';
-  });
+  const [activeTab, setActiveTab] = useState<'networks' | 'operations' | 'assets' | 'counterIntel' | 'dossiers'>('networks');
+  const [selectedNetworkId, setSelectedNetworkId] = useState<string>('');
+  const [selectedTargetPlayerId, setSelectedTargetPlayerId] = useState<string>('');
+  const [selectedCovertOpType, setSelectedCovertOpType] = useState<CovertOpType>('gather_intel');
+  const [selectedAssetId, setSelectedAssetId] = useState<string>('');
   const [expandedReportId, setExpandedReportId] = useState<string | null>(null);
 
+  // Legacy Scout Sonda states
+  const [selectedLegacyOpType, setSelectedLegacyOpType] = useState<EspionageOpType>('infiltrate_intel');
+  const [scoutCount, setScoutCount] = useState<number>(1);
+  const [selectedTargetPlanetId, setSelectedTargetPlanetId] = useState<string>(() => {
+    if (initialTargetPlanetId) return initialTargetPlanetId;
+    const foreign = Object.values(state.planets).find((p) => p.ownerId !== activePlayerId);
+    return foreign ? foreign.id : '';
+  });
+
   const player = state.players[activePlayerId];
-  const originPlanet = activePlanet || Object.values(state.planets).find(p => p.ownerId === activePlayerId);
-  const availableScouts = originPlanet?.garrison.scout || 0;
-  const targetPlanet = state.planets[selectedTargetId];
-  const targetPlayer = targetPlanet ? state.players[targetPlanet.ownerId] : null;
+  const originPlanet = activePlanet || Object.values(state.planets).find((p) => p.ownerId === activePlayerId);
 
-  // Potential targets list (all foreign planets)
-  const foreignPlanets = useMemo(() => {
-    return Object.values(state.planets).filter(p => p.ownerId !== activePlayerId);
-  }, [state.planets, activePlayerId]);
+  // Active Spy Networks owned by player
+  const mySpyNetworks = useMemo(() => {
+    return Object.values(state.spyNetworks || {}).filter((n) => n.ownerId === activePlayerId);
+  }, [state.spyNetworks, activePlayerId]);
 
-  // Operational metrics
-  const missionMetrics = useMemo(() => {
-    if (!originPlanet || !targetPlanet) {
-      return { distance: 0, fuelCost: 0, durationMs: 0, successChance: 50, detectionChance: 30 };
+  // Set default selected network if not set
+  React.useEffect(() => {
+    if (!selectedNetworkId && mySpyNetworks.length > 0) {
+      setSelectedNetworkId(mySpyNetworks[0].id);
     }
-    const originSys = state.map.systems[originPlanet.systemId];
-    const targetSys = state.map.systems[targetPlanet.systemId];
-    if (!originSys || !targetSys) {
-      return { distance: 0, fuelCost: 0, durationMs: 0, successChance: 50, detectionChance: 30 };
+  }, [selectedNetworkId, mySpyNetworks]);
+
+  const activeNetwork = useMemo(() => {
+    return mySpyNetworks.find((n) => n.id === selectedNetworkId) || mySpyNetworks[0];
+  }, [mySpyNetworks, selectedNetworkId]);
+
+  // Candidate foreign players without an active network
+  const potentialTargets = useMemo(() => {
+    return Object.values(state.players).filter((p) => {
+      if (p.id === activePlayerId) return false;
+      const key = getSpyNetworkKey(activePlayerId, p.id);
+      return !state.spyNetworks?.[key];
+    });
+  }, [state.players, state.spyNetworks, activePlayerId]);
+
+  React.useEffect(() => {
+    if (!selectedTargetPlayerId && potentialTargets.length > 0) {
+      setSelectedTargetPlayerId(potentialTargets[0].id);
     }
-    const distance = Math.round(Math.hypot(targetSys.x - originSys.x, targetSys.y - originSys.y));
-    const fuelCost = Math.max(15, Math.round(scoutCount * (15 + distance * 0.08)));
+  }, [selectedTargetPlayerId, potentialTargets]);
 
-    const engineTech = player?.research?.engines || 0;
-    const speed = SHIP_STATS.scout.speed * (1 + engineTech * 0.15);
-    const durationMs = Math.max(2000, Math.round((distance / speed) * 1000));
+  // Active Covert Operations involving player
+  const myActiveCovertOps = useMemo(() => {
+    return Object.values(state.covertOperations || {}).filter(
+      (o) => o.infiltratorId === activePlayerId && o.status === 'in_progress'
+    );
+  }, [state.covertOperations, activePlayerId]);
 
-    // Ratings
-    const sensorArrayLvl = targetPlanet.buildings?.sensor_array || 0;
-    const defenderSensorsTech = targetPlayer?.research?.sensors || 0;
-    const counterIntelRating = (sensorArrayLvl * 15) + (defenderSensorsTech * 10);
+  // Player's counter-espionage stance and score
+  const myStance: CounterEspionageStance = player?.counterEspionageStance || 'relaxed';
+  const myCounterIntelScore = useMemo(() => {
+    return calculateCounterIntelScore(state, activePlayerId);
+  }, [state, activePlayerId]);
 
-    const infiltratorSensorsTech = player?.research?.sensors || 0;
-    const stealthRating = 45 + (scoutCount * 8) + (infiltratorSensorsTech * 12);
-
-    const successChance = Math.round(Math.max(0.15, Math.min(0.92, 0.60 + (stealthRating - counterIntelRating) / 100)) * 100);
-    const detectionChance = Math.round(Math.max(0.10, Math.min(0.85, 0.35 + (counterIntelRating - stealthRating) / 100)) * 100);
-
-    return { distance, fuelCost, durationMs, successChance, detectionChance, stealthRating, counterIntelRating };
-  }, [originPlanet, targetPlanet, scoutCount, player, targetPlayer, state.map.systems]);
-
-  const canAfford = originPlanet && originPlanet.resources.fuel >= missionMetrics.fuelCost && availableScouts >= scoutCount;
-
-  const handleLaunch = () => {
-    if (!originPlanet || !targetPlanet || !canAfford) {
-      sound.playError();
-      return;
-    }
-    sound.playClick();
-    onLaunchOp(originPlanet.id, targetPlanet.id, selectedOpType, scoutCount);
-    setActiveTab('dossiers');
-  };
-
-  const myReports = (player?.espionageReports || []).filter(r => r.infiltratorId === activePlayerId);
-  const securityAlerts = (player?.espionageReports || []).filter(r => r.targetPlayerId === activePlayerId && r.detected);
+  // Legacy reports
+  const myReports = (player?.espionageReports || []).filter((r) => r.infiltratorId === activePlayerId);
+  const securityAlerts = (player?.espionageReports || []).filter((r) => r.targetPlayerId === activePlayerId && r.detected);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/75 backdrop-blur-sm select-none">
-      <div className="w-full max-w-4xl max-h-[90vh] flex flex-col stellaris-modal rounded-sm border border-[#2b4c63] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-5 bg-black/80 backdrop-blur-md select-none">
+      <div className="w-full max-w-5xl max-h-[92vh] flex flex-col stellaris-modal rounded-sm border border-[#2b4c63] shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#1b3a4b] bg-gradient-to-r from-[#0d1f2d] via-[#132c3f] to-[#0a1824]">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-sm bg-gradient-to-br from-purple-600/30 to-purple-900/50 border border-purple-500/40 flex items-center justify-center text-purple-300 shadow-inner">
-              <Eye className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-sm bg-gradient-to-br from-purple-600/40 to-slate-900 border border-purple-500/50 flex items-center justify-center text-purple-300 shadow-inner">
+              <Eye className="w-5 h-5" />
             </div>
             <div>
               <h2 className="stellaris-gold font-display text-base font-bold tracking-wider flex items-center gap-2">
-                GİZLİ OPERASYONLAR & CASUSLUK ŞEBEKESİ
-                <span className="text-[10px] font-mono text-purple-400 bg-purple-950/60 border border-purple-500/40 px-1.5 py-0.5 rounded-sm font-normal">
-                  GÖLGE AĞI
+                GALAKTİK CASUSLUK & ÖRTÜLÜ OPERASYONLAR
+                <span className="text-[10px] font-mono text-purple-400 bg-purple-950/70 border border-purple-500/50 px-2 py-0.5 rounded-sm font-normal">
+                  FAZ 23
                 </span>
               </h2>
               <p className="text-[11px] text-slate-400">
-                Sessiz Keşif Sondaları • Tersane Sabotajı • Tersine Mühendislik • Karşı-İstihbarat Kalkanı
+                Sızma Ağları • Gizli Varlıklar • Sabotaj & Teknoloji Hırsızlığı • Karşı-İstihbarat Güvenliği
               </p>
             </div>
           </div>
@@ -200,40 +199,60 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
         </div>
 
         {/* Tab Navigation */}
-        <div className="flex items-center gap-1 px-5 pt-3 border-b border-[#1b3a4b] bg-[#08131d]">
+        <div className="flex items-center gap-1 px-5 pt-3 border-b border-[#1b3a4b] bg-[#08131d] overflow-x-auto">
           <button
             onClick={() => {
               sound.playClick();
-              setActiveTab('launch');
+              setActiveTab('networks');
             }}
-            className={`px-4 py-2 font-display text-xs font-bold tracking-wider transition-all flex items-center gap-2 border-b-2 ${
-              activeTab === 'launch'
+            className={`px-4 py-2 font-display text-xs font-bold tracking-wider transition-all flex items-center gap-2 border-b-2 whitespace-nowrap ${
+              activeTab === 'networks'
                 ? 'border-purple-400 text-purple-300 bg-purple-950/30'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Rocket className="w-3.5 h-3.5" />
-            GÖREV SEVKİ
+            <Eye className="w-3.5 h-3.5" />
+            CASUS AĞLARI & SIZMA
+            {mySpyNetworks.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-purple-950 border border-purple-500/50 text-purple-300">
+                {mySpyNetworks.length}
+              </span>
+            )}
           </button>
 
           <button
             onClick={() => {
               sound.playClick();
-              setActiveTab('dossiers');
+              setActiveTab('operations');
             }}
-            className={`px-4 py-2 font-display text-xs font-bold tracking-wider transition-all flex items-center gap-2 border-b-2 relative ${
-              activeTab === 'dossiers'
-                ? 'border-cyan-400 text-cyan-300 bg-cyan-950/30'
+            className={`px-4 py-2 font-display text-xs font-bold tracking-wider transition-all flex items-center gap-2 border-b-2 whitespace-nowrap ${
+              activeTab === 'operations'
+                ? 'border-rose-400 text-rose-300 bg-rose-950/30'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <Database className="w-3.5 h-3.5" />
-            İSTİHBARAT DOSYALARI
-            {myReports.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-cyan-950 border border-cyan-500/50 text-cyan-300">
-                {myReports.length}
+            <Zap className="w-3.5 h-3.5" />
+            GİZLİ OPERASYONLAR
+            {myActiveCovertOps.length > 0 && (
+              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-rose-950 border border-rose-500/50 text-rose-300 animate-pulse">
+                {myActiveCovertOps.length}
               </span>
             )}
+          </button>
+
+          <button
+            onClick={() => {
+              sound.playClick();
+              setActiveTab('assets');
+            }}
+            className={`px-4 py-2 font-display text-xs font-bold tracking-wider transition-all flex items-center gap-2 border-b-2 whitespace-nowrap ${
+              activeTab === 'assets'
+                ? 'border-amber-400 text-amber-300 bg-amber-950/30'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Users className="w-3.5 h-3.5" />
+            GİZLİ VARLIKLAR & AJANLAR
           </button>
 
           <button
@@ -241,536 +260,750 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
               sound.playClick();
               setActiveTab('counterIntel');
             }}
-            className={`px-4 py-2 font-display text-xs font-bold tracking-wider transition-all flex items-center gap-2 border-b-2 relative ${
+            className={`px-4 py-2 font-display text-xs font-bold tracking-wider transition-all flex items-center gap-2 border-b-2 whitespace-nowrap ${
               activeTab === 'counterIntel'
-                ? 'border-amber-400 text-amber-300 bg-amber-950/30'
+                ? 'border-emerald-400 text-emerald-300 bg-emerald-950/30'
                 : 'border-transparent text-slate-400 hover:text-slate-200'
             }`}
           >
-            <ShieldAlert className="w-3.5 h-3.5" />
-            KARŞI-İSTİHBARAT & GÜVENLİK
-            {securityAlerts.length > 0 && (
-              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-rose-950 border border-rose-500/50 text-rose-300">
-                {securityAlerts.length}
-              </span>
-            )}
+            <ShieldCheck className="w-3.5 h-3.5" />
+            KARŞI İSTİHBARAT & GÜVENLİK
+          </button>
+
+          <button
+            onClick={() => {
+              sound.playClick();
+              setActiveTab('dossiers');
+            }}
+            className={`px-4 py-2 font-display text-xs font-bold tracking-wider transition-all flex items-center gap-2 border-b-2 whitespace-nowrap ${
+              activeTab === 'dossiers'
+                ? 'border-cyan-400 text-cyan-300 bg-cyan-950/30'
+                : 'border-transparent text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            <Database className="w-3.5 h-3.5" />
+            İSTİHBARAT ARŞİVİ
           </button>
         </div>
 
-        {/* Modal Body */}
-        <div className="flex-1 overflow-y-auto p-5 scrollbar-thin scrollbar-thumb-slate-700">
-          
-          {/* TAB 1: LAUNCH COVERT OP */}
-          {activeTab === 'launch' && (
-            <div className="space-y-4">
-              
-              {/* Target Colony Selector */}
-              <div className="p-3.5 rounded-sm stellaris-outliner border border-[#1b3a4b] bg-[#08131d]/90">
-                <div className="flex items-center justify-between text-xs font-bold font-display text-slate-200 tracking-wider mb-2">
-                  <span className="flex items-center gap-2">
-                    <Crosshair className="w-3.5 h-3.5 text-purple-400" />
-                    HEDEF YILDIZ SİSTEMİ VE KOLONİ SEÇİMİ
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    Üs: <strong className="text-cyan-300">{originPlanet?.name}</strong> (Mevcut Keşif Sondası: <strong className="text-amber-300">{availableScouts}x</strong>)
-                  </span>
-                </div>
+        {/* Content Area */}
+        <div className="flex-1 overflow-y-auto p-5 bg-[#050b14]/90 space-y-5">
+          {/* TAB 1: CASUS AĞLARI & SIZMA */}
+          {activeTab === 'networks' && (
+            <div className="space-y-5">
+              {/* Network Selector Cards */}
+              <div className="flex flex-wrap items-center gap-2 border-b border-[#1b3a4b] pb-3">
+                <span className="text-xs font-display text-slate-400 font-bold uppercase tracking-wider mr-2">
+                  Aktif Ağlar:
+                </span>
+                {mySpyNetworks.map((net) => {
+                  const targetEmpire = state.players[net.targetPlayerId];
+                  const isSelected = activeNetwork?.id === net.id;
+                  return (
+                    <button
+                      key={net.id}
+                      onClick={() => {
+                        sound.playClick();
+                        setSelectedNetworkId(net.id);
+                      }}
+                      className={`px-3 py-1.5 rounded-sm border text-xs font-display font-bold flex items-center gap-2 transition-all ${
+                        isSelected
+                          ? 'bg-purple-950/60 border-purple-500 text-purple-200 shadow-md'
+                          : 'bg-[#0d1e2e] border-[#22445e] text-slate-300 hover:border-slate-400'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full" style={{ backgroundColor: targetEmpire?.color || '#a855f7' }} />
+                      {targetEmpire?.name || 'Hedef'}
+                      <span className="text-[10px] font-mono text-purple-400 bg-purple-900/40 px-1 py-0.2 rounded">
+                        %{Math.round(net.infiltrationLevel)}
+                      </span>
+                    </button>
+                  );
+                })}
 
-                {foreignPlanets.length === 0 ? (
-                  <div className="p-4 text-center text-xs font-mono text-slate-500">
-                    Galakside bilinen yabancı koloni bulunamadı. Önce keşif filoları sevk edin.
-                  </div>
-                ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                    {foreignPlanets.map((fp) => {
-                      const isSelected = selectedTargetId === fp.id;
-                      const owner = state.players[fp.ownerId];
-                      const sys = state.map.systems[fp.systemId];
-
-                      return (
-                        <button
-                          key={fp.id}
-                          onClick={() => {
-                            sound.playHover();
-                            setSelectedTargetId(fp.id);
-                          }}
-                          className={`p-2.5 rounded-sm border text-left flex items-start justify-between transition-all ${
-                            isSelected
-                              ? 'bg-purple-950/40 border-purple-500/60 shadow-md ring-1 ring-purple-500/40'
-                              : 'bg-slate-900/60 border-slate-800 hover:border-slate-700 hover:bg-slate-800/40'
-                          }`}
-                        >
-                          <div>
-                            <div className="font-semibold text-xs text-slate-200 flex items-center gap-1.5">
-                              <Globe className="w-3 h-3 text-cyan-400" />
-                              <span>{fp.name}</span>
-                              {fp.isHomeworld && (
-                                <span className="text-[8.5px] px-1 rounded bg-amber-950/60 text-amber-300 border border-amber-600/30">
-                                  Ana Dünya
-                                </span>
-                              )}
-                            </div>
-                            <div className="text-[10px] font-mono text-slate-400 mt-1 flex items-center gap-1">
-                              <span
-                                className="w-2 h-2 rounded-full inline-block"
-                                style={{ backgroundColor: owner?.color || '#94a3b8' }}
-                              />
-                              <span>{owner?.name || 'Bilinmeyen'}</span>
-                            </div>
-                            <div className="text-[9.5px] font-mono text-slate-500 mt-0.5">
-                              Sistem: {sys?.name || 'Bilinmeyen'}
-                            </div>
-                          </div>
-                          {isSelected && (
-                            <CheckCircle2 className="w-4 h-4 text-purple-400 shrink-0 mt-0.5" />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
+                {mySpyNetworks.length === 0 && (
+                  <span className="text-xs text-slate-500 italic">Henüz kurulu bir casusluk ağınız bulunmuyor.</span>
                 )}
               </div>
 
-              {/* Covert Operation Types Selection */}
-              <div className="p-3.5 rounded-sm stellaris-outliner border border-[#1b3a4b] bg-[#08131d]/90">
-                <div className="text-xs font-bold font-display text-slate-200 tracking-wider mb-2.5 flex items-center gap-2">
-                  <ShieldAlert className="w-3.5 h-3.5 text-purple-400" />
-                  GİZLİ OPERASYON DOKTRİNİ VE HEDEF GÖREVİ
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {OP_TYPES.map((op) => {
-                    const isSelected = selectedOpType === op.type;
-                    return (
+              {/* Active Network Detail View */}
+              {activeNetwork && (
+                <div className="p-4 rounded-sm border border-[#2b4c63] bg-[#0a1824]/90 space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#162e42] pb-3">
+                    <div className="flex items-center gap-3">
                       <div
-                        key={op.type}
-                        onClick={() => {
-                          sound.playHover();
-                          setSelectedOpType(op.type);
-                        }}
-                        className={`p-3 rounded-sm border cursor-pointer transition-all ${
-                          isSelected
-                            ? 'bg-purple-950/30 border-purple-500/80 shadow-md ring-1 ring-purple-500/30'
-                            : 'bg-slate-900/50 border-slate-800/80 hover:border-slate-700 hover:bg-slate-900/80'
-                        }`}
+                        className="w-10 h-10 rounded-sm flex items-center justify-center font-display font-bold text-white shadow-inner text-sm"
+                        style={{ backgroundColor: state.players[activeNetwork.targetPlayerId]?.color || '#7c3aed' }}
                       >
-                        <div className="flex items-center justify-between mb-1.5">
-                          <div className="flex items-center gap-2">
-                            <div className="p-1 rounded bg-slate-900 border border-slate-800">
-                              {op.icon}
-                            </div>
-                            <span className="font-semibold text-xs text-white">{op.titleTr}</span>
-                          </div>
-                          <span className="text-[9px] font-mono text-purple-300 bg-purple-950/60 border border-purple-500/30 px-1 py-0.5 rounded-sm">
-                            {op.badge}
+                        {state.players[activeNetwork.targetPlayerId]?.name?.substring(0, 2).toUpperCase() || 'TR'}
+                      </div>
+                      <div>
+                        <h3 className="font-display font-bold text-slate-100 text-sm flex items-center gap-2">
+                          {state.players[activeNetwork.targetPlayerId]?.name}
+                          <span className="text-[10px] font-mono text-cyan-400 bg-cyan-950/60 border border-cyan-500/40 px-1.5 py-0.5 rounded">
+                            {state.players[activeNetwork.targetPlayerId]?.botArchetype?.toUpperCase() || 'OYUNCU'}
+                          </span>
+                        </h3>
+                        <p className="text-[11px] text-slate-400">
+                          Hedef Karşı-İstihbarat Duruşu: <span className="font-semibold text-slate-200">{state.players[activeNetwork.targetPlayerId]?.counterEspionageStance || 'relaxed'}</span>
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => {
+                          if (onRecallNetwork) {
+                            sound.playClick();
+                            onRecallNetwork(activeNetwork.id);
+                          }
+                        }}
+                        className="px-3 py-1.5 rounded-sm border border-rose-500/50 bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 text-xs font-display font-bold tracking-wider transition-colors"
+                      >
+                        AĞI GERİ ÇEK & FESHET
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Infiltration Meter & Cap */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="md:col-span-2 p-3 rounded-sm border border-[#1b3a4b] bg-[#07131e]/80 space-y-2">
+                      <div className="flex justify-between items-center text-xs">
+                        <span className="font-display font-bold text-slate-300 flex items-center gap-1.5">
+                          <Eye className="w-3.5 h-3.5 text-purple-400" />
+                          SIZMA SEVİYESİ & TAVANI
+                        </span>
+                        <span className="font-mono text-purple-300 font-bold">
+                          {activeNetwork.infiltrationLevel.toFixed(1)} / {activeNetwork.infiltrationCap} TAVAN
+                        </span>
+                      </div>
+
+                      {/* Dual Progress Bar: Current level + Cap ceiling */}
+                      <div className="relative w-full h-3 bg-slate-900 rounded-sm overflow-hidden border border-slate-700/60">
+                        {/* Cap indicator */}
+                        <div
+                          className="absolute top-0 bottom-0 bg-slate-800/80 border-r-2 border-purple-400/80"
+                          style={{ width: `${activeNetwork.infiltrationCap}%` }}
+                        />
+                        {/* Actual infiltration */}
+                        <div
+                          className="absolute top-0 bottom-0 bg-gradient-to-r from-purple-600 to-indigo-500 transition-all duration-300"
+                          style={{ width: `${activeNetwork.infiltrationLevel}%` }}
+                        />
+                      </div>
+
+                      <div className="flex justify-between items-center text-[10px] text-slate-400 pt-1 font-mono">
+                        <span className="flex items-center gap-1">
+                          {calculateInfiltrationGrowthPerSec(state, activeNetwork) >= 0 ? (
+                            <TrendingUp className="w-3 h-3 text-emerald-400" />
+                          ) : (
+                            <TrendingDown className="w-3 h-3 text-rose-400" />
+                          )}
+                          Hız: {calculateInfiltrationGrowthPerSec(state, activeNetwork) >= 0 ? '+' : ''}
+                          {(calculateInfiltrationGrowthPerSec(state, activeNetwork) * 60).toFixed(1)} / dk
+                        </span>
+                        <span>Hedef Karşı-İstihbarat Direnci: {calculateCounterIntelScore(state, activeNetwork.targetPlayerId)}</span>
+                      </div>
+                    </div>
+
+                    {/* Envoy Control */}
+                    <div className="p-3 rounded-sm border border-[#1b3a4b] bg-[#07131e]/80 space-y-2 flex flex-col justify-between">
+                      <div>
+                        <div className="text-xs font-display font-bold text-slate-300 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 text-cyan-400" />
+                            GÖREVLİ ELÇİLER
+                          </span>
+                          <span className="font-mono text-cyan-300 font-bold">{activeNetwork.assignedEnvoys} / 3</span>
+                        </div>
+                        <p className="text-[10px] text-slate-400 mt-1">
+                          {activeNetwork.assignedEnvoys === 0
+                            ? 'Elçi atanmadı (Sızma pasif olarak eriyor).'
+                            : `${activeNetwork.assignedEnvoys} diplomatik ajan gizli sızmayı yönetiyor.`}
+                        </p>
+                      </div>
+
+                      <div className="flex items-center gap-1.5 pt-2">
+                        {[0, 1, 2, 3].map((count) => (
+                          <button
+                            key={count}
+                            onClick={() => {
+                              if (onAssignEnvoy) {
+                                sound.playClick();
+                                onAssignEnvoy(activeNetwork.id, count);
+                              }
+                            }}
+                            className={`flex-1 py-1 text-xs font-mono font-bold rounded-sm border transition-all ${
+                              activeNetwork.assignedEnvoys === count
+                                ? 'bg-cyan-950 border-cyan-400 text-cyan-200'
+                                : 'bg-[#0d1e2e] border-[#1e3c54] text-slate-400 hover:text-slate-200'
+                            }`}
+                          >
+                            {count}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Tiered Intel Readout */}
+                  {(() => {
+                    const intel = getTieredIntel(state, activePlayerId, activeNetwork.targetPlayerId);
+                    return (
+                      <div className="p-3 rounded-sm border border-[#1b3a4b] bg-[#061019] space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-display font-bold text-slate-200 flex items-center gap-2">
+                            <Radio className="w-3.5 h-3.5 text-emerald-400" />
+                            AÇILAN İSTİHBARAT KADEMESİ
+                          </span>
+                          <span className="px-2 py-0.5 rounded text-[10px] font-display font-bold uppercase tracking-wider bg-emerald-950 border border-emerald-500/40 text-emerald-300">
+                            {intel.tier === 'full' && 'KADEME 4: TAM SIZMA (90+)'}
+                            {intel.tier === 'high' && 'KADEME 3: YÜKSEK İSTİHBARAT (60+)'}
+                            {intel.tier === 'medium' && 'KADEME 2: ORTA SEVİYE ANALİZ (30+)'}
+                            {intel.tier === 'low' && 'KADEME 1: TEMEL KEŞİF (10+)'}
+                            {intel.tier === 'none' && 'KADEME 0: SİS PERDESİ (<10)'}
                           </span>
                         </div>
-                        <p className="text-[11px] text-slate-400 leading-snug mb-1.5">{op.descTr}</p>
-                        <div className="text-[10px] font-mono text-emerald-400 border-t border-slate-800/60 pt-1 flex items-center gap-1">
-                          <Sparkles className="w-3 h-3 text-emerald-400" />
-                          <span>{op.rewardDescTr}</span>
-                        </div>
+                        <ul className="space-y-1 text-xs text-slate-300">
+                          {intel.intelDetailsTr.map((item, idx) => (
+                            <li key={idx} className="flex items-start gap-2">
+                              <span className="text-emerald-400 mt-0.5">•</span>
+                              <span>{item}</span>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     );
-                  })}
+                  })()}
                 </div>
-              </div>
+              )}
 
-              {/* Mission Parameters, Scout Allocation & Launch */}
-              <div className="p-3.5 rounded-sm stellaris-outliner border border-[#1b3a4b] bg-[#08131d]/90">
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                  
-                  {/* Scout Count */}
-                  <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800">
-                    <div className="text-[11px] font-mono text-slate-400 mb-1 flex items-center justify-between">
-                      <span>GÖREVLİ KEŞİF SONDASI</span>
-                      <span className="text-amber-400 font-bold">{scoutCount}x Gemi</span>
-                    </div>
-                    <div className="flex items-center gap-1 mt-1.5">
-                      {[1, 2, 3, 4, 5].map((cnt) => (
-                        <button
-                          key={cnt}
-                          onClick={() => {
-                            sound.playHover();
-                            setScoutCount(cnt);
-                          }}
-                          className={`flex-1 py-1 rounded text-xs font-mono font-bold border transition-colors ${
-                            scoutCount === cnt
-                              ? 'bg-purple-900/60 border-purple-500 text-purple-200 shadow'
-                              : 'bg-slate-800/60 border-slate-700 text-slate-400 hover:text-white'
-                          }`}
-                        >
-                          {cnt}x
-                        </button>
+              {/* Establish New Network Section */}
+              <div className="p-4 rounded-sm border border-[#2b4c63] bg-[#091522]/90 space-y-3">
+                <h3 className="font-display font-bold text-sm text-slate-200 flex items-center gap-2">
+                  <UserPlus className="w-4 h-4 text-purple-400" />
+                  YENİ BİR HEDEFTE CASUSLUK AĞI KUR
+                </h3>
+                <p className="text-xs text-slate-400">
+                  Rakip bir imparatorluk sınırları içine gizli operasyon hücreleri konuşlandırın (Maliyet: 60 Cevher, 40 Kristal, 40 Yakıt).
+                </p>
+
+                {potentialTargets.length > 0 ? (
+                  <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
+                    <select
+                      value={selectedTargetPlayerId}
+                      onChange={(e) => setSelectedTargetPlayerId(e.target.value)}
+                      className="bg-[#061019] border border-[#2b4c63] text-slate-200 text-xs px-3 py-2 rounded-sm flex-1 outline-none font-display"
+                    >
+                      {potentialTargets.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name} ({p.botArchetype || 'Oyuncu'})
+                        </option>
                       ))}
-                    </div>
-                    <div className="text-[9.5px] font-mono text-slate-500 mt-1.5">
-                      Daha fazla sonda başarı ve gizlilik puanını artırır.
-                    </div>
+                    </select>
+
+                    <button
+                      onClick={() => {
+                        if (selectedTargetPlayerId && onEstablishNetwork) {
+                          sound.playLaunch();
+                          onEstablishNetwork(selectedTargetPlayerId);
+                        }
+                      }}
+                      className="px-5 py-2 rounded-sm bg-gradient-to-r from-purple-700 to-indigo-600 hover:from-purple-600 hover:to-indigo-500 text-white font-display text-xs font-bold tracking-wider transition-all shadow-md flex items-center justify-center gap-2"
+                    >
+                      <Eye className="w-3.5 h-3.5" />
+                      GİZLİ HÜCRE OLUŞTUR
+                    </button>
                   </div>
-
-                  {/* Success Probability */}
-                  <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800">
-                    <div className="text-[11px] font-mono text-slate-400 mb-1 flex items-center justify-between">
-                      <span>BAŞARI OLASILIĞI</span>
-                      <span className="text-emerald-400 font-bold">%{missionMetrics.successChance}</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mt-2">
-                      <div
-                        className="h-full bg-gradient-to-r from-amber-500 to-emerald-400 transition-all duration-300"
-                        style={{ width: `${missionMetrics.successChance}%` }}
-                      />
-                    </div>
-                    <div className="text-[9.5px] font-mono text-slate-500 mt-1.5 flex justify-between">
-                      <span>Gizlilik: {missionMetrics.stealthRating}</span>
-                      <span>Savunma: {missionMetrics.counterIntelRating}</span>
-                    </div>
-                  </div>
-
-                  {/* Detection Risk & Fuel */}
-                  <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800">
-                    <div className="text-[11px] font-mono text-slate-400 mb-1 flex items-center justify-between">
-                      <span>TESPİT EDİLME RİSKİ</span>
-                      <span className="text-rose-400 font-bold">%{missionMetrics.detectionChance}</span>
-                    </div>
-                    <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden mt-2">
-                      <div
-                        className="h-full bg-rose-500 transition-all duration-300"
-                        style={{ width: `${missionMetrics.detectionChance}%` }}
-                      />
-                    </div>
-                    <div className="text-[9.5px] font-mono text-slate-400 mt-1.5 flex justify-between">
-                      <span>Yakıt: <strong className="text-amber-300">{missionMetrics.fuelCost}Y</strong></span>
-                      <span>Süre: <strong className="text-cyan-300">{Math.round(missionMetrics.durationMs / 1000)} sn</strong></span>
-                    </div>
-                  </div>
-
-                </div>
-
-                {/* Launch Action Bar */}
-                <div className="pt-2 border-t border-slate-800 flex items-center justify-between">
-                  <div className="text-xs font-mono text-slate-400">
-                    {availableScouts < scoutCount ? (
-                      <span className="text-rose-400">⚠️ Kolonide yeterli keşif gemisi yok ({availableScouts}/{scoutCount}).</span>
-                    ) : (originPlanet?.resources.fuel || 0) < missionMetrics.fuelCost ? (
-                      <span className="text-rose-400">⚠️ Yetersiz yakıt ({Math.floor(originPlanet?.resources.fuel || 0)}/{missionMetrics.fuelCost}).</span>
-                    ) : (
-                      <span className="text-slate-300">
-                        Operasyon onaylandığında sondalar sessiz moda geçerek fırlatılacaktır.
-                      </span>
-                    )}
-                  </div>
-
-                  <button
-                    disabled={!canAfford || !targetPlanet}
-                    onClick={handleLaunch}
-                    className={`px-5 py-2 rounded-sm font-mono text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all ${
-                      canAfford && targetPlanet
-                        ? 'stellaris-btn-metallic text-purple-200 border-purple-500/60 shadow-lg hover:scale-105 active:scale-95'
-                        : 'bg-slate-800/40 border border-slate-700/40 text-slate-500 cursor-not-allowed'
-                    }`}
-                  >
-                    <Rocket className="w-4 h-4 text-purple-400" />
-                    Casusluk Görevini Başlat
-                  </button>
-                </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">
+                    Bilinen tüm imparatorluklarda zaten aktif bir casusluk şebekeniz mevcut.
+                  </p>
+                )}
               </div>
-
             </div>
           )}
 
-          {/* TAB 2: CLASSIFIED DOSSIERS */}
-          {activeTab === 'dossiers' && (
-            <div className="space-y-3">
-              <div className="flex items-center justify-between text-xs font-bold font-display text-slate-200 tracking-wider mb-1">
-                <span className="flex items-center gap-2">
-                  <Database className="w-3.5 h-3.5 text-cyan-400" />
-                  ELE GEÇİRİLEN GİZLİ ASKERİ İSTİHBARAT DOSYALARI
-                </span>
-                <span className="text-[10px] font-mono text-slate-400">
-                  Toplam Rapor: {myReports.length}
-                </span>
-              </div>
+          {/* TAB 2: GİZLİ OPERASYONLAR */}
+          {activeTab === 'operations' && (
+            <div className="space-y-5">
+              {/* In-Progress Operations Strip */}
+              {myActiveCovertOps.length > 0 && (
+                <div className="space-y-3">
+                  <h3 className="font-display font-bold text-xs uppercase tracking-wider text-rose-300 flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-rose-400 animate-pulse" />
+                    YÜRÜTÜLEN GİZLİ OPERASYONLAR ({myActiveCovertOps.length})
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {myActiveCovertOps.map((op) => {
+                      const cfg = COVERT_OP_CONFIGS[op.opType];
+                      const targetEmpire = state.players[op.targetPlayerId];
+                      return (
+                        <div
+                          key={op.id}
+                          className="p-3 rounded-sm border border-rose-500/50 bg-rose-950/20 space-y-2"
+                        >
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="font-display font-bold text-slate-100 flex items-center gap-2">
+                              <span>{cfg?.icon || '🕶️'}</span>
+                              {cfg?.nameTr}
+                            </span>
+                            <span className="text-[10px] font-mono text-rose-300 font-bold">
+                              %{Math.round(op.progressPercent)}
+                            </span>
+                          </div>
 
-              {myReports.length === 0 ? (
-                <div className="p-8 text-center rounded-sm stellaris-outliner border border-slate-800 text-slate-500 text-xs font-mono">
-                  Henüz tamamlanan bir casusluk görevi bulunmuyor. "GÖREV SEVKİ" sekmesinden yeni bir gizli operasyon başlatabilirsiniz.
+                          <p className="text-[11px] text-slate-400">
+                            Hedef: <span className="text-slate-200 font-semibold">{targetEmpire?.name}</span>
+                          </p>
+
+                          <div className="w-full h-2 bg-slate-900 rounded-sm overflow-hidden border border-slate-700">
+                            <div
+                              className="h-full bg-gradient-to-r from-rose-500 to-amber-500 transition-all duration-300"
+                              style={{ width: `${op.progressPercent}%` }}
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between pt-1">
+                            <span className="text-[10px] text-slate-400 font-mono">
+                              Kalan Süre: {Math.max(0, Math.round((op.durationMs * (100 - op.progressPercent)) / 100000))} sn
+                            </span>
+                            <button
+                              onClick={() => {
+                                if (onCancelCovertOp) {
+                                  sound.playClick();
+                                  onCancelCovertOp(op.id);
+                                }
+                              }}
+                              className="text-[10px] font-display text-rose-400 hover:text-rose-200 underline"
+                            >
+                              İptal Et
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Covert Operation Launch Suite */}
+              {activeNetwork ? (
+                <div className="p-4 rounded-sm border border-[#2b4c63] bg-[#0a1824]/90 space-y-4">
+                  <div className="flex items-center justify-between border-b border-[#162e42] pb-3">
+                    <h3 className="font-display font-bold text-sm text-slate-100 flex items-center gap-2">
+                      <Rocket className="w-4 h-4 text-purple-400" />
+                      GİZLİ OPERASYON SEVKİYATI ({state.players[activeNetwork.targetPlayerId]?.name})
+                    </h3>
+                    <span className="text-xs font-mono text-purple-300">
+                      Mevcut Sızma: {activeNetwork.infiltrationLevel.toFixed(1)} / {activeNetwork.infiltrationCap}
+                    </span>
+                  </div>
+
+                  {/* Operation Catalog Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {(Object.keys(COVERT_OP_CONFIGS) as CovertOpType[]).map((opKey) => {
+                      const cfg = COVERT_OP_CONFIGS[opKey];
+                      const isSelected = selectedCovertOpType === opKey;
+                      const hasInfiltration = activeNetwork.infiltrationLevel >= cfg.requiredInfiltration;
+
+                      return (
+                        <div
+                          key={opKey}
+                          onClick={() => {
+                            sound.playClick();
+                            setSelectedCovertOpType(opKey);
+                          }}
+                          className={`p-3 rounded-sm border cursor-pointer transition-all space-y-2 ${
+                            isSelected
+                              ? 'bg-purple-950/40 border-purple-400 shadow-md'
+                              : 'bg-[#07131e] border-[#1b3a4b] hover:border-slate-500'
+                          } ${!hasInfiltration ? 'opacity-60' : ''}`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-display font-bold text-xs text-slate-100 flex items-center gap-2">
+                              <span>{cfg.icon}</span>
+                              {cfg.nameTr}
+                            </span>
+                            <span
+                              className={`text-[10px] font-mono px-1.5 py-0.5 rounded ${
+                                hasInfiltration
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                                  : 'bg-rose-950 text-rose-300 border border-rose-500/40'
+                              }`}
+                            >
+                              Gereken Sızma: {cfg.requiredInfiltration}
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-slate-400 leading-snug">{cfg.descriptionTr}</p>
+
+                          <div className="flex items-center justify-between text-[10px] text-slate-400 font-mono pt-1 border-t border-slate-800">
+                            <span>Maliyet: -{cfg.infiltrationCost} Sızma</span>
+                            <span>Süre: {Math.round(cfg.durationMs / 1000)} sn</span>
+                            <span className="text-emerald-400">Temel Şans: %{Math.round(cfg.baseSuccessRate * 100)}</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Operative Asset Assignment & Launch Button */}
+                  <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-[#162e42]">
+                    <div className="flex items-center gap-2 w-full sm:w-auto">
+                      <span className="text-xs font-display text-slate-400">Atanacak Varlık:</span>
+                      <select
+                        value={selectedAssetId}
+                        onChange={(e) => setSelectedAssetId(e.target.value)}
+                        className="bg-[#061019] border border-[#2b4c63] text-slate-200 text-xs px-2.5 py-1.5 rounded-sm outline-none font-display flex-1"
+                      >
+                        <option value="">Atanmamış (Standart Ajan Hücresi)</option>
+                        {activeNetwork.assets?.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const cfg = COVERT_OP_CONFIGS[selectedCovertOpType];
+                        if (activeNetwork.infiltrationLevel < cfg.requiredInfiltration) {
+                          sound.playError();
+                          return;
+                        }
+                        if (onLaunchCovertOp) {
+                          sound.playLaunch();
+                          onLaunchCovertOp(
+                            activeNetwork.id,
+                            selectedCovertOpType,
+                            undefined,
+                            selectedAssetId || undefined
+                          );
+                        }
+                      }}
+                      disabled={activeNetwork.infiltrationLevel < COVERT_OP_CONFIGS[selectedCovertOpType].requiredInfiltration}
+                      className={`px-6 py-2.5 rounded-sm font-display text-xs font-bold tracking-wider transition-all shadow-md flex items-center justify-center gap-2 ${
+                        activeNetwork.infiltrationLevel >= COVERT_OP_CONFIGS[selectedCovertOpType].requiredInfiltration
+                          ? 'bg-gradient-to-r from-rose-700 to-purple-700 hover:from-rose-600 hover:to-purple-600 text-white cursor-pointer'
+                          : 'bg-slate-800 text-slate-500 border border-slate-700 cursor-not-allowed'
+                      }`}
+                    >
+                      <Zap className="w-3.5 h-3.5" />
+                      OPERASYONU BAŞLAT
+                    </button>
+                  </div>
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {myReports.map((rep) => {
-                    const isExpanded = expandedReportId === rep.id;
-                    const opMeta = OP_TYPES.find(o => o.type === rep.opType);
+                <div className="p-6 text-center text-slate-400 bg-[#0a1824]/60 border border-[#1b3a4b] rounded-sm">
+                  Operasyon başlatmak için önce bir casusluk ağı kurmalı veya seçmelisiniz.
+                </div>
+              )}
+            </div>
+          )}
 
+          {/* TAB 3: GİZLİ VARLIKLAR & AJANLAR */}
+          {activeTab === 'assets' && (
+            <div className="space-y-5">
+              {/* Existing Assets List */}
+              {activeNetwork && (
+                <div className="space-y-3">
+                  <h3 className="font-display font-bold text-xs uppercase tracking-wider text-amber-300 flex items-center gap-2">
+                    <UserCheck className="w-4 h-4 text-amber-400" />
+                    DEVŞİRİLMİŞ GİZLİ VARLIKLAR ({state.players[activeNetwork.targetPlayerId]?.name})
+                  </h3>
+
+                  {activeNetwork.assets && activeNetwork.assets.length > 0 ? (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {activeNetwork.assets.map((asset) => {
+                        const cfg = SPY_ASSET_CONFIGS[asset.type];
+                        return (
+                          <div
+                            key={asset.id}
+                            className="p-3 rounded-sm border border-amber-500/40 bg-amber-950/20 space-y-1.5"
+                          >
+                            <div className="flex items-center justify-between">
+                              <span className="font-display font-bold text-xs text-slate-100 flex items-center gap-2">
+                                <span>{cfg?.icon}</span>
+                                {asset.name}
+                              </span>
+                              <span className="text-[10px] font-mono text-amber-300 uppercase bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-500/30">
+                                {cfg?.nameTr}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-300">{asset.bonusDescriptionTr}</p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-slate-500 italic p-3 border border-slate-800 bg-[#07131e] rounded-sm">
+                      Bu ağda henüz devşirilmiş bir gizli varlık bulunmuyor. Aşağıdan yeni bir varlık istihdam edebilirsiniz.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Recruitment Catalog */}
+              {activeNetwork && (
+                <div className="p-4 rounded-sm border border-[#2b4c63] bg-[#0a1824]/90 space-y-4">
+                  <h3 className="font-display font-bold text-sm text-slate-200 flex items-center gap-2">
+                    <UserPlus className="w-4 h-4 text-amber-400" />
+                    YENİ GİZLİ VARLIK DEVŞİR ({state.players[activeNetwork.targetPlayerId]?.name})
+                  </h3>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {(Object.keys(SPY_ASSET_CONFIGS) as SpyAssetType[]).map((typeKey) => {
+                      const cfg = SPY_ASSET_CONFIGS[typeKey];
+                      const alreadyOwned = activeNetwork.assets?.some((a) => a.type === typeKey);
+
+                      return (
+                        <div
+                          key={typeKey}
+                          className={`p-3 rounded-sm border space-y-2 transition-all ${
+                            alreadyOwned
+                              ? 'bg-slate-900/60 border-slate-700/60 opacity-60'
+                              : 'bg-[#07131e] border-[#1b3a4b]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-display font-bold text-xs text-slate-100 flex items-center gap-2">
+                              <span>{cfg.icon}</span>
+                              {cfg.nameTr}
+                            </span>
+                            <span className="text-[10px] font-mono text-slate-400">
+                              {cfg.cost.ore}C / {cfg.cost.crystal}K / {cfg.cost.fuel}Y
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-slate-400 leading-snug">{cfg.bonusDescriptionTr}</p>
+
+                          <div className="pt-2">
+                            <button
+                              onClick={() => {
+                                if (!alreadyOwned && onAcquireAsset) {
+                                  sound.playTech();
+                                  onAcquireAsset(activeNetwork.id, typeKey);
+                                }
+                              }}
+                              disabled={alreadyOwned}
+                              className={`w-full py-1.5 rounded-sm font-display text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                                alreadyOwned
+                                  ? 'bg-slate-800 text-slate-500 cursor-not-allowed'
+                                  : 'bg-amber-950 hover:bg-amber-900 border border-amber-500/50 text-amber-200'
+                              }`}
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                              {alreadyOwned ? 'AĞA DAHİL EDİLDİ' : 'VARLIĞI DEVŞİR'}
+                            </button>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB 4: KARŞI İSTİHBARAT & GÜVENLİK */}
+          {activeTab === 'counterIntel' && (
+            <div className="space-y-5">
+              {/* Defense Score Header Card */}
+              <div className="p-4 rounded-sm border border-[#2b4c63] bg-[#0a1824]/90 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-sm bg-gradient-to-br from-emerald-600/30 to-emerald-950 border border-emerald-500/50 flex items-center justify-center text-emerald-300">
+                    <ShieldCheck className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h3 className="font-display font-bold text-slate-100 text-sm">
+                      İMPARATORLUK KARŞI-İSTİHBARAT KALKANI
+                    </h3>
+                    <p className="text-xs text-slate-400">
+                      Yabancı sızmalara karşı savunma puanınız: <span className="text-emerald-400 font-mono font-bold">{myCounterIntelScore} / 100</span>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="text-right">
+                  <span className="text-[10px] font-mono text-slate-400">GÜVENLİK PROTOKOLÜ:</span>
+                  <div className="font-display font-bold text-xs uppercase text-emerald-300">
+                    {COUNTER_ESPIONAGE_CONFIGS[myStance].nameTr}
+                  </div>
+                </div>
+              </div>
+
+              {/* Counter-Intelligence Stances Selection */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {(Object.keys(COUNTER_ESPIONAGE_CONFIGS) as CounterEspionageStance[]).map((stanceKey) => {
+                  const cfg = COUNTER_ESPIONAGE_CONFIGS[stanceKey];
+                  const isSelected = myStance === stanceKey;
+
+                  return (
+                    <div
+                      key={stanceKey}
+                      onClick={() => {
+                        if (onSetCounterStance) {
+                          sound.playClick();
+                          onSetCounterStance(stanceKey);
+                        }
+                      }}
+                      className={`p-4 rounded-sm border cursor-pointer transition-all space-y-2 ${
+                        isSelected
+                          ? 'bg-emerald-950/40 border-emerald-400 shadow-md'
+                          : 'bg-[#07131e] border-[#1b3a4b] hover:border-slate-500'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-display font-bold text-xs text-slate-100 flex items-center gap-2">
+                          <span>{cfg.icon}</span>
+                          {cfg.nameTr}
+                        </span>
+                        {isSelected && (
+                          <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded">
+                            AKTİF
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-[11px] text-slate-400 leading-snug">{cfg.descriptionTr}</p>
+
+                      <div className="text-[10px] text-slate-300 font-mono pt-2 border-t border-slate-800 space-y-0.5">
+                        <div>Savunma Bonusu: +{cfg.counterIntelBonus}</div>
+                        <div>Düşman Sızma Tavanı: -{cfg.enemyCapReduction}</div>
+                        <div>Yakalanma Riski: +%{Math.round(cfg.detectionChanceBonus * 100)}</div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Intercepted Dossiers */}
+              <div className="p-4 rounded-sm border border-[#2b4c63] bg-[#0a1824]/90 space-y-3">
+                <h3 className="font-display font-bold text-xs uppercase tracking-wider text-rose-300 flex items-center gap-2">
+                  <ShieldAlert className="w-4 h-4 text-rose-400" />
+                  YAKALANAN DÜŞMAN CASUSLUK GİRİŞİMLERİ ({securityAlerts.length})
+                </h3>
+
+                {securityAlerts.length > 0 ? (
+                  <div className="space-y-2">
+                    {securityAlerts.slice(0, 5).map((alert) => (
+                      <div
+                        key={alert.id}
+                        className="p-3 rounded-sm border border-rose-500/40 bg-rose-950/20 text-xs text-slate-300 space-y-1"
+                      >
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-rose-300">
+                            {alert.infiltratorName} casusu suçüstü yakalandı!
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400">{formatSimClock(alert.timestamp)}</span>
+                        </div>
+                        <p className="text-[11px] text-slate-400">{alert.detailsTr}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-500 italic">Kayıtlı herhangi bir güvenlik ihlali tespit edilmedi.</p>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* TAB 5: İSTİHBARAT ARŞİVİ */}
+          {activeTab === 'dossiers' && (
+            <div className="space-y-4">
+              <h3 className="font-display font-bold text-xs uppercase tracking-wider text-cyan-300 flex items-center gap-2">
+                <Database className="w-4 h-4 text-cyan-400" />
+                İMPARATORLUK İSTİHBARAT DOSYALARI ({myReports.length})
+              </h3>
+
+              {myReports.length > 0 ? (
+                <div className="space-y-2">
+                  {myReports.map((report) => {
+                    const isExpanded = expandedReportId === report.id;
                     return (
                       <div
-                        key={rep.id}
-                        className={`rounded-sm border transition-all ${
-                          rep.success
-                            ? 'border-cyan-500/40 bg-[#08131d]'
-                            : 'border-rose-500/40 bg-rose-950/10'
-                        }`}
+                        key={report.id}
+                        className="rounded-sm border border-[#1b3a4b] bg-[#0a1824] overflow-hidden"
                       >
-                        {/* Report Header Card */}
                         <div
                           onClick={() => {
                             sound.playClick();
-                            setExpandedReportId(isExpanded ? null : rep.id);
+                            setExpandedReportId(isExpanded ? null : report.id);
                           }}
-                          className="p-3 flex items-center justify-between cursor-pointer hover:bg-slate-800/30"
+                          className="px-4 py-3 flex items-center justify-between cursor-pointer hover:bg-[#0f2436] transition-colors"
                         >
-                          <div className="flex items-center gap-2.5">
-                            <div
-                              className={`p-1.5 rounded-sm border ${
-                                rep.success
-                                  ? 'bg-cyan-950/60 border-cyan-500/40 text-cyan-300'
-                                  : 'bg-rose-950/60 border-rose-500/40 text-rose-300'
-                              }`}
-                            >
-                              {rep.success ? <CheckCircle2 className="w-4 h-4" /> : <AlertOctagon className="w-4 h-4" />}
-                            </div>
-
+                          <div className="flex items-center gap-3">
+                            <span className={report.success ? 'text-emerald-400' : 'text-rose-400'}>
+                              {report.success ? <CheckCircle2 className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+                            </span>
                             <div>
-                              <div className="font-semibold text-xs text-white flex items-center gap-2">
-                                <span>{rep.targetPlanetName}</span>
-                                <span className="text-slate-500">•</span>
-                                <span className="text-slate-300">{rep.targetPlayerName}</span>
-                                <span className="text-[9.5px] font-mono px-1.5 py-0.5 rounded bg-slate-800 text-slate-300">
-                                  {opMeta?.titleTr || rep.opType}
-                                </span>
+                              <div className="font-display font-bold text-xs text-slate-200">
+                                {report.targetPlayerName} • {report.targetPlanetName}
                               </div>
-                              <p className="text-[11px] text-slate-400 mt-0.5">{rep.detailsTr}</p>
+                              <div className="text-[10px] text-slate-400">
+                                Operasyon: {report.opType} • Tarih: {formatSimClock(report.timestamp)}
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3 font-mono text-xs">
-                            <div className="text-right text-[10px]">
-                              <span className={rep.success ? 'text-emerald-400 font-bold' : 'text-rose-400 font-bold'}>
-                                {rep.success ? 'BAŞARILI' : 'BAŞARISIZ'}
-                              </span>
-                              <div className="text-slate-500">{formatSimClock(rep.timestamp)}</div>
-                            </div>
-                            <ChevronDown
-                              className={`w-4 h-4 text-slate-400 transition-transform ${
-                                isExpanded ? 'rotate-180 text-cyan-400' : ''
+                          <div className="flex items-center gap-3">
+                            <span
+                              className={`text-[10px] font-mono px-2 py-0.5 rounded ${
+                                report.success
+                                  ? 'bg-emerald-950 text-emerald-300 border border-emerald-500/40'
+                                  : 'bg-rose-950 text-rose-300 border border-rose-500/40'
                               }`}
-                            />
+                            >
+                              {report.success ? 'BAŞARILI' : 'BAŞARISIZ'}
+                            </span>
+                            {isExpanded ? <ChevronDown className="w-4 h-4 text-slate-400" /> : <ChevronRight className="w-4 h-4 text-slate-400" />}
                           </div>
                         </div>
 
-                        {/* Detailed Intel Data Dossier */}
-                        {isExpanded && rep.intelData && (
-                          <div className="p-4 border-t border-slate-800/80 bg-[#050e17] space-y-3 animate-in fade-in duration-150">
-                            
-                            {/* Snapshot Grid */}
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                              
-                              {/* 1. Facilities */}
-                              <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800 text-xs font-mono">
-                                <div className="font-bold text-amber-300 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1">
-                                  <Globe className="w-3.5 h-3.5 text-amber-400" />
-                                  <span>GEZEGEN TESİSLERİ</span>
-                                </div>
-                                <div className="space-y-1 text-slate-300 text-[11px]">
-                                  <div className="flex justify-between">
-                                    <span>Maden:</span> <strong>L{rep.intelData.buildings.ore_mine}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Kristal:</span> <strong>L{rep.intelData.buildings.crystal_synth}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Rafineri:</span> <strong>L{rep.intelData.buildings.fuel_refinery}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Tersane:</span> <strong>L{rep.intelData.buildings.shipyard}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Sensör:</span> <strong>L{rep.intelData.buildings.sensor_array}</strong>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* 2. Defenses & Fleet */}
-                              <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800 text-xs font-mono">
-                                <div className="font-bold text-cyan-300 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1">
-                                  <Shield className="w-3.5 h-3.5 text-cyan-400" />
-                                  <span>GARNİZON & SAVUNMA</span>
-                                </div>
-                                <div className="space-y-1 text-slate-300 text-[11px]">
-                                  <div className="flex justify-between">
-                                    <span>🚀 Füze Bataryası:</span> <strong className="text-cyan-300">{rep.intelData.defenses.missile_battery}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>🔥 Plazma Tareti:</span> <strong className="text-amber-300">{rep.intelData.defenses.plasma_turret}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>⚡ İyon Topu:</span> <strong className="text-purple-300">{rep.intelData.defenses.ion_cannon}</strong>
-                                  </div>
-                                  <div className="flex justify-between pt-1 border-t border-slate-800/60">
-                                    <span>⚔️ Avcı Filosu:</span> <strong>{rep.intelData.garrison.fighter}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>🛡️ Kruvazör:</span> <strong>{rep.intelData.garrison.battleship}</strong>
-                                  </div>
-                                </div>
-                              </div>
-
-                              {/* 3. Resources & Tech */}
-                              <div className="p-2.5 rounded bg-slate-900/60 border border-slate-800 text-xs font-mono">
-                                <div className="font-bold text-emerald-300 mb-2 flex items-center gap-1.5 border-b border-slate-800 pb-1">
-                                  <Binary className="w-3.5 h-3.5 text-emerald-400" />
-                                  <span>KAYNAKLAR & AR-GE</span>
-                                </div>
-                                <div className="space-y-1 text-slate-300 text-[11px]">
-                                  <div className="flex justify-between">
-                                    <span>Cevher:</span> <strong>{Math.floor(rep.intelData.resources.ore).toLocaleString()}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Kristal:</span> <strong>{Math.floor(rep.intelData.resources.crystal).toLocaleString()}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Yakıt:</span> <strong>{Math.floor(rep.intelData.resources.fuel).toLocaleString()}</strong>
-                                  </div>
-                                  <div className="flex justify-between pt-1 border-t border-slate-800/60">
-                                    <span>Motorlar:</span> <strong>L{rep.intelData.research.engines}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Silahlar:</span> <strong>L{rep.intelData.research.weapons}</strong>
-                                  </div>
-                                  <div className="flex justify-between">
-                                    <span>Sensörler:</span> <strong>L{rep.intelData.research.sensors}</strong>
-                                  </div>
-                                </div>
-                              </div>
-
-                            </div>
-
-                            {/* Active Queues Alert */}
-                            {rep.intelData.buildingQueue && (
-                              <div className="p-2 rounded bg-amber-950/30 border border-amber-500/40 text-xs font-mono text-amber-200 flex items-center justify-between">
-                                <span>🏗️ Devam Eden İnşaat: {rep.intelData.buildingQueue.type} Seviye {rep.intelData.buildingQueue.targetLevel}</span>
-                                <span className="text-[10px] text-amber-400">Şu anda inşa halinde</span>
+                        {isExpanded && (
+                          <div className="px-4 py-3 border-t border-[#162e42] bg-[#061019] text-xs text-slate-300 space-y-2">
+                            <p>{report.detailsTr}</p>
+                            {report.intelData && (
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 border-t border-slate-800 text-[10px] font-mono">
+                                <div>Cevher: {report.intelData.resources?.ore}</div>
+                                <div>Kristal: {report.intelData.resources?.crystal}</div>
+                                <div>Yakıt: {report.intelData.resources?.fuel}</div>
+                                <div>Garnizon: {report.intelData.garrison?.fighter || 0} Avcı</div>
                               </div>
                             )}
-
                           </div>
                         )}
                       </div>
                     );
                   })}
                 </div>
+              ) : (
+                <p className="text-xs text-slate-500 italic p-6 text-center border border-slate-800 bg-[#07131e] rounded-sm">
+                  Arşivde henüz kayıtlı istihbarat dosyası bulunmuyor.
+                </p>
               )}
             </div>
           )}
-
-          {/* TAB 3: COUNTER-INTEL & DEFENSE */}
-          {activeTab === 'counterIntel' && (
-            <div className="space-y-4">
-              
-              {/* Colony Security Grid */}
-              <div className="p-3.5 rounded-sm stellaris-outliner border border-[#1b3a4b] bg-[#08131d]/90">
-                <div className="text-xs font-bold font-display text-slate-200 tracking-wider mb-2.5 flex items-center gap-2">
-                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-                  KOLONİ KARŞI-İSTİHBARAT KALKANI VE SENSÖR AĞI
-                </div>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {Object.values(state.planets)
-                    .filter(p => p.ownerId === activePlayerId)
-                    .map((p) => {
-                      const sensorLvl = p.buildings.sensor_array || 0;
-                      const researchLvl = player?.research.sensors || 0;
-                      const rating = (sensorLvl * 15) + (researchLvl * 10);
-
-                      return (
-                        <div
-                          key={p.id}
-                          className="p-3 rounded-sm stellaris-item-card border border-slate-800 flex items-center justify-between"
-                        >
-                          <div>
-                            <div className="font-semibold text-xs text-white flex items-center gap-1.5">
-                              <Globe className="w-3 h-3 text-cyan-400" />
-                              <span>{p.name}</span>
-                            </div>
-                            <div className="text-[10px] font-mono text-slate-400 mt-1">
-                              Sensör Dizilimi: <strong className="text-cyan-300">Seviye {sensorLvl}</strong> • Ar-Ge: <strong className="text-cyan-300">L{researchLvl}</strong>
-                            </div>
-                          </div>
-
-                          <div className="text-right">
-                            <span className="text-xs font-mono font-bold text-amber-300">
-                              {rating} Savunma Puanı
-                            </span>
-                            <div className="text-[9.5px] font-mono text-slate-500 mt-0.5">
-                              {rating >= 40 ? '🛡️ Güçlü Güvenlik' : '⚠️ Zayıf İstihbarat'}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              </div>
-
-              {/* Detected Foreign Infiltrations */}
-              <div className="p-3.5 rounded-sm stellaris-outliner border border-[#1b3a4b] bg-[#08131d]/90">
-                <div className="text-xs font-bold font-display text-slate-200 tracking-wider mb-2.5 flex items-center justify-between">
-                  <span className="flex items-center gap-2">
-                    <AlertTriangle className="w-3.5 h-3.5 text-rose-400" />
-                    YABANCI CASUSLUK VE SIZMA GİRİŞİMİ KAYITLARI
-                  </span>
-                  <span className="text-[10px] font-mono text-slate-400">
-                    Kayıt: {securityAlerts.length}
-                  </span>
-                </div>
-
-                {securityAlerts.length === 0 ? (
-                  <div className="p-6 text-center text-xs font-mono text-slate-500">
-                    Sistem yörüngelerinizde yabancı bir casusluk veya sabotaj faaliyeti tespit edilmedi.
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {securityAlerts.map((al) => (
-                      <div
-                        key={al.id}
-                        className="p-3 rounded-sm border border-rose-500/40 bg-rose-950/20 flex items-center justify-between text-xs font-mono"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
-                          <div>
-                            <div className="font-bold text-rose-300">{al.detailsTr}</div>
-                            <div className="text-[10px] text-slate-400 mt-0.5">
-                              Hedef Koloni: {al.targetPlanetName} • Tehdit: {al.opType}
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-[10px] text-slate-500">
-                          {formatSimClock(al.timestamp)}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-            </div>
-          )}
-
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-2.5 border-t border-[#1b3a4b] bg-[#091522] flex items-center justify-between text-[11px] font-mono text-slate-400">
-          <span>Kısayol: <strong className="text-purple-300">F7</strong> ile açıp kapatabilirsiniz.</span>
+        <div className="px-5 py-3 border-t border-[#1b3a4b] bg-[#07131e] flex items-center justify-between text-xs text-slate-400">
+          <span className="flex items-center gap-2 font-mono text-[11px]">
+            <Shield className="w-3.5 h-3.5 text-purple-400" />
+            Casusluk Protokolü: Sızma tavanı Karşı-İstihbarat ve Sensör seviyeleriyle sınırlıdır.
+          </span>
           <button
             onClick={() => {
               sound.playClick();
               onClose();
             }}
-            className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold"
+            className="px-4 py-1.5 rounded-sm border border-[#2b4c63] hover:border-slate-400 text-slate-300 font-display text-xs font-bold transition-colors"
           >
-            Kapat
+            KAPAT
           </button>
         </div>
-
       </div>
     </div>
   );
