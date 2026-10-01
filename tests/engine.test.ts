@@ -141,6 +141,24 @@ import {
   updateEspionageNetworks,
 } from '../src/engine/espionage';
 import { evaluateBotEspionage } from '../src/bots/espionage';
+import {
+  CORPORATE_CIVIC_CONFIGS,
+  CORPORATE_HOLDING_CONFIGS,
+  MEGACORP_CONSTANTS,
+  getBranchOfficeKey,
+  canEstablishBranchOffice,
+  calculateBranchOfficeYields,
+  calculateCommodityFuturesPrice,
+  establishBranchOffice,
+  closeBranchOffice,
+  buildCorporateHolding,
+  dismantleCorporateHolding,
+  purchaseCommodityFutures,
+  claimCommodityFutures,
+  convertToMegacorp,
+  updateMegacorpAndFutures,
+} from '../src/engine/megacorp';
+import { evaluateBotMegacorp } from '../src/bots/megacorp';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -4673,6 +4691,198 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const estCmd = botCmds.find((c) => c.type === 'ESTABLISH_SPY_NETWORK');
     expect(estCmd).toBeDefined();
     expect(estCmd.targetPlayerId).toBeDefined();
+  });
+
+  it('manages Galactic Megacorporations, Branch Offices, Holdings, Commodity Futures & Stock Exchange (Phase 24)', () => {
+    const engine = new GameEngine(777);
+    const { player: corpPlayer, homeworld: corpHw } = engine.addPlayer('corp_ceo', 'Sovereign Megacorp', '#f59e0b');
+    const { player: foreignPlayer, homeworld: foreignHw } = engine.addPlayer('foreign_empire', 'Alien Empire', '#3b82f6');
+
+    // Give sufficient funds
+    corpHw.resources.ore = 3000;
+    corpHw.resources.crystal = 2000;
+    corpHw.resources.fuel = 2000;
+
+    // 1. Megacorporation Conversion & Civics
+    expect(corpPlayer.isMegacorp).toBe(false);
+    expect(corpPlayer.corporateCivics).toEqual([]);
+
+    // Exceeding civic limit (max 2) should fail
+    const invalidCivicsRes = engine.dispatchCommand(corpPlayer.id, {
+      type: 'CONVERT_TO_MEGACORP',
+      civics: ['arms_dealer', 'trade_syndicate', 'media_conglomerate'],
+    });
+    expect(invalidCivicsRes.success).toBe(false);
+
+    // Valid conversion with trade_syndicate & shadow_consortium
+    const convertRes = engine.dispatchCommand(corpPlayer.id, {
+      type: 'CONVERT_TO_MEGACORP',
+      civics: ['trade_syndicate', 'shadow_consortium'],
+    });
+    expect(convertRes.success).toBe(true);
+    expect(corpPlayer.isMegacorp).toBe(true);
+    expect(corpPlayer.corporateCivics).toContain('trade_syndicate');
+    expect(corpPlayer.corporateCivics).toContain('shadow_consortium');
+
+    // 2. Establishing Branch Offices (canEstablishBranchOffice validation)
+    // Cannot establish on own homeworld
+    const ownPlanetCheck = canEstablishBranchOffice(engine.state, corpPlayer.id, corpHw.id);
+    expect(ownPlanetCheck.allowed).toBe(false);
+
+    // Cannot establish on uncolonized world
+    const uncolonizedPlanetId = Object.keys(engine.state.planets).find((pid) => !engine.state.planets[pid].ownerId)!;
+    const uncolonizedCheck = canEstablishBranchOffice(engine.state, corpPlayer.id, uncolonizedPlanetId);
+    expect(uncolonizedCheck.allowed).toBe(false);
+
+    // Foreign colonized planet is allowed because of shadow_consortium civic (bypasses commercial pact)
+    const foreignCheck = canEstablishBranchOffice(engine.state, corpPlayer.id, foreignHw.id);
+    expect(foreignCheck.allowed).toBe(true);
+
+    const estBranchRes = engine.dispatchCommand(corpPlayer.id, {
+      type: 'ESTABLISH_BRANCH_OFFICE',
+      targetPlanetId: foreignHw.id,
+    });
+    expect(estBranchRes.success).toBe(true);
+
+    const branchKey = getBranchOfficeKey(corpPlayer.id, foreignHw.id);
+    expect(engine.state.branchOffices[branchKey]).toBeDefined();
+    const branch = engine.state.branchOffices[branchKey];
+    expect(branch.targetPlanetId).toBe(foreignHw.id);
+    expect(branch.corporationId).toBe(corpPlayer.id);
+    expect(branch.holdings).toEqual([]);
+
+    // Duplicate branch office on same planet should be rejected
+    const dupBranchRes = engine.dispatchCommand(corpPlayer.id, {
+      type: 'ESTABLISH_BRANCH_OFFICE',
+      targetPlanetId: foreignHw.id,
+    });
+    expect(dupBranchRes.success).toBe(false);
+
+    // 3. Corporate Holdings Construction & Dismantling
+    // Build holding 1: logistics_freight_hub
+    const buildH1Res = engine.dispatchCommand(corpPlayer.id, {
+      type: 'BUILD_CORPORATE_HOLDING',
+      branchId: branchKey,
+      holdingType: 'logistics_freight_hub',
+    });
+    expect(buildH1Res.success).toBe(true);
+    expect(branch.holdings).toContain('logistics_freight_hub');
+
+    // Duplicate holding on same branch should fail
+    const buildDupHRes = engine.dispatchCommand(corpPlayer.id, {
+      type: 'BUILD_CORPORATE_HOLDING',
+      branchId: branchKey,
+      holdingType: 'logistics_freight_hub',
+    });
+    expect(buildDupHRes.success).toBe(false);
+
+    // Build holding 2: amusement_megaplex
+    const buildH2Res = engine.dispatchCommand(corpPlayer.id, {
+      type: 'BUILD_CORPORATE_HOLDING',
+      branchId: branchKey,
+      holdingType: 'amusement_megaplex',
+    });
+    expect(buildH2Res.success).toBe(true);
+
+    // Build holding 3: subversive_front
+    const buildH3Res = engine.dispatchCommand(corpPlayer.id, {
+      type: 'BUILD_CORPORATE_HOLDING',
+      branchId: branchKey,
+      holdingType: 'subversive_front',
+    });
+    expect(buildH3Res.success).toBe(true);
+    expect(branch.holdings.length).toBe(3);
+
+    // Exceeding max holdings (3) should fail
+    const buildH4Res = engine.dispatchCommand(corpPlayer.id, {
+      type: 'BUILD_CORPORATE_HOLDING',
+      branchId: branchKey,
+      holdingType: 'mercenary_liaison',
+    });
+    expect(buildH4Res.success).toBe(false);
+
+    // Test yields calculation: base + holdings + trade_syndicate boost
+    const yields = calculateBranchOfficeYields(engine.state, branch);
+    expect(yields.tradeValueYield).toBeGreaterThan(MEGACORP_CONSTANTS.BASE_BRANCH_TRADE_YIELD);
+    expect(yields.hostBonusYield).toBeDefined();
+
+    // Dismantle holding index 1 (amusement_megaplex)
+    const dismantleRes = engine.dispatchCommand(corpPlayer.id, {
+      type: 'DISMANTLE_CORPORATE_HOLDING',
+      branchId: branchKey,
+      holdingIndex: 1,
+    });
+    expect(dismantleRes.success).toBe(true);
+    expect(branch.holdings.length).toBe(2);
+    expect(branch.holdings).not.toContain('amusement_megaplex');
+
+    // 4. Commodity Futures Forward Contracts & Exchange
+    const currentPriceInfo = calculateCommodityFuturesPrice(engine.state, 'crystal', 10);
+    expect(currentPriceInfo.unitPrice).toBeGreaterThan(0);
+    expect(currentPriceInfo.discountMultiplier).toBeLessThan(1.0); // forward discount applied
+
+    const preFuturesFuel = corpHw.resources.fuel;
+    const futuresRes = engine.dispatchCommand(corpPlayer.id, {
+      type: 'PURCHASE_COMMODITY_FUTURES',
+      resourceType: 'crystal',
+      amount: 150,
+      durationMinutes: 5,
+    });
+    expect(futuresRes.success).toBe(true);
+    const contractId = (futuresRes.data as { contractId: string }).contractId;
+    const contract = engine.state.commodityFutures[contractId];
+    expect(contract).toBeDefined();
+    expect(contract.resourceType).toBe('crystal');
+    expect(contract.amount).toBe(150);
+    expect(contract.isDelivered).toBe(false);
+    expect(contract.isClaimed).toBe(false);
+    expect(corpHw.resources.fuel).toBeLessThan(preFuturesFuel);
+
+    // Claiming prematurely should fail
+    const earlyClaim = engine.dispatchCommand(corpPlayer.id, {
+      type: 'CLAIM_COMMODITY_FUTURES',
+      contractId,
+    });
+    expect(earlyClaim.success).toBe(false);
+
+    // 5. Game Engine Tick & Maturity Resolution
+    // Advance simulation past contract delivery time
+    const advanceMs = 6 * 60 * 1000; // 6 minutes
+    engine.tick(advanceMs);
+
+    expect(contract.isDelivered).toBe(true);
+    expect(contract.isClaimed).toBe(false);
+
+    // Claim delivered contract
+    const preClaimCrystal = corpHw.resources.crystal;
+    const claimRes = engine.dispatchCommand(corpPlayer.id, {
+      type: 'CLAIM_COMMODITY_FUTURES',
+      contractId,
+    });
+    expect(claimRes.success).toBe(true);
+    expect(contract.isClaimed).toBe(true);
+    expect(corpHw.resources.crystal).toBe(preClaimCrystal + 150);
+
+    // 6. Close Branch Office
+    const closeRes = engine.dispatchCommand(corpPlayer.id, {
+      type: 'CLOSE_BRANCH_OFFICE',
+      branchId: branchKey,
+    });
+    expect(closeRes.success).toBe(true);
+    expect(engine.state.branchOffices[branchKey]).toBeUndefined();
+
+    // 7. Bot AI Autonomous Megacorp (evaluateBotMegacorp)
+    const { player: botIndustrialist, homeworld: botHw } = engine.addPlayer('bot_corp_ai', 'Apex Syndicate', '#ec4899', true, 'industrialist');
+    botHw.resources.ore = 3000;
+    botHw.resources.crystal = 2000;
+
+    const botCmds: any[] = [];
+    evaluateBotMegacorp(engine, botIndustrialist.id, 'industrialist', botCmds);
+
+    // Industrialist bot should initiate conversion to Megacorp
+    const botConvertCmd = botCmds.find((c) => c.type === 'CONVERT_TO_MEGACORP');
+    expect(botConvertCmd).toBeDefined();
+    expect(botConvertCmd.civics).toContain('trade_syndicate');
   });
 });
 

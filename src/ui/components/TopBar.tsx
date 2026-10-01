@@ -4,6 +4,7 @@ import {
   AlertTriangle,
   ArrowRight,
   BookOpen,
+  Briefcase,
   ChevronDown,
   CircleDot,
   Coins,
@@ -70,6 +71,7 @@ interface TopBarProps {
   onOpenTradeRoutes?: () => void;
   onOpenWarfare?: () => void;
   onOpenFederation?: () => void;
+  onOpenMegacorp?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -108,6 +110,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenTradeRoutes,
   onOpenWarfare,
   onOpenFederation,
+  onOpenMegacorp,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -886,6 +889,60 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 </p>
                 <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-cyan-400 font-mono text-center">
                   Federasyon ve Federal Donanma yönetimini açmak için tıklayın
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* MEGACORPORATION QUICK CHIP */}
+        {(() => {
+          const player = state.players[activePlayerId];
+          const branchCount = Object.values(state.branchOffices || {}).filter(
+            (b) => b.corporationId === activePlayerId
+          ).length;
+          const futuresCount = Object.values(state.commodityFutures || {}).filter(
+            (f) => f.buyerId === activePlayerId && f.isDelivered && !f.isClaimed
+          ).length;
+
+          if (!player?.isMegacorp && branchCount === 0 && futuresCount === 0) return null;
+
+          return (
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenMegacorp) onOpenMegacorp();
+                }}
+                className="stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer border-amber-500/40 text-amber-300 hover:border-amber-400"
+                title="Megakorporasyon & Emtia Borsası"
+              >
+                <Briefcase className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span className="font-bold text-white text-xs truncate max-w-[90px]">
+                  {player?.isMegacorp ? 'Megakorp' : 'Ofisler'}
+                </span>
+                {branchCount > 0 && (
+                  <span className="text-[10px] text-amber-300 font-mono font-bold">
+                    {branchCount} ŞB
+                  </span>
+                )}
+                {futuresCount > 0 && (
+                  <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+                )}
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[260px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+                <div className="flex items-center justify-between text-xs font-bold mb-1">
+                  <span className="stellaris-gold tracking-wide">KURUMSAL ŞEBEKE</span>
+                  <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                    FAZ 24
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  {branchCount} aktif yabancı şube ofisi. {futuresCount > 0 ? `${futuresCount} adet vadeli sözleşme teslimata hazır.` : 'Vadeli emtia sözleşmeleri aktif.'}
+                </p>
+                <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono text-center">
+                  Megakorporasyon panelini açmak için tıklayın
                 </div>
               </div>
             </div>

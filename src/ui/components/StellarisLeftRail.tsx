@@ -4,6 +4,7 @@ import {
   Award,
   Bed,
   BookOpen,
+  Briefcase,
   CircleDollarSign,
   Compass,
   Crown,
@@ -57,9 +58,12 @@ interface StellarisLeftRailProps {
   onOpenTradeRoutes?: () => void;
   onOpenWarfare?: () => void;
   onOpenFederation?: () => void;
+  onOpenMegacorp?: () => void;
   onOpenCrisis?: () => void;
   onOpenGallery: () => void;
   activeTerraformingCount?: number;
+  activeBranchOfficesCount?: number;
+  readyFuturesCount?: number;
   federationLevel?: number;
   activeFederationVotesCount?: number;
   collectedTradeValue?: number;
@@ -114,9 +118,12 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenTradeRoutes,
   onOpenWarfare,
   onOpenFederation,
+  onOpenMegacorp,
   onOpenCrisis,
   onOpenGallery,
   activeTerraformingCount = 0,
+  activeBranchOfficesCount = 0,
+  readyFuturesCount = 0,
   federationLevel,
   activeFederationVotesCount = 0,
   collectedTradeValue = 0,
@@ -916,6 +923,54 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             {federationLevel !== undefined && (
               <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-cyan-300 font-mono">
                 🌐 Kademe {federationLevel} Merkezileşme
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Megacorporations, Branch Offices & Commodity Exchange (Phase 24) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenMegacorp) onOpenMegacorp();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'megacorp' ? 'active' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Briefcase className="w-5 h-5 text-amber-300 group-hover:scale-110 transition-transform" />
+            {activeBranchOfficesCount > 0 && (
+              <span className="absolute -top-1 -right-1 px-1 min-w-[15px] h-3.5 bg-amber-950 border border-amber-400/80 text-amber-300 text-[9px] font-mono rounded-sm flex items-center justify-center font-bold">
+                {activeBranchOfficesCount}
+              </span>
+            )}
+            {readyFuturesCount > 0 && (
+              <span className="absolute -top-1 -left-1 w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
+              ŞRK
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="stellaris-gold tracking-wide">MEGAKORPORASYON & BORSA</span>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 24
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Galaktik şube ofisleri, kurumsal binalar, kâr payı temettüleri ve vadeli emtia sözleşmeleri.
+            </p>
+            {activeBranchOfficesCount > 0 && (
+              <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-amber-300 font-mono">
+                🏢 {activeBranchOfficesCount} Aktif Şube Ofisi
+              </div>
+            )}
+            {readyFuturesCount > 0 && (
+              <div className="mt-1 text-[10px] text-emerald-300 font-mono">
+                📈 {readyFuturesCount} Teslimata Hazır Vadeli Sözleşme
               </div>
             )}
           </div>

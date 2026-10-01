@@ -41,6 +41,8 @@ import {
   CounterEspionageStance,
   CovertOpType,
   SpyAssetType,
+  CorporateCivicId,
+  CorporateHoldingType,
 } from './engine/types';
 import { evaluatePlayerDirectives } from './engine/directives';
 import { AllianceModal, AllianceTab } from './ui/components/AllianceModal';
@@ -59,6 +61,7 @@ import { TerraformModal } from './ui/components/TerraformModal';
 import { TradeRoutesModal } from './ui/components/TradeRoutesModal';
 import { WarfareModal } from './ui/components/WarfareModal';
 import { FederationModal } from './ui/components/FederationModal';
+import { MegacorpModal } from './ui/components/MegacorpModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -104,6 +107,7 @@ type LeftPanelType =
   | 'trade_routes'
   | 'warfare'
   | 'federation'
+  | 'megacorp'
   | 'crisis'
   | 'relay'
   | 'gallery'
@@ -1447,6 +1451,108 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleEstablishBranchOffice = (targetPlanetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ESTABLISH_BRANCH_OFFICE',
+      targetPlanetId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleCloseBranchOffice = (branchId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CLOSE_BRANCH_OFFICE',
+      branchId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleBuildHolding = (branchId: string, holdingType: CorporateHoldingType) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'BUILD_CORPORATE_HOLDING',
+      branchId,
+      holdingType,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismantleHolding = (branchId: string, holdingIndex: number) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMANTLE_CORPORATE_HOLDING',
+      branchId,
+      holdingIndex,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handlePurchaseFutures = (resourceType: ResourceType, amount: number, durationMinutes: number) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'PURCHASE_COMMODITY_FUTURES',
+      resourceType,
+      amount,
+      durationMinutes,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleClaimFutures = (contractId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CLAIM_COMMODITY_FUTURES',
+      contractId,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleConvertToMegacorp = (civics: CorporateCivicId[]) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CONVERT_TO_MEGACORP',
+      civics,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1847,6 +1953,7 @@ export function App() {
         onOpenTradeRoutes={() => setActiveLeftPanel((prev) => (prev === 'trade_routes' ? null : 'trade_routes'))}
         onOpenWarfare={() => setActiveLeftPanel((prev) => (prev === 'warfare' ? null : 'warfare'))}
         onOpenFederation={() => setActiveLeftPanel((prev) => (prev === 'federation' ? null : 'federation'))}
+        onOpenMegacorp={() => setActiveLeftPanel((prev) => (prev === 'megacorp' ? null : 'megacorp'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -1888,6 +1995,9 @@ export function App() {
           onOpenTradeRoutes={() => setActiveLeftPanel((prev) => (prev === 'trade_routes' ? null : 'trade_routes'))}
           onOpenWarfare={() => setActiveLeftPanel((prev) => (prev === 'warfare' ? null : 'warfare'))}
           onOpenFederation={() => setActiveLeftPanel((prev) => (prev === 'federation' ? null : 'federation'))}
+          onOpenMegacorp={() => setActiveLeftPanel((prev) => (prev === 'megacorp' ? null : 'megacorp'))}
+          activeBranchOfficesCount={Object.values(engineState.branchOffices || {}).filter((b) => b.corporationId === activePlayerId).length}
+          readyFuturesCount={Object.values(engineState.commodityFutures || {}).filter((f) => f.buyerId === activePlayerId && f.isDelivered && !f.isClaimed).length}
           federationLevel={activePlayer?.federationId ? engineState.federations?.[activePlayer.federationId]?.centralizationLevel : undefined}
           activeFederationVotesCount={activePlayer?.federationId && engineState.federations?.[activePlayer.federationId]?.activeVote ? 1 : 0}
           collectedTradeValue={engineState.tradeStates?.[activePlayerId]?.totalCollectedTV}
@@ -2491,6 +2601,30 @@ export function App() {
           onSelectSystem={(systemId) => {
             setSelectedTarget({ type: 'system', systemId });
             setActiveLeftPanel(null);
+          }}
+        />
+      )}
+
+      {/* Galactic Megacorporations, Branch Offices, Holdings & Commodity Futures Modal (Phase 24) */}
+      {activeLeftPanel === 'megacorp' && (
+        <MegacorpModal
+          isOpen={true}
+          onClose={() => setActiveLeftPanel(null)}
+          state={engineState}
+          playerId={activePlayerId}
+          onEstablishBranchOffice={handleEstablishBranchOffice}
+          onCloseBranchOffice={handleCloseBranchOffice}
+          onBuildHolding={handleBuildHolding}
+          onDismantleHolding={handleDismantleHolding}
+          onPurchaseFutures={handlePurchaseFutures}
+          onClaimFutures={handleClaimFutures}
+          onConvertToMegacorp={handleConvertToMegacorp}
+          onSelectPlanet={(planetId: string) => {
+            const p = engineState.planets[planetId];
+            if (p) {
+              setSelectedTarget({ type: 'planet', systemId: p.systemId, planetId });
+              setActiveLeftPanel('planets');
+            }
           }}
         />
       )}

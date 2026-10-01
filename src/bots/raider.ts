@@ -15,6 +15,7 @@ import { evaluateBotTrade } from './trade';
 import { evaluateBotWarfare } from './wars';
 import { evaluateBotFederations } from './federations';
 import { evaluateBotEspionage } from './espionage';
+import { evaluateBotMegacorp } from './megacorp';
 import { IBotAgent } from './types';
 
 export class RaiderBot implements IBotAgent {
@@ -171,6 +172,9 @@ export class RaiderBot implements IBotAgent {
 
     // 18. Galactic Espionage, Covert Operations & Counter-Intelligence (Phase 23)
     evaluateBotEspionage(engine, this.playerId, this.archetype, executedCommands);
+
+    // 19. Megacorporations, Branch Offices & Commodity Futures (Phase 24)
+    evaluateBotMegacorp(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

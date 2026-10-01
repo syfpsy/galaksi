@@ -30,6 +30,8 @@ import {
   SpyNetwork,
   CovertOperation,
   CounterEspionageStance,
+  CorporateBranchOffice,
+  CommodityFuturesContract,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -99,6 +101,8 @@ export interface PlayerVisibleState {
   mySpyNetworks?: SpyNetwork[];
   myCovertOperations?: CovertOperation[];
   myCounterEspionageStance?: CounterEspionageStance;
+  myBranchOffices?: CorporateBranchOffice[];
+  myCommodityFutures?: CommodityFuturesContract[];
 }
 
 /**
@@ -469,5 +473,9 @@ export function filterGameStateForPlayer(
     mySpyNetworks: Object.values(state.spyNetworks || {}).filter((n) => n.ownerId === playerId),
     myCovertOperations: Object.values(state.covertOperations || {}).filter((o) => o.infiltratorId === playerId),
     myCounterEspionageStance: player?.counterEspionageStance || 'relaxed',
+    myBranchOffices: Object.values(state.branchOffices || {}).filter(
+      (b) => b.corporationId === playerId || b.targetPlayerId === playerId
+    ),
+    myCommodityFutures: Object.values(state.commodityFutures || {}).filter((f) => f.buyerId === playerId),
   };
 }

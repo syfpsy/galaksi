@@ -1041,6 +1041,46 @@ export interface CovertOperation {
 
 export type CounterEspionageStance = 'relaxed' | 'surveillance' | 'police_state';
 
+// --- Phase 24: Megacorporations, Corporate Branch Offices & Commodity Futures ---
+export type CorporateCivicId =
+  | 'arms_dealer'
+  | 'trade_syndicate'
+  | 'media_conglomerate'
+  | 'shadow_consortium';
+
+export type CorporateHoldingType =
+  | 'corporate_embassy'
+  | 'amusement_megaplex'
+  | 'private_military_contractor'
+  | 'logistics_freight_hub'
+  | 'subversive_front'
+  | 'mercenary_liaison';
+
+export interface CorporateBranchOffice {
+  id: string; // key: `${corporationId}_${targetPlanetId}`
+  corporationId: string;
+  targetPlanetId: string;
+  targetPlayerId: string;
+  holdings: CorporateHoldingType[];
+  establishedAtMs: number;
+  tradeValueYield: number; // energy/resource dividends for corp
+  hostBonusYield: number; // local amenities / resource bonus for host
+}
+
+export interface CommodityFuturesContract {
+  id: string;
+  buyerId: string;
+  sellerId: string | null;
+  resourceType: ResourceType;
+  amount: number;
+  lockedPricePerUnit: number;
+  totalCost: number;
+  purchasedAtMs: number;
+  deliveryTimeMs: number;
+  isDelivered: boolean;
+  isClaimed: boolean;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -1070,6 +1110,9 @@ export interface Player {
   federationId?: string | null; // Phase 22: ID of the federation this player belongs to
   assignedFederationEnvoys?: number; // Phase 22: Envoys assigned to federation to maintain cohesion
   counterEspionageStance?: CounterEspionageStance; // Phase 23: Counter-intelligence posture
+  isMegacorp?: boolean; // Phase 24: Mega-Corporation government status
+  corporateCivics?: CorporateCivicId[]; // Phase 24: Corporate civics & franchise model
+  branchOfficesCount?: number; // Phase 24: Active branch offices on foreign worlds
 }
 
 export type EmpireDirectiveId =
@@ -1218,6 +1261,8 @@ export interface GameState {
   federations?: Record<string, FederationState>; // key: federationId (Phase 22)
   spyNetworks?: Record<string, SpyNetwork>; // key: `${ownerId}_${targetPlayerId}` (Phase 23)
   covertOperations?: Record<string, CovertOperation>; // key: operationId (Phase 23)
+  branchOffices?: Record<string, CorporateBranchOffice>; // key: `${corporationId}_${targetPlanetId}` (Phase 24)
+  commodityFutures?: Record<string, CommodityFuturesContract>; // key: contractId (Phase 24)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1647,6 +1692,38 @@ export type GameCommand =
   | {
       type: 'SET_COUNTER_ESPIONAGE_STANCE';
       stance: CounterEspionageStance;
+    }
+  | {
+      type: 'ESTABLISH_BRANCH_OFFICE';
+      targetPlanetId: string;
+    }
+  | {
+      type: 'CLOSE_BRANCH_OFFICE';
+      branchId: string;
+    }
+  | {
+      type: 'BUILD_CORPORATE_HOLDING';
+      branchId: string;
+      holdingType: CorporateHoldingType;
+    }
+  | {
+      type: 'DISMANTLE_CORPORATE_HOLDING';
+      branchId: string;
+      holdingIndex: number;
+    }
+  | {
+      type: 'PURCHASE_COMMODITY_FUTURES';
+      resourceType: ResourceType;
+      amount: number;
+      durationMinutes: number;
+    }
+  | {
+      type: 'CLAIM_COMMODITY_FUTURES';
+      contractId: string;
+    }
+  | {
+      type: 'CONVERT_TO_MEGACORP';
+      civics: CorporateCivicId[];
     };
 
 export interface CommandReceipt {

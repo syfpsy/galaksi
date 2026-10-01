@@ -221,6 +221,16 @@ import {
   cancelCovertOperation,
   setCounterEspionageStance,
 } from './espionage';
+import {
+  updateMegacorpAndFutures,
+  establishBranchOffice,
+  closeBranchOffice,
+  buildCorporateHolding,
+  dismantleCorporateHolding,
+  purchaseCommodityFutures,
+  claimCommodityFutures,
+  convertToMegacorp,
+} from './megacorp';
 
 
 export class GameEngine {
@@ -235,6 +245,7 @@ export class GameEngine {
   private lastWarTickMs: number = 0;
   private lastFederationTickMs: number = 0;
   private lastEspionageTickMs: number = 0;
+  private lastMegacorpTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -285,6 +296,8 @@ export class GameEngine {
       espionageOps: [],
       spyNetworks: {},
       covertOperations: {},
+      branchOffices: {},
+      commodityFutures: {},
       battleReports: [],
       eventLog: [],
       victory: null,
@@ -361,6 +374,9 @@ export class GameEngine {
       federationId: null,
       assignedFederationEnvoys: 0,
       counterEspionageStance: 'relaxed',
+      isMegacorp: false,
+      corporateCivics: [],
+      branchOfficesCount: 0,
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -759,6 +775,13 @@ export class GameEngine {
     this.lastEspionageTickMs = nowMs;
     if (espElapsedMs > 0) {
       updateEspionageNetworks(this.state, espElapsedMs);
+    }
+
+    // Megacorporations, Branch Offices & Commodity Futures tick (Phase 24)
+    const megacorpElapsedMs = Math.max(0, nowMs - this.lastMegacorpTickMs);
+    this.lastMegacorpTickMs = nowMs;
+    if (megacorpElapsedMs > 0) {
+      updateMegacorpAndFutures(this.state, megacorpElapsedMs);
     }
   }
 
@@ -5634,6 +5657,103 @@ export class GameEngine {
           data: { stance: cmd.stance },
         };
       }
+
+      case 'ESTABLISH_BRANCH_OFFICE': {
+        const res = establishBranchOffice(this.state, playerId, cmd.targetPlanetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { branchId: res.branchId, targetPlanetId: cmd.targetPlanetId },
+        };
+      }
+
+      case 'CLOSE_BRANCH_OFFICE': {
+        const res = closeBranchOffice(this.state, playerId, cmd.branchId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { branchId: cmd.branchId },
+        };
+      }
+
+      case 'BUILD_CORPORATE_HOLDING': {
+        const res = buildCorporateHolding(this.state, playerId, cmd.branchId, cmd.holdingType);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { branchId: cmd.branchId, holdingType: cmd.holdingType },
+        };
+      }
+
+      case 'DISMANTLE_CORPORATE_HOLDING': {
+        const res = dismantleCorporateHolding(this.state, playerId, cmd.branchId, cmd.holdingIndex);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { branchId: cmd.branchId, holdingIndex: cmd.holdingIndex },
+        };
+      }
+
+      case 'PURCHASE_COMMODITY_FUTURES': {
+        const res = purchaseCommodityFutures(
+          this.state,
+          playerId,
+          cmd.resourceType,
+          cmd.amount,
+          cmd.durationMinutes
+        );
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { contractId: res.contractId, resourceType: cmd.resourceType, amount: cmd.amount },
+        };
+      }
+
+      case 'CLAIM_COMMODITY_FUTURES': {
+        const res = claimCommodityFutures(this.state, playerId, cmd.contractId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { contractId: cmd.contractId },
+        };
+      }
+
+      case 'CONVERT_TO_MEGACORP': {
+        const res = convertToMegacorp(this.state, playerId, cmd.civics);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { civics: cmd.civics },
+        };
+      }
     }
   }
 
@@ -5871,6 +5991,8 @@ export class GameEngine {
       espionageOps: [],
       spyNetworks: {},
       covertOperations: {},
+      branchOffices: {},
+      commodityFutures: {},
       battleReports: [],
       eventLog: [],
       victory: null,
