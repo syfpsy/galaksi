@@ -7,6 +7,11 @@ import { sound } from '../sound';
 import { Camera, Eye, Flame, Maximize2, Pause, Play, RotateCcw, Shield, Sparkles, Swords, Zap } from 'lucide-react';
 
 export type CameraPreset = 'cinematic' | 'tactical' | 'attacker' | 'defender';
+export type TacticalInterventionType =
+  | 'focus_fire'
+  | 'shield_overcharge'
+  | 'fighter_swarm'
+  | 'emergency_ftl';
 
 export interface TacticalCombat3DArenaProps {
   report: BattleReport;
@@ -14,6 +19,7 @@ export interface TacticalCombat3DArenaProps {
   isPlaying: boolean;
   onTogglePlay?: () => void;
   onSelectRound?: (roundIdx: number) => void;
+  onTacticalIntervention?: (tactic: TacticalInterventionType) => void;
 }
 
 interface Particle {
@@ -47,12 +53,25 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
   isPlaying,
   onTogglePlay,
   onSelectRound,
+  onTacticalIntervention,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const [cameraPreset, setCameraPreset] = useState<CameraPreset>('cinematic');
   const [showGrid, setShowGrid] = useState(true);
+
+  // Tactical Intervention Command Points (CP) & Battle Juice
+  const [commandPoints, setCommandPoints] = useState<number>(100);
+  const [activeTacticalBanner, setActiveTacticalBanner] = useState<{
+    text: string;
+    icon: string;
+    color: string;
+  } | null>(null);
+  const [combatLogTicker, setCombatLogTicker] = useState<string>(
+    '📡 Taktik Muharebe İletişimi: Filo savaş düzenine geçti. Komuta emirleri hazır.'
+  );
+  const cameraShakeIntensityRef = useRef<number>(0);
 
   // References for Three.js instance
   const sceneRef = useRef<THREE.Scene | null>(null);
@@ -921,6 +940,15 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
         camera.lookAt(cameraTargetRef.current);
       }
 
+      // Dynamic screen shake damping for tactile combat juice
+      if (cameraShakeIntensityRef.current > 0.001) {
+        const shake = cameraShakeIntensityRef.current;
+        camera.position.x += (Math.random() - 0.5) * shake;
+        camera.position.y += (Math.random() - 0.5) * shake;
+        camera.position.z += (Math.random() - 0.5) * shake;
+        cameraShakeIntensityRef.current = Math.max(0, cameraShakeIntensityRef.current - delta * 4.0);
+      }
+
       // Update active laser beams
       for (let i = activeLasersRef.current.length - 1; i >= 0; i--) {
         const laser = activeLasersRef.current[i];
@@ -1134,6 +1162,220 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
     }
   }, [currentRoundIdx, report, populateFleetGroup, triggerRoundFireEffects]);
 
+  // Natural CP recharge (+4 CP every second, max 100)
+  useEffect(() => {
+    const cpInterval = setInterval(() => {
+      setCommandPoints((prev) => Math.min(100, prev + 4));
+    }, 1000);
+    return () => clearInterval(cpInterval);
+  }, []);
+
+  // Banner auto-dismiss after 2.8s
+  useEffect(() => {
+    if (!activeTacticalBanner) return;
+    const bannerTimer = setTimeout(() => {
+      setActiveTacticalBanner(null);
+    }, 2800);
+    return () => clearTimeout(bannerTimer);
+  }, [activeTacticalBanner]);
+
+  // Tactical Intervention Triggers
+  const triggerTacticalAction = useCallback(
+    (tactic: TacticalInterventionType) => {
+      const fxGroup = fxGroupRef.current;
+      if (!fxGroup) return;
+
+      if (tactic === 'focus_fire') {
+        if (commandPoints < 30) {
+          sound.playError();
+          return;
+        }
+        setCommandPoints((cp) => Math.max(0, cp - 30));
+        sound.playLaser();
+        cameraShakeIntensityRef.current = 1.4;
+
+        // 12 synchronous laser beams converging on target
+        const targetPos = new THREE.Vector3(18, 0, 0);
+        for (let i = 0; i < 10; i++) {
+          const startPos = new THREE.Vector3(-22, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 14);
+          const dir = new THREE.Vector3().subVectors(targetPos, startPos);
+          const dist = dir.length();
+          const beamGeo = new THREE.CylinderGeometry(0.35, 0.35, dist, 6);
+          const beamMat = new THREE.MeshBasicMaterial({
+            color: 0xff0055,
+            transparent: true,
+            opacity: 1,
+            blending: THREE.AdditiveBlending,
+          });
+          const beamMesh = new THREE.Mesh(beamGeo, beamMat);
+          beamMesh.position.copy(startPos).addScaledVector(dir, 0.5);
+          beamMesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.clone().normalize());
+          fxGroup.add(beamMesh);
+          activeLasersRef.current.push({
+            mesh: beamMesh,
+            duration: 0.55,
+            elapsed: 0,
+          });
+        }
+
+        // Giant impact sparks
+        for (let i = 0; i < 35; i++) {
+          const sparkGeo = new THREE.BoxGeometry(0.3, 0.3, 0.3);
+          const sparkMat = new THREE.MeshBasicMaterial({ color: 0xffe600, blending: THREE.AdditiveBlending });
+          const spark = new THREE.Mesh(sparkGeo, sparkMat);
+          spark.position.copy(targetPos).add(new THREE.Vector3((Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3, (Math.random() - 0.5) * 3));
+          fxGroup.add(spark);
+          activeParticlesRef.current.push({
+            mesh: spark,
+            velocity: new THREE.Vector3((Math.random() - 0.5) * 24, (Math.random() - 0.5) * 24, (Math.random() - 0.5) * 24),
+            life: 0,
+            maxLife: 0.7,
+          });
+        }
+
+        setActiveTacticalBanner({
+          text: 'AMİRAL EMRİ: ODAK ATEŞİ! (+%35 Kritik Taarruz)',
+          icon: '🎯',
+          color: '#f43f5e',
+        });
+        setCombatLogTicker('🎯 Amiral: "Tüm bataryalar düşman amiral kruvazörüne kilitlensin! Tam salvo ateşi!"');
+        onTacticalIntervention?.('focus_fire');
+      } else if (tactic === 'shield_overcharge') {
+        if (commandPoints < 35) {
+          sound.playError();
+          return;
+        }
+        setCommandPoints((cp) => Math.max(0, cp - 35));
+        sound.playShield();
+        cameraShakeIntensityRef.current = 0.6;
+
+        // Spherical protective energy dome
+        const shieldGeo = new THREE.SphereGeometry(12, 18, 18);
+        const shieldMat = new THREE.MeshBasicMaterial({
+          color: 0x00f3ff,
+          wireframe: true,
+          transparent: true,
+          opacity: 0.85,
+          blending: THREE.AdditiveBlending,
+        });
+        const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
+        shieldMesh.position.set(-18, 0, 0);
+        fxGroup.add(shieldMesh);
+
+        let elapsed = 0;
+        const shieldInterval = setInterval(() => {
+          elapsed += 0.05;
+          shieldMesh.scale.addScalar(0.04);
+          shieldMat.opacity = Math.max(0, 0.85 - elapsed * 0.7);
+          if (elapsed >= 1.2) {
+            clearInterval(shieldInterval);
+            fxGroup.remove(shieldMesh);
+            shieldGeo.dispose();
+            shieldMat.dispose();
+          }
+        }, 50);
+
+        setActiveTacticalBanner({
+          text: 'AMİRAL EMRİ: KALKANLARA AŞIRI GÜÇ! (-%40 Alınan Hasar)',
+          icon: '🛡️',
+          color: '#06b6d4',
+        });
+        setCombatLogTicker('🛡️ Mühendislik: "Reaktör enerjisi kalkanlara aktarıldı! Bariyer darbeleri emiyor!"');
+        onTacticalIntervention?.('shield_overcharge');
+      } else if (tactic === 'fighter_swarm') {
+        if (commandPoints < 25) {
+          sound.playError();
+          return;
+        }
+        setCommandPoints((cp) => Math.max(0, cp - 25));
+        sound.playLaser();
+        cameraShakeIntensityRef.current = 0.9;
+
+        // 6 dive fighters
+        for (let i = 0; i < 6; i++) {
+          const startPos = new THREE.Vector3(-30, (i - 2.5) * 3, (Math.random() - 0.5) * 12);
+          const targetPos = new THREE.Vector3(25, (i - 2.5) * 2, (Math.random() - 0.5) * 8);
+          const missileGeo = new THREE.ConeGeometry(0.3, 1.8, 4);
+          missileGeo.rotateZ(-Math.PI / 2);
+          const missileMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b, blending: THREE.AdditiveBlending });
+          const mesh = new THREE.Mesh(missileGeo, missileMat);
+          mesh.position.copy(startPos);
+          fxGroup.add(mesh);
+
+          activeProjectilesRef.current.push({
+            mesh,
+            startPos,
+            targetPos,
+            progress: 0,
+            speed: 2.2 + Math.random() * 0.4,
+            weaponType: 'torpedo',
+            isAttacker: true,
+          });
+        }
+
+        setActiveTacticalBanner({
+          text: 'AMİRAL EMRİ: AVCI SALDIRISI & İT DALAŞI! (+120 Doğrudan Hasar)',
+          icon: '🚀',
+          color: '#eab308',
+        });
+        setCombatLogTicker('🚀 Filo Komutanı: "Kırmızı Filo dalışa geçti! Düşman savunma hattı dağıtılıyor!"');
+        onTacticalIntervention?.('fighter_swarm');
+      } else if (tactic === 'emergency_ftl') {
+        if (commandPoints < 50) {
+          sound.playError();
+          return;
+        }
+        setCommandPoints((cp) => Math.max(0, cp - 50));
+        sound.playLaunch();
+        cameraShakeIntensityRef.current = 1.6;
+
+        // Hyperspace rupture ring
+        const ringGeo = new THREE.TorusGeometry(8, 0.4, 16, 32);
+        const ringMat = new THREE.MeshBasicMaterial({ color: 0xa855f7, blending: THREE.AdditiveBlending });
+        const ring = new THREE.Mesh(ringGeo, ringMat);
+        ring.position.set(-16, 0, 0);
+        ring.rotation.y = Math.PI / 2;
+        fxGroup.add(ring);
+
+        for (let i = 0; i < 40; i++) {
+          const pGeo = new THREE.BoxGeometry(0.35, 0.35, 0.35);
+          const pMat = new THREE.MeshBasicMaterial({ color: 0xc084fc, blending: THREE.AdditiveBlending });
+          const pMesh = new THREE.Mesh(pGeo, pMat);
+          pMesh.position.set(-16, 0, 0);
+          fxGroup.add(pMesh);
+          activeParticlesRef.current.push({
+            mesh: pMesh,
+            velocity: new THREE.Vector3((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 20),
+            life: 0,
+            maxLife: 1.0,
+          });
+        }
+
+        let ftlTime = 0;
+        const ftlInterval = setInterval(() => {
+          ftlTime += 0.05;
+          ring.rotation.z += 0.2;
+          ring.scale.subScalar(0.04);
+          if (ftlTime >= 1.0) {
+            clearInterval(ftlInterval);
+            fxGroup.remove(ring);
+            ringGeo.dispose();
+            ringMat.dispose();
+          }
+        }, 50);
+
+        setActiveTacticalBanner({
+          text: 'AMİRAL EMRİ: ACİL FTL KAÇIŞ PROTOKOLÜ! (Filo Kurtarıldı)',
+          icon: '🌌',
+          color: '#c084fc',
+        });
+        setCombatLogTicker('🌌 Seyir Subayı: "FTL motorları devreye alındı! Hiperuzay sıçraması tamamlandı, filo güvende!"');
+        onTacticalIntervention?.('emergency_ftl');
+      }
+    },
+    [commandPoints, onTacticalIntervention]
+  );
+
   // Mouse drag & zoom controls
   const handleMouseDown = (e: React.MouseEvent) => {
     isDraggingRef.current = true;
@@ -1183,12 +1425,32 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onWheel={handleWheel}
-      className="relative w-full h-[280px] bg-[#020611] rounded-sm overflow-hidden border border-[#1b3d54] select-none shadow-2xl group"
+      className="relative w-full h-[350px] bg-[#020611] rounded-sm overflow-hidden border border-[#1b3d54] select-none shadow-2xl group flex flex-col justify-between"
     >
-      <canvas ref={canvasRef} className="w-full h-full block cursor-grab active:cursor-grabbing" />
+      <canvas ref={canvasRef} className="absolute inset-0 w-full h-full block cursor-grab active:cursor-grabbing" />
+
+      {/* Active Tactical Intervention Hero Banner Overlay */}
+      {activeTacticalBanner && (
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-30 pointer-events-none flex flex-col items-center animate-in zoom-in-95 duration-200">
+          <div
+            className="px-5 py-2.5 rounded-sm bg-[#050e18]/95 border shadow-[0_0_25px_rgba(0,243,255,0.4)] backdrop-blur-md flex items-center gap-3 font-mono"
+            style={{ borderColor: activeTacticalBanner.color }}
+          >
+            <span className="text-2xl animate-bounce">{activeTacticalBanner.icon}</span>
+            <div>
+              <div className="text-[12px] font-bold text-white uppercase tracking-wider" style={{ color: activeTacticalBanner.color }}>
+                {activeTacticalBanner.text}
+              </div>
+              <div className="text-[9.5px] text-slate-300">
+                Savaş Simülasyonu & Filo Doktrini Anında Güncellendi
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Top HUD: Title, Round Indicator, Live Fire Score */}
-      <div className="absolute top-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10 font-mono text-[10px]">
+      <div className="relative top-2 left-2 right-2 flex items-center justify-between pointer-events-none z-10 font-mono text-[10px]">
         {/* Attacker Flank Badge */}
         <div className="bg-[#0b141e]/90 border border-rose-500/50 backdrop-blur-md px-2.5 py-1 rounded-sm text-rose-300 flex items-center gap-1.5 shadow-[0_0_8px_rgba(244,63,94,0.2)]">
           <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
@@ -1227,99 +1489,204 @@ export const TacticalCombat3DArena: React.FC<TacticalCombat3DArenaProps> = ({
         </div>
       </div>
 
-      {/* Bottom Floating Control Bar */}
-      <div className="absolute bottom-2 left-2 right-2 flex items-center justify-between z-10 pointer-events-auto">
-        {/* Camera Preset Switcher */}
-        <div className="flex items-center gap-1 bg-[#091522]/90 border border-[#1b3d52] backdrop-blur-md p-1 rounded-sm">
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('cinematic')}
-            className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
-              cameraPreset === 'cinematic'
-                ? 'stellaris-rail-btn active text-cyan-300 font-bold'
-                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
-            }`}
-            title="Sinematik kamera süzülmesi"
-          >
-            🎥 Sinematik
-          </button>
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('tactical')}
-            className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
-              cameraPreset === 'tactical'
-                ? 'stellaris-rail-btn active text-cyan-300 font-bold'
-                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
-            }`}
-            title="Taktik üstten izometrik görünüm"
-          >
-            📐 Taktik Izgara
-          </button>
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('attacker')}
-            className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
-              cameraPreset === 'attacker'
-                ? 'stellaris-rail-btn active text-rose-300 font-bold'
-                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
-            }`}
-            title="Saldırgan filosu arkası açısı"
-          >
-            🔴 Saldırgan
-          </button>
-          <button
-            type="button"
-            onClick={() => applyCameraPreset('defender')}
-            className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
-              cameraPreset === 'defender'
-                ? 'stellaris-rail-btn active text-cyan-300 font-bold'
-                : 'stellaris-btn-metallic text-slate-400 hover:text-white'
-            }`}
-            title="Savunucu filosu arkası açısı"
-          >
-            🔵 Savunucu
-          </button>
-        </div>
+      {/* Bottom Controls & Tactical Intervention Console */}
+      <div className="relative bottom-2 left-2 right-2 z-10 flex flex-col gap-1.5 pointer-events-auto">
+        {/* Tactical Command Intervention Bar (Amiral Taktik Kartları) */}
+        <div className="p-1.5 rounded-sm bg-[#050d18]/95 border border-[#1b3d52] backdrop-blur-md flex flex-wrap items-center justify-between gap-2 shadow-2xl">
+          {/* 4 Interactive Tactical Cards */}
+          <div className="flex items-center gap-1.5 flex-1">
+            <span className="text-[10px] font-mono text-cyan-300 font-bold uppercase tracking-wider mr-1 hidden sm:inline">
+              Taktik:
+            </span>
 
-        {/* Round Playback Controls */}
-        <div className="flex items-center gap-1.5 bg-[#091522]/90 border border-[#1b3d52] backdrop-blur-md px-2 py-1 rounded-sm">
-          {onTogglePlay && (
+            {/* 1. Odak Ateşi */}
             <button
               type="button"
-              onClick={onTogglePlay}
-              className={`px-2.5 py-0.5 rounded-sm text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all ${
-                isPlaying
-                  ? 'border border-amber-500/70 text-amber-300 bg-amber-950/40 animate-pulse'
-                  : 'stellaris-btn-metallic text-cyan-300'
+              disabled={commandPoints < 30}
+              onClick={() => triggerTacticalAction('focus_fire')}
+              className={`px-2 py-1 rounded-sm text-[10px] font-mono font-bold flex items-center gap-1 transition-all border cursor-pointer ${
+                commandPoints >= 30
+                  ? 'bg-rose-950/50 hover:bg-rose-900/60 border-rose-500/60 text-rose-200 shadow-sm hover:scale-102 active:scale-98'
+                  : 'bg-slate-900/40 border-slate-800 text-slate-600 cursor-not-allowed opacity-50'
               }`}
+              title="Odak Ateşi (30 CP): Tüm bataryalar düşman amiral gemisine kilitlenir (+%35 Taarruz Gücü & Lazer Salvosu)."
             >
-              {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-              <span>{isPlaying ? 'DURAKLAT' : 'OYNAT'}</span>
+              <span>🎯</span>
+              <span>Odak Ateşi</span>
+              <span className="text-[9px] text-rose-400 font-normal">30 CP</span>
             </button>
-          )}
 
-          {onSelectRound && (
-            <>
+            {/* 2. Kalkan Gücü */}
+            <button
+              type="button"
+              disabled={commandPoints < 35}
+              onClick={() => triggerTacticalAction('shield_overcharge')}
+              className={`px-2 py-1 rounded-sm text-[10px] font-mono font-bold flex items-center gap-1 transition-all border cursor-pointer ${
+                commandPoints >= 35
+                  ? 'bg-cyan-950/50 hover:bg-cyan-900/60 border-cyan-500/60 text-cyan-200 shadow-sm hover:scale-102 active:scale-98'
+                  : 'bg-slate-900/40 border-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+              }`}
+              title="Kalkanları Aşırı Yükle (35 CP): Koruyucu heksagonal enerji kubbesi açar (-%40 Alınan Hasar)."
+            >
+              <span>🛡️</span>
+              <span>Kalkan Gücü</span>
+              <span className="text-[9px] text-cyan-400 font-normal">35 CP</span>
+            </button>
+
+            {/* 3. Avcı Taarruzu */}
+            <button
+              type="button"
+              disabled={commandPoints < 25}
+              onClick={() => triggerTacticalAction('fighter_swarm')}
+              className={`px-2 py-1 rounded-sm text-[10px] font-mono font-bold flex items-center gap-1 transition-all border cursor-pointer ${
+                commandPoints >= 25
+                  ? 'bg-amber-950/50 hover:bg-amber-900/60 border-amber-500/60 text-amber-200 shadow-sm hover:scale-102 active:scale-98'
+                  : 'bg-slate-900/40 border-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+              }`}
+              title="Avcı Taarruzu (25 CP): Avcı filosu düşman hattını boydan boya tarar (+120 Doğrudan Hasar)."
+            >
+              <span>🚀</span>
+              <span>Avcı Dalgası</span>
+              <span className="text-[9px] text-amber-400 font-normal">25 CP</span>
+            </button>
+
+            {/* 4. Acil FTL */}
+            <button
+              type="button"
+              disabled={commandPoints < 50}
+              onClick={() => triggerTacticalAction('emergency_ftl')}
+              className={`px-2 py-1 rounded-sm text-[10px] font-mono font-bold flex items-center gap-1 transition-all border cursor-pointer ${
+                commandPoints >= 50
+                  ? 'bg-purple-950/50 hover:bg-purple-900/60 border-purple-500/60 text-purple-200 shadow-sm hover:scale-102 active:scale-98'
+                  : 'bg-slate-900/40 border-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+              }`}
+              title="Acil FTL Kaçışı (50 CP): Hiperuzay girdabı açarak kalan filoyu kontrollü geri çeker."
+            >
+              <span>🌌</span>
+              <span>Acil FTL</span>
+              <span className="text-[9px] text-purple-400 font-normal">50 CP</span>
+            </button>
+          </div>
+
+          {/* CP Power Gauge */}
+          <div className="flex items-center gap-2 shrink-0">
+            <div className="flex flex-col items-end">
+              <span className="text-[9.5px] font-mono font-bold text-cyan-300">
+                ⚡ {commandPoints}/100 CP
+              </span>
+              <div className="w-20 h-1.5 bg-[#030712] rounded-full overflow-hidden border border-[#1b3d52]">
+                <div
+                  className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300"
+                  style={{ width: `${commandPoints}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Live Comms Radio Ticker Strip */}
+        <div className="flex items-center justify-between px-2.5 py-0.5 rounded-sm bg-[#040a14]/85 border border-[#1b3d52]/60 text-[9.5px] font-mono text-slate-300">
+          <span className="flex items-center gap-1.5 truncate">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping shrink-0" />
+            <span className="truncate">{combatLogTicker}</span>
+          </span>
+          <span className="text-slate-500 text-[8.5px] shrink-0 ml-2">CANLI TELSİZ</span>
+        </div>
+
+        {/* Camera Preset & Round Controls */}
+        <div className="flex items-center justify-between">
+          {/* Camera Presets */}
+          <div className="flex items-center gap-1 bg-[#091522]/90 border border-[#1b3d52] backdrop-blur-md p-1 rounded-sm">
+            <button
+              type="button"
+              onClick={() => applyCameraPreset('cinematic')}
+              className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+                cameraPreset === 'cinematic'
+                  ? 'stellaris-rail-btn active text-cyan-300 font-bold'
+                  : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+              }`}
+              title="Sinematik kamera süzülmesi"
+            >
+              🎥 Sinematik
+            </button>
+            <button
+              type="button"
+              onClick={() => applyCameraPreset('tactical')}
+              className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+                cameraPreset === 'tactical'
+                  ? 'stellaris-rail-btn active text-cyan-300 font-bold'
+                  : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+              }`}
+              title="Taktik üstten izometrik görünüm"
+            >
+              📐 Taktik Izgara
+            </button>
+            <button
+              type="button"
+              onClick={() => applyCameraPreset('attacker')}
+              className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+                cameraPreset === 'attacker'
+                  ? 'stellaris-rail-btn active text-rose-300 font-bold'
+                  : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+              }`}
+              title="Saldırgan filosu arkası açısı"
+            >
+              🔴 Saldırgan
+            </button>
+            <button
+              type="button"
+              onClick={() => applyCameraPreset('defender')}
+              className={`px-2 py-0.5 rounded-sm text-[10px] font-mono transition-all cursor-pointer ${
+                cameraPreset === 'defender'
+                  ? 'stellaris-rail-btn active text-cyan-300 font-bold'
+                  : 'stellaris-btn-metallic text-slate-400 hover:text-white'
+              }`}
+              title="Savunucu filosu arkası açısı"
+            >
+              🔵 Savunucu
+            </button>
+          </div>
+
+          {/* Round Playback Controls */}
+          <div className="flex items-center gap-1.5 bg-[#091522]/90 border border-[#1b3d52] backdrop-blur-md px-2 py-1 rounded-sm">
+            {onTogglePlay && (
               <button
                 type="button"
-                disabled={currentRoundIdx === 0}
-                onClick={() => onSelectRound(Math.max(0, currentRoundIdx - 1))}
-                className="px-1.5 py-0.5 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 text-[10px] font-mono cursor-pointer"
-                title="Önceki Tur"
+                onClick={onTogglePlay}
+                className={`px-2.5 py-0.5 rounded-sm text-[10px] font-mono font-bold flex items-center gap-1 cursor-pointer transition-all ${
+                  isPlaying
+                    ? 'border border-amber-500/70 text-amber-300 bg-amber-950/40 animate-pulse'
+                    : 'stellaris-btn-metallic text-cyan-300'
+                }`}
               >
-                ◀
+                {isPlaying ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
+                <span>{isPlaying ? 'DURAKLAT' : 'OYNAT'}</span>
               </button>
-              <button
-                type="button"
-                disabled={currentRoundIdx >= totalRounds - 1}
-                onClick={() => onSelectRound(Math.min(totalRounds - 1, currentRoundIdx + 1))}
-                className="px-1.5 py-0.5 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 text-[10px] font-mono cursor-pointer"
-                title="Sonraki Tur"
-              >
-                ▶
-              </button>
-            </>
-          )}
+            )}
+
+            {onSelectRound && (
+              <>
+                <button
+                  type="button"
+                  disabled={currentRoundIdx === 0}
+                  onClick={() => onSelectRound(Math.max(0, currentRoundIdx - 1))}
+                  className="px-1.5 py-0.5 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 text-[10px] font-mono cursor-pointer"
+                  title="Önceki Tur"
+                >
+                  ◀
+                </button>
+                <button
+                  type="button"
+                  disabled={currentRoundIdx >= totalRounds - 1}
+                  onClick={() => onSelectRound(Math.min(totalRounds - 1, currentRoundIdx + 1))}
+                  className="px-1.5 py-0.5 rounded-sm stellaris-btn-metallic text-slate-300 disabled:opacity-40 text-[10px] font-mono cursor-pointer"
+                  title="Sonraki Tur"
+                >
+                  ▶
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

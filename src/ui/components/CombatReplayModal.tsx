@@ -31,7 +31,7 @@ import {
 import { DEFENSE_STATS, SHIP_STATS } from '../../engine/constants';
 import { getDefenseCombatRating, getFleetCombatRating, resolveCombat } from '../../engine/combat';
 import { EMPIRE_ARTIFACTS } from '../../engine/artifacts';
-import { TacticalCombat3DArena } from './TacticalCombat3DArena';
+import { TacticalCombat3DArena, TacticalInterventionType } from './TacticalCombat3DArena';
 import {
   loadSavedLoadouts,
   getModifiedShipStats,
@@ -180,6 +180,24 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
 
     return () => clearInterval(timer);
   }, [isPlaying, currentReport, totalRounds]);
+
+  // Live Tactical Combat Intervention Handler
+  const handleTacticalIntervention = useCallback(
+    (tactic: TacticalInterventionType) => {
+      if (!currentReport || !currentRound) return;
+
+      if (tactic === 'focus_fire') {
+        currentRound.attackerDamageDealt = Math.round(currentRound.attackerDamageDealt * 1.35);
+      } else if (tactic === 'shield_overcharge') {
+        currentRound.defenderDamageDealt = Math.round(currentRound.defenderDamageDealt * 0.6);
+      } else if (tactic === 'fighter_swarm') {
+        currentRound.attackerDamageDealt += 120;
+      } else if (tactic === 'emergency_ftl') {
+        setIsPlaying(false);
+      }
+    },
+    [currentReport, currentRound]
+  );
 
   // Run 100x Monte Carlo Simulation
   const handleRunSimulation = useCallback(() => {
@@ -851,6 +869,7 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                             setCurrentRoundIdx(idx);
                             sound.playLaser();
                           }}
+                          onTacticalIntervention={handleTacticalIntervention}
                         />
                       ) : (
                         <>
