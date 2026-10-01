@@ -188,6 +188,20 @@ import {
   updateSynthetics,
 } from '../src/engine/synthetics';
 import { evaluateBotSynthetics } from '../src/bots/synthetics';
+import {
+  PARAGON_CONSTANTS,
+  INITIAL_PARAGONS,
+  canRecruitParagon,
+  recruitParagon,
+  assignParagon,
+  unassignParagon,
+  dismissParagon,
+  commissionParagonFlagship,
+  getPlayerParagonBonuses,
+  getFleetParagonBonuses,
+  updateParagons,
+} from '../src/engine/paragons';
+import { evaluateBotParagons } from '../src/bots/paragons';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -5323,7 +5337,178 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     );
     expect(ascensionOrPop).toBeDefined();
   });
+
+  it('Test 57: Phase 27 - Paragon Önderler, Efsanevi Amiraller & Hanedan / Konsey Mirası (Paragon Leaders, Renowned Heroes & Council Destiny)', () => {
+    const engine = new GameEngine(888);
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p1', 'Paragon Lideri', '#f59e0b');
+
+    // 1. Initial State Verification
+    expect(engine.state.paragons).toBeDefined();
+    expect(engine.state.galacticParagonPool).toBeDefined();
+    expect(engine.state.galacticParagonPool!.length).toBe(6);
+    expect(p1.renown).toBe(100);
+    expect(p1.paragonIds).toEqual([]);
+
+    // 2. Passive Renown Tick Accumulation
+    const initialRenown = p1.renown || 0;
+    engine.tick(3600 * 1000); // 1 hour elapsed
+    expect(p1.renown).toBeCloseTo(initialRenown + PARAGON_CONSTANTS.BASE_RENOWN_GAIN_PER_HOUR, 1);
+
+    // 3. Paragon Recruitment (RECRUIT_PARAGON)
+    // Select Vaelen the Starbreaker (military legendary leader)
+    const targetParagonId = 'paragon_vaelen';
+    const targetParagon = engine.state.paragons![targetParagonId];
+    expect(targetParagon).toBeDefined();
+    expect(targetParagon.ownerId).toBeNull();
+    expect(targetParagon.tier).toBe('legendary');
+
+    // Give homeworld enough resources to afford recruitment
+    hw1.resources.ore = 2000;
+    hw1.resources.crystal = 2000;
+    hw1.resources.fuel = 2000;
+    p1.renown = 200;
+
+    const recruitRes = engine.dispatchCommand('p1', {
+      type: 'RECRUIT_PARAGON',
+      paragonId: targetParagonId,
+    });
+    expect(recruitRes.success).toBe(true);
+    expect(targetParagon.ownerId).toBe('p1');
+    expect(p1.paragonIds).toContain(targetParagonId);
+    expect(engine.state.galacticParagonPool).not.toContain(targetParagonId);
+    expect(p1.renown).toBe(200 - targetParagon.renownCost);
+
+    // 4. Assignments Matrix: Planet Governor & Council (ASSIGN_PARAGON & UNASSIGN_PARAGON)
+    const assignPlanetRes = engine.dispatchCommand('p1', {
+      type: 'ASSIGN_PARAGON',
+      paragonId: targetParagonId,
+      assignment: { type: 'planet', targetId: hw1.id },
+    });
+    expect(assignPlanetRes.success).toBe(true);
+    expect(targetParagon.assignedTo?.type).toBe('planet');
+    expect(targetParagon.assignedTo?.targetId).toBe(hw1.id);
+    expect(hw1.assignedParagonId).toBe(targetParagonId);
+
+    // Reassign to Council
+    const assignCouncilRes = engine.dispatchCommand('p1', {
+      type: 'ASSIGN_PARAGON',
+      paragonId: targetParagonId,
+      assignment: { type: 'council', targetId: 'high_command' },
+    });
+    expect(assignCouncilRes.success).toBe(true);
+    expect(targetParagon.assignedTo?.type).toBe('council');
+    expect(hw1.assignedParagonId).toBeUndefined(); // Cleared from previous planet
+
+    // Unassign
+    const unassignRes = engine.dispatchCommand('p1', {
+      type: 'UNASSIGN_PARAGON',
+      paragonId: targetParagonId,
+    });
+    expect(unassignRes.success).toBe(true);
+    expect(targetParagon.assignedTo).toBeNull();
+
+    // 5. XP Accumulation and Leveling
+    // Reassign to planet to gain XP over time
+    engine.dispatchCommand('p1', {
+      type: 'ASSIGN_PARAGON',
+      paragonId: targetParagonId,
+      assignment: { type: 'planet', targetId: hw1.id },
+    });
+
+    const prevLevel = targetParagon.level;
+    // Set XP close to threshold (190 / 200) and tick 1 hour (+25 XP)
+    targetParagon.xp = 190;
+    engine.tick(3600 * 1000);
+    expect(targetParagon.level).toBeGreaterThan(prevLevel);
+
+    // 6. Empire Multipliers (getPlayerParagonBonuses)
+    // Recruit an economic paragon: Castor Vane (+20% ore, +20% crystal)
+    const castorId = 'paragon_castor';
+    p1.renown = 300;
+    engine.dispatchCommand('p1', { type: 'RECRUIT_PARAGON', paragonId: castorId });
+    const bonuses = getPlayerParagonBonuses(engine.state, 'p1');
+    expect(bonuses.oreMultiplier).toBeGreaterThanOrEqual(1.20);
+    expect(bonuses.crystalMultiplier).toBeGreaterThanOrEqual(1.20);
+
+    // 7. Military Flagship Commissioning (COMMISSION_PARAGON_FLAGSHIP)
+    expect(targetParagon.flagship).toBeDefined();
+    expect(targetParagon.flagship!.isCommissioned).toBe(false);
+
+    hw1.resources.ore = 3000;
+    hw1.resources.crystal = 2000;
+    hw1.resources.fuel = 1500;
+
+    const commissionRes = engine.dispatchCommand('p1', {
+      type: 'COMMISSION_PARAGON_FLAGSHIP',
+      paragonId: targetParagonId,
+      planetId: hw1.id,
+    });
+    expect(commissionRes.success).toBe(true);
+    expect(targetParagon.flagship!.isCommissioned).toBe(true);
+
+    // 8. Fleet Dispatch with Paragon Commander
+    hw1.garrison.fighter = 10;
+    hw1.garrison.battleship = 2;
+    hw1.resources.fuel = 2000;
+
+    // Pick target system
+    const targetSys = Object.keys(engine.state.map.systems).find((s) => s !== hw1.systemId)!;
+
+    const dispatchRes = engine.dispatchCommand('p1', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw1.id,
+      targetSystemId: targetSys,
+      ships: { scout: 0, transport: 0, fighter: 5, battleship: 1 },
+      mission: 'recon',
+      paragonId: targetParagonId,
+    });
+    expect(dispatchRes.success).toBe(true);
+
+    const createdFleet = Object.values(engine.state.fleets).find(
+      (f) => f.ownerId === 'p1' && f.paragonId === targetParagonId
+    );
+    expect(createdFleet).toBeDefined();
+    expect(targetParagon.assignedTo?.type).toBe('fleet');
+    expect(targetParagon.assignedTo?.targetId).toBe(createdFleet!.id);
+
+    // Combat multipliers with commissioned flagship and Vaelen trait
+    const fleetCombatBuffs = getFleetParagonBonuses(engine.state, createdFleet!.id);
+    expect(fleetCombatBuffs.hasFlagship).toBe(true);
+    expect(fleetCombatBuffs.attackMultiplier).toBeGreaterThanOrEqual(1.50); // 25% aura + 25% flagship + level
+    expect(fleetCombatBuffs.defenseMultiplier).toBeGreaterThanOrEqual(1.35); // 20% aura + 20% flagship + level
+
+    // 9. Paragon Dismissal and Partial Renown Refund (DISMISS_PARAGON)
+    const renownBeforeDismiss = p1.renown || 0;
+    const dismissRes = engine.dispatchCommand('p1', {
+      type: 'DISMISS_PARAGON',
+      paragonId: castorId,
+    });
+    expect(dismissRes.success).toBe(true);
+    expect(p1.paragonIds).not.toContain(castorId);
+    expect(engine.state.galacticParagonPool).toContain(castorId);
+    expect(p1.renown).toBeGreaterThan(renownBeforeDismiss); // Refunded 40%
+
+    // 10. Autonomous Bot AI Evaluation (evaluateBotParagons)
+    const { player: botAdm, homeworld: botHw } = engine.addPlayer(
+      'bot_paragon_adm',
+      'Orion AI',
+      '#ef4444',
+      true,
+      'admiral'
+    );
+    botHw.resources.ore = 8000;
+    botHw.resources.crystal = 6000;
+    botHw.resources.fuel = 5000;
+    botAdm.renown = 300;
+
+    const botCmds: any[] = [];
+    evaluateBotParagons(engine, botAdm.id, 'admiral', botCmds);
+    expect(botCmds.length).toBeGreaterThan(0);
+    const recruitCmd = botCmds.find((c) => c.type === 'RECRUIT_PARAGON');
+    expect(recruitCmd).toBeDefined();
+  });
 });
+
 
 
 

@@ -34,6 +34,7 @@ import {
   CommodityFuturesContract,
   ColossusShip,
   SyntheticEmpireState,
+  ParagonLeader,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -108,6 +109,9 @@ export interface PlayerVisibleState {
   myColossus?: ColossusShip | null;
   chargingColossi?: ColossusShip[];
   mySynthetics?: SyntheticEmpireState | null;
+  myParagons?: ParagonLeader[];
+  availableParagons?: ParagonLeader[];
+  myRenown?: number;
 }
 
 /**
@@ -485,5 +489,8 @@ export function filterGameStateForPlayer(
     myColossus: player?.colossusId && state.colossi ? state.colossi[player.colossusId] || null : null,
     chargingColossi: Object.values(state.colossi || {}).filter((c) => c.status === 'charging'),
     mySynthetics: state.synthetics?.[playerId] || null,
+    myParagons: Object.values(state.paragons || {}).filter((p) => p.ownerId === playerId),
+    availableParagons: Object.values(state.paragons || {}).filter((p) => p.ownerId === null),
+    myRenown: player?.renown || 0,
   };
 }

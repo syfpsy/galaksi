@@ -405,6 +405,7 @@ export interface Planet {
   assemblyProgress?: number; // 0 to 100 percentage
   isAssemblyActive?: boolean;
   hasMachineMatrix?: boolean;
+  assignedParagonId?: string; // Phase 27: Assigned Paragon Governor
 }
 
 export type StarbaseTier = 'outpost' | 'starbase' | 'citadel';
@@ -826,6 +827,7 @@ export interface Fleet {
   isReturning: boolean;
   status: 'orbiting' | 'in_transit' | 'intercepting' | 'returning' | 'destroyed';
   admiralId?: string;
+  paragonId?: string; // Phase 27: Assigned Paragon Leader
   doctrine?: FleetDoctrine;
   loadouts?: ShipLoadoutMap;
 }
@@ -1161,6 +1163,48 @@ export interface SyntheticEmpireState {
   lastUprisingTick?: number;
 }
 
+// ==========================================
+// Phase 27: Paragon Leaders, Renowned Heroes & Council Destiny
+// ==========================================
+export type ParagonTier = 'renowned' | 'legendary';
+export type ParagonClass = 'military' | 'scientific' | 'economic' | 'diplomatic';
+
+export interface ParagonFlagship {
+  name: string;
+  shipType: ShipType;
+  combatAura: string; // Turkish description of tactical aura
+  attackMultiplier: number; // e.g. 1.20 (+20%)
+  defenseMultiplier: number; // e.g. 1.20 (+20%)
+  speedMultiplier: number; // e.g. 1.15 (+15%)
+  isCommissioned: boolean;
+  assignedFleetId?: string | null;
+}
+
+export interface ParagonLeader {
+  id: string;
+  name: string;
+  titleTr: string;
+  biographyTr: string;
+  tier: ParagonTier;
+  class: ParagonClass;
+  level: number;
+  xp: number;
+  xpToNextLevel: number;
+  avatar: string; // Lucide or avatar identifier
+  destinyTraitId: string;
+  destinyTraitNameTr: string;
+  destinyTraitDescriptionTr: string;
+  ownerId: string | null; // null if in galactic pool
+  recruitedAtMs?: number;
+  assignedTo?: {
+    type: 'fleet' | 'planet' | 'council';
+    targetId: string; // fleetId, planetId, or councilPosition
+  } | null;
+  flagship?: ParagonFlagship | null;
+  recruitmentCost: Resources;
+  renownCost: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -1198,6 +1242,8 @@ export interface Player {
   syntheticAscensionStage?: SyntheticAscensionType; // Phase 26: Ascension doctrine
   aiPolicy?: AIPolicyType; // Phase 26: AI & Synthetic rights policy
   machineUprisingRisk?: number; // Phase 26: 0 to 100 rebellion risk
+  renown?: number; // Phase 27: Galactic Renown currency
+  paragonIds?: string[]; // Phase 27: Recruited Paragon Leader IDs
 }
 
 export type EmpireDirectiveId =
@@ -1350,6 +1396,8 @@ export interface GameState {
   commodityFutures?: Record<string, CommodityFuturesContract>; // key: contractId (Phase 24)
   colossi?: Record<string, ColossusShip>; // key: colossusId (Phase 25)
   synthetics?: Record<string, SyntheticEmpireState>; // key: playerId (Phase 26)
+  paragons?: Record<string, ParagonLeader>; // key: paragonId (Phase 27)
+  galacticParagonPool?: string[]; // array of paragonIds in galactic pool (Phase 27)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1415,6 +1463,7 @@ export type GameCommand =
       mission: MissionType;
       admiralId?: string;
       doctrine?: FleetDoctrine;
+      paragonId?: string;
     }
   | { type: 'RECALL_FLEET'; fleetId: string }
   | { type: 'SET_PLANET_STANCE'; planetId: string; stance: PlanetStance }
@@ -1862,6 +1911,31 @@ export type GameCommand =
     }
   | {
       type: 'CONVERT_TO_MACHINE_WORLD';
+      planetId: string;
+    }
+  | {
+      type: 'RECRUIT_PARAGON';
+      paragonId: string;
+    }
+  | {
+      type: 'ASSIGN_PARAGON';
+      paragonId: string;
+      assignment: {
+        type: 'fleet' | 'planet' | 'council';
+        targetId: string;
+      };
+    }
+  | {
+      type: 'UNASSIGN_PARAGON';
+      paragonId: string;
+    }
+  | {
+      type: 'DISMISS_PARAGON';
+      paragonId: string;
+    }
+  | {
+      type: 'COMMISSION_PARAGON_FLAGSHIP';
+      paragonId: string;
       planetId: string;
     };
 

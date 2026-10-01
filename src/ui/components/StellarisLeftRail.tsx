@@ -64,6 +64,9 @@ interface StellarisLeftRailProps {
   onOpenCrisis?: () => void;
   onOpenColossus?: () => void;
   onOpenSynthetics?: () => void;
+  onOpenParagons?: () => void;
+  paragonsCount?: number;
+  availableParagonsCount?: number;
   onOpenGallery: () => void;
   isColossusActive?: boolean;
   isColossusCharging?: boolean;
@@ -130,6 +133,9 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenCrisis,
   onOpenColossus,
   onOpenSynthetics,
+  onOpenParagons,
+  paragonsCount = 0,
+  availableParagonsCount = 0,
   onOpenGallery,
   isColossusActive = false,
   isColossusCharging = false,
@@ -1147,6 +1153,53 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
                 <span className="font-bold">{syntheticPopsCount} Pop</span>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Paragon Leaders & Renown (Phase 27) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenParagons) onOpenParagons();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'paragons'
+                ? 'active'
+                : paragonsCount > 0
+                ? 'text-amber-400 hover:text-amber-200 border-amber-900/50'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Crown
+              className={`w-5 h-5 transition-transform group-hover:scale-110 ${
+                paragonsCount > 0 ? 'text-amber-400' : 'text-slate-300'
+              }`}
+            />
+            {availableParagonsCount > 0 && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-600 text-slate-950 text-[9px] font-bold flex items-center justify-center border border-amber-400 shadow-md">
+                {availableParagonsCount}
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
+              LDR
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-amber-400 tracking-wide">PARAGON ÖNDERLER & MİRAS</span>
+              <span className="text-[10px] font-mono text-amber-300 bg-amber-950/80 border border-amber-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 27
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Galaktik efsaneler, sancak amiral gemileri, kader nitelikleri ve konsey mirasları.
+            </p>
+            <div className="mt-2 pt-1.5 border-t border-amber-900/60 text-[10px] font-mono text-amber-300 flex items-center justify-between">
+              <span>Aktif / Havuz:</span>
+              <span className="font-bold">{paragonsCount} Aktif · {availableParagonsCount} Havuzda</span>
+            </div>
           </div>
         </div>
 

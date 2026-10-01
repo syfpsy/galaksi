@@ -76,6 +76,7 @@ interface TopBarProps {
   onOpenMegacorp?: () => void;
   onOpenColossus?: () => void;
   onOpenSynthetics?: () => void;
+  onOpenParagons?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -117,6 +118,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenMegacorp,
   onOpenColossus,
   onOpenSynthetics,
+  onOpenParagons,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -1071,6 +1073,52 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 </p>
                 <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-cyan-400 font-mono text-center">
                   Mekanik imalat ve yükseliş doktrini için tıklayın
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* PARAGON LEADERS & RENOWN QUICK CHIP (Phase 27) */}
+        {(() => {
+          const player = state.players[activePlayerId];
+          const renown = Math.round(player?.renown || 0);
+          const leaderCount = player?.paragonIds?.length || 0;
+          const poolCount = state.galacticParagonPool?.length || 0;
+
+          return (
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenParagons) onOpenParagons();
+                }}
+                className="stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer border-amber-900/50 text-amber-300 hover:border-amber-400"
+                title="Galaktik Paragon Önderler & Konsey Mirası"
+              >
+                <Crown className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
+                <span className="font-bold text-white text-xs truncate max-w-[85px]">
+                  {renown} <span className="text-[10px] text-amber-400 font-normal">ŞAN</span>
+                </span>
+                {leaderCount > 0 && (
+                  <span className="text-[10px] text-amber-300 font-mono font-bold bg-amber-950/60 px-1 rounded border border-amber-500/40">
+                    {leaderCount}L
+                  </span>
+                )}
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[260px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+                <div className="flex items-center justify-between text-xs font-bold mb-1">
+                  <span className="text-amber-400 tracking-wide">PARAGON ÖNDERLER & MİRAS</span>
+                  <span className="text-[10px] font-mono text-amber-300 bg-amber-950/80 border border-amber-500/50 px-1 py-0.5 rounded-sm">
+                    FAZ 27
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  Mevcut Şan & İtibar: <span className="text-amber-300 font-bold">{renown}</span>. Aktif liderleriniz ve galaktik aday havuzu ({poolCount} aday).
+                </p>
+                <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono text-center">
+                  Lider istihdamı, sancak gemileri ve konsey görevleri için tıklayın
                 </div>
               </div>
             </div>

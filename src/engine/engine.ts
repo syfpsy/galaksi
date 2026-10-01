@@ -251,6 +251,19 @@ import {
   updateSynthetics,
   getPlanetSyntheticBoosts,
 } from './synthetics';
+import {
+  initializeGalacticParagons,
+  canRecruitParagon,
+  recruitParagon,
+  assignParagon,
+  unassignParagon,
+  dismissParagon,
+  commissionParagonFlagship,
+  getPlayerParagonBonuses,
+  getFleetParagonBonuses,
+  updateParagons,
+  PARAGON_CONSTANTS,
+} from './paragons';
 
 
 export class GameEngine {
@@ -268,6 +281,7 @@ export class GameEngine {
   private lastMegacorpTickMs: number = 0;
   private lastColossusTickMs: number = 0;
   private lastSyntheticsTickMs: number = 0;
+  private lastParagonsTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -322,12 +336,18 @@ export class GameEngine {
       commodityFutures: {},
       colossi: {},
       synthetics: {},
+      paragons: {},
+      galacticParagonPool: [],
       battleReports: [],
       eventLog: [],
       victory: null,
       seasonHistory: [],
       nextId: 100,
     };
+
+    const { paragons: initialParagons, pool: initialPool } = initializeGalacticParagons();
+    this.state.paragons = initialParagons;
+    this.state.galacticParagonPool = initialPool;
 
     // Spawn 1 ancient dormant gateway in a distant star system
     if (!this.state.gateways) this.state.gateways = {};
@@ -403,6 +423,8 @@ export class GameEngine {
       branchOfficesCount: 0,
       colossusId: null,
       hasColossusProject: false,
+      renown: 100,
+      paragonIds: [],
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -668,6 +690,12 @@ export class GameEngine {
       crystalProd *= synthBoosts.crystalMultiplier;
       fuelProd *= synthBoosts.fuelMultiplier;
 
+      // 6. Apply Paragon Leader & Governor multipliers (Phase 27)
+      const paragonBonuses = getPlayerParagonBonuses(this.state, planet.ownerId);
+      oreProd *= paragonBonuses.oreMultiplier;
+      crystalProd *= paragonBonuses.crystalMultiplier;
+      fuelProd *= paragonBonuses.fuelMultiplier;
+
       const traditionStorageCapMult = getTraditionStorageCapMultiplier(this.state, planet.ownerId);
       const effectiveCap = Math.round(planet.storageCap * traditionStorageCapMult);
 
@@ -829,6 +857,13 @@ export class GameEngine {
     this.lastSyntheticsTickMs = nowMs;
     if (syntheticsElapsedMs > 0) {
       updateSynthetics(this.state, syntheticsElapsedMs);
+    }
+
+    // Paragon Leaders, Renowned Heroes & Council Destiny tick (Phase 27)
+    const paragonsElapsedMs = Math.max(0, nowMs - this.lastParagonsTickMs);
+    this.lastParagonsTickMs = nowMs;
+    if (paragonsElapsedMs > 0) {
+      updateParagons(this.state, paragonsElapsedMs);
     }
   }
 
@@ -1582,6 +1617,9 @@ export class GameEngine {
           const defenderLoadouts = this.state.shipLoadouts?.[targetPlanet.ownerId];
 
           const tradCombat = getTraditionCombatMultiplier(this.state, fleet.ownerId, targetPlanet.ownerId, 'planet_raid');
+          const attackerParagonBonuses = getFleetParagonBonuses(this.state, fleet.id);
+          const defenderPlanetParagon = targetPlanet.assignedParagonId && this.state.paragons ? this.state.paragons[targetPlanet.assignedParagonId] : null;
+          const defenderParagonDefMult = defenderPlanetParagon?.destinyTraitId === 'kusatma_kiran' ? 1.30 : 1.0;
 
           const combatResult = resolveCombat(
             {
@@ -1593,7 +1631,8 @@ export class GameEngine {
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
-              traditionAttackMultiplier: tradCombat.attackerMult,
+              traditionAttackMultiplier: tradCombat.attackerMult * attackerParagonBonuses.attackMultiplier,
+              traditionDefenseMultiplier: attackerParagonBonuses.defenseMultiplier,
               traditionEvasionBonus: tradCombat.attackerEvasionBonus,
               relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
               relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
@@ -1611,6 +1650,7 @@ export class GameEngine {
               starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetPlanet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(targetPlanet.ownerId),
               traditionAttackMultiplier: tradCombat.defenderMult,
+              traditionDefenseMultiplier: tradCombat.defenderMult * defenderParagonDefMult,
               traditionEvasionBonus: tradCombat.defenderEvasionBonus,
               relicDamageReduction: hasActiveRelicTriumph(this.state, targetPlanet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
               relicEvasionBonus: hasActiveRelicTriumph(this.state, targetPlanet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
@@ -1698,6 +1738,8 @@ export class GameEngine {
           const titanGarrison: Record<ShipType, number> = { scout: 0, transport: 0, fighter: 6, battleship: 3 };
           const titanDefenses: Record<DefenseStructureType, number> = { missile_battery: 3, plasma_turret: 3, ion_cannon: 2 };
 
+          const titanParagonBonuses = getFleetParagonBonuses(this.state, fleet.id);
+
           const combatResult = resolveCombat(
             {
               ownerId: fleet.ownerId,
@@ -1708,6 +1750,8 @@ export class GameEngine {
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+              traditionAttackMultiplier: titanParagonBonuses.attackMultiplier,
+              traditionDefenseMultiplier: titanParagonBonuses.defenseMultiplier,
               relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
               relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
               shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
@@ -1810,6 +1854,7 @@ export class GameEngine {
               : { missile_battery: 1, plasma_turret: 0, ion_cannon: 0 };
 
           const tradPirateCombat = getTraditionCombatMultiplier(this.state, fleet.ownerId, 'pirates', 'pirate_lair');
+          const pirateParagonBonuses = getFleetParagonBonuses(this.state, fleet.id);
 
           const combatResult = resolveCombat(
             {
@@ -1821,7 +1866,8 @@ export class GameEngine {
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
               senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
-              traditionAttackMultiplier: tradPirateCombat.attackerMult,
+              traditionAttackMultiplier: tradPirateCombat.attackerMult * pirateParagonBonuses.attackMultiplier,
+              traditionDefenseMultiplier: pirateParagonBonuses.defenseMultiplier,
               traditionEvasionBonus: tradPirateCombat.attackerEvasionBonus,
               relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
               relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
@@ -1924,6 +1970,9 @@ export class GameEngine {
         }
 
         const defenderPlayer = this.state.players[targetFleet.ownerId];
+        const interceptorParagon = getFleetParagonBonuses(this.state, fleet.id);
+        const defenderParagon = getFleetParagonBonuses(this.state, targetFleet.id);
+
         const combatResult = resolveCombat(
           {
             ownerId: fleet.ownerId,
@@ -1934,6 +1983,8 @@ export class GameEngine {
             doctrine: fleet.doctrine || 'balanced',
             artifacts: player?.artifacts,
             senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+            traditionAttackMultiplier: interceptorParagon.attackMultiplier,
+            traditionDefenseMultiplier: interceptorParagon.defenseMultiplier,
             relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
             relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
             shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
@@ -1948,6 +1999,8 @@ export class GameEngine {
             artifacts: defenderPlayer?.artifacts,
             starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetFleet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
             senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(targetFleet.ownerId),
+            traditionAttackMultiplier: defenderParagon.attackMultiplier,
+            traditionDefenseMultiplier: defenderParagon.defenseMultiplier,
             relicDamageReduction: hasActiveRelicTriumph(this.state, targetFleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
             relicEvasionBonus: hasActiveRelicTriumph(this.state, targetFleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
             shipLoadouts: targetFleet.loadouts || this.state.shipLoadouts?.[targetFleet.ownerId],
@@ -2014,6 +2067,8 @@ export class GameEngine {
               ? this.state.players[this.state.relay.controllingPlayerId]?.name || 'Garnizon'
               : 'Tarafsız Garnizon';
 
+            const relayParagon = getFleetParagonBonuses(this.state, fleet.id);
+
             const combatResult = resolveCombat(
               {
                 ownerId: fleet.ownerId,
@@ -2024,6 +2079,8 @@ export class GameEngine {
                 doctrine: fleet.doctrine || 'balanced',
                 artifacts: player?.artifacts,
                 senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
+                traditionAttackMultiplier: relayParagon.attackMultiplier,
+                traditionDefenseMultiplier: relayParagon.defenseMultiplier,
                 relicDamageReduction: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.30 : undefined,
                 relicEvasionBonus: hasActiveRelicTriumph(this.state, fleet.ownerId, 'dreadnought_plating') ? 0.15 : undefined,
                 shipLoadouts: fleet.loadouts || this.state.shipLoadouts?.[fleet.ownerId],
@@ -2971,6 +3028,20 @@ export class GameEngine {
           effectiveFuelCost = Math.round(effectiveFuelCost * relicFuelMult);
         }
 
+        // Paragon Speed & Fuel Modifiers (Phase 27)
+        if (cmd.paragonId && this.state.paragons?.[cmd.paragonId]) {
+          const p = this.state.paragons[cmd.paragonId];
+          if (p.ownerId === playerId) {
+            if (p.flagship?.isCommissioned && p.flagship.speedMultiplier > 1) {
+              effectiveSpeed = Math.round(effectiveSpeed * p.flagship.speedMultiplier);
+              effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / p.flagship.speedMultiplier));
+            }
+            if (p.destinyTraitId === 'kara_filo_doktrini') {
+              effectiveFuelCost = Math.max(1, Math.round(effectiveFuelCost * 0.80));
+            }
+          }
+        }
+
         // Cargo validation
         const cargo: Resources = {
           ore: cmd.cargo?.ore || 0,
@@ -3075,11 +3146,17 @@ export class GameEngine {
           isReturning: false,
           status: 'in_transit',
           admiralId: assignedAdmiralId,
+          paragonId: cmd.paragonId,
           doctrine: fleetDoctrine,
           loadouts: playerLoadouts ? JSON.parse(JSON.stringify(playerLoadouts)) : undefined,
         };
 
         this.state.fleets[fleetId] = newFleet;
+
+        if (cmd.paragonId && this.state.paragons?.[cmd.paragonId]) {
+          assignParagon(this.state, playerId, cmd.paragonId, { type: 'fleet', targetId: fleetId });
+        }
+
         this.scheduleEvent(effectiveDurationMs, 'fleet_arrival', { fleetId });
 
         this.logEvent(
@@ -5959,6 +6036,71 @@ export class GameEngine {
           data: { planetId: cmd.planetId },
         };
       }
+
+      case 'RECRUIT_PARAGON': {
+        const res = recruitParagon(this.state, playerId, cmd.paragonId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { paragonId: cmd.paragonId },
+        };
+      }
+
+      case 'ASSIGN_PARAGON': {
+        const res = assignParagon(this.state, playerId, cmd.paragonId, cmd.assignment);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { paragonId: cmd.paragonId, assignment: cmd.assignment },
+        };
+      }
+
+      case 'UNASSIGN_PARAGON': {
+        const res = unassignParagon(this.state, playerId, cmd.paragonId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { paragonId: cmd.paragonId },
+        };
+      }
+
+      case 'DISMISS_PARAGON': {
+        const res = dismissParagon(this.state, playerId, cmd.paragonId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { paragonId: cmd.paragonId },
+        };
+      }
+
+      case 'COMMISSION_PARAGON_FLAGSHIP': {
+        const res = commissionParagonFlagship(this.state, playerId, cmd.paragonId, cmd.planetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { paragonId: cmd.paragonId, planetId: cmd.planetId },
+        };
+      }
     }
   }
 
@@ -6150,6 +6292,7 @@ export class GameEngine {
 
     this.prng = new PRNG(newSeed);
     const map = generateSectorMap({ seed: newSeed });
+    const initialParagons = initializeGalacticParagons();
 
     this.state = {
       timeMs: 0,
@@ -6200,6 +6343,8 @@ export class GameEngine {
       commodityFutures: {},
       colossi: {},
       synthetics: {},
+      paragons: initialParagons.paragons,
+      galacticParagonPool: initialParagons.pool,
       battleReports: [],
       eventLog: [],
       victory: null,
@@ -6229,6 +6374,7 @@ export class GameEngine {
     this.scheduleEvent(GAME_CONSTANTS.RELAY_POINT_INTERVAL_MS, 'relay_point_tick', {});
     this.lastArchaeologyTickMs = 0;
     this.lastSyntheticsTickMs = 0;
+    this.lastParagonsTickMs = 0;
 
     this.logEvent(
       'season_reset',

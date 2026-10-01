@@ -67,6 +67,7 @@ import { FederationModal } from './ui/components/FederationModal';
 import { MegacorpModal } from './ui/components/MegacorpModal';
 import { ColossusModal } from './ui/components/ColossusModal';
 import { SyntheticDawnModal } from './ui/components/SyntheticDawnModal';
+import { ParagonModal } from './ui/components/ParagonModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -116,6 +117,7 @@ type LeftPanelType =
   | 'crisis'
   | 'colossus'
   | 'synthetics'
+  | 'paragons'
   | 'relay'
   | 'gallery'
   | null;
@@ -1736,6 +1738,81 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleRecruitParagon = (paragonId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'RECRUIT_PARAGON',
+      paragonId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleAssignParagon = (
+    paragonId: string,
+    assignment: { type: 'fleet' | 'planet' | 'council'; targetId: string }
+  ) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ASSIGN_PARAGON',
+      paragonId,
+      assignment,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleUnassignParagon = (paragonId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'UNASSIGN_PARAGON',
+      paragonId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismissParagon = (paragonId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMISS_PARAGON',
+      paragonId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleCommissionParagonFlagship = (paragonId: string, planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'COMMISSION_PARAGON_FLAGSHIP',
+      paragonId,
+      planetId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -2139,6 +2216,7 @@ export function App() {
         onOpenMegacorp={() => setActiveLeftPanel((prev) => (prev === 'megacorp' ? null : 'megacorp'))}
         onOpenColossus={() => setActiveLeftPanel((prev) => (prev === 'colossus' ? null : 'colossus'))}
         onOpenSynthetics={() => setActiveLeftPanel((prev) => (prev === 'synthetics' ? null : 'synthetics'))}
+        onOpenParagons={() => setActiveLeftPanel((prev) => (prev === 'paragons' ? null : 'paragons'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -2183,6 +2261,9 @@ export function App() {
           onOpenMegacorp={() => setActiveLeftPanel((prev) => (prev === 'megacorp' ? null : 'megacorp'))}
           onOpenColossus={() => setActiveLeftPanel((prev) => (prev === 'colossus' ? null : 'colossus'))}
           onOpenSynthetics={() => setActiveLeftPanel((prev) => (prev === 'synthetics' ? null : 'synthetics'))}
+          onOpenParagons={() => setActiveLeftPanel((prev) => (prev === 'paragons' ? null : 'paragons'))}
+          paragonsCount={activePlayer?.paragonIds?.length || 0}
+          availableParagonsCount={engineState.galacticParagonPool?.length || 0}
           isColossusActive={isColossusActive}
           isColossusCharging={isColossusCharging}
           syntheticPopsCount={engineState.synthetics?.[activePlayerId]?.totalSyntheticPops || 0}
@@ -2857,6 +2938,19 @@ export function App() {
             setActiveLeftPanel('planets');
           }
         }}
+      />
+
+      {/* Paragon Leaders, Renowned Heroes & Council Destiny Modal (Phase 27) */}
+      <ParagonModal
+        isOpen={activeLeftPanel === 'paragons'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        playerId={activePlayerId}
+        onRecruitParagon={handleRecruitParagon}
+        onAssignParagon={handleAssignParagon}
+        onUnassignParagon={handleUnassignParagon}
+        onDismissParagon={handleDismissParagon}
+        onCommissionFlagship={handleCommissionParagonFlagship}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

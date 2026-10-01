@@ -18,6 +18,7 @@ import { evaluateBotEspionage } from './espionage';
 import { evaluateBotMegacorp } from './megacorp';
 import { evaluateBotColossus } from './colossus';
 import { evaluateBotSynthetics } from './synthetics';
+import { evaluateBotParagons } from './paragons';
 import { IBotAgent } from './types';
 
 export class IndustrialistBot implements IBotAgent {
@@ -266,6 +267,9 @@ export class IndustrialistBot implements IBotAgent {
 
     // 20. Synthetic Dawn, Cybernetic Ascension & Machine Consciousness (Phase 26)
     evaluateBotSynthetics(engine, this.playerId, this.archetype, executedCommands);
+
+    // 21. Paragon Leaders, Renowned Heroes & Council Destiny (Phase 27)
+    evaluateBotParagons(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }
