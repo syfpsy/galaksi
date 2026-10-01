@@ -1548,7 +1548,9 @@ export type EmpireDirectiveId =
   | 'diplomatic_deal'
   | 'win_combat'
   | 'relay_control'
-  | 'superpower';
+  | 'superpower'
+  | 'supply_chain_resonance'
+  | 'golden_surge_trigger';
 
 export interface EmpireDirective {
   id: EmpireDirectiveId;

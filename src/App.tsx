@@ -3391,6 +3391,7 @@ export function App() {
             }}
             onFocusRelay={handleFocusRelay}
             onSetStance={handleSetStance}
+            onBuildShips={handleBuildShip}
           />
 
           {/* Slipways Flow: Contextual Strategic Momentum & Opportunity HUD */}

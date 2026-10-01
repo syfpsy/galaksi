@@ -35,6 +35,7 @@ interface TacticalBottomDockProps {
   onFocusPlanet: (planetId: string) => void;
   onFocusRelay: () => void;
   onSetStance?: (planetId: string, stance: PlanetStance) => void;
+  onBuildShips?: (planetId: string, shipType: ShipType, count: number) => void;
 }
 
 export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
@@ -49,6 +50,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
   onFocusPlanet,
   onFocusRelay,
   onSetStance,
+  onBuildShips,
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -230,7 +232,41 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                 <Navigation className="w-3 h-3" />
                 <span>Odaklan</span>
               </button>
-              {isMyPlanet && (
+
+              {isMyPlanet && (selectedPlanet.buildings.shipyard || 0) > 0 && onBuildShips ? (
+                <div className="flex items-center gap-1">
+                  <button
+                    onClick={() => {
+                      sound.playLaunch();
+                      onBuildShips(selectedPlanet.id, 'scout', 1);
+                    }}
+                    className="px-1.5 py-0.5 rounded-sm bg-cyan-950/80 border border-cyan-500/50 hover:bg-cyan-600 hover:text-black text-cyan-200 text-[9.5px] font-bold font-mono transition-all cursor-pointer"
+                    title="1x Keşif Gemisi İmal Et (80 Ore, 30 Crystal)"
+                  >
+                    +1 Gözcü
+                  </button>
+                  <button
+                    onClick={() => {
+                      sound.playLaunch();
+                      onBuildShips(selectedPlanet.id, 'fighter', 1);
+                    }}
+                    className="px-1.5 py-0.5 rounded-sm bg-rose-950/80 border border-rose-500/50 hover:bg-rose-600 hover:text-white text-rose-200 text-[9.5px] font-bold font-mono transition-all cursor-pointer"
+                    title="1x Taarruz Avcısı İmal Et (120 Ore, 40 Crystal, 20 Fuel)"
+                  >
+                    +1 Avcı
+                  </button>
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onOpenShipyard();
+                    }}
+                    className="p-1 rounded-sm text-amber-300 hover:text-white hover:bg-amber-950/50 transition-colors"
+                    title="Detaylı Tersane Modalı"
+                  >
+                    <Wrench className="w-3 h-3" />
+                  </button>
+                </div>
+              ) : isMyPlanet ? (
                 <button
                   onClick={() => {
                     sound.playClick();
@@ -241,7 +277,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                   <Wrench className="w-3 h-3" />
                   <span>Tersane</span>
                 </button>
-              )}
+              ) : null}
             </div>
           </div>
         ) : null}

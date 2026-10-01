@@ -9,7 +9,7 @@ import { IndustrialistBot } from '../src/bots/industrialist';
 import { RaiderBot } from '../src/bots/raider';
 import { GuardianBot } from '../src/bots/guardian';
 import { AdmiralBot } from '../src/bots/admiral';
-import { GAME_CONSTANTS, getDefenseBuildDurationMs, getShipBuildDurationMs } from '../src/engine/constants';
+import { GAME_CONSTANTS, SHIP_STATS, getDefenseBuildDurationMs, getShipBuildDurationMs } from '../src/engine/constants';
 import { STARBASE_MODULE_CONFIG, STARBASE_TIER_CONFIG, getStarbaseEffectiveStats } from '../src/engine/starbases';
 import {
   SENATE_CONSTANTS,
@@ -260,6 +260,7 @@ import { evaluateBotEnclaves } from '../src/bots/enclaves';
 import { DISTRICT_STATS } from '../src/engine/constants';
 import { evaluateBotDistricts } from '../src/bots/districts';
 import { evaluatePlayerOpportunities } from '../src/engine/opportunities';
+import { evaluatePlayerDirectives } from '../src/engine/directives';
 import { evaluateColonyRole, findPlayerSupplyChains, updateSupplyChains } from '../src/engine/supplyChain';
 
 
@@ -6634,6 +6635,69 @@ describe('GameEngine Headless Rules (Phase A)', () => {
 
     const oreGain = homeworld.resources.ore - oreBefore;
     expect(oreGain).toBeGreaterThan(0);
+  });
+
+  it('Test 66: Phase 36 - Sector Mastery Directives, Supply Chain Resonance & 1-Click Ship Assembly', () => {
+    const engine = new GameEngine(3636);
+    const { player, homeworld } = engine.addPlayer('p_mast', 'Hükümdar Orion', '#fbbf24');
+
+    // 1. Initial Directives evaluation
+    const initialDirectives = evaluatePlayerDirectives(engine.state, 'p_mast');
+    const resonanceDir = initialDirectives.find((d) => d.id === 'supply_chain_resonance');
+    const surgeDir = initialDirectives.find((d) => d.id === 'golden_surge_trigger');
+    expect(resonanceDir).toBeDefined();
+    expect(surgeDir).toBeDefined();
+    expect(resonanceDir!.isCompleted).toBe(false);
+    expect(surgeDir!.isCompleted).toBe(false);
+
+    // 2. Test 1-Click Quick Ship Assembly via BUILD_SHIPS command
+    homeworld.buildings.shipyard = 1;
+    homeworld.resources.ore = 2000;
+    homeworld.resources.crystal = 1000;
+    homeworld.resources.fuel = 500;
+
+    const buildScoutRes = engine.dispatchCommand('p_mast', {
+      type: 'BUILD_SHIPS',
+      planetId: homeworld.id,
+      shipType: 'scout',
+      count: 1,
+    });
+    expect(buildScoutRes.success).toBe(true);
+    expect(homeworld.shipyardQueue.length).toBeGreaterThan(0);
+    expect(homeworld.shipyardQueue[0].shipType).toBe('scout');
+
+    // Fast forward to complete scout build
+    engine.tick(SHIP_STATS.scout.buildTimeSec * 1000 + 1000);
+    expect(homeworld.shipyardQueue.length).toBe(0);
+    expect(homeworld.garrison.scout).toBeGreaterThanOrEqual(1);
+
+    // 3. Trigger Tri-Sector Resonance -> Completes 'supply_chain_resonance' directive
+    player.activeSynergyTier = 2;
+    const midDirectives = evaluatePlayerDirectives(engine.state, 'p_mast');
+    const updatedResonanceDir = midDirectives.find((d) => d.id === 'supply_chain_resonance');
+    expect(updatedResonanceDir!.isCompleted).toBe(true);
+
+    // Claim Directive reward
+    const claimRes = engine.dispatchCommand('p_mast', {
+      type: 'CLAIM_DIRECTIVE_REWARD',
+      directiveId: 'supply_chain_resonance',
+    });
+    expect(claimRes.success).toBe(true);
+    expect(player.claimedDirectives).toContain('supply_chain_resonance');
+
+    // 4. Trigger Golden Surge -> Completes 'golden_surge_trigger' directive
+    player.surgeActiveUntilMs = engine.state.timeMs + 90000;
+    const finalDirectives = evaluatePlayerDirectives(engine.state, 'p_mast');
+    const updatedSurgeDir = finalDirectives.find((d) => d.id === 'golden_surge_trigger');
+    expect(updatedSurgeDir!.isCompleted).toBe(true);
+
+    // Claim Golden Surge directive reward
+    const claimSurgeRes = engine.dispatchCommand('p_mast', {
+      type: 'CLAIM_DIRECTIVE_REWARD',
+      directiveId: 'golden_surge_trigger',
+    });
+    expect(claimSurgeRes.success).toBe(true);
+    expect(player.claimedDirectives).toContain('golden_surge_trigger');
   });
 });
 

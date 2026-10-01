@@ -96,6 +96,22 @@ export const DIRECTIVE_DEFINITIONS: DirectiveDefinition[] = [
     targetValue: 3,
     reward: { hegemonyPoints: 100 },
   },
+  {
+    id: 'supply_chain_resonance',
+    phase: 2,
+    title: 'Tri-Sektör Rezonansı',
+    description: 'Farklı rollere sahip 3 koloninizi (Maden, Sanayi, Bilim) hiperuzay hatlarıyla birbirine bağlayarak Tri-Sektör Rezonansını başlatın.',
+    targetValue: 1,
+    reward: { ore: 500, crystal: 500, fuel: 300, hegemonyPoints: 60 },
+  },
+  {
+    id: 'golden_surge_trigger',
+    phase: 3,
+    title: 'Galaktik Altın Çağ',
+    description: '100 Stratejik Momentuma ulaşarak imparatorluğunuzda 90 saniyelik Altın Çağ patlamasını tetikleyin.',
+    targetValue: 1,
+    reward: { ore: 600, crystal: 400, fuel: 400, hegemonyPoints: 80 },
+  },
 ];
 
 /**
@@ -215,6 +231,12 @@ export function evaluatePlayerDirectives(state: GameState, playerId: string): Em
         break;
       case 'superpower':
         currentValue = myPlanets.length >= 3 && totalCombatShips >= 8 ? 3 : Math.min(myPlanets.length, Math.floor(totalCombatShips / 3));
+        break;
+      case 'supply_chain_resonance':
+        currentValue = (player.activeSynergyTier ?? 0) === 2 ? 1 : 0;
+        break;
+      case 'golden_surge_trigger':
+        currentValue = player.surgeActiveUntilMs ? 1 : 0;
         break;
     }
 
