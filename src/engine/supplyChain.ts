@@ -1,4 +1,5 @@
 import { GameState, Planet, Player, SupplyChainSynergy, ColonyRole } from './types';
+import { getBreakthroughAutoSupplyCapacityMultiplier } from './breakthroughs';
 
 /**
  * Determines the primary economic/strategic role of a planet in the supply network.
@@ -201,10 +202,18 @@ export function updateAutomatedSupplyConduits(state: GameState, nowMs: number): 
         continue;
       }
 
-      // Max transfer capacity per batch (x1.5 during Tri-Sector Resonance)
-      const maxTransfer = isTriResonance
+      const breakthroughMult = getBreakthroughAutoSupplyCapacityMultiplier(player);
+
+      // Max transfer capacity per batch (x1.5 during Tri-Sector Resonance, x2 with Otonom Freygatlar)
+      const baseTransfer = isTriResonance
         ? { ore: 450, crystal: 300, fuel: 150 }
         : { ore: 300, crystal: 200, fuel: 100 };
+
+      const maxTransfer = {
+        ore: baseTransfer.ore * breakthroughMult,
+        crystal: baseTransfer.crystal * breakthroughMult,
+        fuel: baseTransfer.fuel * breakthroughMult,
+      };
 
       const transferOre = Math.min(surplusOre, maxTransfer.ore);
       const transferCrystal = Math.min(surplusCrystal, maxTransfer.crystal);

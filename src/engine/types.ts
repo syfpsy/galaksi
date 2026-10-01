@@ -1485,7 +1485,20 @@ export interface Player {
   surgeActiveUntilMs?: number; // Golden Surge / Hyper-Drive boost active until timeMs
   supplyChains?: SupplyChainSynergy[]; // Phase 35: Inter-colony supply chain synergies
   activeSynergyTier?: number; // Phase 35: 0 = None, 1 = Pair, 2 = Tri-Sector
+  // Phase 38: Imperial Breakthrough Codex (Zero-Menu Innovation Choices)
+  unlockedBreakthroughs?: BreakthroughId[];
+  availableBreakthroughs?: BreakthroughId[];
 }
+
+export type BreakthroughId =
+  | 'breakthrough_quantum_hyperdrive'
+  | 'breakthrough_tachyon_sensors'
+  | 'breakthrough_deep_core_extractors'
+  | 'breakthrough_antimatter_reactors'
+  | 'breakthrough_nanite_shipyards'
+  | 'breakthrough_psionic_relay'
+  | 'breakthrough_automated_freighters'
+  | 'breakthrough_plasma_overcharge';
 
 export type ShroudBoonType = 'speed' | 'shield' | 'evasion' | 'research';
 
@@ -1554,7 +1567,8 @@ export type EmpireDirectiveId =
   | 'superpower'
   | 'supply_chain_resonance'
   | 'golden_surge_trigger'
-  | 'automated_supply_conduits';
+  | 'automated_supply_conduits'
+  | 'breakthrough_mastery';
 
 export interface EmpireDirective {
   id: EmpireDirectiveId;
@@ -2373,6 +2387,10 @@ export type GameCommand =
       type: 'TOGGLE_AUTO_SUPPLY';
       planetId: string;
       enabled: boolean;
+    }
+  | {
+      type: 'CHOOSE_BREAKTHROUGH';
+      breakthroughId: BreakthroughId;
     };
 
 export interface CommandReceipt {

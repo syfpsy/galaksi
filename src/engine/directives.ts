@@ -120,6 +120,14 @@ export const DIRECTIVE_DEFINITIONS: DirectiveDefinition[] = [
     targetValue: 2,
     reward: { ore: 600, crystal: 400, fuel: 300, hegemonyPoints: 50 },
   },
+  {
+    id: 'breakthrough_mastery',
+    phase: 2,
+    title: 'İmparatorluk Atılımları',
+    description: 'En az 2 Teknolojik Atılım inovasyonunu imparatorluğunuza kazandırarak bilimsel üstünlük sağlayın.',
+    targetValue: 2,
+    reward: { ore: 750, crystal: 500, fuel: 400, hegemonyPoints: 60 },
+  },
 ];
 
 /**
@@ -251,6 +259,9 @@ export function evaluatePlayerDirectives(state: GameState, playerId: string): Em
         currentValue = autoCount;
         break;
       }
+      case 'breakthrough_mastery':
+        currentValue = player.unlockedBreakthroughs?.length || 0;
+        break;
     }
 
     const isCompleted = currentValue >= def.targetValue;

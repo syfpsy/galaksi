@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { GameState, StrategicOpportunity } from '../../engine/types';
 import { evaluatePlayerOpportunities } from '../../engine/opportunities';
+import { BREAKTHROUGH_CONFIGS } from '../../engine/breakthroughs';
 import { sound } from '../sound';
 
 interface StrategicMomentumHUDProps {
@@ -62,6 +63,18 @@ export const StrategicMomentumHUD: React.FC<StrategicMomentumHUDProps> = ({
       setTimeout(() => setCompletedToast(null), 3000);
     } else {
       sound.playError();
+    }
+  };
+
+  const handleChooseBreakthrough = (breakthroughId: any) => {
+    sound.playTech();
+    const success = onExecuteCommand({
+      type: 'CHOOSE_BREAKTHROUGH',
+      breakthroughId,
+    });
+    if (success) {
+      setCompletedToast('+30 Momentum! Yeni Teknolojik Atılım Aktif 🔬');
+      setTimeout(() => setCompletedToast(null), 3500);
     }
   };
 
@@ -147,6 +160,53 @@ export const StrategicMomentumHUD: React.FC<StrategicMomentumHUDProps> = ({
             {isCollapsed ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
           </button>
         </div>
+
+        {/* Imperial Technological Breakthrough Choices (Phase 38) */}
+        {!isCollapsed && player.availableBreakthroughs && player.availableBreakthroughs.length > 0 && (
+          <div className="p-2.5 border-b border-indigo-500/40 bg-gradient-to-r from-[#0d1633] via-[#141b3d] to-[#0d1633]">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-[11px] font-bold text-indigo-300 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
+                <span>İMPARATORLUK TEKNOLOJİK ATILIMI: BİR İNOVASYON SEÇİN</span>
+              </span>
+              <span className="text-[9.5px] text-amber-300 font-bold bg-amber-950/80 border border-amber-500/40 px-1.5 py-0.5 rounded-sm flex items-center gap-1">
+                <span>⚡ +30 MOMENTUM</span>
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              {player.availableBreakthroughs.map((bId) => {
+                const cfg = BREAKTHROUGH_CONFIGS[bId];
+                if (!cfg) return null;
+                return (
+                  <div
+                    key={bId}
+                    className="p-2 rounded-sm bg-[#081024] border border-indigo-500/40 hover:border-indigo-400 flex flex-col justify-between gap-1.5 shadow-lg transition-all hover:bg-[#0c1630] group"
+                  >
+                    <div>
+                      <div className="flex items-center gap-1.5 text-[11px] font-bold text-white group-hover:text-indigo-200">
+                        <span>{cfg.icon}</span>
+                        <span>{cfg.nameTr}</span>
+                      </div>
+                      <p className="text-[9.5px] text-slate-300 mt-1 leading-snug line-clamp-2">
+                        {cfg.descTr}
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleChooseBreakthrough(bId)}
+                      className="w-full mt-1 py-1 rounded-sm bg-indigo-900/80 hover:bg-indigo-600 border border-indigo-400/60 text-white text-[10px] font-bold transition-all shadow-md flex items-center justify-center gap-1 cursor-pointer active:scale-98"
+                    >
+                      <Sparkles className="w-3 h-3 text-indigo-300" />
+                      <span>İnovasyonu Seç</span>
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* 3 Smart Contextual Opportunity Cards (Slipways Flow) */}
         {!isCollapsed && (

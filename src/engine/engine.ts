@@ -319,6 +319,14 @@ import {
   tickEnclavesAndCaravans,
 } from './enclaves';
 import { updateSupplyChains, getSupplyChainProductionMultiplier } from './supplyChain';
+import {
+  BREAKTHROUGH_CONFIGS,
+  rollBreakthroughChoices,
+  getBreakthroughSpeedMultiplier,
+  getBreakthroughProductionMultiplier,
+  getBreakthroughCombatMultiplier,
+  getBreakthroughShipBuildTimeMultiplier,
+} from './breakthroughs';
 
 export class GameEngine {
   public state: GameState;
@@ -491,6 +499,8 @@ export class GameEngine {
       hasColossusProject: false,
       renown: 100,
       paragonIds: [],
+      unlockedBreakthroughs: [],
+      availableBreakthroughs: rollBreakthroughChoices([]),
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -794,6 +804,14 @@ export class GameEngine {
         oreProd *= supplyChainMult;
         crystalProd *= supplyChainMult;
         fuelProd *= supplyChainMult;
+      }
+
+      // Phase 38: Imperial Breakthrough Codex Production Multiplier
+      const breakthroughProdMult = getBreakthroughProductionMultiplier(owner);
+      if (breakthroughProdMult !== 1.0) {
+        oreProd *= breakthroughProdMult;
+        crystalProd *= breakthroughProdMult;
+        fuelProd *= breakthroughProdMult;
       }
 
       // Planetary Terraforming, Blockers & Decisions (Phase 19)
@@ -1245,9 +1263,14 @@ export class GameEngine {
           player.research[researchType] = targetLevel;
           player.researchQueue = null;
 
+          // Phase 38: Imperial Breakthrough Codex choice trigger
+          if (!player.availableBreakthroughs || player.availableBreakthroughs.length === 0) {
+            player.availableBreakthroughs = rollBreakthroughChoices(player.unlockedBreakthroughs || []);
+          }
+
           this.logEvent(
             'research_completed',
-            `Araştırma tamamlandı: ${RESEARCH_STATS[researchType].nameTr} Seviye ${targetLevel}.`,
+            `Araştırma tamamlandı: ${RESEARCH_STATS[researchType].nameTr} Seviye ${targetLevel}. Yeni Teknolojik Atılım seçenekleri hazır!`,
             playerId
           );
         }
@@ -1263,6 +1286,9 @@ export class GameEngine {
             if (bonuses.rulerWeeklyHegemonyBonus > 0) {
               pts += Math.round(bonuses.rulerWeeklyHegemonyBonus / 10);
             }
+          }
+          if (this.state.players[pid]?.unlockedBreakthroughs?.includes('breakthrough_psionic_relay')) {
+            pts = Math.round(pts * 1.5);
           }
           this.state.relay.weeklyPoints[pid] = (this.state.relay.weeklyPoints[pid] || 0) + pts;
         }
@@ -1600,6 +1626,13 @@ export class GameEngine {
         // Discover system for player
         if (player) {
           player.intel.discoveredSystems[targetSystem.id] = 'mapped';
+          const newMom = (player.momentum || 0) + 15;
+          if (newMom >= 100 && !player.surgeActiveUntilMs) {
+            player.momentum = 0;
+            player.surgeActiveUntilMs = this.state.timeMs + 90000;
+          } else if (newMom < 100) {
+            player.momentum = Math.min(99.9, newMom);
+          }
         }
 
         let gatheredOre = 0;
@@ -1644,6 +1677,16 @@ export class GameEngine {
                 `${fleet.name} ${targetSystem.name} sisteminde ${targetSystem.poi.type} keşfetti ve kaynak topladı!`,
                 fleet.ownerId
               );
+            }
+
+            if (player) {
+              const newMom = (player.momentum || 0) + 25;
+              if (newMom >= 100 && !player.surgeActiveUntilMs) {
+                player.momentum = 0;
+                player.surgeActiveUntilMs = this.state.timeMs + 90000;
+              } else if (newMom < 100) {
+                player.momentum = Math.min(99.9, newMom);
+              }
             }
 
             if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
@@ -1749,6 +1792,13 @@ export class GameEngine {
 
           if (player) {
             player.intel.discoveredSystems[targetSystem.id] = 'full';
+            const newMom = (player.momentum || 0) + 35;
+            if (newMom >= 100 && !player.surgeActiveUntilMs) {
+              player.momentum = 0;
+              player.surgeActiveUntilMs = this.state.timeMs + 90000;
+            } else if (newMom < 100) {
+              player.momentum = Math.min(99.9, newMom);
+            }
           }
 
           this.logEvent(
@@ -3039,6 +3089,51 @@ export class GameEngine {
         };
       }
 
+      case 'CHOOSE_BREAKTHROUGH': {
+        const p = this.state.players[playerId];
+        if (!p) {
+          return { success: false, commandType: cmd.type, error: 'Oyuncu bulunamadı.', timeMs: this.state.timeMs };
+        }
+
+        const available = p.availableBreakthroughs || [];
+        if (!available.includes(cmd.breakthroughId)) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Bu teknolojik atılım şu anda seçilebilir değil.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        if (!p.unlockedBreakthroughs) p.unlockedBreakthroughs = [];
+        p.unlockedBreakthroughs.push(cmd.breakthroughId);
+        p.availableBreakthroughs = [];
+
+        // Reward +30 momentum for breakthrough innovation!
+        const currentMom = p.momentum || 0;
+        if (currentMom + 30 >= 100 && !p.surgeActiveUntilMs) {
+          p.momentum = 0;
+          p.surgeActiveUntilMs = this.state.timeMs + 90000;
+        } else if (currentMom < 100) {
+          p.momentum = Math.min(99.9, currentMom + 30);
+        }
+
+        const cfg = BREAKTHROUGH_CONFIGS[cmd.breakthroughId];
+        this.logEvent(
+          'breakthrough_adopted',
+          `🔬 TEKNOLOJİK ATILIM: ${p.name} '${cfg.nameTr}' inovasyonunu benimsedi! (+30 Momentum) — ${cfg.descTr}`,
+          playerId,
+          { breakthroughId: cmd.breakthroughId }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          data: { breakthroughId: cmd.breakthroughId, unlockedBreakthroughs: p.unlockedBreakthroughs },
+          timeMs: this.state.timeMs,
+        };
+      }
+
       case 'START_RESEARCH': {
         if (player.researchQueue) {
           return { success: false, commandType: cmd.type, error: 'Zaten bir araştırma sürüyor.', timeMs: this.state.timeMs };
@@ -3192,6 +3287,10 @@ export class GameEngine {
         const relicConstMod = getRelicConstructionMultiplier(this.state, playerId);
         if (relicConstMod < 1.0) {
           unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs * relicConstMod));
+        }
+        const breakthroughBuildTimeMod = getBreakthroughShipBuildTimeMultiplier(player);
+        if (breakthroughBuildTimeMod < 1.0) {
+          unitBuildTimeMs = Math.max(500, Math.round(unitBuildTimeMs * breakthroughBuildTimeMod));
         }
         const nextFinish = (planet.shipyardQueue.length === 0)
           ? this.state.timeMs + unitBuildTimeMs
@@ -3492,6 +3591,13 @@ export class GameEngine {
         if (player.surgeActiveUntilMs && this.state.timeMs < player.surgeActiveUntilMs) {
           effectiveSpeed = Math.round(effectiveSpeed * 1.35);
           effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / 1.35));
+        }
+
+        // Phase 38: Imperial Breakthrough Codex Fleet Speed (+25% speed)
+        const breakthroughSpeedMult = getBreakthroughSpeedMultiplier(player);
+        if (breakthroughSpeedMult > 1.0) {
+          effectiveSpeed = Math.round(effectiveSpeed * breakthroughSpeedMult);
+          effectiveDurationMs = Math.max(1000, Math.round(effectiveDurationMs / breakthroughSpeedMult));
         }
 
         // Expansion Tradition Tier 1: -30% colonize fuel cost (new_frontiers)

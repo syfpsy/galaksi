@@ -6802,6 +6802,105 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     // Transferred ore & crystal with 50% extra throughput
     expect(colA.resources.ore).toBeLessThan(1000);
   });
+
+  it('Test 68: Phase 38 - Imperial Breakthrough Codex, Innovation Choices & Exploration Momentum', () => {
+    const engine = new GameEngine(3838);
+    const { player, homeworld } = engine.addPlayer('p_break', 'Arşidük Vane', '#a855f7');
+
+    // 1. Initial available breakthrough choices
+    expect(player.availableBreakthroughs).toBeDefined();
+    expect(player.availableBreakthroughs!.length).toBe(3);
+    expect(player.unlockedBreakthroughs).toEqual([]);
+
+    const initialChoice = player.availableBreakthroughs![0];
+    const invalidChoice = 'breakthrough_non_existent' as any;
+
+    // 2. Reject choosing unavailable breakthrough
+    const invalidRes = engine.dispatchCommand('p_break', {
+      type: 'CHOOSE_BREAKTHROUGH',
+      breakthroughId: invalidChoice,
+    });
+    expect(invalidRes.success).toBe(false);
+
+    // 3. Choose a valid breakthrough
+    const validRes = engine.dispatchCommand('p_break', {
+      type: 'CHOOSE_BREAKTHROUGH',
+      breakthroughId: initialChoice,
+    });
+    expect(validRes.success).toBe(true);
+    expect(player.unlockedBreakthroughs).toContain(initialChoice);
+    expect(player.availableBreakthroughs!.length).toBe(0);
+    expect(player.momentum).toBeGreaterThanOrEqual(30);
+
+    // 4. Test Directive 'breakthrough_mastery' progression
+    let directives = evaluatePlayerDirectives(engine.state, 'p_break');
+    let bDir = directives.find((d) => d.id === 'breakthrough_mastery');
+    expect(bDir).toBeDefined();
+    expect(bDir!.currentValue).toBe(1);
+    expect(bDir!.isCompleted).toBe(false);
+
+    // 5. Test Research Completion refreshes available breakthroughs
+    homeworld.buildings.research_lab = 2;
+    homeworld.resources.ore = 3000;
+    homeworld.resources.crystal = 2000;
+    homeworld.resources.fuel = 1000;
+
+    const resStart = engine.dispatchCommand('p_break', {
+      type: 'START_RESEARCH',
+      researchType: 'weapons',
+    });
+    expect(resStart.success).toBe(true);
+
+    // Fast-forward to complete research
+    engine.tick(player.researchQueue!.finishTime - engine.state.timeMs + 1000);
+    expect(player.researchQueue).toBeNull();
+    expect(player.research.weapons).toBe(1);
+    expect(player.availableBreakthroughs!.length).toBe(3);
+
+    // 6. Choose second breakthrough -> completes directive
+    const secondChoice = player.availableBreakthroughs![0];
+    const secondRes = engine.dispatchCommand('p_break', {
+      type: 'CHOOSE_BREAKTHROUGH',
+      breakthroughId: secondChoice,
+    });
+    expect(secondRes.success).toBe(true);
+    expect(player.unlockedBreakthroughs!.length).toBe(2);
+
+    directives = evaluatePlayerDirectives(engine.state, 'p_break');
+    bDir = directives.find((d) => d.id === 'breakthrough_mastery');
+    expect(bDir!.currentValue).toBe(2);
+    expect(bDir!.isCompleted).toBe(true);
+
+    const claimRes = engine.dispatchCommand('p_break', {
+      type: 'CLAIM_DIRECTIVE_REWARD',
+      directiveId: 'breakthrough_mastery',
+    });
+    expect(claimRes.success).toBe(true);
+    expect(player.claimedDirectives).toContain('breakthrough_mastery');
+
+    // 7. Exploration Momentum Gain
+    const momBeforeExplore = player.momentum || 0;
+    const neighborSys = Object.values(engine.state.map.systems).find((s) => s.id !== homeworld.systemId)!;
+    homeworld.garrison.scout = 2;
+
+    const exploreRes = engine.dispatchCommand('p_break', {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: homeworld.id,
+      targetSystemId: neighborSys.id,
+      ships: { scout: 1, transport: 0, fighter: 0, battleship: 0 },
+      cargo: { ore: 0, crystal: 0, fuel: 0 },
+      mission: 'explore',
+    });
+    expect(exploreRes.success).toBe(true);
+
+    const fleetId = (exploreRes.data as any).fleetId;
+    const fleet = engine.state.fleets[fleetId];
+    expect(fleet).toBeDefined();
+
+    // Fast-forward until scout reaches system
+    engine.tick(fleet.arrivalTime - engine.state.timeMs + 1000);
+    expect(player.momentum).toBeGreaterThan(momBeforeExplore);
+  });
 });
 
 
