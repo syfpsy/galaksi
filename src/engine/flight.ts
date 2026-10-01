@@ -7,6 +7,7 @@ export interface RouteInfo {
   durationMs: number;
   fuelCost: number;
   speed: number;
+  usedGateway?: boolean;
 }
 
 export interface InterceptCheckResult {
@@ -138,8 +139,34 @@ export function calculateRouteInfo(
   toSystemId: string,
   ships: Record<ShipType, number>,
   lanes: FlightLane[],
-  engineResearchLevel: number = 0
+  engineResearchLevel: number = 0,
+  activeGatewaySystemIds?: Set<string> | string[]
 ): RouteInfo | null {
+  // Check direct Subspace Gateway Conduit jump
+  if (
+    activeGatewaySystemIds &&
+    fromSystemId !== toSystemId
+  ) {
+    const hasOrigin = activeGatewaySystemIds instanceof Set
+      ? activeGatewaySystemIds.has(fromSystemId)
+      : activeGatewaySystemIds.includes(fromSystemId);
+    const hasTarget = activeGatewaySystemIds instanceof Set
+      ? activeGatewaySystemIds.has(toSystemId)
+      : activeGatewaySystemIds.includes(toSystemId);
+
+    if (hasOrigin && hasTarget) {
+      const speed = calculateFleetSpeed(ships, engineResearchLevel);
+      return {
+        path: [fromSystemId, toSystemId],
+        totalDistance: 10,
+        durationMs: 15000, // 15 seconds flat through Subspace Gateway
+        fuelCost: 50,      // Fixed Gateway nominal jump cost
+        speed,
+        usedGateway: true,
+      };
+    }
+  }
+
   const route = findShortestRoute(fromSystemId, toSystemId, lanes);
   if (!route) return null;
 
@@ -158,6 +185,7 @@ export function calculateRouteInfo(
     durationMs,
     fuelCost,
     speed,
+    usedGateway: false,
   };
 }
 

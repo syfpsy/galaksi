@@ -17,6 +17,12 @@ import {
   calculateDiplomaticWeight,
   tallySenateVotes,
 } from '../src/engine/senate';
+import {
+  MEGASTRUCTURE_CONFIGS,
+  GATEWAY_CONFIG,
+  getPlayerMegastructureBonuses,
+  canBuildMegastructure,
+} from '../src/engine/megastructures';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -2046,6 +2052,231 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const admiralBot = new AdmiralBot('p2');
     const botCmds = admiralBot.update(engine);
     expect(Array.isArray(botCmds)).toBe(true);
+  });
+
+  it('manages multi-stage megastructures, Dyson Swarm yields, Sentry Array vision, and 15s Subspace Gateway transit jumps (Phase 13)', () => {
+    const engine = new GameEngine(777);
+    const { homeworld: hw1 } = engine.addPlayer('p1', 'Terran Hegemon', '#00f3ff');
+    const { homeworld: hw2 } = engine.addPlayer('p2', 'Cybrex Core', '#f43f5e');
+
+    // 1. Initial State: 1 ancient dormant gateway exists in galaxy
+    const gateways = engine.state.gateways || {};
+    const gatewayCount = Object.keys(gateways).length;
+    expect(gatewayCount).toBeGreaterThanOrEqual(1);
+    const ancientGatewayId = Object.keys(gateways)[0];
+    const ancientGateway = gateways[ancientGatewayId];
+    expect(ancientGateway.status).toBe('dormant');
+
+    // 2. Megastructure Construction & Rejection of Underfunded Build
+    const underfundedRes = engine.dispatchCommand('p1', {
+      type: 'BUILD_MEGASTRUCTURE',
+      systemId: hw1.systemId,
+      megastructureType: 'dyson_swarm',
+      fundingPlanetId: hw1.id,
+    });
+    expect(underfundedRes.success).toBe(false);
+
+    // Fund homeworld
+    hw1.storageCap = 50000;
+    hw1.resources.ore = 10000;
+    hw1.resources.crystal = 10000;
+    hw1.resources.fuel = 10000;
+
+    const buildDyson = engine.dispatchCommand('p1', {
+      type: 'BUILD_MEGASTRUCTURE',
+      systemId: hw1.systemId,
+      megastructureType: 'dyson_swarm',
+      fundingPlanetId: hw1.id,
+    });
+    expect(buildDyson.success).toBe(true);
+
+    const dyson = Object.values(engine.state.megastructures || {}).find(
+      (m) => m.systemId === hw1.systemId && m.type === 'dyson_swarm'
+    );
+    expect(dyson).toBeDefined();
+    expect(dyson?.stage).toBe(0);
+    expect(dyson?.status).toBe('under_construction');
+
+    // Cannot build second megastructure in same system
+    const duplicateSys = engine.dispatchCommand('p1', {
+      type: 'BUILD_MEGASTRUCTURE',
+      systemId: hw1.systemId,
+      megastructureType: 'science_nexus',
+      fundingPlanetId: hw1.id,
+    });
+    expect(duplicateSys.success).toBe(false);
+
+    // 3. Complete Stage 1 via Tick & Verify Hegemony Points + Passive Production Boost
+    const stage1Duration = MEGASTRUCTURE_CONFIGS.dyson_swarm.stages[0].buildTimeMs;
+    const initialHegemony = engine.state.relay.weeklyPoints['p1'] || 0;
+    engine.tick(stage1Duration + 1000);
+
+    expect(dyson?.stage).toBe(1);
+    expect(dyson?.status).toBe('completed');
+    expect(engine.state.relay.weeklyPoints['p1']).toBe(initialHegemony + 25);
+
+    // Test passive Dyson yield: 1 hour tick yields extra +150 ore, +150 crystal, +250 fuel
+    const preOre = hw1.resources.ore;
+    const preCrystal = hw1.resources.crystal;
+    const preFuel = hw1.resources.fuel;
+    engine.tick(3600 * 1000);
+    expect(hw1.resources.ore - preOre).toBeGreaterThanOrEqual(150);
+    expect(hw1.resources.crystal - preCrystal).toBeGreaterThanOrEqual(150);
+    expect(hw1.resources.fuel - preFuel).toBeGreaterThanOrEqual(250);
+
+    // 4. Upgrade Megastructure to Stage 2
+    hw1.resources.ore = 15000;
+    hw1.resources.crystal = 15000;
+    hw1.resources.fuel = 15000;
+    const upgradeRes = engine.dispatchCommand('p1', {
+      type: 'UPGRADE_MEGASTRUCTURE',
+      megastructureId: dyson!.id,
+      fundingPlanetId: hw1.id,
+    });
+    expect(upgradeRes.success).toBe(true);
+    expect(dyson?.status).toBe('under_construction');
+
+    const stage2Duration = MEGASTRUCTURE_CONFIGS.dyson_swarm.stages[1].buildTimeMs;
+    engine.tick(stage2Duration + 1000);
+    expect(dyson?.stage).toBe(2);
+    expect(dyson?.status).toBe('completed');
+    expect(engine.state.relay.weeklyPoints['p1']).toBe(initialHegemony + 25 + 50);
+
+    // 5. Mega Shipyard Build Speed & Attack Bonus
+    const otherSystems = Object.keys(engine.state.map.systems).filter(
+      (sId) => sId !== hw1.systemId && sId !== hw2.systemId && sId !== ancientGateway.systemId
+    );
+    const shipyardSysId = otherSystems[0];
+    engine.state.starbases = engine.state.starbases || {};
+    engine.state.starbases[shipyardSysId] = {
+      systemId: shipyardSysId,
+      ownerId: 'p1',
+      tier: 'outpost',
+      currentHp: 1000,
+      maxHp: 1000,
+      attackPower: 50,
+      sensorRangeHops: 1,
+      modules: [],
+      defenseStructures: { orbital_platform: 0, defense_grid: 0, ion_cannon: 0 },
+      isUpgrading: false,
+    };
+
+    const buildShipyard = engine.dispatchCommand('p1', {
+      type: 'BUILD_MEGASTRUCTURE',
+      systemId: shipyardSysId,
+      megastructureType: 'mega_shipyard',
+      fundingPlanetId: hw1.id,
+    });
+    expect(buildShipyard.success).toBe(true);
+    const shipyard = Object.values(engine.state.megastructures!).find(
+      (m) => m.systemId === shipyardSysId && m.type === 'mega_shipyard'
+    )!;
+    // Set stage 3 to test attack bonuses
+    shipyard.stage = 3;
+    shipyard.status = 'completed';
+    expect(engine.getPlayerSenateAttackMultiplier('p1')).toBeCloseTo(1.10, 2);
+
+    // 6. Sentry Array Full Galaxy Fog of War Vision
+    const sentrySysId = otherSystems[1];
+    engine.state.starbases[sentrySysId] = {
+      systemId: sentrySysId,
+      ownerId: 'p1',
+      tier: 'outpost',
+      currentHp: 1000,
+      maxHp: 1000,
+      attackPower: 50,
+      sensorRangeHops: 1,
+      modules: [],
+      defenseStructures: { orbital_platform: 0, defense_grid: 0, ion_cannon: 0 },
+      isUpgrading: false,
+    };
+    const sentryId = `mega_sentry_${sentrySysId}`;
+    engine.state.megastructures![sentryId] = {
+      id: sentryId,
+      type: 'sentry_array',
+      systemId: sentrySysId,
+      ownerId: 'p1',
+      stage: 3,
+      maxStage: 3,
+      status: 'completed',
+      stageStartTimeMs: 0,
+      stageFinishTimeMs: 0,
+    };
+    const coverage = getPlayerSensorCoverage(engine.state, 'p1');
+    expect(coverage.size).toBe(Object.keys(engine.state.map.systems).length);
+
+    // 7. Subspace Gateway Network: Construction, Activation, and 15s Route Info
+    const gatewaySysId = otherSystems[2];
+    engine.state.starbases[gatewaySysId] = {
+      systemId: gatewaySysId,
+      ownerId: 'p1',
+      tier: 'outpost',
+      currentHp: 1000,
+      maxHp: 1000,
+      attackPower: 50,
+      sensorRangeHops: 1,
+      modules: [],
+      defenseStructures: { orbital_platform: 0, defense_grid: 0, ion_cannon: 0 },
+      isUpgrading: false,
+    };
+
+    const constructGateway = engine.dispatchCommand('p1', {
+      type: 'CONSTRUCT_GATEWAY',
+      systemId: gatewaySysId,
+      fundingPlanetId: hw1.id,
+    });
+    expect(constructGateway.success).toBe(true);
+    const newGateway = engine.state.gateways![gatewaySysId];
+    expect(newGateway.status).toBe('under_construction');
+
+    // Complete construction -> activates directly
+    engine.tick(GATEWAY_CONFIG.CONSTRUCTION_TIME_MS + 1000);
+    expect(newGateway.status).toBe('active');
+
+    // Also activate the ancient dormant gateway
+    engine.state.starbases[ancientGateway.systemId] = {
+      systemId: ancientGateway.systemId,
+      ownerId: 'p1',
+      tier: 'outpost',
+      currentHp: 1000,
+      maxHp: 1000,
+      attackPower: 50,
+      sensorRangeHops: 1,
+      modules: [],
+      defenseStructures: { orbital_platform: 0, defense_grid: 0, ion_cannon: 0 },
+      isUpgrading: false,
+    };
+    ancientGateway.status = 'active';
+    ancientGateway.ownerId = 'p1';
+
+    // Verify calculateRouteInfo recognizes subspace gateway jump
+    const route = calculateRouteInfo(
+      gatewaySysId,
+      ancientGateway.systemId,
+      { scout: 1, transport: 0, fighter: 0, battleship: 0 },
+      engine.state.map.lanes,
+      0,
+      [gatewaySysId, ancientGateway.systemId]
+    );
+    expect(route).not.toBeNull();
+    expect(route!.durationMs).toBe(15000);
+    expect(route!.fuelCost).toBe(50);
+    expect(route!.usedGateway).toBe(true);
+
+    expect(engine.getActiveGatewaySystemIds('p1').has(gatewaySysId)).toBe(true);
+    expect(engine.getActiveGatewaySystemIds('p1').has(ancientGateway.systemId)).toBe(true);
+
+    // 8. Bot Autonomous Megastructures Evaluation
+    const indBot = new IndustrialistBot('p2');
+    hw2.storageCap = 50000;
+    hw2.resources.ore = 20000;
+    hw2.resources.crystal = 20000;
+    hw2.resources.fuel = 20000;
+    const botCmds = indBot.update(engine);
+    expect(Array.isArray(botCmds)).toBe(true);
+    const indMega = Object.values(engine.state.megastructures || {}).find((m) => m.ownerId === 'p2');
+    expect(indMega).toBeDefined();
+    expect(indMega?.type).toBe('dyson_swarm');
   });
 });
 

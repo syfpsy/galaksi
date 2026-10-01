@@ -13,6 +13,7 @@ import {
   EspionageOpType,
   Fleet,
   FleetDoctrine,
+  MegastructureType,
   MissionType,
   PlanetSpecialization,
   PlanetStance,
@@ -33,6 +34,7 @@ import { CombatReplayModal } from './ui/components/CombatReplayModal';
 import { CommandPanel } from './ui/components/CommandPanel';
 import { StarbaseModal } from './ui/components/StarbaseModal';
 import { SenateModal } from './ui/components/SenateModal';
+import { MegastructureModal } from './ui/components/MegastructureModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -68,6 +70,7 @@ type LeftPanelType =
   | 'admirals'
   | 'alliance'
   | 'senate'
+  | 'megastructures'
   | 'relay'
   | 'gallery'
   | null;
@@ -730,6 +733,67 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleBuildMegastructure = (systemId: string, megaType: MegastructureType, planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'BUILD_MEGASTRUCTURE',
+      systemId,
+      megastructureType: megaType,
+      fundingPlanetId: planetId,
+    });
+    if (res.success) {
+      sound.playConstruction();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleUpgradeMegastructure = (megastructureId: string, planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'UPGRADE_MEGASTRUCTURE',
+      megastructureId,
+      fundingPlanetId: planetId,
+    });
+    if (res.success) {
+      sound.playConstruction();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleConstructGateway = (systemId: string, planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CONSTRUCT_GATEWAY',
+      systemId,
+      fundingPlanetId: planetId,
+    });
+    if (res.success) {
+      sound.playConstruction();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleActivateGateway = (systemId: string, planetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'ACTIVATE_GATEWAY',
+      systemId,
+      fundingPlanetId: planetId,
+    });
+    if (res.success) {
+      sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1048,6 +1112,7 @@ export function App() {
           onOpenRelay={() => setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'))}
           onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
           onOpenSenate={() => setActiveLeftPanel((prev) => (prev === 'senate' ? null : 'senate'))}
+          onOpenMegastructures={() => setActiveLeftPanel((prev) => (prev === 'megastructures' ? null : 'megastructures'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
           movingFleetsCount={movingFleetsCount}
@@ -1057,6 +1122,7 @@ export function App() {
           unclaimedDirectivesCount={unclaimedDirectivesCount}
           isRelayControlled={engineState.relay.controllingPlayerId === activePlayerId}
           isSenateSessionActive={!!engineState.senate?.currentSession}
+          activeMegastructuresCount={Object.keys(engineState.megastructures || {}).length}
           planetsCount={myPlanets.length}
           godMode={godMode}
           onToggleGodMode={() => setGodMode(!godMode)}
@@ -1468,6 +1534,18 @@ export function App() {
         onProposeResolution={handleProposeSenateResolution}
         onCastVote={handleCastSenateVote}
         onCallEmergencySession={handleCallEmergencySenateSession}
+      />
+
+      {/* Megastructures & Subspace Gateway Network Modal */}
+      <MegastructureModal
+        isOpen={activeLeftPanel === 'megastructures'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        onBuildMegastructure={handleBuildMegastructure}
+        onUpgradeMegastructure={handleUpgradeMegastructure}
+        onConstructGateway={handleConstructGateway}
+        onActivateGateway={handleActivateGateway}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

@@ -244,6 +244,36 @@ export interface SenateState {
   lastSessionEndedAt?: number;
 }
 
+export type MegastructureType =
+  | 'dyson_swarm'
+  | 'science_nexus'
+  | 'mega_shipyard'
+  | 'sentry_array';
+
+export interface Megastructure {
+  id: string;
+  type: MegastructureType;
+  systemId: string;
+  ownerId: string;
+  stage: number;
+  maxStage: number;
+  status: 'under_construction' | 'completed';
+  stageStartTimeMs: number;
+  stageFinishTimeMs: number;
+}
+
+export type GatewayStatus = 'dormant' | 'under_construction' | 'active';
+
+export interface Gateway {
+  id: string;
+  systemId: string;
+  ownerId?: string | null;
+  status: GatewayStatus;
+  activationStartTimeMs?: number;
+  activationFinishTimeMs?: number;
+}
+
+
 export type EmpireArtifactId =
   | 'progenitor_matrix'
   | 'rift_hyperdrive'
@@ -651,6 +681,8 @@ export interface GameState {
   fleets: Record<string, Fleet>;
   admirals?: Record<string, Admiral>;
   starbases?: Record<string, Starbase>; // key: systemId
+  megastructures?: Record<string, Megastructure>; // key: megastructureId
+  gateways?: Record<string, Gateway>; // key: systemId
   senate?: SenateState;
   relay: RelayContest;
   alliances: Record<string, Alliance>;
@@ -687,7 +719,9 @@ export type ScheduledEventType =
   | 'sector_event_expiry'
   | 'starbase_upgraded'
   | 'starbase_module_completed'
-  | 'senate_session_concluded';
+  | 'senate_session_concluded'
+  | 'megastructure_stage_completed'
+  | 'gateway_activated';
 
 export interface ScheduledEvent {
   id: string;
@@ -828,6 +862,27 @@ export type GameCommand =
       type: 'CALL_EMERGENCY_SENATE_SESSION';
       resolutionType: SenateResolutionType;
       targetPlayerId?: string;
+    }
+  | {
+      type: 'BUILD_MEGASTRUCTURE';
+      systemId: string;
+      megastructureType: MegastructureType;
+      fundingPlanetId: string;
+    }
+  | {
+      type: 'UPGRADE_MEGASTRUCTURE';
+      megastructureId: string;
+      fundingPlanetId: string;
+    }
+  | {
+      type: 'CONSTRUCT_GATEWAY';
+      systemId: string;
+      fundingPlanetId: string;
+    }
+  | {
+      type: 'ACTIVATE_GATEWAY';
+      systemId: string;
+      fundingPlanetId: string;
     };
 
 export interface CommandReceipt {

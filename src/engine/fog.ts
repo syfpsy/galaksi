@@ -19,7 +19,10 @@ import {
   ShipType,
   StarSystem,
   VictoryRecord,
+  Megastructure,
+  Gateway,
 } from './types';
+import { getPlayerMegastructureBonuses } from './megastructures';
 
 export interface MaskedFleet {
   id: string;
@@ -74,6 +77,8 @@ export interface PlayerVisibleState {
   myDirectives?: EmpireDirective[];
   myArtifacts?: EmpireArtifactId[];
   senate?: SenateState;
+  megastructures?: Record<string, Megastructure>;
+  gateways?: Record<string, Gateway>;
 }
 
 /**
@@ -83,6 +88,12 @@ export function getPlayerSensorCoverage(
   state: GameState,
   playerId: string
 ): Set<string> {
+  // Megastructure Sentry Array (Stage 3): Full Galaxy Sensor Vision
+  const megaBonuses = getPlayerMegastructureBonuses(state, playerId);
+  if (megaBonuses.hasFullGalaxyVision) {
+    return new Set(Object.keys(state.map.systems));
+  }
+
   const coveredSystems = new Set<string>();
   const player = state.players[playerId];
 
@@ -155,6 +166,18 @@ export function getPlayerSensorCoverage(
         const totalHops = tierHops + sensorRelayCount;
 
         addNeighborSystemsWithinHops(starbase.systemId, totalHops, state.map, coveredSystems);
+      }
+    }
+  }
+
+  // 5. Systems with owned or allied Megastructures
+  if (state.megastructures) {
+    for (const mega of Object.values(state.megastructures)) {
+      if (alliedPlayerIds.has(mega.ownerId)) {
+        coveredSystems.add(mega.systemId);
+        if (megaBonuses.additionalSensorHops > 0) {
+          addNeighborSystemsWithinHops(mega.systemId, megaBonuses.additionalSensorHops, state.map, coveredSystems);
+        }
       }
     }
   }
@@ -383,5 +406,7 @@ export function filterGameStateForPlayer(
     myDirectives: evaluatePlayerDirectives(state, playerId),
     myArtifacts: player?.artifacts || [],
     senate: state.senate,
+    megastructures: state.megastructures,
+    gateways: state.gateways,
   };
 }

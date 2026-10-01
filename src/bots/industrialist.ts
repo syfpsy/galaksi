@@ -4,6 +4,7 @@ import { BuildingType, GameCommand, ResearchType } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
 import { evaluateBotStarbases } from './starbases';
 import { evaluateBotSenate } from './senate';
+import { evaluateBotMegastructures } from './megastructures';
 import { IBotAgent } from './types';
 
 export class IndustrialistBot implements IBotAgent {
@@ -206,6 +207,13 @@ export class IndustrialistBot implements IBotAgent {
 
     // 6. Galactic Senate Participation
     evaluateBotSenate(engine, this.playerId, this.archetype, executedCommands);
+
+    // 7. Megastructures & Subspace Gateway Network
+    const megaCmds = evaluateBotMegastructures(engine, this.playerId, this.archetype);
+    for (const cmd of megaCmds) {
+      const receipt = engine.dispatchCommand(this.playerId, cmd);
+      if (receipt.success) executedCommands.push(cmd);
+    }
 
     return executedCommands;
   }

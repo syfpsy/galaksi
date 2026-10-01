@@ -53,7 +53,17 @@ import {
   TransmissionType,
   VictoryRecord,
   VictoryType,
+  Megastructure,
+  MegastructureType,
+  Gateway,
+  GatewayStatus,
 } from './types';
+import {
+  MEGASTRUCTURE_CONFIGS,
+  GATEWAY_CONFIG,
+  getPlayerMegastructureBonuses,
+  canBuildMegastructure,
+} from './megastructures';
 import {
   calculateDiplomaticWeight,
   createInitialSenateState,
@@ -98,6 +108,8 @@ export class GameEngine {
       fleets: {},
       admirals: {},
       starbases: {},
+      megastructures: {},
+      gateways: {},
       senate: createInitialSenateState(),
       sectorEvents: {},
       transmissions: {},
@@ -125,6 +137,19 @@ export class GameEngine {
       seasonHistory: [],
       nextId: 100,
     };
+
+    // Spawn 1 ancient dormant gateway in a distant star system
+    if (!this.state.gateways) this.state.gateways = {};
+    const candidateSystems = Object.keys(map.systems).filter((sId) => sId !== map.relaySystemId);
+    if (candidateSystems.length > 0) {
+      const ancientGwSys = candidateSystems[candidateSystems.length - 1];
+      this.state.gateways[ancientGwSys] = {
+        id: `gw_ancient_${ancientGwSys}`,
+        systemId: ancientGwSys,
+        ownerId: null,
+        status: 'dormant',
+      };
+    }
 
     // Schedule initial relay point tick
     this.scheduleEvent(GAME_CONSTANTS.RELAY_POINT_INTERVAL_MS, 'relay_point_tick', {});
@@ -332,6 +357,14 @@ export class GameEngine {
           crystalProd *= tradeMultiplier;
           fuelProd *= tradeMultiplier;
         }
+      }
+
+      // Megastructure Dyson Swarm passive resource contribution to homeworld
+      if (planet.isHomeworld) {
+        const megaBonuses = getPlayerMegastructureBonuses(this.state, planet.ownerId);
+        oreProd += megaBonuses.passiveHourlyResources.ore;
+        crystalProd += megaBonuses.passiveHourlyResources.crystal;
+        fuelProd += megaBonuses.passiveHourlyResources.fuel;
       }
 
       planet.resources.ore = Math.min(
@@ -614,6 +647,58 @@ export class GameEngine {
         this.concludeSenateSession();
         break;
       }
+
+      case 'megastructure_stage_completed': {
+        const { megastructureId, targetStage } = event.payload as {
+          megastructureId: string;
+          targetStage: number;
+        };
+        const mega = this.state.megastructures?.[megastructureId];
+        if (mega) {
+          mega.stage = targetStage;
+          mega.status = 'completed';
+          const cfg = MEGASTRUCTURE_CONFIGS[mega.type];
+          const stageCfg = cfg.stages[targetStage - 1];
+          const sysName = this.state.map.systems[mega.systemId]?.name || mega.systemId;
+
+          if (stageCfg?.hegemonyPointsReward) {
+            this.state.relay.weeklyPoints[mega.ownerId] =
+              (this.state.relay.weeklyPoints[mega.ownerId] || 0) + stageCfg.hegemonyPointsReward;
+            this.evaluateVictoryConditions();
+          }
+
+          this.logEvent(
+            'megastructure_stage_completed',
+            `🏛️ MEGA YAPI TAMAMLANDI: ${sysName} sisteminde '${cfg.nameTr}' ${stageCfg?.nameTr || `Aşama ${targetStage}`} tamamlandı! (+${stageCfg?.hegemonyPointsReward || 0} Hegemonya Puanı)`,
+            mega.ownerId,
+            { megastructureId, stage: targetStage, type: mega.type }
+          );
+        }
+        break;
+      }
+
+      case 'gateway_activated': {
+        const { systemId } = event.payload as { systemId: string };
+        const gw = this.state.gateways?.[systemId];
+        if (gw) {
+          gw.status = 'active';
+          const sysName = this.state.map.systems[systemId]?.name || systemId;
+
+          if (gw.ownerId) {
+            this.state.relay.weeklyPoints[gw.ownerId] =
+              (this.state.relay.weeklyPoints[gw.ownerId] || 0) + GATEWAY_CONFIG.GATEWAY_HEGEMONY_REWARD;
+            this.evaluateVictoryConditions();
+          }
+
+          this.logEvent(
+            'gateway_online',
+            `🌀 ALT-UZAY AĞ GEÇİDİ AKTİF: ${sysName} sistemindeki Ağ Geçidi devreye girdi! Galaktik transit ağına bağlandı.`,
+            gw.ownerId || undefined,
+            { systemId }
+          );
+        }
+        break;
+      }
     }
   }
 
@@ -719,7 +804,33 @@ export class GameEngine {
     if (this.state.senate?.custodianPlayerId === playerId) {
       mult += SENATE_CONSTANTS.CUSTODIAN_FLEET_ATTACK_BONUS_PERCENT;
     }
+    const megaBonuses = getPlayerMegastructureBonuses(this.state, playerId);
+    mult += megaBonuses.shipBonusAttackPercent;
     return mult;
+  }
+
+  /**
+   * Returns a set of all system IDs with an active gateway accessible by the player
+   */
+  public getActiveGatewaySystemIds(playerId: string): Set<string> {
+    const active = new Set<string>();
+    if (!this.state.gateways) return active;
+    const player = this.state.players[playerId];
+    const alliedIds = new Set<string>([playerId]);
+    if (player?.allianceId && this.state.alliances[player.allianceId]) {
+      for (const mId of this.state.alliances[player.allianceId].memberIds) {
+        alliedIds.add(mId);
+      }
+    }
+
+    for (const gw of Object.values(this.state.gateways)) {
+      if (gw.status === 'active') {
+        if (!gw.ownerId || alliedIds.has(gw.ownerId)) {
+          active.add(gw.systemId);
+        }
+      }
+    }
+    return active;
   }
 
   // --- Fleet Arrival Resolution ---
@@ -1879,6 +1990,10 @@ export class GameEngine {
         if (this.isSenateResolutionActive('scientific_cooperative')) {
           durationMs = Math.max(1000, Math.round(durationMs * 0.8)); // +25% research speed (-20% duration)
         }
+        const megaBonuses = getPlayerMegastructureBonuses(this.state, playerId);
+        if (megaBonuses.researchSpeedMultiplier > 1.0) {
+          durationMs = Math.max(1000, Math.round(durationMs / megaBonuses.researchSpeedMultiplier));
+        }
         const finishTime = this.state.timeMs + durationMs;
 
         player.researchQueue = {
@@ -1949,6 +2064,10 @@ export class GameEngine {
         }
         if (this.isSenateResolutionActive('military_readiness')) {
           unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs / 1.10)); // +10% build speed
+        }
+        const megaBonuses = getPlayerMegastructureBonuses(this.state, playerId);
+        if (megaBonuses.shipBuildSpeedMultiplier > 1.0) {
+          unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs / megaBonuses.shipBuildSpeedMultiplier));
         }
         const nextFinish = (planet.shipyardQueue.length === 0)
           ? this.state.timeMs + unitBuildTimeMs
@@ -2163,12 +2282,14 @@ export class GameEngine {
 
         // Route check
         const engineLevel = player.research.engines || 0;
+        const activeGateways = this.getActiveGatewaySystemIds(playerId);
         const route = calculateRouteInfo(
           originPlanet.systemId,
           cmd.targetSystemId,
           cmd.ships,
           this.state.map.lanes,
-          engineLevel
+          engineLevel,
+          activeGateways
         );
 
         if (!route) {
@@ -3284,12 +3405,14 @@ export class GameEngine {
 
         // Estimate route fuel consumption
         const engineLevel = player.research.engines || 0;
+        const activeGateways = this.getActiveGatewaySystemIds(playerId);
         const testRoute = calculateRouteInfo(
           colony.systemId,
           targetPlanet.systemId,
           { scout: 0, transport: 1, fighter: 0, battleship: 0 },
           this.state.map.lanes,
-          engineLevel
+          engineLevel,
+          activeGateways
         );
 
         if (!testRoute) {
@@ -3310,7 +3433,8 @@ export class GameEngine {
           targetPlanet.systemId,
           { scout: 0, transport: neededTransports, fighter: 0, battleship: 0 },
           this.state.map.lanes,
-          engineLevel
+          engineLevel,
+          activeGateways
         );
 
         if (!actualRoute) {
@@ -3766,6 +3890,257 @@ export class GameEngine {
           data: { resolution },
         };
       }
+
+      case 'BUILD_MEGASTRUCTURE': {
+        if (!this.state.megastructures) this.state.megastructures = {};
+        const check = canBuildMegastructure(this.state, cmd.systemId, playerId, cmd.megastructureType);
+        if (!check.canBuild) {
+          return { success: false, commandType: cmd.type, error: check.reason, timeMs: this.state.timeMs };
+        }
+
+        const fundingPlanet = this.state.planets[cmd.fundingPlanetId];
+        if (!fundingPlanet || fundingPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'İnşaat finansmanı için geçerli bir koloniniz seçilmelidir.', timeMs: this.state.timeMs };
+        }
+
+        const def = MEGASTRUCTURE_CONFIGS[cmd.megastructureType];
+        if (!def) {
+          return { success: false, commandType: cmd.type, error: 'Bilinmeyen mega yapı türü.', timeMs: this.state.timeMs };
+        }
+
+        const stage1Cfg = def.stages[0];
+        if (
+          fundingPlanet.resources.ore < stage1Cfg.cost.ore ||
+          fundingPlanet.resources.crystal < stage1Cfg.cost.crystal ||
+          fundingPlanet.resources.fuel < stage1Cfg.cost.fuel
+        ) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yetersiz kaynak (${stage1Cfg.cost.ore} Cevher, ${stage1Cfg.cost.crystal} Kristal, ${stage1Cfg.cost.fuel} Yakıt gerekli).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        fundingPlanet.resources.ore -= stage1Cfg.cost.ore;
+        fundingPlanet.resources.crystal -= stage1Cfg.cost.crystal;
+        fundingPlanet.resources.fuel -= stage1Cfg.cost.fuel;
+
+        const megaId = `mega_${this.state.nextId++}`;
+        const mega: Megastructure = {
+          id: megaId,
+          type: cmd.megastructureType,
+          systemId: cmd.systemId,
+          ownerId: playerId,
+          stage: 0,
+          maxStage: 3,
+          status: 'under_construction',
+          stageStartTimeMs: this.state.timeMs,
+          stageFinishTimeMs: this.state.timeMs + stage1Cfg.buildTimeMs,
+        };
+
+        this.state.megastructures[megaId] = mega;
+        this.scheduleEvent(stage1Cfg.buildTimeMs, 'megastructure_stage_completed', {
+          megastructureId: megaId,
+          targetStage: 1,
+        });
+
+        const sysName = this.state.map.systems[cmd.systemId]?.name || cmd.systemId;
+        this.logEvent(
+          'megastructure_construction_started',
+          `🏗️ MEGA YAPI İNŞAATI BAŞLADI: ${sysName} sisteminde '${def.nameTr}' temel montajı başladı (Süre: ${Math.round(stage1Cfg.buildTimeMs / 1000)}s).`,
+          playerId,
+          { megastructureId: megaId, systemId: cmd.systemId, type: cmd.megastructureType }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { megastructureId: megaId, finishTime: mega.stageFinishTimeMs },
+        };
+      }
+
+      case 'UPGRADE_MEGASTRUCTURE': {
+        const mega = this.state.megastructures?.[cmd.megastructureId];
+        if (!mega || mega.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Mega yapı bulunamadı veya size ait değil.', timeMs: this.state.timeMs };
+        }
+        if (mega.status === 'under_construction') {
+          return { success: false, commandType: cmd.type, error: 'Mega yapı zaten bir inşaat/yükseltme sürecinde.', timeMs: this.state.timeMs };
+        }
+        if (mega.stage >= mega.maxStage) {
+          return { success: false, commandType: cmd.type, error: 'Mega yapı zaten en üst aşamaya (Aşama III) ulaşmış durumda.', timeMs: this.state.timeMs };
+        }
+
+        const fundingPlanet = this.state.planets[cmd.fundingPlanetId];
+        if (!fundingPlanet || fundingPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Yükseltme finansmanı için geçerli bir koloniniz seçilmelidir.', timeMs: this.state.timeMs };
+        }
+
+        const def = MEGASTRUCTURE_CONFIGS[mega.type];
+        const nextStage = mega.stage + 1;
+        const nextStageCfg = def.stages[nextStage - 1];
+
+        if (
+          fundingPlanet.resources.ore < nextStageCfg.cost.ore ||
+          fundingPlanet.resources.crystal < nextStageCfg.cost.crystal ||
+          fundingPlanet.resources.fuel < nextStageCfg.cost.fuel
+        ) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yetersiz kaynak (${nextStageCfg.cost.ore} Cevher, ${nextStageCfg.cost.crystal} Kristal, ${nextStageCfg.cost.fuel} Yakıt gerekli).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        fundingPlanet.resources.ore -= nextStageCfg.cost.ore;
+        fundingPlanet.resources.crystal -= nextStageCfg.cost.crystal;
+        fundingPlanet.resources.fuel -= nextStageCfg.cost.fuel;
+
+        mega.status = 'under_construction';
+        mega.stageStartTimeMs = this.state.timeMs;
+        mega.stageFinishTimeMs = this.state.timeMs + nextStageCfg.buildTimeMs;
+
+        this.scheduleEvent(nextStageCfg.buildTimeMs, 'megastructure_stage_completed', {
+          megastructureId: mega.id,
+          targetStage: nextStage,
+        });
+
+        const sysName = this.state.map.systems[mega.systemId]?.name || mega.systemId;
+        this.logEvent(
+          'megastructure_upgrade_started',
+          `🏗️ MEGA YAPI YÜKSELTİLİYOR: ${sysName} sistemindeki '${def.nameTr}' ${nextStageCfg.nameTr} inşaatına başlandı.`,
+          playerId,
+          { megastructureId: mega.id, nextStage }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { megastructureId: mega.id, nextStage, finishTime: mega.stageFinishTimeMs },
+        };
+      }
+
+      case 'CONSTRUCT_GATEWAY': {
+        if (!this.state.gateways) this.state.gateways = {};
+        const system = this.state.map.systems[cmd.systemId];
+        if (!system) {
+          return { success: false, commandType: cmd.type, error: 'Sistem bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (this.state.gateways[cmd.systemId]) {
+          return { success: false, commandType: cmd.type, error: 'Bu sistemde zaten bir Alt-Uzay Ağ Geçidi bulunmaktadır.', timeMs: this.state.timeMs };
+        }
+
+        const ownsPlanet = Object.values(this.state.planets).some(p => p.systemId === cmd.systemId && p.ownerId === playerId);
+        const ownsStarbase = this.state.starbases?.[cmd.systemId]?.ownerId === playerId;
+        if (!ownsPlanet && !ownsStarbase) {
+          return { success: false, commandType: cmd.type, error: 'Ağ Geçidi inşası için sistemde bir koloniniz veya Yıldız Üssünüz bulunmalıdır.', timeMs: this.state.timeMs };
+        }
+
+        const fundingPlanet = this.state.planets[cmd.fundingPlanetId];
+        if (!fundingPlanet || fundingPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'İnşaat finansmanı için geçerli bir koloniniz seçilmelidir.', timeMs: this.state.timeMs };
+        }
+
+        const cost = GATEWAY_CONFIG.CONSTRUCTION_COST;
+        if (fundingPlanet.resources.ore < cost.ore || fundingPlanet.resources.crystal < cost.crystal || fundingPlanet.resources.fuel < cost.fuel) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yetersiz kaynak (${cost.ore} Cevher, ${cost.crystal} Kristal, ${cost.fuel} Yakıt gerekli).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        fundingPlanet.resources.ore -= cost.ore;
+        fundingPlanet.resources.crystal -= cost.crystal;
+        fundingPlanet.resources.fuel -= cost.fuel;
+
+        const gwId = `gw_${this.state.nextId++}`;
+        const gw: Gateway = {
+          id: gwId,
+          systemId: cmd.systemId,
+          ownerId: playerId,
+          status: 'under_construction',
+          activationStartTimeMs: this.state.timeMs,
+          activationFinishTimeMs: this.state.timeMs + GATEWAY_CONFIG.CONSTRUCTION_TIME_MS,
+        };
+
+        this.state.gateways[cmd.systemId] = gw;
+        this.scheduleEvent(GATEWAY_CONFIG.CONSTRUCTION_TIME_MS, 'gateway_activated', { systemId: cmd.systemId });
+
+        const sysName = system.name;
+        this.logEvent(
+          'gateway_construction_started',
+          `🌀 AĞ GEÇİDİ İNŞAATI BAŞLADI: ${sysName} sisteminde Alt-Uzay Ağ Geçidi inşasına başlandı (Süre: ${Math.round(GATEWAY_CONFIG.CONSTRUCTION_TIME_MS / 1000)}s).`,
+          playerId,
+          { systemId: cmd.systemId }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { gatewayId: gwId, finishTime: gw.activationFinishTimeMs },
+        };
+      }
+
+      case 'ACTIVATE_GATEWAY': {
+        const gw = this.state.gateways?.[cmd.systemId];
+        if (!gw) {
+          return { success: false, commandType: cmd.type, error: 'Sistemde Ağ Geçidi bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (gw.status === 'active') {
+          return { success: false, commandType: cmd.type, error: 'Ağ Geçidi zaten aktif durumda.', timeMs: this.state.timeMs };
+        }
+        if (gw.status === 'under_construction') {
+          return { success: false, commandType: cmd.type, error: 'Ağ Geçidi zaten aktivasyon sürecinde.', timeMs: this.state.timeMs };
+        }
+
+        const fundingPlanet = this.state.planets[cmd.fundingPlanetId];
+        if (!fundingPlanet || fundingPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Aktivasyon finansmanı için geçerli bir koloniniz seçilmelidir.', timeMs: this.state.timeMs };
+        }
+
+        const cost = GATEWAY_CONFIG.ACTIVATION_COST;
+        if (fundingPlanet.resources.ore < cost.ore || fundingPlanet.resources.crystal < cost.crystal || fundingPlanet.resources.fuel < cost.fuel) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yetersiz kaynak (${cost.ore} Cevher, ${cost.crystal} Kristal, ${cost.fuel} Yakıt gerekli).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        fundingPlanet.resources.ore -= cost.ore;
+        fundingPlanet.resources.crystal -= cost.crystal;
+        fundingPlanet.resources.fuel -= cost.fuel;
+
+        gw.ownerId = playerId;
+        gw.status = 'under_construction';
+        gw.activationStartTimeMs = this.state.timeMs;
+        gw.activationFinishTimeMs = this.state.timeMs + GATEWAY_CONFIG.ACTIVATION_TIME_MS;
+
+        this.scheduleEvent(GATEWAY_CONFIG.ACTIVATION_TIME_MS, 'gateway_activated', { systemId: cmd.systemId });
+
+        const sysName = this.state.map.systems[cmd.systemId]?.name || cmd.systemId;
+        this.logEvent(
+          'gateway_activation_started',
+          `🌀 AĞ GEÇİDİ AKTİVASYONU: ${sysName} sistemindeki kadim Ağ Geçidinin çekirdeği yeniden enerjilendiriliyor (Süre: ${Math.round(GATEWAY_CONFIG.ACTIVATION_TIME_MS / 1000)}s).`,
+          playerId,
+          { systemId: cmd.systemId }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { gatewayId: gw.id, finishTime: gw.activationFinishTimeMs },
+        };
+      }
     }
   }
 
@@ -3967,6 +4342,8 @@ export class GameEngine {
       fleets: {},
       admirals: {},
       starbases: {},
+      megastructures: {},
+      gateways: {},
       senate: createInitialSenateState(),
       sectorEvents: {},
       transmissions: {},
@@ -3994,6 +4371,19 @@ export class GameEngine {
       seasonHistory: previousHistory,
       nextId: 100,
     };
+
+    // Spawn 1 ancient dormant gateway in a distant star system
+    if (!this.state.gateways) this.state.gateways = {};
+    const candidateSystems = Object.keys(map.systems).filter((sId) => sId !== map.relaySystemId);
+    if (candidateSystems.length > 0) {
+      const ancientGwSys = candidateSystems[candidateSystems.length - 1];
+      this.state.gateways[ancientGwSys] = {
+        id: `gw_ancient_${ancientGwSys}`,
+        systemId: ancientGwSys,
+        ownerId: null,
+        status: 'dormant',
+      };
+    }
 
     this.scheduledEvents = [];
     this.lastMarketUpdateMs = 0;
