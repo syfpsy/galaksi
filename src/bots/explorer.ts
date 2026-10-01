@@ -3,6 +3,7 @@ import { GameEngine } from '../engine/engine';
 import { GameCommand } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
 import { evaluateBotStarbases } from './starbases';
+import { evaluateBotSenate } from './senate';
 import { IBotAgent } from './types';
 
 export class ExplorerBot implements IBotAgent {
@@ -151,6 +152,9 @@ export class ExplorerBot implements IBotAgent {
 
     // 6. Starbase & Sensor Relay Infrastructure
     evaluateBotStarbases(engine, this.playerId, this.archetype, executedCommands);
+
+    // 7. Galactic Senate Participation
+    evaluateBotSenate(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

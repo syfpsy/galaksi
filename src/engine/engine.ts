@@ -42,6 +42,10 @@ import {
   ScheduledEvent,
   SectorEvent,
   SectorEventType,
+  SenateResolution,
+  SenateResolutionType,
+  SenateState,
+  SenateVote,
   ShipType,
   Starbase,
   StarbaseModuleType,
@@ -50,6 +54,14 @@ import {
   VictoryRecord,
   VictoryType,
 } from './types';
+import {
+  calculateDiplomaticWeight,
+  createInitialSenateState,
+  isPlayerSanctioned,
+  SENATE_CONSTANTS,
+  SENATE_RESOLUTION_CONFIG,
+  tallySenateVotes,
+} from './senate';
 import {
   createStarbase,
   getNextStarbaseTier,
@@ -86,6 +98,7 @@ export class GameEngine {
       fleets: {},
       admirals: {},
       starbases: {},
+      senate: createInitialSenateState(),
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -300,12 +313,21 @@ export class GameEngine {
         fuelProd *= 1.20;
       }
 
-      // Starbase Trade Hub bonus: +15% per trade_hub module in system
+      if (this.isSenateResolutionActive('military_readiness')) {
+        oreProd *= (1 - SENATE_CONSTANTS.MILITARY_READINESS_CIVILIAN_PROD_PENALTY_PERCENT);
+        crystalProd *= (1 - SENATE_CONSTANTS.MILITARY_READINESS_CIVILIAN_PROD_PENALTY_PERCENT);
+        fuelProd *= (1 - SENATE_CONSTANTS.MILITARY_READINESS_CIVILIAN_PROD_PENALTY_PERCENT);
+      }
+
+      // Starbase Trade Hub bonus: +15% per trade_hub module in system (+25% if free_trade active)
       const sysStarbase = this.state.starbases?.[planet.systemId];
       if (sysStarbase && sysStarbase.ownerId === planet.ownerId) {
         const tradeHubs = sysStarbase.modules.filter((m) => m === 'trade_hub').length;
         if (tradeHubs > 0) {
-          const tradeMultiplier = 1 + tradeHubs * 0.15;
+          const perHubBonus = this.isSenateResolutionActive('free_trade')
+            ? SENATE_CONSTANTS.FREE_TRADE_STARBASE_HUB_BONUS
+            : 0.15;
+          const tradeMultiplier = 1 + tradeHubs * perHubBonus;
           oreProd *= tradeMultiplier;
           crystalProd *= tradeMultiplier;
           fuelProd *= tradeMultiplier;
@@ -587,7 +609,117 @@ export class GameEngine {
         }
         break;
       }
+
+      case 'senate_session_concluded': {
+        this.concludeSenateSession();
+        break;
+      }
     }
+  }
+
+  /**
+   * Concludes the active Senate session, tallies votes, enacts resolutions, and logs history
+   */
+  private concludeSenateSession(): void {
+    if (!this.state.senate?.currentSession) return;
+    const session = this.state.senate.currentSession;
+    const tally = tallySenateVotes(this.state, session);
+    const cfg = SENATE_RESOLUTION_CONFIG[session.type];
+
+    session.status = tally.passed ? 'passed' : 'failed';
+
+    if (tally.passed) {
+      // Remove any prior active instance of same resolution or sanctions on same player
+      this.state.senate.activeResolutions = this.state.senate.activeResolutions.filter((r) => {
+        if (session.type === 'sanctions') {
+          return !(r.resolutionType === 'sanctions' && r.targetPlayerId === session.targetPlayerId);
+        }
+        return r.resolutionType !== session.type;
+      });
+
+      this.state.senate.activeResolutions.push({
+        id: `res_mod_${this.state.nextId++}`,
+        resolutionType: session.type,
+        targetPlayerId: session.targetPlayerId,
+        enactedAt: this.state.timeMs,
+        expiresAt: this.state.timeMs + SENATE_CONSTANTS.RESOLUTION_ACTIVE_DURATION_MS,
+      });
+
+      // Special resolution effects
+      if (session.type === 'custodian_election' && session.targetPlayerId) {
+        this.state.senate.custodianPlayerId = session.targetPlayerId;
+        const targetPlayer = this.state.players[session.targetPlayerId];
+        this.state.relay.weeklyPoints[session.targetPlayerId] =
+          (this.state.relay.weeklyPoints[session.targetPlayerId] || 0) +
+          SENATE_CONSTANTS.CUSTODIAN_HEGEMONY_POINTS_REWARD;
+
+        this.logEvent(
+          'senate_custodian_elected',
+          `🏛️ GALAKTİK MUHAFIZ SEÇİLDİ: ${targetPlayer?.name || 'Komutan'} Galaktik Senato tarafından olağanüstü yetkilerle donatılarak Muhafız ilan edildi! (+150 Hegemonya Puanı)`,
+          session.targetPlayerId,
+          { targetPlayerId: session.targetPlayerId }
+        );
+
+        this.evaluateVictoryConditions();
+      } else {
+        const targetPlayer = session.targetPlayerId ? this.state.players[session.targetPlayerId] : undefined;
+        const targetNote = targetPlayer ? ` (Hedef: ${targetPlayer.name})` : '';
+        this.logEvent(
+          'senate_resolution_passed',
+          `🏛️ YASA KABUL EDİLDİ: '${cfg.nameTr}'${targetNote} tasarısı ${tally.forWeight} LEHTE / ${tally.againstWeight} ALEYHTE oyla yasalaştı.`,
+          session.proposedBy,
+          { resolutionType: session.type, tally }
+        );
+      }
+    } else {
+      this.logEvent(
+        'senate_resolution_rejected',
+        `🏛️ YASA REDDEDİLDİ: '${cfg.nameTr}' tasarısı yeterli diplomatik ağırlık sağlayamadı (${tally.forWeight} LEHTE / ${tally.againstWeight} ALEYHTE).`,
+        session.proposedBy,
+        { resolutionType: session.type, tally }
+      );
+    }
+
+    this.state.senate.sessionHistory.unshift({
+      id: session.id,
+      resolutionType: session.type,
+      targetPlayerId: session.targetPlayerId,
+      proposedBy: session.proposedBy,
+      passed: tally.passed,
+      forWeight: tally.forWeight,
+      againstWeight: tally.againstWeight,
+      concludedAt: this.state.timeMs,
+    });
+
+    this.state.senate.lastSessionEndedAt = this.state.timeMs;
+    this.state.senate.currentSession = null;
+  }
+
+  /**
+   * Checks if a senate resolution is actively enacted and not expired
+   */
+  public isSenateResolutionActive(type: SenateResolutionType, targetPlayerId?: string): boolean {
+    if (!this.state.senate?.activeResolutions) return false;
+    return this.state.senate.activeResolutions.some((r) => {
+      if (r.resolutionType !== type) return false;
+      if (targetPlayerId !== undefined && r.targetPlayerId !== targetPlayerId) return false;
+      if (r.expiresAt && this.state.timeMs >= r.expiresAt) return false;
+      return true;
+    });
+  }
+
+  /**
+   * Calculates player attack multiplier based on Military Readiness and Custodian status
+   */
+  public getPlayerSenateAttackMultiplier(playerId: string): number {
+    let mult = 1.0;
+    if (this.isSenateResolutionActive('military_readiness')) {
+      mult += SENATE_CONSTANTS.MILITARY_READINESS_ATTACK_BONUS_PERCENT;
+    }
+    if (this.state.senate?.custodianPlayerId === playerId) {
+      mult += SENATE_CONSTANTS.CUSTODIAN_FLEET_ATTACK_BONUS_PERCENT;
+    }
+    return mult;
   }
 
   // --- Fleet Arrival Resolution ---
@@ -902,6 +1034,7 @@ export class GameEngine {
               admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
+              senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
             },
             {
               ownerId: targetPlanet.ownerId,
@@ -913,6 +1046,7 @@ export class GameEngine {
               planetSpecialization: targetPlanet.specialization,
               artifacts: defenderPlayer?.artifacts,
               starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetPlanet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
+              senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(targetPlanet.ownerId),
             },
             targetSystem.id,
             targetSystem.name,
@@ -1003,6 +1137,7 @@ export class GameEngine {
               admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
+              senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
             },
             {
               ownerId: 'ancient_titan',
@@ -1029,16 +1164,19 @@ export class GameEngine {
           targetSystem.hasDebris.ore += combatResult.debrisFieldCreated.ore;
           targetSystem.hasDebris.crystal += combatResult.debrisFieldCreated.crystal;
 
+          const hasBountyHunters = this.isSenateResolutionActive('bounty_hunters');
+          const titanLootMult = hasBountyHunters ? 2 : 1;
+
           fleet.ships = combatResult.remainingAttacker;
-          fleet.cargo.ore += combatResult.lootedResources.ore;
-          fleet.cargo.crystal += combatResult.lootedResources.crystal;
-          fleet.cargo.fuel += combatResult.lootedResources.fuel;
+          fleet.cargo.ore += combatResult.lootedResources.ore * titanLootMult;
+          fleet.cargo.crystal += combatResult.lootedResources.crystal * titanLootMult;
+          fleet.cargo.fuel += combatResult.lootedResources.fuel * titanLootMult;
 
           if (combatResult.report.winner === 'attacker') {
             activeTitanEvent.resolved = true;
             if (fleet.admiralId && this.state.admirals && this.state.admirals[fleet.admiralId]) {
               const adm = this.state.admirals[fleet.admiralId];
-              const xpGain = 350;
+              const xpGain = hasBountyHunters ? 700 : 350;
               const { admiral: updatedAdm, leveledUp } = addAdmiralXP(adm, xpGain);
               this.state.admirals[fleet.admiralId] = updatedAdm;
               if (leveledUp) {
@@ -1107,6 +1245,7 @@ export class GameEngine {
               admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
               doctrine: fleet.doctrine || 'balanced',
               artifacts: player?.artifacts,
+              senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
             },
             {
               ownerId: 'pirates',
@@ -1136,8 +1275,15 @@ export class GameEngine {
               targetSystem.poi.explored = true;
             }
 
-            const reward = targetSystem.poi.reward || { ore: 1500, crystal: 1000, fuel: 500 };
-            const xp = pirateBounty?.rewardXP || 200;
+            const hasBountyHunters = this.isSenateResolutionActive('bounty_hunters');
+            const baseReward = targetSystem.poi.reward || { ore: 1500, crystal: 1000, fuel: 500 };
+            const mult = hasBountyHunters ? 2 : 1;
+            const reward = {
+              ore: baseReward.ore * mult,
+              crystal: baseReward.crystal * mult,
+              fuel: baseReward.fuel * mult,
+            };
+            const xp = (pirateBounty?.rewardXP || 200) * mult;
 
             fleet.cargo.ore += reward.ore;
             fleet.cargo.crystal += reward.crystal;
@@ -1207,6 +1353,7 @@ export class GameEngine {
             admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
             doctrine: fleet.doctrine || 'balanced',
             artifacts: player?.artifacts,
+            senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
           },
           {
             ownerId: targetFleet.ownerId,
@@ -1217,6 +1364,7 @@ export class GameEngine {
             doctrine: targetFleet.doctrine || 'balanced',
             artifacts: defenderPlayer?.artifacts,
             starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetFleet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
+            senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(targetFleet.ownerId),
           },
           targetSystem.id,
           targetSystem.name,
@@ -1288,6 +1436,7 @@ export class GameEngine {
                 admiral: fleet.admiralId && this.state.admirals ? this.state.admirals[fleet.admiralId] : undefined,
                 doctrine: fleet.doctrine || 'balanced',
                 artifacts: player?.artifacts,
+                senateAttackMultiplier: this.getPlayerSenateAttackMultiplier(fleet.ownerId),
               },
               {
                 ownerId: this.state.relay.controllingPlayerId || 'neutral',
@@ -1298,6 +1447,9 @@ export class GameEngine {
                 artifacts: this.state.relay.controllingPlayerId
                   ? this.state.players[this.state.relay.controllingPlayerId]?.artifacts
                   : undefined,
+                senateAttackMultiplier: this.state.relay.controllingPlayerId
+                  ? this.getPlayerSenateAttackMultiplier(this.state.relay.controllingPlayerId)
+                  : 1.0,
               },
               targetSystem.id,
               targetSystem.name,
@@ -1724,6 +1876,9 @@ export class GameEngine {
         if (player.artifacts?.includes('progenitor_matrix')) {
           durationMs = Math.max(1000, Math.round(durationMs * 0.9)); // -10% progenitor matrix relic bonus
         }
+        if (this.isSenateResolutionActive('scientific_cooperative')) {
+          durationMs = Math.max(1000, Math.round(durationMs * 0.8)); // +25% research speed (-20% duration)
+        }
         const finishTime = this.state.timeMs + durationMs;
 
         player.researchQueue = {
@@ -1791,6 +1946,9 @@ export class GameEngine {
           if (shipyardBays > 0) {
             unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs / (1 + shipyardBays * 0.25)));
           }
+        }
+        if (this.isSenateResolutionActive('military_readiness')) {
+          unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs / 1.10)); // +10% build speed
         }
         const nextFinish = (planet.shipyardQueue.length === 0)
           ? this.state.timeMs + unitBuildTimeMs
@@ -2489,7 +2647,13 @@ export class GameEngine {
         const sensorTech = player.research?.sensors || 0;
         if (sensorTech >= 2) feeRate -= 0.025;
         if (sensorTech >= 4) feeRate -= 0.025;
-        feeRate = Math.max(0.05, Math.min(0.20, feeRate));
+        if (this.isSenateResolutionActive('free_trade')) {
+          feeRate -= SENATE_CONSTANTS.FREE_TRADE_FEE_DISCOUNT_PERCENT;
+        }
+        if (this.isSenateResolutionActive('sanctions', playerId)) {
+          feeRate += SENATE_CONSTANTS.SANCTIONS_MARKET_FEE_PENALTY_PERCENT;
+        }
+        feeRate = Math.max(0.02, Math.min(0.50, feeRate));
 
         const sellPrice = this.state.market.rates[sellResource];
         const buyPrice = this.state.market.rates[buyResource];
@@ -3381,6 +3545,227 @@ export class GameEngine {
 
         return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
       }
+
+      case 'PROPOSE_SENATE_RESOLUTION': {
+        if (!this.state.senate) this.state.senate = createInitialSenateState();
+        const player = this.state.players[playerId];
+        if (!player) {
+          return { success: false, commandType: cmd.type, error: 'Oyuncu bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (this.state.senate.currentSession) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Şu anda aktif bir senato oturumu devam ediyor. Yeni teklif için oturumun tamamlanmasını bekleyin.',
+            timeMs: this.state.timeMs,
+          };
+        }
+        if (isPlayerSanctioned(this.state, playerId)) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Yaptırım ve ambargo altındaki imparatorluklar Galaktik Senato\'ya yasa tasarısı sunamaz.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        const resDef = SENATE_RESOLUTION_CONFIG[cmd.resolutionType];
+        if (!resDef) {
+          return { success: false, commandType: cmd.type, error: 'Bilinmeyen yasa tasarısı türü.', timeMs: this.state.timeMs };
+        }
+
+        if (resDef.requiresTarget && !cmd.targetPlayerId) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `'${resDef.nameTr}' için hedef bir imparatorluk seçilmelidir.`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        if (cmd.targetPlayerId && !this.state.players[cmd.targetPlayerId]) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Hedef imparatorluk bulunamadı.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        // Deduct deposit cost from homeworld
+        const hw = Object.values(this.state.planets).find(p => p.ownerId === playerId && p.isHomeworld) ||
+                   Object.values(this.state.planets).find(p => p.ownerId === playerId);
+        const cost = resDef.baseDepositCost;
+        if (!hw || hw.resources.ore < cost.ore || hw.resources.crystal < cost.crystal || hw.resources.fuel < cost.fuel) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: `Yasa teklif harcı için yetersiz kaynak (Gerekli: ${cost.crystal} Kristal).`,
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        hw.resources.ore -= cost.ore;
+        hw.resources.crystal -= cost.crystal;
+        hw.resources.fuel -= cost.fuel;
+
+        const sessionDuration = SENATE_CONSTANTS.REGULAR_SESSION_DURATION_MS;
+        const resolution: SenateResolution = {
+          id: `res_${this.state.nextId++}`,
+          type: cmd.resolutionType,
+          targetPlayerId: cmd.targetPlayerId,
+          proposedBy: playerId,
+          proposedAt: this.state.timeMs,
+          votingEndsAt: this.state.timeMs + sessionDuration,
+          isEmergencySession: false,
+          votes: {
+            [playerId]: 'for',
+          },
+          status: 'active_session',
+        };
+
+        this.state.senate.currentSession = resolution;
+        this.scheduleEvent(sessionDuration, 'senate_session_concluded', { resolutionId: resolution.id });
+
+        const targetName = cmd.targetPlayerId ? (this.state.players[cmd.targetPlayerId]?.name || cmd.targetPlayerId) : '';
+        const targetClause = targetName ? ` (Hedef: ${targetName})` : '';
+
+        this.logEvent(
+          'senate_resolution_proposed',
+          `🏛️ SENATO OTURUMU BAŞLADI: ${player.name}, '${resDef.nameTr}'${targetClause} tasarısını oylamaya sundu! (Süre: 60s)`,
+          playerId,
+          { resolutionId: resolution.id, type: cmd.resolutionType, targetPlayerId: cmd.targetPlayerId }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { resolution },
+        };
+      }
+
+      case 'CAST_SENATE_VOTE': {
+        if (!this.state.senate) this.state.senate = createInitialSenateState();
+        if (!this.state.senate.currentSession) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Şu anda oy kullanılabilecek aktif bir senato oturumu bulunmuyor.',
+            timeMs: this.state.timeMs,
+          };
+        }
+        if (!['for', 'against', 'abstain'].includes(cmd.vote)) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz oy türü.', timeMs: this.state.timeMs };
+        }
+
+        const session = this.state.senate.currentSession;
+        session.votes[playerId] = cmd.vote;
+
+        const voter = this.state.players[playerId];
+        const voteLabel = cmd.vote === 'for' ? 'LEHTE' : cmd.vote === 'against' ? 'ALEYHTE' : 'ÇEKİMSER';
+        const weight = calculateDiplomaticWeight(this.state, playerId).total;
+
+        this.logEvent(
+          'senate_vote_cast',
+          `🗳️ ${voter?.name || 'Komutan'} senatoda ${voteLabel} oy kullandı (Ağırlık: ${weight} oy).`,
+          playerId,
+          { vote: cmd.vote, weight, resolutionId: session.id }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { vote: cmd.vote, weight, resolutionId: session.id },
+        };
+      }
+
+      case 'CALL_EMERGENCY_SENATE_SESSION': {
+        if (!this.state.senate) this.state.senate = createInitialSenateState();
+        const player = this.state.players[playerId];
+        if (!player) {
+          return { success: false, commandType: cmd.type, error: 'Oyuncu bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (this.state.senate.currentSession) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Zaten aktif bir senato oturumu sürmektedir.',
+            timeMs: this.state.timeMs,
+          };
+        }
+        if (isPlayerSanctioned(this.state, playerId)) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Yaptırım altındaki imparatorluklar olağanüstü oturum çağıramaz.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        const isCustodian = this.state.senate.custodianPlayerId === playerId;
+        const hw = Object.values(this.state.planets).find(p => p.ownerId === playerId && p.isHomeworld) ||
+                   Object.values(this.state.planets).find(p => p.ownerId === playerId);
+
+        const cost = isCustodian
+          ? { ore: 0, crystal: 0, fuel: 0 }
+          : SENATE_CONSTANTS.EMERGENCY_SESSION_COST;
+
+        if (!isCustodian) {
+          if (!hw || hw.resources.ore < cost.ore || hw.resources.crystal < cost.crystal || hw.resources.fuel < cost.fuel) {
+            return {
+              success: false,
+              commandType: cmd.type,
+              error: `Olağanüstü senato oturumu için yetersiz kaynak (Gerekli: ${cost.crystal} Kristal, ${cost.fuel} Yakıt).`,
+              timeMs: this.state.timeMs,
+            };
+          }
+          hw.resources.ore -= cost.ore;
+          hw.resources.crystal -= cost.crystal;
+          hw.resources.fuel -= cost.fuel;
+        }
+
+        const resDef = SENATE_RESOLUTION_CONFIG[cmd.resolutionType];
+        if (!resDef) {
+          return { success: false, commandType: cmd.type, error: 'Bilinmeyen yasa tasarısı türü.', timeMs: this.state.timeMs };
+        }
+        if (resDef.requiresTarget && !cmd.targetPlayerId) {
+          return { success: false, commandType: cmd.type, error: 'Hedef imparatorluk seçilmelidir.', timeMs: this.state.timeMs };
+        }
+
+        const sessionDuration = SENATE_CONSTANTS.EMERGENCY_SESSION_DURATION_MS;
+        const resolution: SenateResolution = {
+          id: `res_em_${this.state.nextId++}`,
+          type: cmd.resolutionType,
+          targetPlayerId: cmd.targetPlayerId,
+          proposedBy: playerId,
+          proposedAt: this.state.timeMs,
+          votingEndsAt: this.state.timeMs + sessionDuration,
+          isEmergencySession: true,
+          votes: {
+            [playerId]: 'for',
+          },
+          status: 'active_session',
+        };
+
+        this.state.senate.currentSession = resolution;
+        this.scheduleEvent(sessionDuration, 'senate_session_concluded', { resolutionId: resolution.id });
+
+        this.logEvent(
+          'senate_emergency_called',
+          `🚨 OLAĞANÜSTÜ SENATO OTURUMU: ${player.name} acil durum yetkisiyle '${resDef.nameTr}' tasarısını hızlı oylamaya sundu! (Süre: 25s)`,
+          playerId,
+          { resolutionId: resolution.id, type: cmd.resolutionType }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { resolution },
+        };
+      }
     }
   }
 
@@ -3582,6 +3967,7 @@ export class GameEngine {
       fleets: {},
       admirals: {},
       starbases: {},
+      senate: createInitialSenateState(),
       sectorEvents: {},
       transmissions: {},
       truces: {},

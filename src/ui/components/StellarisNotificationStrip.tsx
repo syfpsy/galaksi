@@ -7,6 +7,7 @@ import {
   Crown,
   Database,
   Flame,
+  Landmark,
   Radio,
   Rocket,
   ShieldAlert,
@@ -22,7 +23,7 @@ import { sound } from '../sound';
 
 export interface EmpireNotification {
   id: string;
-  type: 'threat' | 'battle' | 'research' | 'colony' | 'shipyard' | 'anomaly' | 'debris' | 'relay' | 'crisis' | 'transmission' | 'directive';
+  type: 'threat' | 'battle' | 'research' | 'colony' | 'shipyard' | 'anomaly' | 'debris' | 'relay' | 'crisis' | 'transmission' | 'directive' | 'senate';
   title: string;
   description: string;
   timestampMs: number;
@@ -41,6 +42,7 @@ interface StellarisNotificationStripProps {
   onOpenSituationLog: () => void;
   onOpenTransitRadar?: () => void;
   onOpenAlliance?: (tab?: string) => void;
+  onOpenSenate?: () => void;
 }
 
 const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripProps> = ({
@@ -53,6 +55,7 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
   onOpenSituationLog,
   onOpenTransitRadar,
   onOpenAlliance,
+  onOpenSenate,
 }) => {
   const [notifications, setNotifications] = useState<EmpireNotification[]>([]);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
@@ -66,6 +69,18 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
     });
 
     const notifs: EmpireNotification[] = [];
+
+    // Senate active session alert
+    if (state.senate?.currentSession) {
+      const sess = state.senate.currentSession;
+      notifs.push({
+        id: `senate_session_${sess.id}`,
+        type: 'senate',
+        title: 'SENATO OTURUMU AKTİF',
+        description: 'Yeni bir galaktik yasa tasarısı mecliste oylanıyor!',
+        timestampMs: sess.proposedAt,
+      });
+    }
 
     // 1. Hostile Incursion Threat alert
     if (activeThreats.length > 0) {
@@ -262,6 +277,13 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
           bg: 'bg-amber-950/90',
           pulse: 'animate-pulse',
         };
+      case 'senate':
+        return {
+          icon: <Landmark className="w-4 h-4 text-amber-300" />,
+          border: 'border-amber-400 shadow-amber-950/80',
+          bg: 'bg-amber-950/90',
+          pulse: 'animate-pulse',
+        };
     }
   };
 
@@ -285,6 +307,8 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
       onOpenSituationLog();
     } else if (notif.type === 'transmission') {
       if (onOpenAlliance) onOpenAlliance('comms');
+    } else if (notif.type === 'senate') {
+      if (onOpenSenate) onOpenSenate();
     } else if (notif.type === 'crisis') {
       if (notif.systemId) {
         onFocusSystem(notif.systemId);

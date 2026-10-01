@@ -15,6 +15,7 @@ import {
   RadioTransmission,
   SectorEvent,
   SectorMap,
+  SenateState,
   ShipType,
   StarSystem,
   VictoryRecord,
@@ -72,6 +73,7 @@ export interface PlayerVisibleState {
   myClaimedDirectives?: string[];
   myDirectives?: EmpireDirective[];
   myArtifacts?: EmpireArtifactId[];
+  senate?: SenateState;
 }
 
 /**
@@ -97,11 +99,21 @@ export function getPlayerSensorCoverage(
     if (alliedPlayerIds.has(planet.ownerId)) {
       coveredSystems.add(planet.systemId);
 
-      // Sensor array bonus: +1 lane range per 2 levels + research + relic
+      // Sensor array bonus: +1 lane range per 2 levels + research + relic + scientific cooperative senate resolution
       const sensorLevel = planet.buildings.sensor_array || 0;
       const researchLevel = state.players[planet.ownerId]?.research.sensors || 0;
       const relicSensorBonus = state.players[planet.ownerId]?.artifacts?.includes('subspace_tachyon_array') ? 1 : 0;
-      const range = GAME_CONSTANTS.BASE_SENSOR_RANGE + Math.floor(sensorLevel / 2) + Math.floor(researchLevel / 2) + relicSensorBonus;
+      const senateSensorBonus = state.senate?.activeResolutions.some(
+        (r) => r.resolutionType === 'scientific_cooperative'
+      )
+        ? 1
+        : 0;
+      const range =
+        GAME_CONSTANTS.BASE_SENSOR_RANGE +
+        Math.floor(sensorLevel / 2) +
+        Math.floor(researchLevel / 2) +
+        relicSensorBonus +
+        senateSensorBonus;
 
       addNeighborSystemsWithinHops(planet.systemId, range, state.map, coveredSystems);
     }
@@ -370,5 +382,6 @@ export function filterGameStateForPlayer(
     myClaimedDirectives: player?.claimedDirectives || [],
     myDirectives: evaluatePlayerDirectives(state, playerId),
     myArtifacts: player?.artifacts || [],
+    senate: state.senate,
   };
 }

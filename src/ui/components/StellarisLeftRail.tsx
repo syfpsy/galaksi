@@ -9,6 +9,7 @@ import {
   EyeOff,
   Globe,
   HelpCircle,
+  Landmark,
   LineChart,
   Palette,
   Radio,
@@ -40,6 +41,7 @@ interface StellarisLeftRailProps {
   onOpenAdmirals?: () => void;
   onOpenRelay: () => void;
   onOpenAlliance: () => void;
+  onOpenSenate?: () => void;
   onOpenGallery: () => void;
   movingFleetsCount?: number;
   threatsCount?: number;
@@ -47,6 +49,7 @@ interface StellarisLeftRailProps {
   pendingTransmissionsCount?: number;
   unclaimedDirectivesCount?: number;
   isRelayControlled: boolean;
+  isSenateSessionActive?: boolean;
   planetsCount: number;
   godMode: boolean;
   onToggleGodMode: () => void;
@@ -73,6 +76,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenAdmirals,
   onOpenRelay,
   onOpenAlliance,
+  onOpenSenate,
   onOpenGallery,
   movingFleetsCount = 0,
   threatsCount = 0,
@@ -80,6 +84,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   pendingTransmissionsCount = 0,
   unclaimedDirectivesCount = 0,
   isRelayControlled,
+  isSenateSessionActive = false,
   planetsCount,
   godMode,
   onToggleGodMode,
@@ -491,6 +496,43 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             </div>
             <p className="text-[11px] text-slate-300 mt-1 leading-snug">
               Diplomatik paktlar, radyo telsiz iletişimi, kaynak takası ve ortak savunma.
+            </p>
+          </div>
+        </div>
+
+        {/* Galactic Senate & Resolutions */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenSenate) onOpenSenate();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'senate' ? 'active' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Landmark className="w-5 h-5 text-amber-400 group-hover:scale-110 transition-transform" />
+            {isSenateSessionActive && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-amber-500 text-black text-[9px] font-bold flex items-center justify-center border border-amber-300 shadow-md animate-pulse">
+                !
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[9.5px] font-mono font-bold text-slate-400 group-hover:text-amber-300">
+              SEN
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="stellaris-gold tracking-wide">GALAKTİK SENATO & YASALAR</span>
+              {isSenateSessionActive && (
+                <span className="text-[10.5px] font-mono text-amber-300 bg-amber-950/80 border border-amber-500/50 px-1 py-0.5 rounded-sm animate-pulse">
+                  OYLAMA SÜRÜYOR
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Galaktik yasa tasarıları, diplomatik ağırlık sıralaması ve Muhafız seçimleri.
             </p>
           </div>
         </div>

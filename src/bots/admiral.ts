@@ -4,6 +4,7 @@ import { checkInterceptionFeasibility } from '../engine/flight';
 import { FleetDoctrine, GameCommand, ShipType } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
 import { evaluateBotStarbases } from './starbases';
+import { evaluateBotSenate } from './senate';
 import { IBotAgent } from './types';
 
 /**
@@ -233,6 +234,9 @@ export class AdmiralBot implements IBotAgent {
 
     // 8. Starbase Naval Bastion & Shipyard Bay
     evaluateBotStarbases(engine, this.playerId, this.archetype, executedCommands);
+
+    // 9. Galactic Senate Participation
+    evaluateBotSenate(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

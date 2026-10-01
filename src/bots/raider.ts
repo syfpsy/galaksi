@@ -3,6 +3,7 @@ import { GameEngine } from '../engine/engine';
 import { GameCommand, ShipType } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
 import { evaluateBotStarbases } from './starbases';
+import { evaluateBotSenate } from './senate';
 import { IBotAgent } from './types';
 
 export class RaiderBot implements IBotAgent {
@@ -119,6 +120,9 @@ export class RaiderBot implements IBotAgent {
 
     // 6. Raider Shipyard Bay & Bastion Management
     evaluateBotStarbases(engine, this.playerId, this.archetype, executedCommands);
+
+    // 7. Galactic Senate Participation
+    evaluateBotSenate(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

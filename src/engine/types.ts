@@ -195,6 +195,55 @@ export interface Starbase {
   createdAt: number;
 }
 
+export type SenateResolutionType =
+  | 'military_readiness'
+  | 'free_trade'
+  | 'scientific_cooperative'
+  | 'bounty_hunters'
+  | 'custodian_election'
+  | 'sanctions';
+
+export type SenateVote = 'for' | 'against' | 'abstain';
+
+export interface SenateResolution {
+  id: string;
+  type: SenateResolutionType;
+  targetPlayerId?: string;
+  proposedBy: string;
+  proposedAt: number;
+  votingEndsAt: number;
+  isEmergencySession?: boolean;
+  votes: Record<string, SenateVote>;
+  status: 'active_session' | 'passed' | 'failed';
+}
+
+export interface ActiveSenateModifier {
+  id: string;
+  resolutionType: SenateResolutionType;
+  targetPlayerId?: string;
+  enactedAt: number;
+  expiresAt?: number;
+}
+
+export interface SenateSessionHistoryItem {
+  id: string;
+  resolutionType: SenateResolutionType;
+  targetPlayerId?: string;
+  proposedBy: string;
+  passed: boolean;
+  forWeight: number;
+  againstWeight: number;
+  concludedAt: number;
+}
+
+export interface SenateState {
+  currentSession: SenateResolution | null;
+  activeResolutions: ActiveSenateModifier[];
+  custodianPlayerId?: string | null;
+  sessionHistory: SenateSessionHistoryItem[];
+  lastSessionEndedAt?: number;
+}
+
 export type EmpireArtifactId =
   | 'progenitor_matrix'
   | 'rift_hyperdrive'
@@ -602,6 +651,7 @@ export interface GameState {
   fleets: Record<string, Fleet>;
   admirals?: Record<string, Admiral>;
   starbases?: Record<string, Starbase>; // key: systemId
+  senate?: SenateState;
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -636,7 +686,8 @@ export type ScheduledEventType =
   | 'espionage_op_arrival'
   | 'sector_event_expiry'
   | 'starbase_upgraded'
-  | 'starbase_module_completed';
+  | 'starbase_module_completed'
+  | 'senate_session_concluded';
 
 export interface ScheduledEvent {
   id: string;
@@ -763,6 +814,20 @@ export type GameCommand =
       type: 'DISMANTLE_STARBASE_MODULE';
       systemId: string;
       moduleIndex: number;
+    }
+  | {
+      type: 'PROPOSE_SENATE_RESOLUTION';
+      resolutionType: SenateResolutionType;
+      targetPlayerId?: string;
+    }
+  | {
+      type: 'CAST_SENATE_VOTE';
+      vote: SenateVote;
+    }
+  | {
+      type: 'CALL_EMERGENCY_SENATE_SESSION';
+      resolutionType: SenateResolutionType;
+      targetPlayerId?: string;
     };
 
 export interface CommandReceipt {

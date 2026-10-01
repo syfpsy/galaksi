@@ -19,6 +19,8 @@ import {
   ResearchType,
   ResourceType,
   Resources,
+  SenateResolutionType,
+  SenateVote,
   ShipType,
   StarbaseModuleType,
   TransmissionType,
@@ -30,6 +32,7 @@ import { ArtGalleryModal } from './ui/components/ArtGalleryModal';
 import { CombatReplayModal } from './ui/components/CombatReplayModal';
 import { CommandPanel } from './ui/components/CommandPanel';
 import { StarbaseModal } from './ui/components/StarbaseModal';
+import { SenateModal } from './ui/components/SenateModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -64,6 +67,7 @@ type LeftPanelType =
   | 'battles'
   | 'admirals'
   | 'alliance'
+  | 'senate'
   | 'relay'
   | 'gallery'
   | null;
@@ -682,6 +686,50 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleProposeSenateResolution = (resolutionType: SenateResolutionType, targetPlayerId?: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'PROPOSE_SENATE_RESOLUTION',
+      resolutionType,
+      targetPlayerId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleCastSenateVote = (vote: SenateVote) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CAST_SENATE_VOTE',
+      vote,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleCallEmergencySenateSession = (resolutionType: SenateResolutionType, targetPlayerId?: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CALL_EMERGENCY_SENATE_SESSION',
+      resolutionType,
+      targetPlayerId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -999,6 +1047,7 @@ export function App() {
           onOpenAdmirals={() => setActiveLeftPanel((prev) => (prev === 'admirals' ? null : 'admirals'))}
           onOpenRelay={() => setActiveLeftPanel((prev) => (prev === 'relay' ? null : 'relay'))}
           onOpenAlliance={() => setActiveLeftPanel((prev) => (prev === 'alliance' ? null : 'alliance'))}
+          onOpenSenate={() => setActiveLeftPanel((prev) => (prev === 'senate' ? null : 'senate'))}
           onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
           onOpenOrientation={() => setIsOrientationOpen(true)}
           movingFleetsCount={movingFleetsCount}
@@ -1007,6 +1056,7 @@ export function App() {
           pendingTransmissionsCount={pendingTransmissionsCount}
           unclaimedDirectivesCount={unclaimedDirectivesCount}
           isRelayControlled={engineState.relay.controllingPlayerId === activePlayerId}
+          isSenateSessionActive={!!engineState.senate?.currentSession}
           planetsCount={myPlanets.length}
           godMode={godMode}
           onToggleGodMode={() => setGodMode(!godMode)}
@@ -1247,6 +1297,7 @@ export function App() {
               if (tab) setAllianceInitialTab(tab as AllianceTab);
               setActiveLeftPanel('alliance');
             }}
+            onOpenSenate={() => setActiveLeftPanel('senate')}
           />
 
           <GalaxyMap
@@ -1406,6 +1457,17 @@ export function App() {
         onUpgradeStarbase={handleUpgradeStarbase}
         onInstallModule={handleInstallStarbaseModule}
         onDismantleModule={handleDismantleStarbaseModule}
+      />
+
+      {/* Galactic Community & Senate Modal */}
+      <SenateModal
+        isOpen={activeLeftPanel === 'senate'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        onProposeResolution={handleProposeSenateResolution}
+        onCastVote={handleCastSenateVote}
+        onCallEmergencySession={handleCallEmergencySenateSession}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

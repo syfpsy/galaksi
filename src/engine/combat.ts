@@ -16,6 +16,7 @@ export interface CombatFleetInput {
   planetSpecialization?: PlanetSpecialization;
   artifacts?: EmpireArtifactId[];
   starbase?: Starbase;
+  senateAttackMultiplier?: number;
 }
 
 export interface CombatResult {
@@ -190,9 +191,15 @@ export function resolveCombat(
     const defVariance = 0.9 + prng.next() * 0.2;
 
     const starbaseAttack = starbaseActive && starbaseStats ? starbaseStats.attack : 0;
-    let attDmg = Math.round(attRating.totalAttack * attVariance * attAdmiralMult * attTraitMult);
+    let attDmg = Math.round(
+      attRating.totalAttack * attVariance * attAdmiralMult * attTraitMult * (attacker.senateAttackMultiplier ?? 1.0)
+    );
     let defDmg = Math.round(
-      (defRating.totalAttack + currentDefenseRating.totalAttack + starbaseAttack) * defVariance * defAdmiralMult * defTraitMult
+      (defRating.totalAttack + currentDefenseRating.totalAttack + starbaseAttack) *
+        defVariance *
+        defAdmiralMult *
+        defTraitMult *
+        (defender.senateAttackMultiplier ?? 1.0)
     );
 
     // Attacker Critical Strike check

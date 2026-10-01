@@ -11,6 +11,12 @@ import { GuardianBot } from '../src/bots/guardian';
 import { AdmiralBot } from '../src/bots/admiral';
 import { GAME_CONSTANTS, getDefenseBuildDurationMs, getShipBuildDurationMs } from '../src/engine/constants';
 import { STARBASE_MODULE_CONFIG, STARBASE_TIER_CONFIG, getStarbaseEffectiveStats } from '../src/engine/starbases';
+import {
+  SENATE_CONSTANTS,
+  SENATE_RESOLUTION_CONFIG,
+  calculateDiplomaticWeight,
+  tallySenateVotes,
+} from '../src/engine/senate';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -1927,6 +1933,119 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(
       botCmds.some(c => c.type === 'UPGRADE_STARBASE' || c.type === 'INSTALL_STARBASE_MODULE')
     ).toBe(true);
+  });
+
+  it('manages the Galactic Senate, dynamic diplomatic weight, resolution lifecycle, and active law modifiers (Phase 12)', () => {
+    const engine = new GameEngine(777);
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p1', 'Cumhuriyetçi Lider', '#00f3ff');
+    const { player: p2, homeworld: hw2 } = engine.addPlayer('p2', 'İmparator Bot', '#ff0055', true, 'admiral');
+
+    expect(engine.state.senate).toBeDefined();
+    const senate = engine.state.senate!;
+    expect(Object.keys(SENATE_RESOLUTION_CONFIG).length).toBe(6);
+    expect(senate.activeResolutions.length).toBe(0);
+
+    // 1. Diplomatic Weight calculation
+    const dw1Initial = calculateDiplomaticWeight(engine.state, p1.id).total;
+    expect(dw1Initial).toBeGreaterThan(0);
+
+    // Add fleet and tech to p1
+    hw1.garrison.battleship = 10;
+    p1.research.weapons = 3;
+    const dw1Upgraded = calculateDiplomaticWeight(engine.state, p1.id).total;
+    expect(dw1Upgraded).toBeGreaterThan(dw1Initial);
+
+    // 2. Propose Resolution
+    // Give p1 enough resources to propose
+    hw1.resources.crystal = 2000;
+    const proposeRes = engine.dispatchCommand('p1', {
+      type: 'PROPOSE_SENATE_RESOLUTION',
+      resolutionType: 'military_readiness',
+    });
+    expect(proposeRes.success).toBe(true);
+    expect(senate.currentSession).toBeDefined();
+    expect(senate.currentSession?.type).toBe('military_readiness');
+    expect(senate.currentSession?.proposedBy).toBe('p1');
+    expect(senate.currentSession?.votes.p1).toBe('for');
+
+    // 3. Voting
+    const voteRes = engine.dispatchCommand('p2', {
+      type: 'CAST_SENATE_VOTE',
+      vote: 'against',
+    });
+    expect(voteRes.success).toBe(true);
+    expect(senate.currentSession?.votes.p2).toBe('against');
+
+    // Tally check: p1 has 10 battleships and tech 3, should outweigh p2 starter
+    const tally = tallySenateVotes(engine.state, senate.currentSession!);
+    expect(tally.forWeight).toBeGreaterThan(tally.againstWeight);
+
+    // 4. Session conclusion via tick
+    engine.tick(SENATE_CONSTANTS.REGULAR_SESSION_DURATION_MS + 1000);
+    expect(senate.currentSession).toBeNull();
+    expect(senate.activeResolutions.some((m) => m.resolutionType === 'military_readiness')).toBe(true);
+    expect(engine.getPlayerSenateAttackMultiplier('p1')).toBeCloseTo(1.15, 2);
+
+    // 5. Custodian Election & Hegemony Points (+150 pts & +30% weight)
+    hw1.resources.ore = 5000;
+    hw1.resources.crystal = 5000;
+    hw1.resources.fuel = 5000;
+    const prevHegemony = engine.state.relay.weeklyPoints['p1'] || 0;
+    const proposeCustodian = engine.dispatchCommand('p1', {
+      type: 'PROPOSE_SENATE_RESOLUTION',
+      resolutionType: 'custodian_election',
+      targetPlayerId: 'p1',
+    });
+    expect(proposeCustodian.success).toBe(true);
+
+    engine.tick(SENATE_CONSTANTS.REGULAR_SESSION_DURATION_MS + 1000);
+    expect(senate.custodianPlayerId).toBe('p1');
+    expect(engine.state.relay.weeklyPoints['p1']).toBe(prevHegemony + SENATE_CONSTANTS.CUSTODIAN_HEGEMONY_POINTS_REWARD);
+    expect(engine.getPlayerSenateAttackMultiplier('p1')).toBeCloseTo(1.35, 2); // 1.0 + 0.15 (military) + 0.20 (custodian)
+
+    // 6. Free trade market fee discount & Sanctions penalty
+    // Propose and pass Free Trade
+    hw1.resources.ore = 5000;
+    hw1.resources.crystal = 5000;
+    hw1.resources.fuel = 5000;
+    const proposeFt = engine.dispatchCommand('p1', {
+      type: 'PROPOSE_SENATE_RESOLUTION',
+      resolutionType: 'free_trade',
+    });
+    expect(proposeFt.success).toBe(true);
+    engine.tick(SENATE_CONSTANTS.REGULAR_SESSION_DURATION_MS + 1000);
+    expect(senate.activeResolutions.some((m) => m.resolutionType === 'free_trade')).toBe(true);
+
+    // Propose and pass Sanctions on p2
+    hw1.resources.ore = 5000;
+    hw1.resources.crystal = 5000;
+    hw1.resources.fuel = 5000;
+    const proposeSanc = engine.dispatchCommand('p1', {
+      type: 'PROPOSE_SENATE_RESOLUTION',
+      resolutionType: 'sanctions',
+      targetPlayerId: 'p2',
+    });
+    expect(proposeSanc.success).toBe(true);
+    engine.tick(SENATE_CONSTANTS.REGULAR_SESSION_DURATION_MS + 1000);
+    expect(
+      senate.activeResolutions.some((m) => m.resolutionType === 'sanctions' && m.targetPlayerId === 'p2')
+    ).toBe(true);
+
+    // Sanctioned player cannot propose
+    hw2.resources.ore = 5000;
+    hw2.resources.crystal = 5000;
+    hw2.resources.fuel = 5000;
+    const illegalProposal = engine.dispatchCommand('p2', {
+      type: 'PROPOSE_SENATE_RESOLUTION',
+      resolutionType: 'scientific_cooperative',
+    });
+    expect(illegalProposal.success).toBe(false);
+    expect(illegalProposal.error?.toLowerCase()).toContain('yaptırım');
+
+    // 7. Bot autonomous Senate evaluation
+    const admiralBot = new AdmiralBot('p2');
+    const botCmds = admiralBot.update(engine);
+    expect(Array.isArray(botCmds)).toBe(true);
   });
 });
 

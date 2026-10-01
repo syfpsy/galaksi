@@ -3,6 +3,7 @@ import { GameEngine } from '../engine/engine';
 import { GameCommand } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
 import { evaluateBotStarbases } from './starbases';
+import { evaluateBotSenate } from './senate';
 import { IBotAgent } from './types';
 
 export class GuardianBot implements IBotAgent {
@@ -160,6 +161,9 @@ export class GuardianBot implements IBotAgent {
 
     // 5. Starbase & Bastion Defense Management
     evaluateBotStarbases(engine, this.playerId, this.archetype, executedCommands);
+
+    // 6. Galactic Senate Participation
+    evaluateBotSenate(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }
