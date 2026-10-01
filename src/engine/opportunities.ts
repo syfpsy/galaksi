@@ -223,7 +223,7 @@ export function evaluatePlayerOpportunities(
         actionText: 'İkmal Konvoyunu Başlat',
         command: {
           type: 'DISPATCH_SUPPLY_CONVOY',
-          colonyId: col.id,
+          colonyPlanetId: col.id,
         },
         reward: { crystal: 120, momentum: 30 },
         canExecuteNow: true,

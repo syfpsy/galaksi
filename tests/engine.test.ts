@@ -6699,6 +6699,109 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(claimSurgeRes.success).toBe(true);
     expect(player.claimedDirectives).toContain('golden_surge_trigger');
   });
+
+  it('Test 67: Phase 37 - Automated Slipways Supply Conduits, Auto-Convoys & Logistics Directives', () => {
+    const engine = new GameEngine(3737);
+    const { player, homeworld } = engine.addPlayer('p_slip', 'Filo Amirali Selene', '#38bdf8');
+
+    // 1. Setup two colonies
+    const colA = {
+      ...homeworld,
+      id: 'planet_col_a',
+      name: 'Maden Kolonisi A',
+      isHomeworld: false,
+      systemId: 'sys_neighbor_1',
+      resources: { ore: 1200, crystal: 500, fuel: 300 },
+      autoSupplyEnabled: false,
+      lastAutoSupplyTimeMs: 0,
+    };
+    const colB = {
+      ...homeworld,
+      id: 'planet_col_b',
+      name: 'Sanayi Kolonisi B',
+      isHomeworld: false,
+      systemId: 'sys_neighbor_2',
+      resources: { ore: 800, crystal: 600, fuel: 200 },
+      autoSupplyEnabled: false,
+      lastAutoSupplyTimeMs: 0,
+    };
+    engine.state.planets[colA.id] = colA;
+    engine.state.planets[colB.id] = colB;
+
+    // Initial directives check
+    let directives = evaluatePlayerDirectives(engine.state, 'p_slip');
+    const autoDir = directives.find((d) => d.id === 'automated_supply_conduits');
+    expect(autoDir).toBeDefined();
+    expect(autoDir!.isCompleted).toBe(false);
+    expect(autoDir!.currentValue).toBe(0);
+
+    // 2. Reject enabling auto-supply on homeworld
+    const hwToggleRes = engine.dispatchCommand('p_slip', {
+      type: 'TOGGLE_AUTO_SUPPLY',
+      planetId: homeworld.id,
+      enabled: true,
+    });
+    expect(hwToggleRes.success).toBe(false);
+    expect(hwToggleRes.error).toContain('Başkent');
+
+    // 3. Toggle auto-supply on colony A
+    const colAToggleRes = engine.dispatchCommand('p_slip', {
+      type: 'TOGGLE_AUTO_SUPPLY',
+      planetId: colA.id,
+      enabled: true,
+    });
+    expect(colAToggleRes.success).toBe(true);
+    expect(colA.autoSupplyEnabled).toBe(true);
+
+    directives = evaluatePlayerDirectives(engine.state, 'p_slip');
+    expect(directives.find((d) => d.id === 'automated_supply_conduits')!.currentValue).toBe(1);
+
+    // 4. Toggle auto-supply on colony B -> Completes directive
+    const colBToggleRes = engine.dispatchCommand('p_slip', {
+      type: 'TOGGLE_AUTO_SUPPLY',
+      planetId: colB.id,
+      enabled: true,
+    });
+    expect(colBToggleRes.success).toBe(true);
+    expect(colB.autoSupplyEnabled).toBe(true);
+
+    directives = evaluatePlayerDirectives(engine.state, 'p_slip');
+    const completedAutoDir = directives.find((d) => d.id === 'automated_supply_conduits');
+    expect(completedAutoDir!.isCompleted).toBe(true);
+
+    // Claim directive reward
+    const claimRes = engine.dispatchCommand('p_slip', {
+      type: 'CLAIM_DIRECTIVE_REWARD',
+      directiveId: 'automated_supply_conduits',
+    });
+    expect(claimRes.success).toBe(true);
+    expect(player.claimedDirectives).toContain('automated_supply_conduits');
+
+    // 5. Verify periodic automated supply delivery during tick
+    const hwInitialOre = homeworld.resources.ore;
+    const hwInitialCrystal = homeworld.resources.crystal;
+    const initialMomentum = player.momentum || 0;
+
+    // Advance 21 seconds
+    engine.tick(21000);
+
+    // Col A & B should have transferred surplus (leaving safety buffer 250 ore, 150 crystal, 100 fuel)
+    expect(homeworld.resources.ore).toBeGreaterThan(hwInitialOre);
+    expect(homeworld.resources.crystal).toBeGreaterThan(hwInitialCrystal);
+    expect(colA.resources.fuel).toBeLessThan(300); // 300 - 5 fuel cost - transferred fuel
+    expect(player.momentum).toBeGreaterThan(initialMomentum);
+
+    // 6. Test Tri-Sector Resonance bonus (0 fuel cost for auto supply)
+    player.activeSynergyTier = 2;
+    colA.resources.fuel = 200;
+    colA.resources.ore = 1000;
+    colA.resources.crystal = 500;
+    colA.lastAutoSupplyTimeMs = 0; // reset cooldown
+
+    engine.tick(25000);
+    // Transferred ore & crystal with 50% extra throughput
+    expect(colA.resources.ore).toBeLessThan(1000);
+  });
 });
 
 

@@ -686,6 +686,16 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleToggleAutoSupply = (planetId: string, enabled: boolean) => {
+    if (!engineRef.current) return;
+    engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'TOGGLE_AUTO_SUPPLY',
+      planetId,
+      enabled,
+    });
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleBuildDefense = (planetId: string, defenseType: DefenseStructureType, count: number) => {
     if (!engineRef.current) return;
     engineRef.current.dispatchCommand(activePlayerId, {
@@ -3392,6 +3402,7 @@ export function App() {
             onFocusRelay={handleFocusRelay}
             onSetStance={handleSetStance}
             onBuildShips={handleBuildShip}
+            onToggleAutoSupply={handleToggleAutoSupply}
           />
 
           {/* Slipways Flow: Contextual Strategic Momentum & Opportunity HUD */}

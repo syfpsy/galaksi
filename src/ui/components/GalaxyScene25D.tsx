@@ -1900,6 +1900,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
         const triSectorSynergy = activePlayer?.supplyChains?.find((s) => s.tier === 2);
         const triSystemIds = new Set(triSectorSynergy?.connectedSystemIds || []);
+        const autoSupplyColonies = Object.values(stateRef.current.planets).filter(
+          (p) => p.ownerId === activePlayerId && p.autoSupplyEnabled && !p.isHomeworld
+        );
+        const autoSupplySystemIds = new Set(autoSupplyColonies.map((c) => c.systemId));
 
         laneVisuals.forEach((lv) => {
           const k = `${lv.fromSystemId}_${lv.toSystemId}`;
@@ -1907,6 +1911,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             myColonySystemIds.has(lv.fromSystemId) && myColonySystemIds.has(lv.toSystemId);
           const isTriSectorLane =
             triSystemIds.has(lv.fromSystemId) && triSystemIds.has(lv.toSystemId);
+          const isAutoSupplyLane =
+            isColonySynergyLane &&
+            (autoSupplySystemIds.has(lv.fromSystemId) || autoSupplySystemIds.has(lv.toSystemId));
           const relays = (stateRef.current as any).hyperRelays;
           const isRelayCorridor =
             relays &&
@@ -1929,6 +1936,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             const p = (Math.sin(currentTimeMs * 0.012) + 1) * 0.5;
             lv.mat.color.setHex(0xfbbf24);
             lv.mat.opacity = 0.85 + p * 0.15;
+          } else if (isAutoSupplyLane) {
+            // Slipways Automated High-Capacity Logistics Conduit (Pulsing Emerald Flow)
+            const p = (Math.sin(currentTimeMs * 0.009) + 1) * 0.5;
+            lv.mat.color.setHex(0x10b981);
+            lv.mat.opacity = 0.80 + p * 0.20;
           } else if (activeLanesWithOwnFleet.has(k)) {
             lv.mat.color.setHex(0x00f3ff);
             lv.mat.opacity = 0.85;
@@ -3098,11 +3110,19 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                                 planetId: myColonyInSys.id,
                               });
                             }}
-                            className="px-2 py-0.5 rounded-sm bg-amber-950/90 border border-amber-400 hover:bg-amber-500 hover:text-black text-amber-200 text-[10px] font-mono font-bold shadow-lg shadow-amber-950/80 transition-all flex items-center gap-1 cursor-pointer"
-                            title="Başkente İkmal Konvoyu Fırlat"
+                            className={`px-2 py-0.5 rounded-sm border text-[10px] font-mono font-bold shadow-lg transition-all flex items-center gap-1 cursor-pointer ${
+                              myColonyInSys.autoSupplyEnabled
+                                ? 'bg-emerald-950/90 border-emerald-400 text-emerald-200 shadow-emerald-950/80 hover:bg-emerald-500 hover:text-black'
+                                : 'bg-amber-950/90 border-amber-400 text-amber-200 shadow-amber-950/80 hover:bg-amber-500 hover:text-black'
+                            }`}
+                            title={
+                              myColonyInSys.autoSupplyEnabled
+                                ? 'Otomatik İkmal Hattı Aktif (Düzenli Olarak Aktarılıyor)'
+                                : 'Başkente İkmal Konvoyu Fırlat'
+                            }
                           >
-                            <span>🚛</span>
-                            <span>İkmal</span>
+                            <span>{myColonyInSys.autoSupplyEnabled ? '⚡' : '🚛'}</span>
+                            <span>{myColonyInSys.autoSupplyEnabled ? 'Otomatik' : 'İkmal'}</span>
                           </button>
                         );
                       }

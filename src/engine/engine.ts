@@ -3003,6 +3003,42 @@ export class GameEngine {
         };
       }
 
+      case 'TOGGLE_AUTO_SUPPLY': {
+        const planet = this.state.planets[cmd.planetId];
+        if (!planet || planet.ownerId !== playerId) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Gezegen bulunamadı veya size ait değil.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        if (planet.isHomeworld) {
+          return {
+            success: false,
+            commandType: cmd.type,
+            error: 'Başkent ikmal kaynağı değil, ana tüketim ve aktarım merkezidir.',
+            timeMs: this.state.timeMs,
+          };
+        }
+
+        planet.autoSupplyEnabled = cmd.enabled;
+        this.logEvent(
+          'auto_supply_toggled',
+          `${planet.name} Otomatik İkmal Hattı ${cmd.enabled ? 'devreye alındı ⚡' : 'durduruldu'}.`,
+          playerId,
+          { planetId: cmd.planetId, enabled: cmd.enabled }
+        );
+
+        return {
+          success: true,
+          commandType: cmd.type,
+          data: { planetId: cmd.planetId, enabled: cmd.enabled },
+          timeMs: this.state.timeMs,
+        };
+      }
+
       case 'START_RESEARCH': {
         if (player.researchQueue) {
           return { success: false, commandType: cmd.type, error: 'Zaten bir araştırma sürüyor.', timeMs: this.state.timeMs };

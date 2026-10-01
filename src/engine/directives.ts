@@ -112,6 +112,14 @@ export const DIRECTIVE_DEFINITIONS: DirectiveDefinition[] = [
     targetValue: 1,
     reward: { ore: 600, crystal: 400, fuel: 400, hegemonyPoints: 80 },
   },
+  {
+    id: 'automated_supply_conduits',
+    phase: 2,
+    title: 'Otomatik İkmal Şebekesi',
+    description: 'En az 2 koloninizde Otomatik İkmal Hattını devreye alarak hammadde akışını başkente bağlayın.',
+    targetValue: 2,
+    reward: { ore: 600, crystal: 400, fuel: 300, hegemonyPoints: 50 },
+  },
 ];
 
 /**
@@ -238,6 +246,11 @@ export function evaluatePlayerDirectives(state: GameState, playerId: string): Em
       case 'golden_surge_trigger':
         currentValue = player.surgeActiveUntilMs ? 1 : 0;
         break;
+      case 'automated_supply_conduits': {
+        const autoCount = myPlanets.filter((p) => !p.isHomeworld && p.autoSupplyEnabled).length;
+        currentValue = autoCount;
+        break;
+      }
     }
 
     const isCompleted = currentValue >= def.targetValue;

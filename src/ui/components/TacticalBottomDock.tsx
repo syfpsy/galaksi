@@ -36,6 +36,7 @@ interface TacticalBottomDockProps {
   onFocusRelay: () => void;
   onSetStance?: (planetId: string, stance: PlanetStance) => void;
   onBuildShips?: (planetId: string, shipType: ShipType, count: number) => void;
+  onToggleAutoSupply?: (planetId: string, enabled: boolean) => void;
 }
 
 export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
@@ -51,6 +52,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
   onFocusRelay,
   onSetStance,
   onBuildShips,
+  onToggleAutoSupply,
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
 
@@ -216,6 +218,33 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                       {st === 'hold_position' ? 'SAVUN' : 'KAÇIN'}
                     </button>
                   ))}
+                </div>
+              )}
+
+              {/* Slipways Automated Supply Conduit Toggle (Colonies Only) */}
+              {isMyPlanet && !selectedPlanet.isHomeworld && onToggleAutoSupply && (
+                <div className="mt-1.5 flex items-center justify-between">
+                  <span className="text-[10px] text-slate-300 font-semibold flex items-center gap-1">
+                    <span>⚡ İkmal Hattı:</span>
+                  </span>
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onToggleAutoSupply(selectedPlanet.id, !selectedPlanet.autoSupplyEnabled);
+                    }}
+                    className={`px-2 py-0.5 rounded-sm text-[9.5px] font-bold border transition-all cursor-pointer flex items-center gap-1 ${
+                      selectedPlanet.autoSupplyEnabled
+                        ? 'border-emerald-500 bg-emerald-950/80 text-emerald-300 shadow-[0_0_8px_#10b981]'
+                        : 'border-slate-700 bg-slate-900/80 text-slate-400 hover:text-slate-200'
+                    }`}
+                    title={
+                      selectedPlanet.autoSupplyEnabled
+                        ? 'Otomatik İkmal Aktif: Güvenlik tamponu üzerindeki fazla kaynaklar periyodik olarak başkente aktarılır.'
+                        : 'Otomatik İkmal Hattını Devreye Al (Slipways Otomasyonu)'
+                    }
+                  >
+                    <span>{selectedPlanet.autoSupplyEnabled ? '● AÇIK' : '○ KAPALI'}</span>
+                  </button>
                 </div>
               )}
             </div>

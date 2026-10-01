@@ -157,6 +157,88 @@ export function updateSupplyChains(state: GameState, deltaSec: number): void {
       }
     }
   }
+
+  // Phase 37: Automated Slipways Supply Conduits (Auto-Convoys)
+  updateAutomatedSupplyConduits(state, state.timeMs);
+}
+
+/**
+ * Automatically transfers surplus resources from colonies with autoSupplyEnabled to homeworld.
+ * Occurs periodically (every 20 seconds).
+ * Preserves a safety reserve buffer on each colony (250 ore, 150 crystal, 100 fuel).
+ * Consumes 5 fuel per delivery (free / 0 fuel if Tri-Sector Resonance is active).
+ * Boosts player momentum by +2 per successful batch delivery.
+ */
+export function updateAutomatedSupplyConduits(state: GameState, nowMs: number): void {
+  const SUPPLY_INTERVAL_MS = 20000;
+
+  for (const player of Object.values(state.players)) {
+    const myPlanets = Object.values(state.planets).filter((p) => p.ownerId === player.id);
+    const hw = myPlanets.find((p) => p.isHomeworld);
+    if (!hw) continue;
+
+    const isTriResonance = player.activeSynergyTier === 2;
+
+    for (const colony of myPlanets) {
+      if (colony.isHomeworld || !colony.autoSupplyEnabled) continue;
+
+      if ((colony.lastAutoSupplyTimeMs || 0) + SUPPLY_INTERVAL_MS > nowMs) {
+        continue;
+      }
+
+      // Safety buffer: colony keeps at least 250 ore, 150 crystal, 100 fuel
+      const buffer = { ore: 250, crystal: 150, fuel: 100 };
+      const surplusOre = Math.max(0, colony.resources.ore - buffer.ore);
+      const surplusCrystal = Math.max(0, colony.resources.crystal - buffer.crystal);
+      const surplusFuel = Math.max(0, colony.resources.fuel - buffer.fuel);
+
+      if (surplusOre + surplusCrystal + surplusFuel < 100) {
+        continue;
+      }
+
+      const fuelCost = isTriResonance ? 0 : 5;
+      if (colony.resources.fuel < fuelCost) {
+        continue;
+      }
+
+      // Max transfer capacity per batch (x1.5 during Tri-Sector Resonance)
+      const maxTransfer = isTriResonance
+        ? { ore: 450, crystal: 300, fuel: 150 }
+        : { ore: 300, crystal: 200, fuel: 100 };
+
+      const transferOre = Math.min(surplusOre, maxTransfer.ore);
+      const transferCrystal = Math.min(surplusCrystal, maxTransfer.crystal);
+      const transferFuel = Math.min(surplusFuel, maxTransfer.fuel);
+
+      const hwCap = hw.storageCap || 20000;
+      const canTakeOre = Math.max(0, Math.min(transferOre, hwCap - hw.resources.ore));
+      const canTakeCrystal = Math.max(0, Math.min(transferCrystal, hwCap - hw.resources.crystal));
+      const canTakeFuel = Math.max(0, Math.min(transferFuel, hwCap - hw.resources.fuel));
+
+      if (canTakeOre + canTakeCrystal + canTakeFuel <= 0) {
+        continue;
+      }
+
+      colony.resources.ore -= canTakeOre;
+      colony.resources.crystal -= canTakeCrystal;
+      colony.resources.fuel -= canTakeFuel + fuelCost;
+
+      hw.resources.ore += canTakeOre;
+      hw.resources.crystal += canTakeCrystal;
+      hw.resources.fuel += canTakeFuel;
+
+      colony.lastAutoSupplyTimeMs = nowMs;
+
+      // Small momentum gain (+2)
+      const currentMom = player.momentum || 0;
+      if (currentMom + 2 >= 100 && !player.surgeActiveUntilMs) {
+        player.momentum = 0;
+        player.surgeActiveUntilMs = nowMs + 90000;
+      } else if (currentMom < 100) {
+        player.momentum = Math.min(99.9, currentMom + 2);
+      }
+    }
+  }
 }
 
 /**

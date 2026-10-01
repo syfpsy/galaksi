@@ -440,6 +440,9 @@ export interface Planet {
   amenities?: number;
   stability?: number; // 0 to 100 percentage
   lastPopGrowthTime?: number;
+  // Phase 37: Automated Slipways Supply Conduits (Auto-Convoys)
+  autoSupplyEnabled?: boolean;
+  lastAutoSupplyTimeMs?: number;
 }
 
 export type StarbaseTier = 'outpost' | 'starbase' | 'citadel';
@@ -1550,7 +1553,8 @@ export type EmpireDirectiveId =
   | 'relay_control'
   | 'superpower'
   | 'supply_chain_resonance'
-  | 'golden_surge_trigger';
+  | 'golden_surge_trigger'
+  | 'automated_supply_conduits';
 
 export interface EmpireDirective {
   id: EmpireDirectiveId;
@@ -2364,6 +2368,11 @@ export type GameCommand =
         fuel?: number;
         momentum: number;
       };
+    }
+  | {
+      type: 'TOGGLE_AUTO_SUPPLY';
+      planetId: string;
+      enabled: boolean;
     };
 
 export interface CommandReceipt {
