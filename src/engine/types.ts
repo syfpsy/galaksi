@@ -169,6 +169,32 @@ export interface Planet {
   specialization?: PlanetSpecialization;
 }
 
+export type StarbaseTier = 'outpost' | 'starbase' | 'citadel';
+export type StarbaseModuleType = 'sensor_relay' | 'defense_platform' | 'shipyard_bay' | 'trade_hub';
+
+export interface Starbase {
+  id: string;
+  systemId: string;
+  ownerId: string;
+  tier: StarbaseTier;
+  modules: StarbaseModuleType[];
+  hull: number;
+  maxHull: number;
+  shield: number;
+  maxShield: number;
+  upgradeQueue?: {
+    targetTier: StarbaseTier;
+    startTime: number;
+    finishTime: number;
+  } | null;
+  moduleQueue?: {
+    moduleType: StarbaseModuleType;
+    startTime: number;
+    finishTime: number;
+  } | null;
+  createdAt: number;
+}
+
 export type EmpireArtifactId =
   | 'progenitor_matrix'
   | 'rift_hyperdrive'
@@ -302,6 +328,19 @@ export interface BattleReport {
   defenderDoctrine?: FleetDoctrine;
   attackerArtifacts?: EmpireArtifactId[];
   defenderArtifacts?: EmpireArtifactId[];
+  initialStarbase?: {
+    tier: StarbaseTier;
+    hull: number;
+    shield: number;
+    attack: number;
+    modules: StarbaseModuleType[];
+  };
+  survivingStarbase?: {
+    tier: StarbaseTier;
+    hull: number;
+    shield: number;
+    destroyed: boolean;
+  };
   bountyEarned?: {
     resources: Resources;
     xp: number;
@@ -562,6 +601,7 @@ export interface GameState {
   planets: Record<string, Planet>;
   fleets: Record<string, Fleet>;
   admirals?: Record<string, Admiral>;
+  starbases?: Record<string, Starbase>; // key: systemId
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -594,7 +634,9 @@ export type ScheduledEventType =
   | 'fleet_arrival'
   | 'relay_point_tick'
   | 'espionage_op_arrival'
-  | 'sector_event_expiry';
+  | 'sector_event_expiry'
+  | 'starbase_upgraded'
+  | 'starbase_module_completed';
 
 export interface ScheduledEvent {
   id: string;
@@ -700,6 +742,27 @@ export type GameCommand =
       type: 'DISPATCH_SUPPLY_CONVOY';
       colonyPlanetId: string;
       targetPlanetId?: string;
+    }
+  | {
+      type: 'BUILD_STARBASE';
+      systemId: string;
+      planetId: string;
+    }
+  | {
+      type: 'UPGRADE_STARBASE';
+      systemId: string;
+      planetId: string;
+    }
+  | {
+      type: 'INSTALL_STARBASE_MODULE';
+      systemId: string;
+      planetId: string;
+      moduleType: StarbaseModuleType;
+    }
+  | {
+      type: 'DISMANTLE_STARBASE_MODULE';
+      systemId: string;
+      moduleIndex: number;
     };
 
 export interface CommandReceipt {

@@ -3,6 +3,7 @@ import { GameEngine } from '../engine/engine';
 import { checkInterceptionFeasibility } from '../engine/flight';
 import { FleetDoctrine, GameCommand, ShipType } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
+import { evaluateBotStarbases } from './starbases';
 import { IBotAgent } from './types';
 
 /**
@@ -229,6 +230,9 @@ export class AdmiralBot implements IBotAgent {
       const receipt = engine.dispatchCommand(this.playerId, cmd);
       if (receipt.success) executedCommands.push(cmd);
     }
+
+    // 8. Starbase Naval Bastion & Shipyard Bay
+    evaluateBotStarbases(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

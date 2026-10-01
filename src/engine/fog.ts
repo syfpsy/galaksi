@@ -131,6 +131,22 @@ export function getPlayerSensorCoverage(
     );
   }
 
+  // 4. Systems with owned or allied Starbases & Outposts
+  if (state.starbases) {
+    for (const starbase of Object.values(state.starbases)) {
+      if (alliedPlayerIds.has(starbase.ownerId)) {
+        coveredSystems.add(starbase.systemId);
+
+        // Base sensor hops from starbase tier + sensor_relay modules
+        const tierHops = starbase.tier === 'citadel' ? 3 : starbase.tier === 'starbase' ? 2 : 1;
+        const sensorRelayCount = starbase.modules.filter((m) => m === 'sensor_relay').length;
+        const totalHops = tierHops + sensorRelayCount;
+
+        addNeighborSystemsWithinHops(starbase.systemId, totalHops, state.map, coveredSystems);
+      }
+    }
+  }
+
   return coveredSystems;
 }
 

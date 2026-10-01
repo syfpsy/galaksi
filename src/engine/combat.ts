@@ -1,7 +1,8 @@
 import { DEFENSE_STATS, GAME_CONSTANTS, SHIP_STATS } from './constants';
 import { PRNG } from './prng';
-import { BattleReport, CombatRound, DefenseStructureType, EmpireArtifactId, FleetDoctrine, PlanetSpecialization, PlanetStance, Resources, ShipType } from './types';
+import { BattleReport, CombatRound, DefenseStructureType, EmpireArtifactId, FleetDoctrine, PlanetSpecialization, PlanetStance, Resources, ShipType, Starbase, StarbaseTier } from './types';
 import { Admiral, ADMIRAL_TRAITS } from './admirals';
+import { getStarbaseEffectiveStats, STARBASE_TIER_CONFIG } from './starbases';
 
 export interface CombatFleetInput {
   ownerId: string;
@@ -14,6 +15,7 @@ export interface CombatFleetInput {
   doctrine?: FleetDoctrine;
   planetSpecialization?: PlanetSpecialization;
   artifacts?: EmpireArtifactId[];
+  starbase?: Starbase;
 }
 
 export interface CombatResult {
@@ -21,6 +23,12 @@ export interface CombatResult {
   remainingAttacker: Record<ShipType, number>;
   remainingDefender: Record<ShipType, number>;
   remainingDefenses?: Record<DefenseStructureType, number>;
+  remainingStarbase?: {
+    tier: StarbaseTier;
+    hull: number;
+    shield: number;
+    destroyed: boolean;
+  };
   lootedResources: Resources;
   debrisFieldCreated: Resources;
   attackerAdmiralXP?: { admiralId: string; xpGained: number };
@@ -107,13 +115,29 @@ export function resolveCombat(
   const hasInitialDefenses =
     initialDefenses.missile_battery + initialDefenses.plasma_turret + initialDefenses.ion_cannon > 0;
 
+  // Starbase combat defense integration
+  const starbaseStats = defender.starbase
+    ? getStarbaseEffectiveStats(defender.starbase, defender.weaponsResearchLevel)
+    : null;
+  let currentStarbaseHull = defender.starbase ? defender.starbase.hull : 0;
+  let currentStarbaseShield = defender.starbase ? defender.starbase.shield : 0;
+  const initialStarbaseData = defender.starbase && starbaseStats
+    ? {
+        tier: defender.starbase.tier,
+        hull: defender.starbase.hull,
+        shield: defender.starbase.shield,
+        attack: starbaseStats.attack,
+        modules: [...defender.starbase.modules],
+      }
+    : undefined;
+
   // Evade check: if defender has 'evade_safeguard' on planet raid and is vastly outmatched
   const attackerRating = getFleetCombatRating(attacker.ships, attacker.weaponsResearchLevel);
   const defenderFleetRating = getFleetCombatRating(defender.ships, defender.weaponsResearchLevel);
   const defenderDefRating = getDefenseCombatRating(defender.defenses, defender.weaponsResearchLevel);
   const defenderTotalRating = {
-    totalAttack: defenderFleetRating.totalAttack + defenderDefRating.totalAttack,
-    totalHealth: defenderFleetRating.totalHealth + defenderDefRating.totalHealth,
+    totalAttack: defenderFleetRating.totalAttack + defenderDefRating.totalAttack + (starbaseStats?.attack || 0),
+    totalHealth: defenderFleetRating.totalHealth + defenderDefRating.totalHealth + (initialStarbaseData ? initialStarbaseData.hull + initialStarbaseData.shield : 0),
   };
 
   let defenderEvaded = false;
@@ -123,7 +147,7 @@ export function resolveCombat(
     attackerRating.totalAttack > defenderTotalRating.totalHealth * 3 &&
     defenderFleetRating.totalHealth > 0
   ) {
-    // Defending fleet evades combat to preserve ships, but orbital defense platforms remain active
+    // Defending fleet evades combat to preserve ships, but orbital defense platforms & starbase remain active
     defenderEvaded = true;
     for (const st of Object.keys(currentDefender) as ShipType[]) {
       currentDefender[st] = 0;
@@ -131,15 +155,16 @@ export function resolveCombat(
   }
 
   const rounds: CombatRound[] = [];
-  const maxRounds = defenderEvaded && !hasInitialDefenses ? 0 : 6;
+  const maxRounds = defenderEvaded && !hasInitialDefenses && !initialStarbaseData ? 0 : 6;
 
   for (let r = 1; r <= maxRounds; r++) {
-    // Check if either side has zero ships / defenses
+    // Check if either side has zero ships / defenses / starbase
     const attCount = Object.values(currentAttacker).reduce((a, b) => a + b, 0);
     const defCount = Object.values(currentDefender).reduce((a, b) => a + b, 0);
     const defDefCount = Object.values(currentDefenses).reduce((a, b) => a + b, 0);
+    const starbaseActive = currentStarbaseHull > 0;
 
-    if (attCount === 0 || (defCount === 0 && defDefCount === 0)) break;
+    if (attCount === 0 || (defCount === 0 && defDefCount === 0 && !starbaseActive)) break;
 
     // Calculate attack output with +/- 10% deterministic variance
     const attRating = getFleetCombatRating(currentAttacker, attacker.weaponsResearchLevel);
@@ -164,9 +189,10 @@ export function resolveCombat(
     const attVariance = 0.9 + prng.next() * 0.2;
     const defVariance = 0.9 + prng.next() * 0.2;
 
+    const starbaseAttack = starbaseActive && starbaseStats ? starbaseStats.attack : 0;
     let attDmg = Math.round(attRating.totalAttack * attVariance * attAdmiralMult * attTraitMult);
     let defDmg = Math.round(
-      (defRating.totalAttack + currentDefenseRating.totalAttack) * defVariance * defAdmiralMult * defTraitMult
+      (defRating.totalAttack + currentDefenseRating.totalAttack + starbaseAttack) * defVariance * defAdmiralMult * defTraitMult
     );
 
     // Attacker Critical Strike check
@@ -224,16 +250,34 @@ export function resolveCombat(
       attDmg = Math.round(attDmg * 0.90); // -10% damage taken
     }
 
+    // Starbase damage absorption: absorbs up to 40% of incoming attack damage
+    let absorbedByStarbase = 0;
+    if (starbaseActive) {
+      const maxAbsorb = Math.round(attDmg * 0.40);
+      if (currentStarbaseShield > 0) {
+        const shieldDmg = Math.min(currentStarbaseShield, maxAbsorb);
+        currentStarbaseShield -= shieldDmg;
+        absorbedByStarbase += shieldDmg;
+      }
+      const remainingAbsorb = maxAbsorb - absorbedByStarbase;
+      if (remainingAbsorb > 0 && currentStarbaseHull > 0) {
+        const hullDmg = Math.min(currentStarbaseHull, remainingAbsorb);
+        currentStarbaseHull -= hullDmg;
+        absorbedByStarbase += hullDmg;
+      }
+    }
+    const damageToDefenderGarrison = Math.max(0, attDmg - absorbedByStarbase);
+
     // Apply losses to defender (ships and orbital defenses)
     let defLosses: { losses: Record<ShipType, number> };
     let defDefenseLosses: Record<DefenseStructureType, number> | undefined;
 
     if (hasInitialDefenses) {
-      const defRes = applyDamageToDefender(currentDefender, currentDefenses, attDmg, prng, isMilitaryBastion);
+      const defRes = applyDamageToDefender(currentDefender, currentDefenses, damageToDefenderGarrison, prng, isMilitaryBastion);
       defLosses = { losses: defRes.shipLosses };
       defDefenseLosses = defRes.defenseLosses;
     } else {
-      defLosses = applyDamageToFleet(currentDefender, attDmg, prng);
+      defLosses = applyDamageToFleet(currentDefender, damageToDefenderGarrison, prng);
     }
 
     // Apply losses to attacker
@@ -256,15 +300,16 @@ export function resolveCombat(
   const survivingAttackerCount = Object.values(currentAttacker).reduce((a, b) => a + b, 0);
   const survivingDefenderCount = Object.values(currentDefender).reduce((a, b) => a + b, 0);
   const survivingDefensesCount = Object.values(currentDefenses).reduce((a, b) => a + b, 0);
+  const starbaseSurvived = currentStarbaseHull > 0;
 
   let winner: 'attacker' | 'defender' | 'draw' = 'draw';
-  if (survivingAttackerCount > 0 && survivingDefenderCount === 0 && survivingDefensesCount === 0) {
+  if (survivingAttackerCount > 0 && survivingDefenderCount === 0 && survivingDefensesCount === 0 && !starbaseSurvived) {
     winner = 'attacker';
-  } else if ((survivingDefenderCount > 0 || survivingDefensesCount > 0) && survivingAttackerCount === 0) {
+  } else if ((survivingDefenderCount > 0 || survivingDefensesCount > 0 || starbaseSurvived) && survivingAttackerCount === 0) {
     winner = 'defender';
-  } else if (survivingAttackerCount > (survivingDefenderCount + survivingDefensesCount)) {
+  } else if (survivingAttackerCount > (survivingDefenderCount + survivingDefensesCount + (starbaseSurvived ? 1 : 0))) {
     winner = 'attacker';
-  } else if ((survivingDefenderCount + survivingDefensesCount) > survivingAttackerCount) {
+  } else if ((survivingDefenderCount + survivingDefensesCount + (starbaseSurvived ? 1 : 0)) > survivingAttackerCount) {
     winner = 'defender';
   }
 
@@ -294,6 +339,15 @@ export function resolveCombat(
         debrisFieldCreated.ore += Math.round(lostDef * stats.cost.ore * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
         debrisFieldCreated.crystal += Math.round(lostDef * stats.cost.crystal * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
       }
+    }
+  }
+
+  // Calculate destroyed starbase resources for debris field
+  if (initialStarbaseData && currentStarbaseHull <= 0) {
+    const tierStats = STARBASE_TIER_CONFIG[initialStarbaseData.tier];
+    if (tierStats) {
+      debrisFieldCreated.ore += Math.round(tierStats.cost.ore * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
+      debrisFieldCreated.crystal += Math.round(tierStats.cost.crystal * GAME_CONSTANTS.COMBAT_DEBRIS_RECOVERY_RATIO);
     }
   }
 
@@ -329,6 +383,15 @@ export function resolveCombat(
     }
   }
 
+  const survivingStarbaseData = initialStarbaseData
+    ? {
+        tier: initialStarbaseData.tier,
+        hull: Math.max(0, currentStarbaseHull),
+        shield: Math.max(0, currentStarbaseShield),
+        destroyed: currentStarbaseHull <= 0,
+      }
+    : undefined;
+
   const report: BattleReport = {
     id: `battle_${timestamp}_${prng.nextInt(1000, 9999)}`,
     timestamp,
@@ -346,6 +409,8 @@ export function resolveCombat(
     survivingDefender: currentDefender,
     initialDefenses: hasInitialDefenses ? initialDefenses : undefined,
     survivingDefenses: hasInitialDefenses ? currentDefenses : undefined,
+    initialStarbase: initialStarbaseData,
+    survivingStarbase: survivingStarbaseData,
     winner,
     lootedResources,
     debrisFieldCreated,
@@ -376,6 +441,7 @@ export function resolveCombat(
     remainingAttacker: currentAttacker,
     remainingDefender: currentDefender,
     remainingDefenses: hasInitialDefenses ? currentDefenses : undefined,
+    remainingStarbase: survivingStarbaseData,
     lootedResources,
     debrisFieldCreated,
     attackerAdmiralXP,

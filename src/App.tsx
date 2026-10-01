@@ -20,6 +20,7 @@ import {
   ResourceType,
   Resources,
   ShipType,
+  StarbaseModuleType,
   TransmissionType,
 } from './engine/types';
 import { evaluatePlayerDirectives } from './engine/directives';
@@ -28,6 +29,7 @@ import { AnomalyEventModal } from './ui/components/AnomalyEventModal';
 import { ArtGalleryModal } from './ui/components/ArtGalleryModal';
 import { CombatReplayModal } from './ui/components/CombatReplayModal';
 import { CommandPanel } from './ui/components/CommandPanel';
+import { StarbaseModal } from './ui/components/StarbaseModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -124,6 +126,7 @@ export function App() {
 
   // Auxiliary inspection / anomaly dialogs & orientation
   const [inspectedSystemId, setInspectedSystemId] = useState<string | null>(null);
+  const [activeStarbaseSystemId, setActiveStarbaseSystemId] = useState<string | null>(null);
   const [anomalyModalSystemId, setAnomalyModalSystemId] = useState<string | null>(null);
   const [espionageTargetPlanetId, setEspionageTargetPlanetId] = useState<string | null>(null);
   const [allianceInitialTab, setAllianceInitialTab] = useState<AllianceTab>('members');
@@ -626,6 +629,53 @@ export function App() {
     });
     if (res.success) {
       sound.playVictoryFanfare();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleUpgradeStarbase = (systemId: string, planetId: string) => {
+    if (!engineRef.current) return;
+    const sb = engineRef.current.state.starbases?.[systemId];
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: sb ? 'UPGRADE_STARBASE' : 'BUILD_STARBASE',
+      systemId,
+      planetId,
+    });
+    if (res.success) {
+      sound.playConstruction();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleInstallStarbaseModule = (systemId: string, planetId: string, moduleType: StarbaseModuleType) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'INSTALL_STARBASE_MODULE',
+      systemId,
+      planetId,
+      moduleType,
+    });
+    if (res.success) {
+      sound.playConstruction();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismantleStarbaseModule = (systemId: string, moduleIndex: number) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMANTLE_STARBASE_MODULE',
+      systemId,
+      moduleIndex,
+    });
+    if (res.success) {
+      sound.playClick();
     } else {
       sound.playError();
     }
@@ -1236,6 +1286,7 @@ export function App() {
             onFocusRelay={handleFocusRelay}
             onCycleColonies={handleCycleColonies}
             onOpenBattles={() => setActiveLeftPanel('battles')}
+            onOpenStarbase={(sysId) => setActiveStarbaseSystemId(sysId)}
           />
 
           {/* Stellaris Fleet Inspector Bottom Card HUD */}
@@ -1329,6 +1380,7 @@ export function App() {
           }}
           currentTimeMs={engineState.timeMs}
           onContextMenuTarget={handleContextMenuTarget}
+          onOpenStarbase={(sysId) => setActiveStarbaseSystemId(sysId)}
         />
       </div>
 
@@ -1341,6 +1393,19 @@ export function App() {
         onClose={() => setInspectedSystemId(null)}
         onSelectSlot={handleSelectSlot}
         onOpenAnomaly={(sys) => setAnomalyModalSystemId(sys.id)}
+        onOpenStarbase={(sysId) => setActiveStarbaseSystemId(sysId)}
+      />
+
+      {/* Orbital Starbase Command Modal */}
+      <StarbaseModal
+        isOpen={!!activeStarbaseSystemId}
+        systemId={activeStarbaseSystemId}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        onClose={() => setActiveStarbaseSystemId(null)}
+        onUpgradeStarbase={handleUpgradeStarbase}
+        onInstallModule={handleInstallStarbaseModule}
+        onDismantleModule={handleDismantleStarbaseModule}
       />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}

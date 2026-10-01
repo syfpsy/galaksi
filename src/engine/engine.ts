@@ -43,10 +43,20 @@ import {
   SectorEvent,
   SectorEventType,
   ShipType,
+  Starbase,
+  StarbaseModuleType,
+  StarbaseTier,
   TransmissionType,
   VictoryRecord,
   VictoryType,
 } from './types';
+import {
+  createStarbase,
+  getNextStarbaseTier,
+  STARBASE_MODULE_CONFIG,
+  STARBASE_TIER_CONFIG,
+  getStarbaseEffectiveStats,
+} from './starbases';
 import { createHomeworldPlanet, generateSectorMap } from './universe';
 import { evaluatePlayerDirectives } from './directives';
 import {
@@ -75,6 +85,7 @@ export class GameEngine {
       planets: {},
       fleets: {},
       admirals: {},
+      starbases: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},
@@ -176,6 +187,14 @@ export class GameEngine {
 
     // Player discovers their own system immediately
     player.intel.discoveredSystems[targetSys.id] = 'full';
+
+    // Initialize starter starbase in homeworld system
+    if (!this.state.starbases) {
+      this.state.starbases = {};
+    }
+    if (!this.state.starbases[targetSys.id]) {
+      this.state.starbases[targetSys.id] = createStarbase(targetSys.id, id, 'outpost', this.state.timeMs);
+    }
 
     // Initialize starter admirals
     if (!this.state.admirals) {
@@ -279,6 +298,18 @@ export class GameEngine {
         oreProd *= 1.20;
         crystalProd *= 1.20;
         fuelProd *= 1.20;
+      }
+
+      // Starbase Trade Hub bonus: +15% per trade_hub module in system
+      const sysStarbase = this.state.starbases?.[planet.systemId];
+      if (sysStarbase && sysStarbase.ownerId === planet.ownerId) {
+        const tradeHubs = sysStarbase.modules.filter((m) => m === 'trade_hub').length;
+        if (tradeHubs > 0) {
+          const tradeMultiplier = 1 + tradeHubs * 0.15;
+          oreProd *= tradeMultiplier;
+          crystalProd *= tradeMultiplier;
+          fuelProd *= tradeMultiplier;
+        }
       }
 
       planet.resources.ore = Math.min(
@@ -511,6 +542,48 @@ export class GameEngine {
             applySectorCrisisEnd(this.state, evt);
             this.logEvent('sector_event_expired', `Sektör Olayı Sona Erdi: ${evt.title}`);
           }
+        }
+        break;
+      }
+
+      case 'starbase_upgraded': {
+        const { systemId, targetTier } = event.payload as { systemId: string; targetTier: StarbaseTier };
+        const sb = this.state.starbases?.[systemId];
+        if (sb && sb.upgradeQueue) {
+          sb.tier = targetTier;
+          const cfg = STARBASE_TIER_CONFIG[targetTier];
+          sb.maxHull = cfg.baseHull;
+          sb.hull = cfg.baseHull;
+          sb.maxShield = cfg.baseShield;
+          sb.shield = cfg.baseShield;
+          sb.upgradeQueue = null;
+
+          const sysName = this.state.map.systems[systemId]?.name || systemId;
+          this.logEvent(
+            'starbase_upgraded',
+            `${sysName} sistemindeki üs '${cfg.nameTr}' seviyesine yükseltildi.`,
+            sb.ownerId,
+            { systemId, tier: targetTier }
+          );
+        }
+        break;
+      }
+
+      case 'starbase_module_completed': {
+        const { systemId, moduleType } = event.payload as { systemId: string; moduleType: StarbaseModuleType };
+        const sb = this.state.starbases?.[systemId];
+        if (sb && sb.moduleQueue) {
+          sb.modules.push(moduleType);
+          sb.moduleQueue = null;
+
+          const modCfg = STARBASE_MODULE_CONFIG[moduleType];
+          const sysName = this.state.map.systems[systemId]?.name || systemId;
+          this.logEvent(
+            'starbase_module_installed',
+            `${sysName} üssüne '${modCfg.nameTr}' modülü monte edildi.`,
+            sb.ownerId,
+            { systemId, moduleType }
+          );
         }
         break;
       }
@@ -839,6 +912,7 @@ export class GameEngine {
               defenses: targetPlanet.defenses,
               planetSpecialization: targetPlanet.specialization,
               artifacts: defenderPlayer?.artifacts,
+              starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetPlanet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
             },
             targetSystem.id,
             targetSystem.name,
@@ -852,10 +926,29 @@ export class GameEngine {
           this.state.battleReports.push(combatResult.report);
           this.handlePostCombatAdmiralXP(combatResult);
 
-          // Update defender garrison, defenses, and deducted looted resources
+          // Update defender garrison, defenses, starbase, and deducted looted resources
           targetPlanet.garrison = combatResult.remainingDefender;
           if (combatResult.remainingDefenses) {
             targetPlanet.defenses = combatResult.remainingDefenses;
+          }
+          if (combatResult.remainingStarbase) {
+            const targetSb = this.state.starbases?.[targetSystem.id];
+            if (targetSb && targetSb.ownerId === targetPlanet.ownerId) {
+              if (combatResult.remainingStarbase.destroyed) {
+                if (this.state.starbases) {
+                  delete this.state.starbases[targetSystem.id];
+                }
+                this.logEvent(
+                  'starbase_destroyed',
+                  `${targetSystem.name} sistemindeki ${targetPlanet.ownerId === fleet.ownerId ? 'savunma üssünüz' : 'savunma üssü'} imha edildi!`,
+                  targetPlanet.ownerId,
+                  { systemId: targetSystem.id }
+                );
+              } else {
+                targetSb.hull = combatResult.remainingStarbase.hull;
+                targetSb.shield = combatResult.remainingStarbase.shield;
+              }
+            }
           }
           targetPlanet.resources.ore = Math.max(0, targetPlanet.resources.ore - combatResult.lootedResources.ore);
           targetPlanet.resources.crystal = Math.max(0, targetPlanet.resources.crystal - combatResult.lootedResources.crystal);
@@ -1123,6 +1216,7 @@ export class GameEngine {
             admiral: targetFleet.admiralId && this.state.admirals ? this.state.admirals[targetFleet.admiralId] : undefined,
             doctrine: targetFleet.doctrine || 'balanced',
             artifacts: defenderPlayer?.artifacts,
+            starbase: this.state.starbases?.[targetSystem.id]?.ownerId === targetFleet.ownerId ? this.state.starbases[targetSystem.id] : undefined,
           },
           targetSystem.id,
           targetSystem.name,
@@ -1689,6 +1783,14 @@ export class GameEngine {
         let unitBuildTimeMs = getShipBuildDurationMs(cmd.shipType, planet.buildings.shipyard);
         if (isBastion) {
           unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs * 0.85)); // -15% ship build duration
+        }
+        // Starbase Shipyard Bay bonus: -25% build duration per shipyard bay in system
+        const sysStarbase = this.state.starbases?.[planet.systemId];
+        if (sysStarbase && sysStarbase.ownerId === planet.ownerId) {
+          const shipyardBays = sysStarbase.modules.filter((m) => m === 'shipyard_bay').length;
+          if (shipyardBays > 0) {
+            unitBuildTimeMs = Math.max(1000, Math.round(unitBuildTimeMs / (1 + shipyardBays * 0.25)));
+          }
         }
         const nextFinish = (planet.shipyardQueue.length === 0)
           ? this.state.timeMs + unitBuildTimeMs
@@ -3139,6 +3241,146 @@ export class GameEngine {
           },
         };
       }
+
+      case 'BUILD_STARBASE': {
+        const targetSys = this.state.map.systems[cmd.systemId];
+        if (!targetSys) {
+          return { success: false, commandType: cmd.type, error: 'Sistem bulunamadı.', timeMs: this.state.timeMs };
+        }
+        if (this.state.starbases?.[cmd.systemId]) {
+          return { success: false, commandType: cmd.type, error: 'Bu sistemde zaten bir yıldız üssü mevcut.', timeMs: this.state.timeMs };
+        }
+        const fundingPlanet = this.state.planets[cmd.planetId];
+        if (!fundingPlanet || fundingPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'İnşaat finansmanı için geçerli bir koloniniz seçilmelidir.', timeMs: this.state.timeMs };
+        }
+        const cost = STARBASE_TIER_CONFIG.outpost.cost;
+        if (fundingPlanet.resources.ore < cost.ore || fundingPlanet.resources.crystal < cost.crystal || fundingPlanet.resources.fuel < cost.fuel) {
+          return { success: false, commandType: cmd.type, error: 'Yetersiz kaynak (Gereken: 400 Cevher, 200 Kristal, 50 Yakıt).', timeMs: this.state.timeMs };
+        }
+
+        fundingPlanet.resources.ore -= cost.ore;
+        fundingPlanet.resources.crystal -= cost.crystal;
+        fundingPlanet.resources.fuel -= cost.fuel;
+
+        if (!this.state.starbases) this.state.starbases = {};
+        const newSb = createStarbase(cmd.systemId, playerId, 'outpost', this.state.timeMs);
+        this.state.starbases[cmd.systemId] = newSb;
+
+        this.logEvent(
+          'starbase_built',
+          `${targetSys.name} sisteminde yeni bir Yörünge Karakolu kuruldu.`,
+          playerId,
+          { systemId: cmd.systemId }
+        );
+
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { starbaseId: newSb.id } };
+      }
+
+      case 'UPGRADE_STARBASE': {
+        const sb = this.state.starbases?.[cmd.systemId];
+        if (!sb || sb.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Yıldız üssü bulunamadı veya size ait değil.', timeMs: this.state.timeMs };
+        }
+        if (sb.upgradeQueue) {
+          return { success: false, commandType: cmd.type, error: 'Üs zaten bir yükseltme sürecinde.', timeMs: this.state.timeMs };
+        }
+        const nextTier = getNextStarbaseTier(sb.tier);
+        if (!nextTier) {
+          return { success: false, commandType: cmd.type, error: 'Üs zaten maksimum seviyede (Galaktik Hisar).', timeMs: this.state.timeMs };
+        }
+        const fundingPlanet = this.state.planets[cmd.planetId];
+        if (!fundingPlanet || fundingPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'İnşaat finansmanı için geçerli bir koloniniz seçilmelidir.', timeMs: this.state.timeMs };
+        }
+        const cfg = STARBASE_TIER_CONFIG[nextTier];
+        if (fundingPlanet.resources.ore < cfg.cost.ore || fundingPlanet.resources.crystal < cfg.cost.crystal || fundingPlanet.resources.fuel < cfg.cost.fuel) {
+          return { success: false, commandType: cmd.type, error: `Yetersiz kaynak (${cfg.cost.ore} Cevher, ${cfg.cost.crystal} Kristal, ${cfg.cost.fuel} Yakıt gerekli).`, timeMs: this.state.timeMs };
+        }
+
+        fundingPlanet.resources.ore -= cfg.cost.ore;
+        fundingPlanet.resources.crystal -= cfg.cost.crystal;
+        fundingPlanet.resources.fuel -= cfg.cost.fuel;
+
+        const durationMs = cfg.buildTimeMs;
+        sb.upgradeQueue = {
+          targetTier: nextTier,
+          startTime: this.state.timeMs,
+          finishTime: this.state.timeMs + durationMs,
+        };
+        this.scheduleEvent(durationMs, 'starbase_upgraded', { systemId: cmd.systemId, targetTier: nextTier });
+
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { nextTier, finishTime: sb.upgradeQueue.finishTime } };
+      }
+
+      case 'INSTALL_STARBASE_MODULE': {
+        const sb = this.state.starbases?.[cmd.systemId];
+        if (!sb || sb.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Yıldız üssü bulunamadı veya size ait değil.', timeMs: this.state.timeMs };
+        }
+        const maxMods = STARBASE_TIER_CONFIG[sb.tier].maxModules;
+        if (sb.modules.length >= maxMods) {
+          return { success: false, commandType: cmd.type, error: `Modül kapasitesi dolu (Maks: ${maxMods}). Üssü yükseltin.`, timeMs: this.state.timeMs };
+        }
+        if (sb.moduleQueue) {
+          return { success: false, commandType: cmd.type, error: 'Üs zaten bir modül montaj sürecinde.', timeMs: this.state.timeMs };
+        }
+        const modCfg = STARBASE_MODULE_CONFIG[cmd.moduleType];
+        if (!modCfg) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz modül türü.', timeMs: this.state.timeMs };
+        }
+        const fundingPlanet = this.state.planets[cmd.planetId];
+        if (!fundingPlanet || fundingPlanet.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Montaj finansmanı için geçerli bir koloniniz seçilmelidir.', timeMs: this.state.timeMs };
+        }
+        if (fundingPlanet.resources.ore < modCfg.cost.ore || fundingPlanet.resources.crystal < modCfg.cost.crystal || fundingPlanet.resources.fuel < modCfg.cost.fuel) {
+          return { success: false, commandType: cmd.type, error: `Yetersiz kaynak (${modCfg.cost.ore} Cevher, ${modCfg.cost.crystal} Kristal, ${modCfg.cost.fuel} Yakıt gerekli).`, timeMs: this.state.timeMs };
+        }
+
+        fundingPlanet.resources.ore -= modCfg.cost.ore;
+        fundingPlanet.resources.crystal -= modCfg.cost.crystal;
+        fundingPlanet.resources.fuel -= modCfg.cost.fuel;
+
+        const durationMs = modCfg.buildTimeMs;
+        sb.moduleQueue = {
+          moduleType: cmd.moduleType,
+          startTime: this.state.timeMs,
+          finishTime: this.state.timeMs + durationMs,
+        };
+        this.scheduleEvent(durationMs, 'starbase_module_completed', { systemId: cmd.systemId, moduleType: cmd.moduleType });
+
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs, data: { moduleType: cmd.moduleType } };
+      }
+
+      case 'DISMANTLE_STARBASE_MODULE': {
+        const sb = this.state.starbases?.[cmd.systemId];
+        if (!sb || sb.ownerId !== playerId) {
+          return { success: false, commandType: cmd.type, error: 'Yıldız üssü bulunamadı veya size ait değil.', timeMs: this.state.timeMs };
+        }
+        if (cmd.moduleIndex < 0 || cmd.moduleIndex >= sb.modules.length) {
+          return { success: false, commandType: cmd.type, error: 'Geçersiz modül indeksi.', timeMs: this.state.timeMs };
+        }
+        const removed = sb.modules.splice(cmd.moduleIndex, 1)[0];
+        const modCfg = STARBASE_MODULE_CONFIG[removed];
+        const refundOre = Math.floor((modCfg?.cost.ore || 0) * 0.5);
+        const refundCrystal = Math.floor((modCfg?.cost.crystal || 0) * 0.5);
+
+        // refund to homeworld or first planet
+        const refundPlanet = Object.values(this.state.planets).find(p => p.ownerId === playerId && p.isHomeworld) ||
+                             Object.values(this.state.planets).find(p => p.ownerId === playerId);
+        if (refundPlanet) {
+          refundPlanet.resources.ore = Math.min(refundPlanet.storageCap, refundPlanet.resources.ore + refundOre);
+          refundPlanet.resources.crystal = Math.min(refundPlanet.storageCap, refundPlanet.resources.crystal + refundCrystal);
+        }
+
+        this.logEvent(
+          'starbase_module_dismantled',
+          `${this.state.map.systems[cmd.systemId]?.name || cmd.systemId} üssünden '${modCfg?.nameTr || removed}' söküldü (+%50 kaynak iadesi).`,
+          playerId
+        );
+
+        return { success: true, commandType: cmd.type, timeMs: this.state.timeMs };
+      }
     }
   }
 
@@ -3339,6 +3581,7 @@ export class GameEngine {
       planets: {},
       fleets: {},
       admirals: {},
+      starbases: {},
       sectorEvents: {},
       transmissions: {},
       truces: {},

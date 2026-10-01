@@ -73,6 +73,7 @@ export interface GalaxyScene25DProps {
   onContextMenuTarget?: (target: { type: 'system' | 'planet' | 'fleet'; systemId: string; planetId?: string; fleetId?: string }) => void;
   mapMode?: MapMode;
   onOpenBattles?: () => void;
+  onOpenStarbase?: (systemId: string) => void;
 }
 
 interface ScreenLabel {
@@ -101,6 +102,8 @@ interface ScreenLabel {
   hasHostileThreat?: boolean;
   isRelay?: boolean;
   isHomeworld?: boolean;
+  hasStarbase?: boolean;
+  starbaseTier?: string;
   transitProgress?: number;
   activeCrisis?: {
     type: SectorEventType;
@@ -129,6 +132,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onContextMenuTarget,
   mapMode = 'default',
   onOpenBattles,
+  onOpenStarbase,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hudLabels, setHudLabels] = useState<ScreenLabel[]>([]);
@@ -138,6 +142,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   onContextMenuTargetRef.current = onContextMenuTarget;
   const onOpenBattlesRef = useRef(onOpenBattles);
   onOpenBattlesRef.current = onOpenBattles;
+  const onOpenStarbaseRef = useRef(onOpenStarbase);
+  onOpenStarbaseRef.current = onOpenStarbase;
 
   const mapModeRef = useRef<MapMode>(mapMode);
   mapModeRef.current = mapMode;
@@ -363,7 +369,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     boundaryGroup.add(createSectorRing(410, 0x64748b, 0.12));
 
     // 2.3 Macro Star Systems & Coronas
-    const starMeshes = new Map<string, { group: THREE.Group; mesh: THREE.Mesh; light: THREE.PointLight; corona: THREE.Sprite; hazardRing: THREE.Line }>();
+    const starMeshes = new Map<string, { group: THREE.Group; mesh: THREE.Mesh; light: THREE.PointLight; corona: THREE.Sprite; hazardRing: THREE.Line; starbaseRing: THREE.Line }>();
     const systemPositions = new Map<string, THREE.Vector3>();
 
     Object.values(stateRef.current.map.systems).forEach((sys, idx) => {
@@ -459,6 +465,33 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       hazardRing.raycast = () => {};
       group.add(hazardRing);
 
+      // Starbase Defense Ring Glyph (Octagonal fortress ring)
+      const sbPts: THREE.Vector3[] = [];
+      const sbSegments = 8;
+      const sbRadius = starRadius * 2.3;
+      for (let r = 0; r <= sbSegments; r++) {
+        const theta = (r / sbSegments) * Math.PI * 2;
+        sbPts.push(
+          new THREE.Vector3(
+            Math.cos(theta) * sbRadius,
+            Math.sin(theta) * sbRadius * 0.85,
+            2
+          )
+        );
+      }
+      const sbGeo = new THREE.BufferGeometry().setFromPoints(sbPts);
+      const sbMat = new THREE.LineBasicMaterial({
+        color: 0x00f3ff,
+        linewidth: 1.5,
+        transparent: true,
+        opacity: 0,
+        depthWrite: false,
+      });
+      const starbaseRing = new THREE.Line(sbGeo, sbMat);
+      starbaseRing.raycast = () => {};
+      starbaseRing.visible = false;
+      group.add(starbaseRing);
+
       // Determine controlling faction for Stellaris territory influence
       let controllingOwnerId: string | null = null;
       if (sys.hasRelay && stateRef.current.relay.controllingPlayerId) {
@@ -490,7 +523,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }
 
       galaxyMacroGroup.add(group);
-      starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight, corona: coronaSprite, hazardRing });
+      starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight, corona: coronaSprite, hazardRing, starbaseRing });
     });
 
     // 2.4 Macro Subspace Hyperlanes
@@ -716,6 +749,14 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }[];
       systemFleetsGroup: THREE.Group;
       systemFleetVisuals: Map<string, FleetVisual>;
+      starbaseVisual?: {
+        group: THREE.Group;
+        core: THREE.Mesh;
+        rings: THREE.Mesh[];
+        shieldBubble?: THREE.Mesh;
+        radius: number;
+        speed: number;
+      };
     }
     let currentOrrery: PlanetVisualObjects | null = null;
 
@@ -1035,6 +1076,100 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         });
       });
 
+      // 3.4 Orbital Starbase / Galactic Citadel (if present in system)
+      let starbaseVisual: PlanetVisualObjects['starbaseVisual'] | undefined;
+      const sb = stateRef.current.starbases?.[system.id];
+      if (sb) {
+        const sbGroup = new THREE.Group();
+        sbGroup.position.set(500, 400, 6);
+        (sbGroup as any).userData = { type: 'starbase', systemId: system.id };
+
+        const isOwn = sb.ownerId === activePlayerIdRef.current;
+        const ownerObj = stateRef.current.players[sb.ownerId];
+        const baseColor = ownerObj?.color ? new THREE.Color(ownerObj.color) : new THREE.Color(isOwn ? 0x00f3ff : 0xf43f5e);
+
+        // Core structure
+        const coreGeo = sb.tier === 'citadel'
+          ? new THREE.DodecahedronGeometry(7.5)
+          : sb.tier === 'starbase'
+          ? new THREE.OctahedronGeometry(6)
+          : new THREE.CylinderGeometry(2, 4, 7, 6);
+        const coreMat = new THREE.MeshStandardMaterial({
+          color: baseColor,
+          metalness: 0.85,
+          roughness: 0.25,
+          emissive: baseColor,
+          emissiveIntensity: 0.35,
+        });
+        const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+        (coreMesh as any).userData = { type: 'starbase', systemId: system.id };
+        sbGroup.add(coreMesh);
+
+        // Rotating Rings (for starbase and citadel)
+        const rings: THREE.Mesh[] = [];
+        if (sb.tier === 'starbase' || sb.tier === 'citadel') {
+          const ringGeo = new THREE.TorusGeometry(sb.tier === 'citadel' ? 12 : 9, 0.6, 8, 32);
+          const ringMat = new THREE.MeshStandardMaterial({
+            color: 0x38bdf8,
+            metalness: 0.9,
+            roughness: 0.1,
+          });
+          const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+          ringMesh.rotation.x = Math.PI / 3;
+          (ringMesh as any).userData = { type: 'starbase', systemId: system.id };
+          sbGroup.add(ringMesh);
+          rings.push(ringMesh);
+
+          if (sb.tier === 'citadel') {
+            const outerRingGeo = new THREE.TorusGeometry(16, 0.8, 8, 36);
+            const outerRingMat = new THREE.MeshStandardMaterial({
+              color: 0x818cf8,
+              metalness: 0.9,
+              roughness: 0.1,
+            });
+            const outerRingMesh = new THREE.Mesh(outerRingGeo, outerRingMat);
+            outerRingMesh.rotation.y = Math.PI / 4;
+            (outerRingMesh as any).userData = { type: 'starbase', systemId: system.id };
+            sbGroup.add(outerRingMesh);
+            rings.push(outerRingMesh);
+          }
+        }
+
+        // Citadel Translucent Shield Bubble
+        let shieldBubble: THREE.Mesh | undefined;
+        if (sb.tier === 'citadel') {
+          const shieldGeo = new THREE.SphereGeometry(21, 24, 24);
+          const shieldMat = new THREE.MeshBasicMaterial({
+            color: 0x00f3ff,
+            transparent: true,
+            opacity: 0.25,
+            wireframe: true,
+          });
+          shieldBubble = new THREE.Mesh(shieldGeo, shieldMat);
+          shieldBubble.raycast = () => {};
+          sbGroup.add(shieldBubble);
+        }
+
+        // Antenna or Sensor Pylon
+        const antennaGeo = new THREE.CylinderGeometry(0.3, 0.3, 14, 4);
+        const antennaMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
+        const antennaMesh = new THREE.Mesh(antennaGeo, antennaMat);
+        antennaMesh.position.y = 5;
+        antennaMesh.raycast = () => {};
+        sbGroup.add(antennaMesh);
+
+        systemOrreryGroup.add(sbGroup);
+
+        starbaseVisual = {
+          group: sbGroup,
+          core: coreMesh,
+          rings,
+          shieldBubble,
+          radius: 48,
+          speed: 0.0006,
+        };
+      }
+
       const systemFleetsGroup = new THREE.Group();
       systemOrreryGroup.add(systemFleetsGroup);
       const systemFleetVisuals = new Map<string, FleetVisual>();
@@ -1046,6 +1181,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         warpBuoys,
         systemFleetsGroup,
         systemFleetVisuals,
+        starbaseVisual,
       };
     };
 
@@ -1283,6 +1419,15 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             onSelectSystem(udata.systemId);
             return;
           }
+          if (udata.type === 'starbase') {
+            sound.playClick();
+            if (onOpenStarbaseRef.current) {
+              onOpenStarbaseRef.current(udata.systemId);
+            } else {
+              onSelectSystem(udata.systemId);
+            }
+            return;
+          }
           if (udata.type === 'fleet') {
             sound.playClick();
             onSelectFleet(udata.fleetId);
@@ -1333,6 +1478,15 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             onSelectSystem(udata.systemId);
             return;
           }
+          if (udata.type === 'starbase') {
+            sound.playWarp();
+            if (onOpenStarbaseRef.current) {
+              onOpenStarbaseRef.current(udata.systemId);
+            } else {
+              onSelectSystem(udata.systemId);
+            }
+            return;
+          }
           if (udata.type === 'system') {
             sound.playWarp();
             if (onEnterSystemView) {
@@ -1375,6 +1529,13 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       for (const hit of intersects) {
         const udata = (hit.object as any).userData;
         if (udata) {
+          if (udata.type === 'starbase') {
+            sound.playClick();
+            if (onOpenStarbaseRef.current) {
+              onOpenStarbaseRef.current(udata.systemId);
+            }
+            return;
+          }
           if (udata.type === 'fleet' && udata.fleetId) {
             const fl = stateRef.current.fleets[udata.fleetId];
             sound.playClick();
@@ -1471,10 +1632,27 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
       // 6.4 If in Galaxy Macro Mode: Update macro star lights, pulses, and fleets
       if (!isSystemMode) {
-        starMeshes.forEach(({ group, light, corona, hazardRing }, sysId) => {
+        starMeshes.forEach(({ group, light, corona, hazardRing, starbaseRing }, sysId) => {
           const isVisible = isGodMode || currentCoverage.has(sysId);
           light.intensity = isVisible ? 2.5 : 0.6;
           corona.material.opacity = isVisible ? 0.88 : 0.3;
+
+          // Starbase Defense Ring Glyph update
+          const sysSb = stateRef.current.starbases?.[sysId];
+          if (starbaseRing) {
+            if (sysSb && isVisible) {
+              const isOwn = sysSb.ownerId === activePlayerIdRef.current;
+              const ownerObj = stateRef.current.players[sysSb.ownerId];
+              const sbColor = ownerObj?.color ? parseInt(ownerObj.color.replace('#', '0x'), 16) : (isOwn ? 0x00f3ff : 0xf43f5e);
+              starbaseRing.visible = true;
+              (starbaseRing.material as THREE.LineBasicMaterial).color.setHex(sbColor);
+              const p = (Math.sin(stateRef.current.timeMs * 0.003) + 1) * 0.5;
+              (starbaseRing.material as THREE.LineBasicMaterial).opacity = 0.5 + p * 0.4;
+              starbaseRing.rotation.z += delta * 0.25;
+            } else {
+              starbaseRing.visible = false;
+            }
+          }
 
           // Recent Battle or Crisis Hazard Ring pulsing & rotation
           const isRecentBattle = (stateRef.current.battleReports || []).some(
@@ -1828,6 +2006,23 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 }
               });
             });
+
+            // 6.5.1 Starbase Orbital Movement & Ring Spin
+            if (currentOrrery.starbaseVisual) {
+              const sbVis = currentOrrery.starbaseVisual;
+              const sbAngle = currentTimeMs * sbVis.speed;
+              const sbX = 500 + Math.cos(sbAngle) * sbVis.radius;
+              const sbY = 400 + Math.sin(sbAngle) * sbVis.radius * 0.85;
+              const sbZ = 6;
+              sbVis.group.position.set(sbX, sbY, sbZ);
+              sbVis.core.rotation.y += delta * 0.8;
+              sbVis.rings.forEach((ring, rIdx) => {
+                ring.rotation.z += delta * (rIdx % 2 === 0 ? 1.2 : -1.2);
+              });
+              if (sbVis.shieldBubble) {
+                sbVis.shieldBubble.rotation.y += delta * 0.3;
+              }
+            }
 
             // 6.5.2 In-System Active & Moving Fleets Update (3D System View)
             if (currentOrrery.systemFleetsGroup) {
@@ -2191,6 +2386,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                 hasHostileThreat,
                 isRelay,
                 isHomeworld,
+                hasStarbase: !!stateRef.current.starbases?.[sys.id],
+                starbaseTier: stateRef.current.starbases?.[sys.id]?.tier,
                 isRecentBattle: battleSystemIds.has(sys.id),
                 activeCrisis,
               });
@@ -2540,6 +2737,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                           ⚔️ MUHAREBE
                         </span>
                       )}
+                      {lbl.hasStarbase && (
+                        <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-cyan-950/90 border border-cyan-500/80 text-cyan-300 shadow-sm" title={`Yıldız Üssü: ${lbl.starbaseTier?.toUpperCase()}`}>
+                          🛡️ {lbl.starbaseTier === 'citadel' ? 'HİSAR' : lbl.starbaseTier === 'starbase' ? 'ÜS' : 'KRK'}
+                        </span>
+                      )}
                       {lbl.isRelay && (
                         <span className="text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-purple-950/80 border border-purple-600/70 text-purple-300 shadow-sm">
                           ⚡ RÖLE
@@ -2617,6 +2819,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                               🪐 {lbl.openSlotsCount}
                             </span>
                           ) : null}
+                          {lbl.hasStarbase && (
+                            <span className="text-[9px] font-mono font-bold px-1 rounded-sm bg-cyan-950/80 border border-cyan-500/60 text-cyan-300 shadow-sm" title={`Yıldız Üssü: ${lbl.starbaseTier?.toUpperCase()}`}>
+                              🛡️ {lbl.starbaseTier === 'citadel' ? 'HİSAR' : lbl.starbaseTier === 'starbase' ? 'ÜS' : 'KRK'}
+                            </span>
+                          )}
                         </>
                       )}
                       {lbl.hasPoi && (

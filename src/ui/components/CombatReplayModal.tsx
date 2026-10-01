@@ -733,6 +733,51 @@ const CombatReplayModalComponent: React.FC<CombatReplayModalProps> = ({
                             })}
                           </div>
                         )}
+
+                        {/* Orbital Starbase / Citadel if present */}
+                        {currentReport.initialStarbase && (() => {
+                          const sb = currentReport.initialStarbase;
+                          const survSb = currentReport.survivingStarbase;
+                          const currentHull = survSb ? survSb.hull : sb.hull;
+                          const currentShield = survSb ? survSb.shield : sb.shield;
+                          const totalMax = sb.hull + sb.shield;
+                          const totalCurrent = Math.max(0, currentHull + currentShield);
+                          const sbPercent = Math.min(100, Math.round((totalCurrent / totalMax) * 100));
+
+                          const tierTitles: Record<string, string> = {
+                            outpost: 'Yörünge Karakolu',
+                            starbase: 'Yıldız Üssü',
+                            citadel: 'Galaktik Hisar',
+                          };
+
+                          return (
+                            <div className="pt-2 border-t border-[#18374b] mt-2 space-y-1.5">
+                              <div className="flex items-center justify-between">
+                                <span className="text-[10px] font-bold text-cyan-300 uppercase tracking-wider flex items-center gap-1">
+                                  <span>🛰️</span>
+                                  <span>{tierTitles[sb.tier] || 'Yıldız Üssü'}</span>
+                                </span>
+                                <span className="text-[10px] font-mono text-amber-300 font-bold">
+                                  {sb.attack} Ateş Gücü
+                                </span>
+                              </div>
+                              <div className="flex justify-between text-xs font-mono">
+                                <span className="text-slate-300">
+                                  Gövde & Kalkan: <strong className={totalCurrent > 0 ? 'text-emerald-300' : 'text-rose-400'}>{Math.round(totalCurrent)}</strong> / {totalMax}
+                                </span>
+                                <span className={survSb?.destroyed ? 'text-rose-400 font-bold' : 'text-emerald-400'}>
+                                  {survSb?.destroyed ? 'İMHA EDİLDİ' : 'AKTİF'}
+                                </span>
+                              </div>
+                              <div className="w-full h-1 bg-[#050b12] rounded-none overflow-hidden border border-[#1b3447]">
+                                <div
+                                  className="h-full bg-gradient-to-r from-rose-500 via-amber-400 to-cyan-400 transition-all duration-300"
+                                  style={{ width: `${sbPercent}%` }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </div>
                     </div>
                   </div>

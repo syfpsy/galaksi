@@ -20,6 +20,7 @@ import {
 } from 'lucide-react';
 import { Fleet, GameState, Planet, ShipType } from '../../engine/types';
 import { BUILDING_STATS, SHIP_STATS } from '../../engine/constants';
+import { STARBASE_TIER_CONFIG } from '../../engine/starbases';
 import { SelectedTarget } from '../types';
 import { formatDuration } from '../timeUtils';
 import { sound } from '../sound';
@@ -33,6 +34,7 @@ interface StellarisOutlinerProps {
   onSelectPlanet: (planetId: string) => void;
   onSelectFleet: (fleetId: string) => void;
   onSelectSystem: (systemId: string) => void;
+  onOpenStarbase?: (systemId: string) => void;
   currentTimeMs: number;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
@@ -47,6 +49,7 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
   onSelectPlanet,
   onSelectFleet,
   onSelectSystem,
+  onOpenStarbase,
   currentTimeMs,
   isCollapsed: propIsCollapsed,
   onToggleCollapse,
@@ -58,6 +61,7 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
 
   const [sectionsOpen, setSectionsOpen] = useState({
     threats: true,
+    starbases: true,
     planets: true,
     military: true,
     civilian: true,
@@ -68,6 +72,9 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
     sound.playClick();
     setSectionsOpen((prev) => ({ ...prev, [section]: !prev[section] }));
   };
+
+  // Filter player starbases
+  const myStarbases = Object.values(state.starbases || {}).filter((sb) => sb.ownerId === activePlayerId);
 
   // Filter player colonies
   const myPlanets = Object.values(state.planets).filter((p) => p.ownerId === activePlayerId);
@@ -222,7 +229,88 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
           </div>
         )}
 
-        {/* 2. Colonies & Planets */}
+        {/* 2. Starbases & Orbital Outposts */}
+        <div className="border border-[#2b3e53] bg-[#070c14] rounded-sm overflow-hidden">
+          <button
+            onClick={() => toggleSection('starbases')}
+            className="stellaris-section-header w-full px-3 py-1.5 flex items-center justify-between text-xs uppercase font-bold text-amber-300 tracking-wider hover:text-white transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <Shield className="w-3.5 h-3.5 text-cyan-400" />
+              <span>[YILDIZ ÜSLERİ] ({myStarbases.length})</span>
+            </div>
+            <ChevronDown
+              className={`w-3.5 h-3.5 text-amber-400 transition-transform ${
+                sectionsOpen.starbases ? '' : '-rotate-90'
+              }`}
+            />
+          </button>
+
+          {sectionsOpen.starbases && (
+            <div className="p-1.5 space-y-1">
+              {myStarbases.length === 0 ? (
+                <div className="p-2 text-center text-[11px] font-mono text-slate-500">
+                  Aktif yıldız üssü bulunmuyor
+                </div>
+              ) : (
+                myStarbases.map((sb) => {
+                  const sys = state.map.systems[sb.systemId];
+                  const cfg = STARBASE_TIER_CONFIG[sb.tier];
+                  const isUpgrading = !!sb.upgradeQueue;
+                  const isSelected = selectedTarget?.type === 'system' && selectedTarget.systemId === sb.systemId;
+
+                  return (
+                    <div
+                      key={sb.id}
+                      onClick={() => {
+                        sound.playClick();
+                        onSelectSystem(sb.systemId);
+                        if (onOpenStarbase) onOpenStarbase(sb.systemId);
+                      }}
+                      className={`p-2 rounded-sm cursor-pointer stellaris-item-card transition-all group ${
+                        isSelected ? '!border-cyan-400 !bg-[#0f2134] shadow-sm shadow-cyan-950/50' : ''
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[9px] font-mono px-1 py-0.5 rounded-sm bg-cyan-950/80 border border-cyan-500/50 text-cyan-300 font-bold">
+                            {sb.tier === 'citadel' ? 'HİSAR' : sb.tier === 'starbase' ? 'ÜS' : 'KRK'}
+                          </span>
+                          <span className="font-bold text-white text-xs truncate max-w-[120px]">
+                            {sys?.name || sb.systemId}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10.5px] font-mono text-slate-400">
+                            {sb.modules.length}/{cfg.maxModules} M
+                          </span>
+                          <span className="text-[11px] text-amber-400 font-bold font-mono">
+                            {cfg.baseAttack} PWR
+                          </span>
+                        </div>
+                      </div>
+
+                      {isUpgrading && sb.upgradeQueue && (
+                        <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] font-mono text-amber-300 flex items-center justify-between">
+                          <span className="flex items-center gap-1">
+                            <Wrench className="w-3 h-3 text-amber-400 animate-spin" />
+                            <span>Yükseltiliyor ({STARBASE_TIER_CONFIG[sb.upgradeQueue.targetTier].nameTr})</span>
+                          </span>
+                          <span>
+                            {Math.max(0, Math.round((sb.upgradeQueue.finishTime - currentTimeMs) / 1000))}s
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* 3. Colonies & Planets */}
         <div className="border border-[#2b3e53] bg-[#070c14] rounded-sm overflow-hidden">
           <button
             onClick={() => toggleSection('planets')}

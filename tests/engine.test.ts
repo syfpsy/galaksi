@@ -10,6 +10,7 @@ import { RaiderBot } from '../src/bots/raider';
 import { GuardianBot } from '../src/bots/guardian';
 import { AdmiralBot } from '../src/bots/admiral';
 import { GAME_CONSTANTS, getDefenseBuildDurationMs, getShipBuildDurationMs } from '../src/engine/constants';
+import { STARBASE_MODULE_CONFIG, STARBASE_TIER_CONFIG, getStarbaseEffectiveStats } from '../src/engine/starbases';
 
 describe('GameEngine Headless Rules (Phase A)', () => {
   it('initializes sector map with central relay and systems', () => {
@@ -1748,6 +1749,184 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const guardCmds = guardianAgent.update(engine);
     expect(guardCmds.some(c => c.type === 'SET_PLANET_SPECIALIZATION' && c.specialization === 'military_bastion')).toBe(true);
     expect(guardColony.specialization).toBe('military_bastion');
+  });
+
+  it('manages deep-space starbases & orbital outposts, modular upgrades, vision projection, passive bonuses, and combat participation (Phase 11)', () => {
+    const engine = new GameEngine(888);
+    const { player, homeworld } = engine.addPlayer('p_sb', 'Komutan Shepard', '#00f3ff');
+
+    // 1. Initial homeworld starbase initialized as starter outpost
+    expect(engine.state.starbases?.[homeworld.systemId]).toBeDefined();
+    const starterSb = engine.state.starbases![homeworld.systemId];
+    expect(starterSb.tier).toBe('outpost');
+    expect(starterSb.ownerId).toBe(player.id);
+    expect(starterSb.hull).toBe(STARBASE_TIER_CONFIG.outpost.baseHull);
+
+    // 2. Build starbase in an empty frontier system
+    const emptySys = Object.values(engine.state.map.systems).find(
+      (s) => !engine.state.starbases?.[s.id] && s.id !== homeworld.systemId
+    )!;
+
+    homeworld.resources.ore = 3000;
+    homeworld.resources.crystal = 2000;
+    homeworld.resources.fuel = 1000;
+
+    const buildRes = engine.dispatchCommand(player.id, {
+      type: 'BUILD_STARBASE',
+      systemId: emptySys.id,
+      planetId: homeworld.id,
+    });
+    expect(buildRes.success).toBe(true);
+    expect(engine.state.starbases![emptySys.id]).toBeDefined();
+    const newSb = engine.state.starbases![emptySys.id];
+    expect(newSb.tier).toBe('outpost');
+    expect(homeworld.resources.ore).toBe(3000 - STARBASE_TIER_CONFIG.outpost.cost.ore);
+
+    // Rejects building another starbase in the same system
+    const duplicateRes = engine.dispatchCommand(player.id, {
+      type: 'BUILD_STARBASE',
+      systemId: emptySys.id,
+      planetId: homeworld.id,
+    });
+    expect(duplicateRes.success).toBe(false);
+
+    // 3. Upgrade outpost -> starbase
+    const upRes = engine.dispatchCommand(player.id, {
+      type: 'UPGRADE_STARBASE',
+      systemId: emptySys.id,
+      planetId: homeworld.id,
+    });
+    expect(upRes.success).toBe(true);
+    expect(newSb.upgradeQueue).toBeDefined();
+    expect(newSb.upgradeQueue!.targetTier).toBe('starbase');
+
+    // Fast-forward to finish upgrade
+    engine.tick(STARBASE_TIER_CONFIG.starbase.buildTimeMs + 500);
+    expect(newSb.upgradeQueue).toBeNull();
+    expect(newSb.tier).toBe('starbase');
+    expect(newSb.hull).toBe(STARBASE_TIER_CONFIG.starbase.baseHull);
+    expect(newSb.shield).toBe(STARBASE_TIER_CONFIG.starbase.baseShield);
+
+    // 4. Module installation & slot capacity
+    // Install sensor_relay
+    const modRes1 = engine.dispatchCommand(player.id, {
+      type: 'INSTALL_STARBASE_MODULE',
+      systemId: emptySys.id,
+      planetId: homeworld.id,
+      moduleType: 'sensor_relay',
+    });
+    expect(modRes1.success).toBe(true);
+    engine.tick(STARBASE_MODULE_CONFIG.sensor_relay.buildTimeMs + 500);
+    expect(newSb.modules).toContain('sensor_relay');
+
+    // Install shipyard_bay as 2nd module (max 2 for starbase tier)
+    const modRes2 = engine.dispatchCommand(player.id, {
+      type: 'INSTALL_STARBASE_MODULE',
+      systemId: emptySys.id,
+      planetId: homeworld.id,
+      moduleType: 'shipyard_bay',
+    });
+    expect(modRes2.success).toBe(true);
+    engine.tick(STARBASE_MODULE_CONFIG.shipyard_bay.buildTimeMs + 500);
+    expect(newSb.modules).toContain('shipyard_bay');
+
+    // Attempting 3rd module should be rejected (capacity full)
+    const modRes3 = engine.dispatchCommand(player.id, {
+      type: 'INSTALL_STARBASE_MODULE',
+      systemId: emptySys.id,
+      planetId: homeworld.id,
+      moduleType: 'trade_hub',
+    });
+    expect(modRes3.success).toBe(false);
+
+    // Dismantle sensor_relay (index 0) with 50% refund
+    const oreBeforeDismantle = homeworld.resources.ore;
+    const disRes = engine.dispatchCommand(player.id, {
+      type: 'DISMANTLE_STARBASE_MODULE',
+      systemId: emptySys.id,
+      moduleIndex: 0,
+    });
+    expect(disRes.success).toBe(true);
+    expect(newSb.modules.length).toBe(1);
+    expect(newSb.modules[0]).toBe('shipyard_bay');
+    expect(homeworld.resources.ore).toBe(
+      oreBeforeDismantle + Math.round(STARBASE_MODULE_CONFIG.sensor_relay.cost.ore * 0.5)
+    );
+
+    // 5. Vision projection via Starbase
+    const coverage = getPlayerSensorCoverage(engine.state, player.id);
+    expect(coverage.has(emptySys.id)).toBe(true);
+
+    // 6. Upgrade to Citadel
+    homeworld.resources.ore = 10000;
+    homeworld.resources.crystal = 10000;
+    homeworld.resources.fuel = 10000;
+    const citRes = engine.dispatchCommand(player.id, {
+      type: 'UPGRADE_STARBASE',
+      systemId: emptySys.id,
+      planetId: homeworld.id,
+    });
+    expect(citRes.success).toBe(true);
+    engine.tick(STARBASE_TIER_CONFIG.citadel.buildTimeMs + 500);
+    expect(newSb.tier).toBe('citadel');
+
+    // Install defense_platform
+    engine.dispatchCommand(player.id, {
+      type: 'INSTALL_STARBASE_MODULE',
+      systemId: emptySys.id,
+      planetId: homeworld.id,
+      moduleType: 'defense_platform',
+    });
+    engine.tick(STARBASE_MODULE_CONFIG.defense_platform.buildTimeMs + 500);
+
+    const citadelStats = getStarbaseEffectiveStats(newSb);
+    expect(citadelStats.maxHull).toBe(STARBASE_TIER_CONFIG.citadel.baseHull + 1000);
+    expect(citadelStats.attack).toBe(STARBASE_TIER_CONFIG.citadel.baseAttack + 60);
+
+    // 7. Combat participation & damage absorption
+    const combat = resolveCombat(
+      {
+        ownerId: 'attacker_1',
+        ownerName: 'Attacker Armada',
+        ships: { scout: 0, transport: 0, fighter: 25, battleship: 8 },
+        weaponsResearchLevel: 2,
+        doctrine: 'balanced',
+      },
+      {
+        ownerId: player.id,
+        ownerName: 'Defender',
+        ships: { scout: 0, transport: 0, fighter: 6, battleship: 2 },
+        weaponsResearchLevel: 1,
+        starbase: newSb,
+        doctrine: 'fortress',
+      },
+      emptySys.id,
+      emptySys.name,
+      'planet_raid',
+      undefined,
+      0,
+      engine.state.timeMs,
+      5555
+    );
+
+    expect(combat.report.initialStarbase).toBeDefined();
+    expect(combat.report.survivingStarbase).toBeDefined();
+    expect(combat.report.initialStarbase?.attack).toBe(getStarbaseEffectiveStats(newSb, 1).attack);
+    expect(combat.remainingStarbase).toBeDefined();
+    expect(combat.remainingStarbase!.hull).toBeLessThanOrEqual(citadelStats.maxHull);
+
+    // 8. Bot autonomous starbase evaluation
+    const guardianAgent = new GuardianBot('bot_guardian_test');
+    engine.addPlayer('bot_guardian_test', 'Muhafız Bot', '#3b82f6', true, 'guardian');
+    const botHw = Object.values(engine.state.planets).find(p => p.ownerId === 'bot_guardian_test')!;
+    botHw.resources.ore = 5000;
+    botHw.resources.crystal = 5000;
+    botHw.resources.fuel = 5000;
+
+    const botCmds = guardianAgent.update(engine);
+    expect(
+      botCmds.some(c => c.type === 'UPGRADE_STARBASE' || c.type === 'INSTALL_STARBASE_MODULE')
+    ).toBe(true);
   });
 });
 

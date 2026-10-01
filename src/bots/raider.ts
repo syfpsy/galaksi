@@ -2,6 +2,7 @@ import { getResearchCost, SHIP_STATS } from '../engine/constants';
 import { GameEngine } from '../engine/engine';
 import { GameCommand, ShipType } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
+import { evaluateBotStarbases } from './starbases';
 import { IBotAgent } from './types';
 
 export class RaiderBot implements IBotAgent {
@@ -115,6 +116,9 @@ export class RaiderBot implements IBotAgent {
       const receipt = engine.dispatchCommand(this.playerId, cmd);
       if (receipt.success) executedCommands.push(cmd);
     }
+
+    // 6. Raider Shipyard Bay & Bastion Management
+    evaluateBotStarbases(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

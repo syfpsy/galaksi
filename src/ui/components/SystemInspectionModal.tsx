@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { GameState, PlanetSlot, StarSystem } from '../../engine/types';
 import { EMPIRE_ARTIFACTS } from '../../engine/artifacts';
+import { STARBASE_TIER_CONFIG } from '../../engine/starbases';
 import { sound } from '../sound';
 import { getPlanetAsset } from '../planetAssets';
 
@@ -24,6 +25,7 @@ interface SystemInspectionModalProps {
   onClose: () => void;
   onSelectSlot: (systemId: string, planetId: string) => void;
   onOpenAnomaly?: (system: StarSystem) => void;
+  onOpenStarbase?: (systemId: string) => void;
 }
 
 const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
@@ -34,6 +36,7 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
   onClose,
   onSelectSlot,
   onOpenAnomaly,
+  onOpenStarbase,
 }) => {
   const [hoveredPlanetId, setHoveredPlanetId] = useState<string | null>(null);
 
@@ -416,6 +419,76 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
               })}
             </svg>
           </div>
+
+          {/* System Starbase / Orbital Station Card */}
+          {(() => {
+            const starbase = state.starbases?.[system.id];
+            const sbOwner = starbase ? state.players[starbase.ownerId] : null;
+            const isMine = starbase && starbase.ownerId === activePlayerId;
+            const cfg = starbase ? STARBASE_TIER_CONFIG[starbase.tier] : null;
+
+            return (
+              <div className="p-3.5 rounded-sm stellaris-item-card border border-[#1b3e54] flex items-center justify-between shadow-sm">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-sm bg-[#082030] border border-[#204a66] flex items-center justify-center text-cyan-400 text-lg shadow-inner">
+                    {starbase ? '🛰️' : '🛸'}
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold text-white font-mono uppercase tracking-wide">
+                        {starbase ? `${cfg?.nameTr || 'Yıldız Üssü'}` : 'Yörünge Karakolu Bulunmuyor'}
+                      </span>
+                      {starbase && (
+                        <span className="stellaris-badge text-cyan-300 border-cyan-500/40 text-[9.5px]">
+                          {starbase.tier.toUpperCase()}
+                        </span>
+                      )}
+                      {sbOwner && (
+                        <span
+                          className="text-[10px] font-mono px-1.5 py-0.5 rounded-sm border font-semibold"
+                          style={{ color: sbOwner.color, borderColor: `${sbOwner.color}60` }}
+                        >
+                          {sbOwner.name} {isMine && '(Siz)'}
+                        </span>
+                      )}
+                    </div>
+
+                    <div className="text-[10.5px] text-slate-300 font-mono mt-0.5 flex items-center gap-3">
+                      {starbase ? (
+                        <>
+                          <span className="text-emerald-400 font-bold">
+                            Gövde: {Math.round(starbase.hull)}/{starbase.maxHull} HP
+                          </span>
+                          <span className="text-cyan-400 font-bold">
+                            Kalkan: {Math.round(starbase.shield)}/{starbase.maxShield}
+                          </span>
+                          <span className="text-amber-300">
+                            {starbase.modules.length}/{cfg?.maxModules || 1} Modül
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-slate-400">
+                          Bu sistemde savunma veya lojistik üssü kurabilirsiniz.
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {onOpenStarbase && (
+                  <button
+                    onClick={() => {
+                      sound.playClick();
+                      onOpenStarbase(system.id);
+                    }}
+                    className="px-3 py-1.5 rounded-sm text-xs font-mono font-bold stellaris-btn-metallic text-cyan-300 shrink-0 cursor-pointer shadow-sm"
+                  >
+                    {starbase ? 'Komuta Masası' : '+ Karakol İnşa Et'}
+                  </button>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Anomaly & Debris Special Sighting Cards */}
           {(system.poi || (system.hasDebris && ((system.hasDebris.ore || 0) > 0 || (system.hasDebris.crystal || 0) > 0))) && (

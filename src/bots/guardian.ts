@@ -2,6 +2,7 @@ import { GAME_CONSTANTS, SHIP_STATS } from '../engine/constants';
 import { GameEngine } from '../engine/engine';
 import { GameCommand } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
+import { evaluateBotStarbases } from './starbases';
 import { IBotAgent } from './types';
 
 export class GuardianBot implements IBotAgent {
@@ -156,6 +157,9 @@ export class GuardianBot implements IBotAgent {
       const receipt = engine.dispatchCommand(this.playerId, cmd);
       if (receipt.success) executedCommands.push(cmd);
     }
+
+    // 5. Starbase & Bastion Defense Management
+    evaluateBotStarbases(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

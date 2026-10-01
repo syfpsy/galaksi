@@ -2,6 +2,7 @@ import { GAME_CONSTANTS, getBuildingUpgradeCost } from '../engine/constants';
 import { GameEngine } from '../engine/engine';
 import { GameCommand } from '../engine/types';
 import { evaluateBotDiplomacy } from './diplomacy';
+import { evaluateBotStarbases } from './starbases';
 import { IBotAgent } from './types';
 
 export class ExplorerBot implements IBotAgent {
@@ -147,6 +148,9 @@ export class ExplorerBot implements IBotAgent {
       const receipt = engine.dispatchCommand(this.playerId, cmd);
       if (receipt.success) executedCommands.push(cmd);
     }
+
+    // 6. Starbase & Sensor Relay Infrastructure
+    evaluateBotStarbases(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

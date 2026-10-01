@@ -39,6 +39,7 @@ interface GalaxyMapProps {
   onFocusRelay?: () => void;
   onCycleColonies?: () => void;
   onOpenBattles?: () => void;
+  onOpenStarbase?: (systemId: string) => void;
 }
 
 export const GalaxyMap: React.FC<GalaxyMapProps> = ({
@@ -59,6 +60,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
   onFocusRelay,
   onCycleColonies,
   onOpenBattles,
+  onOpenStarbase,
 }) => {
   // View mode: 'galaxy' (Macro Sector / Cluster) or 'system' (Three.js 2.5D In-System Orrery)
   const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
@@ -196,6 +198,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
           onContextMenuTarget={onContextMenuTarget}
           mapMode={mapMode}
           onOpenBattles={onOpenBattles}
+          onOpenStarbase={onOpenStarbase}
         />
       </div>
 
