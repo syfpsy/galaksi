@@ -104,6 +104,36 @@ export const BIOME_CONFIGS: Record<PlanetBiome, BiomeConfig> = {
     fuelMultiplier: 0.80,
     researchMultiplier: 1.20,
   },
+  shattered: {
+    biome: 'shattered',
+    nameTr: 'Parçalanmış Dünya (Asteroit Kuşağı)',
+    descriptionTr: 'Gezegen Kırıcı doomsday lazeri ile parçalanmış enkaz asteroit sahası.',
+    habitability: 0.0,
+    oreMultiplier: 2.0,
+    crystalMultiplier: 0.5,
+    fuelMultiplier: 0.2,
+    researchMultiplier: 1.1,
+  },
+  shield_world: {
+    biome: 'shield_world',
+    nameTr: 'Fanus Dünya (Kalkanlı Gezegen)',
+    descriptionTr: 'Gezegen Fanusu ile sarılmış, dış evrenden tamamen izole edilmiş kalkan dünyası.',
+    habitability: 0.0,
+    oreMultiplier: 0.0,
+    crystalMultiplier: 0.0,
+    fuelMultiplier: 0.0,
+    researchMultiplier: 1.5,
+  },
+  nanite_world: {
+    biome: 'nanite_world',
+    nameTr: 'Nanit Dünyası',
+    descriptionTr: 'Moleküler nanit ayrıştırıcı ile dönüştürülmüş metalik kristal dünyası.',
+    habitability: 0.1,
+    oreMultiplier: 0.8,
+    crystalMultiplier: 2.2,
+    fuelMultiplier: 0.5,
+    researchMultiplier: 1.3,
+  },
 };
 
 export interface TerraformRecipeDef {

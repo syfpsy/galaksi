@@ -27,6 +27,7 @@ import {
   RotateCcw,
   Shield,
   ShieldAlert,
+  Skull,
   Sparkles,
   Swords,
   Target,
@@ -72,6 +73,7 @@ interface TopBarProps {
   onOpenWarfare?: () => void;
   onOpenFederation?: () => void;
   onOpenMegacorp?: () => void;
+  onOpenColossus?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onToggleVacationMode?: () => void;
@@ -111,6 +113,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenWarfare,
   onOpenFederation,
   onOpenMegacorp,
+  onOpenColossus,
   onOpenGallery,
   onOpenOrientation,
   onToggleVacationMode,
@@ -943,6 +946,67 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 </p>
                 <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-amber-400 font-mono text-center">
                   Megakorporasyon panelini açmak için tıklayın
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* COLOSSUS SUPERWEAPONS QUICK CHIP (Phase 25) */}
+        {(() => {
+          const myColId = activePlayer?.colossusId;
+          const myColossus = myColId ? state.colossi?.[myColId] : null;
+          const anyCharging = Object.values(state.colossi || {}).find((c) => c.status === 'charging');
+
+          if (!myColossus && !anyCharging) return null;
+
+          const isCharging = myColossus?.status === 'charging' || !!anyCharging;
+          const activeShip = myColossus || anyCharging!;
+          const isEnemyCharging = !myColossus && !!anyCharging;
+
+          return (
+            <div className="relative group">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  if (onOpenColossus) onOpenColossus();
+                }}
+                className={`stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+                  isCharging
+                    ? 'border-red-500 bg-red-950/60 text-red-300 animate-pulse hover:border-red-400'
+                    : 'border-red-900/50 text-red-400 hover:border-red-500'
+                }`}
+                title="Kolossus Süper Silahları & Doomsday Ateşleme"
+              >
+                <Skull className={`w-4 h-4 text-red-400 ${isCharging ? 'animate-spin' : ''} group-hover:scale-110 transition-transform`} />
+                <span className="font-bold text-white text-xs truncate max-w-[95px]">
+                  {isEnemyCharging ? 'DOOMSDAY' : 'KOLOSSUS'}
+                </span>
+                {isCharging ? (
+                  <span className="text-[10px] text-red-400 font-bold animate-ping">
+                    ⚠️ ŞARJ
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-emerald-400 font-mono font-bold">
+                    HAZIR
+                  </span>
+                )}
+              </button>
+
+              <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[260px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+                <div className="flex items-center justify-between text-xs font-bold mb-1">
+                  <span className="text-red-400 tracking-wide">KOLOSSUS SÜPER SİLAHI</span>
+                  <span className="text-[10px] font-mono text-red-300 bg-red-950/80 border border-red-500/50 px-1 py-0.5 rounded-sm">
+                    FAZ 25
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 leading-snug">
+                  {isCharging
+                    ? `⚠️ ${state.players[activeShip.ownerId]?.name || 'Bilinmeyen'} Kolossusu bir gezegeni yok etmek üzere şarj oluyor!`
+                    : `Kolossus geminiz ${activeShip.weaponType} silahı ile konuşlu durumda.`}
+                </p>
+                <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-red-400 font-mono text-center">
+                  Süper silah konsolunu açmak için tıklayın
                 </div>
               </div>
             </div>

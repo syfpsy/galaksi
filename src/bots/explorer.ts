@@ -16,6 +16,7 @@ import { evaluateBotWarfare } from './wars';
 import { evaluateBotFederations } from './federations';
 import { evaluateBotEspionage } from './espionage';
 import { evaluateBotMegacorp } from './megacorp';
+import { evaluateBotColossus } from './colossus';
 import { IBotAgent } from './types';
 
 export class ExplorerBot implements IBotAgent {
@@ -207,6 +208,9 @@ export class ExplorerBot implements IBotAgent {
 
     // 19. Megacorporations, Branch Offices & Commodity Futures (Phase 24)
     evaluateBotMegacorp(engine, this.playerId, this.archetype, executedCommands);
+
+    // 20. Colossus Superweapons & World Killers (Phase 25)
+    evaluateBotColossus(engine, this.playerId, this.archetype, executedCommands);
 
     return executedCommands;
   }

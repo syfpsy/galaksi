@@ -54,6 +54,20 @@ export const WAR_GOAL_CONFIGS: Record<WarGoalType, WarGoalConfig> = {
     icon: '🎖️',
     surrenderEffectTr: 'Galip +60 Hegemonya puanı ve +300 Kültürel Birlik (Unity) kazanır; mağlup 60 Hegemonya puanı kaybeder.',
   },
+  total_war: {
+    goal: 'total_war',
+    nameTr: 'Topyekûn Savaş (Total War)',
+    descriptionTr: 'Kolossus süper silahının varlığıyla tetiklenen varoluşsal savaş. Hak iddialarına gerek kalmadan anında ilhak sağlar.',
+    icon: '☠️',
+    surrenderEffectTr: 'Hedef imparatorluğun tüm varlığı ve kolonileri koşulsuz ilhak edilir veya yok edilir.',
+  },
+  stop_colossus: {
+    goal: 'stop_colossus',
+    nameTr: 'Kolossusu Durdur (Contain Threat)',
+    descriptionTr: 'Doomsday süper silahına sahip bir tiranı galaktik tehdit olmaktan çıkarmak için başlatılan varoluşsal koalisyon savaşı.',
+    icon: '🛡️',
+    surrenderEffectTr: 'Düşman Kolossus gemisi tamamen parçalanır ve düşmanın süper silah projesi feshedilir.',
+  },
 };
 
 export interface SubjectTypeConfig {

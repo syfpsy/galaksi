@@ -231,6 +231,15 @@ import {
   claimCommodityFutures,
   convertToMegacorp,
 } from './megacorp';
+import {
+  updateColossi,
+  buildColossus,
+  moveColossus,
+  commenceColossusCharging,
+  cancelColossusFiring,
+  refitColossusWeapon,
+  dismantleColossus,
+} from './colossus';
 
 
 export class GameEngine {
@@ -246,6 +255,7 @@ export class GameEngine {
   private lastFederationTickMs: number = 0;
   private lastEspionageTickMs: number = 0;
   private lastMegacorpTickMs: number = 0;
+  private lastColossusTickMs: number = 0;
 
   constructor(initialSeed: number = 42) {
     this.prng = new PRNG(initialSeed);
@@ -298,6 +308,7 @@ export class GameEngine {
       covertOperations: {},
       branchOffices: {},
       commodityFutures: {},
+      colossi: {},
       battleReports: [],
       eventLog: [],
       victory: null,
@@ -377,6 +388,8 @@ export class GameEngine {
       isMegacorp: false,
       corporateCivics: [],
       branchOfficesCount: 0,
+      colossusId: null,
+      hasColossusProject: false,
     };
 
     // Pick an empty system for homeworld (not relay)
@@ -782,6 +795,13 @@ export class GameEngine {
     this.lastMegacorpTickMs = nowMs;
     if (megacorpElapsedMs > 0) {
       updateMegacorpAndFutures(this.state, megacorpElapsedMs);
+    }
+
+    // Colossus Superweapons & World Killers tick (Phase 25)
+    const colossusElapsedMs = Math.max(0, nowMs - this.lastColossusTickMs);
+    this.lastColossusTickMs = nowMs;
+    if (colossusElapsedMs > 0) {
+      updateColossi(this.state, colossusElapsedMs);
     }
   }
 
@@ -5754,6 +5774,86 @@ export class GameEngine {
           data: { civics: cmd.civics },
         };
       }
+
+      case 'BUILD_COLOSSUS': {
+        const originPlanetId = cmd.originPlanetId || (cmd as any).planetId;
+        const res = buildColossus(this.state, playerId, cmd.weaponType, originPlanetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { colossusId: res.colossusId },
+        };
+      }
+
+      case 'MOVE_COLOSSUS': {
+        const res = moveColossus(this.state, playerId, cmd.colossusId, cmd.targetSystemId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { colossusId: cmd.colossusId, targetSystemId: cmd.targetSystemId },
+        };
+      }
+
+      case 'COMMENCE_COLOSSUS_CHARGING': {
+        const res = commenceColossusCharging(this.state, playerId, cmd.colossusId, cmd.targetPlanetId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { colossusId: cmd.colossusId, targetPlanetId: cmd.targetPlanetId },
+        };
+      }
+
+      case 'CANCEL_COLOSSUS_FIRING': {
+        const res = cancelColossusFiring(this.state, playerId, cmd.colossusId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { colossusId: cmd.colossusId },
+        };
+      }
+
+      case 'REFIT_COLOSSUS_WEAPON': {
+        const newWeaponType = cmd.newWeaponType || (cmd as any).weaponType;
+        const res = refitColossusWeapon(this.state, playerId, cmd.colossusId, newWeaponType);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { colossusId: cmd.colossusId, newWeaponType },
+        };
+      }
+
+      case 'DISMANTLE_COLOSSUS': {
+        const res = dismantleColossus(this.state, playerId, cmd.colossusId);
+        if (!res.success) {
+          return { success: false, commandType: cmd.type, error: res.error, timeMs: this.state.timeMs };
+        }
+        return {
+          success: true,
+          commandType: cmd.type,
+          timeMs: this.state.timeMs,
+          data: { colossusId: cmd.colossusId },
+        };
+      }
     }
   }
 
@@ -5993,6 +6093,7 @@ export class GameEngine {
       covertOperations: {},
       branchOffices: {},
       commodityFutures: {},
+      colossi: {},
       battleReports: [],
       eventLog: [],
       victory: null,

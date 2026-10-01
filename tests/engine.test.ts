@@ -159,6 +159,20 @@ import {
   updateMegacorpAndFutures,
 } from '../src/engine/megacorp';
 import { evaluateBotMegacorp } from '../src/bots/megacorp';
+import {
+  COLOSSUS_CONSTANTS,
+  COLOSSUS_WEAPON_CONFIGS,
+  canBuildColossus,
+  buildColossus,
+  moveColossus,
+  commenceColossusCharging,
+  cancelColossusFiring,
+  resolveColossusFiring,
+  refitColossusWeapon,
+  dismantleColossus,
+  updateColossi,
+} from '../src/engine/colossus';
+import { evaluateBotColossus } from '../src/bots/colossus';
 
 
 describe('GameEngine Headless Rules (Phase A)', () => {
@@ -4883,6 +4897,205 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     const botConvertCmd = botCmds.find((c) => c.type === 'CONVERT_TO_MEGACORP');
     expect(botConvertCmd).toBeDefined();
     expect(botConvertCmd.civics).toContain('trade_syndicate');
+  });
+
+  it('Test 55: Phase 25 - Colossus Superweapons, Doomsday Beams, Orbital Charging & Total War', () => {
+    const engine = new GameEngine(2525);
+    const { player: p1, homeworld: hw1 } = engine.addPlayer('p1', 'İmparator Vaelen', '#00f3ff', false, undefined, false);
+    const { player: p2, homeworld: hw2 } = engine.addPlayer('p2', 'Karanlık Lord Malok', '#ef4444', true, 'admiral', false);
+
+    // 1. Initial State & Fog of War
+    expect(engine.state.colossi).toBeDefined();
+    expect(Object.keys(engine.state.colossi!).length).toBe(0);
+    expect(p1.colossusId).toBeNull();
+    expect(p1.hasColossusProject).toBe(false);
+
+    const view1 = engine.getPlayerView('p1');
+    expect(view1.myColossus).toBeNull();
+    expect(view1.chargingColossi).toEqual([]);
+
+    // 2. Construction Validation (canBuildColossus & BUILD_COLOSSUS)
+    const checkNoFunds = canBuildColossus(engine.state, 'p1', hw1.id);
+    expect(checkNoFunds.allowed).toBe(false);
+
+    // Provide required funds
+    hw1.resources.ore = 5000;
+    hw1.resources.crystal = 3000;
+    hw1.resources.fuel = 3000;
+
+    const checkWithFunds = canBuildColossus(engine.state, 'p1', hw1.id);
+    expect(checkWithFunds.allowed).toBe(true);
+
+    const buildRes = engine.dispatchCommand('p1', {
+      type: 'BUILD_COLOSSUS',
+      planetId: hw1.id,
+      weaponType: 'world_cracker',
+    });
+    expect(buildRes.success).toBe(true);
+    expect(p1.colossusId).toBeDefined();
+    expect(p1.hasColossusProject).toBe(true);
+
+    const colossusId = p1.colossusId!;
+    const colossus = engine.state.colossi![colossusId];
+    expect(colossus).toBeDefined();
+    expect(colossus.weaponType).toBe('world_cracker');
+    expect(colossus.status).toBe('idle');
+    expect(colossus.currentSystemId).toBe(hw1.systemId);
+
+    // Verify 1 Colossus empire cap
+    const secondBuildRes = engine.dispatchCommand('p1', {
+      type: 'BUILD_COLOSSUS',
+      planetId: hw1.id,
+      weaponType: 'world_cracker',
+    });
+    expect(secondBuildRes.success).toBe(false);
+    expect(secondBuildRes.error).toContain('En fazla 1 adet');
+
+    // 3. Colossus Movement (MOVE_COLOSSUS)
+    // Find enemy system or adjacent system
+    const targetSystemId = hw2.systemId;
+    const moveRes = engine.dispatchCommand('p1', {
+      type: 'MOVE_COLOSSUS',
+      colossusId,
+      targetSystemId,
+    });
+    expect(moveRes.success).toBe(true);
+    expect(colossus.status).toBe('in_transit');
+    expect(colossus.targetSystemId).toBe(targetSystemId);
+
+    // Fast-forward transit to arrival
+    engine.tick(colossus.arrivalTime! - engine.state.timeMs + 1000);
+    expect(colossus.status).toBe('orbiting');
+    expect(colossus.currentSystemId).toBe(targetSystemId);
+
+    // 4. Orbital Targeting & Doomsday Charging (COMMENCE_COLOSSUS_CHARGING)
+    // Cannot target friendly world
+    const friendlyTargetRes = engine.dispatchCommand('p1', {
+      type: 'COMMENCE_COLOSSUS_CHARGING',
+      colossusId,
+      targetPlanetId: hw1.id,
+    });
+    expect(friendlyTargetRes.success).toBe(false);
+
+    // Target enemy world hw2
+    const chargeRes = engine.dispatchCommand('p1', {
+      type: 'COMMENCE_COLOSSUS_CHARGING',
+      colossusId,
+      targetPlanetId: hw2.id,
+    });
+    expect(chargeRes.success).toBe(true);
+    expect(colossus.status).toBe('charging');
+    expect(colossus.targetPlanetId).toBe(hw2.id);
+    expect(colossus.chargeStartedAtMs).toBe(engine.state.timeMs);
+
+    // Fog of war check: defender sees the charging colossus
+    const view2 = engine.getPlayerView('p2');
+    expect(view2.chargingColossi?.length).toBe(1);
+    expect(view2.chargingColossi?.[0].id).toBe(colossusId);
+
+    // 5. Abort Sequence (CANCEL_COLOSSUS_FIRING)
+    const cancelRes = engine.dispatchCommand('p1', {
+      type: 'CANCEL_COLOSSUS_FIRING',
+      colossusId,
+    });
+    expect(cancelRes.success).toBe(true);
+    expect(colossus.status).toBe('orbiting');
+    expect(colossus.targetPlanetId).toBeNull();
+    expect(colossus.chargeStartedAtMs).toBeNull();
+
+    // 6. World Cracker Firing Resolution
+    const restartCharge = engine.dispatchCommand('p1', {
+      type: 'COMMENCE_COLOSSUS_CHARGING',
+      colossusId,
+      targetPlanetId: hw2.id,
+    });
+    expect(restartCharge.success).toBe(true);
+
+    const preOre = hw1.resources.ore;
+    // Tick past charge duration (40s = 40000ms)
+    engine.tick(45000);
+
+    // Colossus fired!
+    expect(hw2.biome).toBe('shattered');
+    expect(hw2.isDestroyed).toBe(true);
+    expect(hw2.ownerId).toBe('');
+    expect(hw1.resources.ore).toBeGreaterThanOrEqual(preOre + 5000); // World Cracker bonus ore
+    expect(hw1.resources.ore).toBeLessThan(preOre + 5010);
+    expect(colossus.status).toBe('orbiting');
+
+    // Check event log
+    const doomsdayEvent = engine.state.eventLog.find((e) => e.type === 'colossus_fired');
+    expect(doomsdayEvent).toBeDefined();
+
+    // 7. Weapon Refit (REFIT_COLOSSUS_WEAPON)
+    // Refit to Global Pacifier
+    hw1.resources.ore = 2000;
+    hw1.resources.crystal = 2000;
+    hw1.resources.fuel = 2000;
+
+    const refitRes = engine.dispatchCommand('p1', {
+      type: 'REFIT_COLOSSUS_WEAPON',
+      colossusId,
+      newWeaponType: 'global_pacifier',
+    });
+    expect(refitRes.success).toBe(true);
+    expect(colossus.weaponType).toBe('global_pacifier');
+    expect(colossus.chargeDurationMs).toBe(COLOSSUS_WEAPON_CONFIGS.global_pacifier.chargeTimeSec * 1000);
+
+    // 8. Global Pacifier Firing & Shield World
+    const targetPlanet2Id = 'p2_colony_shield';
+    engine.state.planets[targetPlanet2Id] = {
+      ...hw2,
+      id: targetPlanet2Id,
+      name: 'Hedef Fanus Gezegeni',
+      ownerId: 'p2',
+      systemId: hw2.systemId,
+      isHomeworld: false,
+      isDestroyed: false,
+      isShielded: false,
+      biome: 'terran',
+    };
+    const targetPlanet2 = engine.state.planets[targetPlanet2Id];
+
+    const chargeShieldRes = engine.dispatchCommand('p1', {
+      type: 'COMMENCE_COLOSSUS_CHARGING',
+      colossusId,
+      targetPlanetId: targetPlanet2.id,
+    });
+    expect(chargeShieldRes.success).toBe(true);
+
+    const preHegemony = engine.state.relay.weeklyPoints['p1'] || 0;
+    engine.tick(45000);
+
+    expect(targetPlanet2.biome).toBe('shield_world');
+    expect(targetPlanet2.isShielded).toBe(true);
+    expect(engine.state.relay.weeklyPoints['p1']).toBe(preHegemony + 15);
+
+    // 9. Colossus Dismantling & Resource Refund (DISMANTLE_COLOSSUS)
+    const oreBeforeDismantle = hw1.resources.ore;
+    const dismantleRes = engine.dispatchCommand('p1', {
+      type: 'DISMANTLE_COLOSSUS',
+      colossusId,
+    });
+    expect(dismantleRes.success).toBe(true);
+    expect(engine.state.colossi![colossusId]).toBeUndefined();
+    expect(p1.colossusId).toBeNull();
+    expect(p1.hasColossusProject).toBe(false);
+    expect(hw1.resources.ore).toBeGreaterThanOrEqual(oreBeforeDismantle + COLOSSUS_CONSTANTS.DISMANTLE_REFUND.ore);
+    expect(hw1.resources.ore).toBeLessThan(oreBeforeDismantle + COLOSSUS_CONSTANTS.DISMANTLE_REFUND.ore + 10);
+
+    // 10. Autonomous Bot AI Colossus Evaluation (evaluateBotColossus)
+    const { player: botAdmiral, homeworld: botHw } = engine.addPlayer('bot_admiral_col', 'Tiran Kael', '#9333ea', true, 'admiral');
+    botHw.resources.ore = 10000;
+    botHw.resources.crystal = 5000;
+    botHw.resources.fuel = 5000;
+
+    const botCmds: any[] = [];
+    evaluateBotColossus(engine, botAdmiral.id, 'admiral', botCmds);
+
+    const botBuildCmd = botCmds.find((c) => c.type === 'BUILD_COLOSSUS');
+    expect(botBuildCmd).toBeDefined();
+    expect(botBuildCmd.weaponType).toBe('neutron_sweep'); // Admiral archetype selects neutron_sweep
   });
 });
 

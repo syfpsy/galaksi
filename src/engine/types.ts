@@ -139,7 +139,10 @@ export type PlanetBiome =
   | 'volcanic'
   | 'gas'
   | 'gaia'
-  | 'tomb';
+  | 'tomb'
+  | 'shattered'
+  | 'shield_world'
+  | 'nanite_world';
 
 export interface TerraformQueue {
   targetBiome: PlanetBiome;
@@ -228,7 +231,9 @@ export type WarGoalType =
   | 'subjugation'    // Impose Vassalage on defeated empire
   | 'tributary'      // Impose Tributary status (resource tithes)
   | 'liberation'     // Free subjects from overlords, break hostile pacts, grant independence
-  | 'humiliation';   // Strip Hegemony points, transfer Hegemony & massive Cultural Unity
+  | 'humiliation'    // Strip Hegemony points, transfer Hegemony & massive Cultural Unity
+  | 'total_war'      // Total War: existential clash; immediate border flip without claims
+  | 'stop_colossus'; // Stop Colossus: galactic casus belli to destroy enemy planet killer
 
 export type WarStatus =
   | 'active'
@@ -387,6 +392,13 @@ export interface Planet {
   terraformingQueue?: TerraformQueue | null;
   activeDecisions?: PlanetaryDecision[];
   blockers?: PlanetaryBlocker[];
+  isDestroyed?: boolean;
+  isShielded?: boolean;
+  colossusImpact?: {
+    weaponType: ColossusWeaponType;
+    executedAtMs: number;
+    destroyerPlayerId: string;
+  };
 }
 
 export type StarbaseTier = 'outpost' | 'starbase' | 'citadel';
@@ -1081,6 +1093,43 @@ export interface CommodityFuturesContract {
   isClaimed: boolean;
 }
 
+// ==========================================
+// Phase 25: Colossus Superweapons & World Killers
+// ==========================================
+export type ColossusWeaponType =
+  | 'world_cracker'
+  | 'neutron_sweep'
+  | 'nanite_disassembler'
+  | 'global_pacifier';
+
+export type ColossusStatus =
+  | 'idle'
+  | 'in_transit'
+  | 'orbiting'
+  | 'charging'
+  | 'firing';
+
+export interface ColossusShip {
+  id: string;
+  ownerId: string;
+  name: string;
+  weaponType: ColossusWeaponType;
+  status: ColossusStatus;
+  currentSystemId: string;
+  targetSystemId?: string | null;
+  targetPlanetId?: string | null;
+  hp: number;
+  maxHp: number;
+  shield: number;
+  maxShield: number;
+  departureTime?: number;
+  arrivalTime?: number;
+  totalDistance?: number;
+  chargeStartedAtMs?: number | null;
+  chargeDurationMs: number;
+  builtAtMs: number;
+}
+
 export interface Player {
   id: string;
   name: string;
@@ -1113,6 +1162,8 @@ export interface Player {
   isMegacorp?: boolean; // Phase 24: Mega-Corporation government status
   corporateCivics?: CorporateCivicId[]; // Phase 24: Corporate civics & franchise model
   branchOfficesCount?: number; // Phase 24: Active branch offices on foreign worlds
+  colossusId?: string | null; // Phase 25: Active Colossus Superweapon ship ID
+  hasColossusProject?: boolean; // Phase 25: Unlocked capability to build Colossus
 }
 
 export type EmpireDirectiveId =
@@ -1263,6 +1314,7 @@ export interface GameState {
   covertOperations?: Record<string, CovertOperation>; // key: operationId (Phase 23)
   branchOffices?: Record<string, CorporateBranchOffice>; // key: `${corporationId}_${targetPlanetId}` (Phase 24)
   commodityFutures?: Record<string, CommodityFuturesContract>; // key: contractId (Phase 24)
+  colossi?: Record<string, ColossusShip>; // key: colossusId (Phase 25)
   relay: RelayContest;
   alliances: Record<string, Alliance>;
   market: MarketState;
@@ -1724,6 +1776,34 @@ export type GameCommand =
   | {
       type: 'CONVERT_TO_MEGACORP';
       civics: CorporateCivicId[];
+    }
+  | {
+      type: 'BUILD_COLOSSUS';
+      weaponType: ColossusWeaponType;
+      originPlanetId: string;
+    }
+  | {
+      type: 'MOVE_COLOSSUS';
+      colossusId: string;
+      targetSystemId: string;
+    }
+  | {
+      type: 'COMMENCE_COLOSSUS_CHARGING';
+      colossusId: string;
+      targetPlanetId: string;
+    }
+  | {
+      type: 'CANCEL_COLOSSUS_FIRING';
+      colossusId: string;
+    }
+  | {
+      type: 'REFIT_COLOSSUS_WEAPON';
+      colossusId: string;
+      newWeaponType: ColossusWeaponType;
+    }
+  | {
+      type: 'DISMANTLE_COLOSSUS';
+      colossusId: string;
     };
 
 export interface CommandReceipt {

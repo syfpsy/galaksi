@@ -110,6 +110,27 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
       label: 'Gaz Devi',
       bonus: 'Yakıt +50%',
     },
+    shattered: {
+      fill: '#7f1d1d',
+      stroke: '#ef4444',
+      glow: '#ef4444',
+      label: 'Parçalanmış Dünya (Asteroit)',
+      bonus: 'Cevher Asteroit Kuşağı +100%',
+    },
+    shield_world: {
+      fill: '#083344',
+      stroke: '#06b6d4',
+      glow: '#00f3ff',
+      label: 'Fanus Dünya (Kalkanlı)',
+      bonus: 'Kuantum Gözlem (+15 Zafer / Araştırma)',
+    },
+    nanite_world: {
+      fill: '#581c87',
+      stroke: '#a855f7',
+      glow: '#d8b4fe',
+      label: 'Nanit Dünyası',
+      bonus: 'Moleküler Kristal Rezervi +120%',
+    },
   };
 
   return (

@@ -43,6 +43,7 @@ import {
   SpyAssetType,
   CorporateCivicId,
   CorporateHoldingType,
+  ColossusWeaponType,
 } from './engine/types';
 import { evaluatePlayerDirectives } from './engine/directives';
 import { AllianceModal, AllianceTab } from './ui/components/AllianceModal';
@@ -62,6 +63,7 @@ import { TradeRoutesModal } from './ui/components/TradeRoutesModal';
 import { WarfareModal } from './ui/components/WarfareModal';
 import { FederationModal } from './ui/components/FederationModal';
 import { MegacorpModal } from './ui/components/MegacorpModal';
+import { ColossusModal } from './ui/components/ColossusModal';
 import { EventFeed } from './ui/components/EventFeed';
 import { FleetCardHUD } from './ui/components/FleetCardHUD';
 import { GalaxyMap } from './ui/components/GalaxyMap';
@@ -109,6 +111,7 @@ type LeftPanelType =
   | 'federation'
   | 'megacorp'
   | 'crisis'
+  | 'colossus'
   | 'relay'
   | 'gallery'
   | null;
@@ -515,6 +518,10 @@ export function App() {
 
   const myDirectives = evaluatePlayerDirectives(engineState, activePlayerId);
   const unclaimedDirectivesCount = myDirectives.filter((d) => d.isCompleted && !d.isClaimed).length;
+
+  const myColossus = activePlayer?.colossusId ? engineState.colossi?.[activePlayer.colossusId] : undefined;
+  const isColossusActive = !!myColossus;
+  const isColossusCharging = myColossus?.status === 'charging' || Object.values(engineState.colossi || {}).some((c) => c.status === 'charging');
 
   // Command handlers
   const handleUpgradeBuilding = (planetId: string, buildingType: BuildingType) => {
@@ -1553,6 +1560,94 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   };
 
+  const handleBuildColossus = (weaponType: ColossusWeaponType, originPlanetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'BUILD_COLOSSUS',
+      originPlanetId,
+      weaponType,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleMoveColossus = (colossusId: string, targetSystemId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'MOVE_COLOSSUS',
+      colossusId,
+      targetSystemId,
+    });
+    if (res.success) {
+      sound.playLaunch();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleCommenceColossusCharging = (colossusId: string, targetPlanetId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'COMMENCE_COLOSSUS_CHARGING',
+      colossusId,
+      targetPlanetId,
+    });
+    if (res.success) {
+      sound.playTech();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleCancelColossusFiring = (colossusId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'CANCEL_COLOSSUS_FIRING',
+      colossusId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleRefitColossusWeapon = (colossusId: string, weaponType: ColossusWeaponType) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'REFIT_COLOSSUS_WEAPON',
+      colossusId,
+      newWeaponType: weaponType,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
+  const handleDismantleColossus = (colossusId: string) => {
+    if (!engineRef.current) return;
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISMANTLE_COLOSSUS',
+      colossusId,
+    });
+    if (res.success) {
+      sound.playClick();
+    } else {
+      sound.playError();
+    }
+    setEngineState({ ...engineRef.current.state });
+  };
+
   const handleStepTick = () => {
     if (!engineRef.current) return;
     engineRef.current.tick(60 * 1000); // +1 min step
@@ -1954,6 +2049,7 @@ export function App() {
         onOpenWarfare={() => setActiveLeftPanel((prev) => (prev === 'warfare' ? null : 'warfare'))}
         onOpenFederation={() => setActiveLeftPanel((prev) => (prev === 'federation' ? null : 'federation'))}
         onOpenMegacorp={() => setActiveLeftPanel((prev) => (prev === 'megacorp' ? null : 'megacorp'))}
+        onOpenColossus={() => setActiveLeftPanel((prev) => (prev === 'colossus' ? null : 'colossus'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onToggleVacationMode={handleToggleVacationMode}
@@ -1996,6 +2092,9 @@ export function App() {
           onOpenWarfare={() => setActiveLeftPanel((prev) => (prev === 'warfare' ? null : 'warfare'))}
           onOpenFederation={() => setActiveLeftPanel((prev) => (prev === 'federation' ? null : 'federation'))}
           onOpenMegacorp={() => setActiveLeftPanel((prev) => (prev === 'megacorp' ? null : 'megacorp'))}
+          onOpenColossus={() => setActiveLeftPanel((prev) => (prev === 'colossus' ? null : 'colossus'))}
+          isColossusActive={isColossusActive}
+          isColossusCharging={isColossusCharging}
           activeBranchOfficesCount={Object.values(engineState.branchOffices || {}).filter((b) => b.corporationId === activePlayerId).length}
           readyFuturesCount={Object.values(engineState.commodityFutures || {}).filter((f) => f.buyerId === activePlayerId && f.isDelivered && !f.isClaimed).length}
           federationLevel={activePlayer?.federationId ? engineState.federations?.[activePlayer.federationId]?.centralizationLevel : undefined}
@@ -2628,6 +2727,24 @@ export function App() {
           }}
         />
       )}
+
+      {/* Colossus Superweapons & World Killers Modal (Phase 25) */}
+      <ColossusModal
+        isOpen={activeLeftPanel === 'colossus'}
+        onClose={() => setActiveLeftPanel(null)}
+        state={engineState}
+        playerId={activePlayerId}
+        onBuildColossus={handleBuildColossus}
+        onMoveColossus={handleMoveColossus}
+        onCommenceCharging={handleCommenceColossusCharging}
+        onCancelFiring={handleCancelColossusFiring}
+        onRefitWeapon={handleRefitColossusWeapon}
+        onDismantleColossus={handleDismantleColossus}
+        onSelectSystem={(systemId) => {
+          setSelectedTarget({ type: 'system', systemId });
+          setActiveLeftPanel(null);
+        }}
+      />
 
       {/* Stellaris Situation Log / Anomaly Discovery Modal */}
       <AnomalyEventModal

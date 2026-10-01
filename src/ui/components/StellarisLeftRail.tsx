@@ -20,6 +20,7 @@ import {
   Radio,
   Send,
   Shield,
+  Skull,
   Sparkles,
   Sprout,
   Swords,
@@ -60,7 +61,10 @@ interface StellarisLeftRailProps {
   onOpenFederation?: () => void;
   onOpenMegacorp?: () => void;
   onOpenCrisis?: () => void;
+  onOpenColossus?: () => void;
   onOpenGallery: () => void;
+  isColossusActive?: boolean;
+  isColossusCharging?: boolean;
   activeTerraformingCount?: number;
   activeBranchOfficesCount?: number;
   readyFuturesCount?: number;
@@ -120,7 +124,10 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   onOpenFederation,
   onOpenMegacorp,
   onOpenCrisis,
+  onOpenColossus,
   onOpenGallery,
+  isColossusActive = false,
+  isColossusCharging = false,
   activeTerraformingCount = 0,
   activeBranchOfficesCount = 0,
   readyFuturesCount = 0,
@@ -1019,6 +1026,65 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
             {isCrisisActive && (
               <div className="mt-2 pt-1.5 border-t border-rose-900/60 text-[10px] font-mono text-rose-300 font-bold uppercase animate-pulse">
                 🚨 Kriz Aşaması: {crisisStage || 'AKTİF İSTİLA'}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Colossus Superweapons & World Killers (Phase 25) */}
+        <div className="relative group w-10 h-10">
+          <button
+            onClick={() => {
+              sound.playClick();
+              if (onOpenColossus) onOpenColossus();
+            }}
+            className={`w-full h-full rounded-sm stellaris-rail-btn flex items-center justify-center transition-all relative ${
+              activeLeftPanel === 'colossus'
+                ? 'active'
+                : isColossusCharging
+                ? '!border-red-500 !bg-red-950/80 animate-pulse text-red-300'
+                : isColossusActive
+                ? 'text-red-400 hover:text-red-200 border-red-900/50'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <Skull
+              className={`w-5 h-5 transition-transform group-hover:scale-110 ${
+                isColossusCharging
+                  ? 'text-red-400 animate-spin'
+                  : isColossusActive
+                  ? 'text-red-400 animate-pulse'
+                  : 'text-red-400/80'
+              }`}
+            />
+            {isColossusCharging && (
+              <span className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-red-600 text-white text-[9px] font-bold flex items-center justify-center border border-red-400 shadow-md animate-ping">
+                !
+              </span>
+            )}
+            <span className="absolute bottom-0.5 right-1 text-[8px] font-mono font-bold text-slate-400 group-hover:text-red-300">
+              KOL
+            </span>
+          </button>
+
+          <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-red-400 tracking-wide">KOLOSSUS SÜPER SİLAHLARI</span>
+              <span className="text-[10px] font-mono text-red-300 bg-red-950/80 border border-red-500/50 px-1 py-0.5 rounded-sm">
+                FAZ 25
+              </span>
+            </div>
+            <p className="text-[11px] text-slate-300 mt-1 leading-snug">
+              Gezegen Kırıcı, Nötron Süpürgesi, Gezegen Fanusu ve Nanit Ayrıştırıcı doomsday ışınları.
+            </p>
+            {isColossusCharging && (
+              <div className="mt-2 pt-1.5 border-t border-red-900/60 text-[10px] font-mono text-red-300 font-bold uppercase animate-pulse">
+                ⚠️ DOOMSDAY ATEŞLEME ŞARJI AKTİF!
+              </div>
+            )}
+            {!isColossusCharging && isColossusActive && (
+              <div className="mt-1.5 pt-1 border-t border-slate-800 text-[10px] text-emerald-400 font-mono">
+                ⚓ 1 Aktif Kolossus Gemisi Hazır
               </div>
             )}
           </div>

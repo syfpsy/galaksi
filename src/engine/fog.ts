@@ -32,6 +32,7 @@ import {
   CounterEspionageStance,
   CorporateBranchOffice,
   CommodityFuturesContract,
+  ColossusShip,
 } from './types';
 import { DEFAULT_LOADOUTS } from './shipDesign';
 import { getPlayerMegastructureBonuses } from './megastructures';
@@ -103,6 +104,8 @@ export interface PlayerVisibleState {
   myCounterEspionageStance?: CounterEspionageStance;
   myBranchOffices?: CorporateBranchOffice[];
   myCommodityFutures?: CommodityFuturesContract[];
+  myColossus?: ColossusShip | null;
+  chargingColossi?: ColossusShip[];
 }
 
 /**
@@ -477,5 +480,7 @@ export function filterGameStateForPlayer(
       (b) => b.corporationId === playerId || b.targetPlayerId === playerId
     ),
     myCommodityFutures: Object.values(state.commodityFutures || {}).filter((f) => f.buyerId === playerId),
+    myColossus: player?.colossusId && state.colossi ? state.colossi[player.colossusId] || null : null,
+    chargingColossi: Object.values(state.colossi || {}).filter((c) => c.status === 'charging'),
   };
 }
