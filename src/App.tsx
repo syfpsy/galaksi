@@ -221,6 +221,9 @@ export function App() {
     systemId: initialData.humanHw.systemId,
   });
 
+  // Unique session ID to force a fresh, clean WebGL mount on custom sandbox or game resets
+  const [gameSessionId, setGameSessionId] = useState<number>(() => Date.now());
+
   // Simulation controls (default 1x for real-time slow persistent pace, up to 300x)
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
   const [timeScale, setTimeScale] = useState<number>(1);
@@ -504,6 +507,7 @@ export function App() {
     setActivePlayerId('player_human');
     setActivePlanetId(humanHw.id);
     setSelectedTarget({ type: 'system', systemId: humanHw.systemId });
+    setGameSessionId(Date.now());
     setEngineState({ ...engine.state });
   }, [sandboxConfig]);
 
@@ -3502,6 +3506,7 @@ export function App() {
           />
 
           <GalaxyMap
+            key={`galaxy_${gameSessionId}`}
             state={engineState}
             activePlayerId={activePlayerId}
             selectedTarget={selectedTarget}

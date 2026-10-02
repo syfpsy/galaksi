@@ -124,6 +124,7 @@ interface ScreenLabel {
   hasStarbase?: boolean;
   starbaseTier?: string;
   transitProgress?: number;
+  isAbove?: boolean;
   activeCrisis?: {
     type: SectorEventType;
     title: string;
@@ -203,8 +204,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
     viewMode === 'system'
       ? new THREE.Vector3(500, 240, 260)
       : initialSys
-      ? new THREE.Vector3(initialSys.x, initialSys.y - 75, 360)
-      : new THREE.Vector3(500, 120, 750)
+      ? new THREE.Vector3(initialSys.x, initialSys.y - 50, 480)
+      : new THREE.Vector3(500, 200, 680)
   );
   const targetLookAtRef = useRef<THREE.Vector3>(
     viewMode === 'system'
@@ -224,10 +225,10 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const targetSysId = selectedTargetRef.current?.systemId || focusedSystemId;
       const sys = stateRef.current.map.systems[targetSysId];
       if (sys) {
-        targetCameraPosRef.current.set(sys.x, sys.y - 75, 360);
+        targetCameraPosRef.current.set(sys.x, sys.y - 50, 480);
         targetLookAtRef.current.set(sys.x, sys.y, 0);
       } else {
-        targetCameraPosRef.current.set(500, 120, 750);
+        targetCameraPosRef.current.set(500, 200, 680);
         targetLookAtRef.current.set(500, 400, 0);
       }
     }
@@ -474,7 +475,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       });
       const territoryLine = new THREE.Line(territoryGeo, territoryMat);
       territoryLine.raycast = () => {};
+      territoryLine.visible = false;
       group.add(territoryLine);
+      group.userData.territoryLine = territoryLine;
 
       // Sector Crisis Tactical Hazard Pulse Ring (Solar Storms & Titans)
       const hazardPts: THREE.Vector3[] = [];
@@ -545,21 +548,23 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       }
 
       const controllingPlayer = controllingOwnerId ? stateRef.current.players[controllingOwnerId] : null;
-      if (controllingPlayer) {
-        // Ethereal Faction Territory Influence Disc (Stellaris Sector Aura)
-        const territorySpriteMat = new THREE.SpriteMaterial({
-          map: getTerritoryInfluenceTexture(controllingPlayer.color),
-          transparent: true,
-          opacity: 0.72,
-          blending: THREE.AdditiveBlending,
-          depthWrite: false,
-        });
-        const territorySprite = new THREE.Sprite(territorySpriteMat);
-        territorySprite.position.set(0, 0, -2);
-        territorySprite.scale.set(territoryRadius * 2.8, territoryRadius * 2.8 * 0.85, 1);
-        territorySprite.raycast = () => {};
-        group.add(territorySprite);
-      }
+      const initialFactionColor = controllingPlayer?.color || '#00f3ff';
+      // Ethereal Faction Territory Influence Disc (Stellaris Sector Aura)
+      const territorySpriteMat = new THREE.SpriteMaterial({
+        map: getTerritoryInfluenceTexture(initialFactionColor),
+        transparent: true,
+        opacity: 0.38,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      });
+      const territorySprite = new THREE.Sprite(territorySpriteMat);
+      territorySprite.position.set(0, 0, -2);
+      territorySprite.scale.set(territoryRadius * 2.8, territoryRadius * 2.8 * 0.85, 1);
+      territorySprite.raycast = () => {};
+      territorySprite.visible = false;
+      (territorySprite as any)._currentColor = initialFactionColor;
+      group.add(territorySprite);
+      group.userData.territorySprite = territorySprite;
 
       galaxyMacroGroup.add(group);
       starMeshes.set(sys.id, { group, mesh: starMesh, light: pointLight, corona: coronaSprite, hazardRing, starbaseRing });
@@ -1850,30 +1855,89 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         const playerIntel = stateRef.current.players[activePlayerIdRef.current]?.intel?.discoveredSystems;
 
         starMeshes.forEach(({ group, mesh, light, corona, hazardRing, starbaseRing }, sysId) => {
+          const sys = stateRef.current.map.systems[sysId];
           const storedIntel = playerIntel?.[sysId] || 'unexplored';
-          const isDiscovered = storedIntel !== 'unexplored';
-          const isVisible = isGodMode || currentCoverage.has(sysId);
+          const hasOwnColony = Object.values(stateRef.current.planets).some(
+            (p) => p.systemId === sysId && p.ownerId === activePlayerIdRef.current
+          );
+          const isDiscovered = hasOwnColony || storedIntel !== 'unexplored';
+          const isVisible = isGodMode || hasOwnColony || currentCoverage.has(sysId);
+
+          let controllingOwnerId: string | null = null;
+          if (sys?.hasRelay && stateRef.current.relay.controllingPlayerId) {
+            controllingOwnerId = stateRef.current.relay.controllingPlayerId;
+          } else if (sys) {
+            const slotOwners = sys.slots
+              .map((s) => stateRef.current.planets[s.planetId]?.ownerId)
+              .filter(Boolean) as string[];
+            if (slotOwners.length > 0) {
+              controllingOwnerId = slotOwners[0];
+            }
+          }
+          const controllingPlayer = controllingOwnerId ? stateRef.current.players[controllingOwnerId] : null;
+
+          const territorySprite = group.userData.territorySprite as THREE.Sprite | undefined;
+          const territoryLine = group.userData.territoryLine as THREE.Line | undefined;
 
           if (!isGodMode && !isDiscovered) {
-            // True Fog of War: shrouded dark celestial object
+            // True Fog of War: faint mysterious celestial pinpoint, NO murky territory aura
             light.intensity = 0.0;
-            corona.material.opacity = 0.04;
+            corona.material.opacity = 0.08;
+            mesh.scale.set(0.65, 0.65, 0.65);
             if (mesh.material instanceof THREE.MeshBasicMaterial) {
-              mesh.material.color.setHex(0x1e293b);
+              mesh.material.color.setHex(0x64748b);
             }
+            if (territorySprite) territorySprite.visible = false;
+            if (territoryLine) territoryLine.visible = false;
           } else if (isVisible) {
-            // Live active vision
+            // Live active vision: radiant incandescent star
             light.intensity = 2.5;
             corona.material.opacity = 0.88;
+            mesh.scale.set(1.0, 1.0, 1.0);
             if (mesh.material instanceof THREE.MeshBasicMaterial) {
               mesh.material.color.setHex(0xffffff);
             }
+            if (territorySprite) {
+              if (controllingPlayer) {
+                territorySprite.visible = true;
+                territorySprite.material.opacity = 0.38;
+                if ((territorySprite as any)._currentColor !== controllingPlayer.color) {
+                  territorySprite.material.map = getTerritoryInfluenceTexture(controllingPlayer.color);
+                  territorySprite.material.needsUpdate = true;
+                  (territorySprite as any)._currentColor = controllingPlayer.color;
+                }
+              } else {
+                territorySprite.visible = false;
+              }
+            }
+            if (territoryLine) {
+              territoryLine.visible = true;
+              (territoryLine.material as THREE.LineBasicMaterial).opacity = 0.25;
+            }
           } else {
             // Mapped in the past, but currently in sensor fog
-            light.intensity = 0.45;
-            corona.material.opacity = 0.25;
+            light.intensity = 0.6;
+            corona.material.opacity = 0.35;
+            mesh.scale.set(0.85, 0.85, 0.85);
             if (mesh.material instanceof THREE.MeshBasicMaterial) {
               mesh.material.color.setHex(0x94a3b8);
+            }
+            if (territorySprite) {
+              if (controllingPlayer) {
+                territorySprite.visible = true;
+                territorySprite.material.opacity = 0.18;
+                if ((territorySprite as any)._currentColor !== controllingPlayer.color) {
+                  territorySprite.material.map = getTerritoryInfluenceTexture(controllingPlayer.color);
+                  territorySprite.material.needsUpdate = true;
+                  (territorySprite as any)._currentColor = controllingPlayer.color;
+                }
+              } else {
+                territorySprite.visible = false;
+              }
+            }
+            if (territoryLine) {
+              territoryLine.visible = true;
+              (territoryLine.material as THREE.LineBasicMaterial).opacity = 0.12;
             }
           }
 
@@ -2699,7 +2763,14 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           );
 
           Object.values(stateRef.current.map.systems).forEach((sys) => {
-            tempProjVec.set(sys.x, sys.y - 24, 0);
+            // First check approximate star position on screen
+            tempProjVec.set(sys.x, sys.y, 0);
+            tempProjVec.project(camera);
+            const rawScreenY = ((-tempProjVec.y + 1) * height) / 2;
+            const isNearBottom = rawScreenY > height - 135;
+            const yOffset = isNearBottom ? 26 : -24;
+
+            tempProjVec.set(sys.x, sys.y + yOffset, 0);
             tempProjVec.project(camera);
 
             const screenX = ((tempProjVec.x + 1) * width) / 2;
@@ -2771,6 +2842,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   x: screenX,
                   y: screenY,
                   visible: true,
+                  isAbove: isNearBottom,
                   ownerName: undefined,
                   ownerColor: undefined,
                   colonizedCount: 0,
@@ -2798,6 +2870,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   x: screenX,
                   y: screenY,
                   visible: true,
+                  isAbove: isNearBottom,
                   ownerName: controllingPlayer?.name,
                   ownerColor: controllingPlayer?.color,
                   colonizedCount,
@@ -3047,7 +3120,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               position: 'absolute',
               left: `${lbl.x}px`,
               top: `${lbl.y}px`,
-              transform: 'translate(-50%, 0)',
+              transform: lbl.isAbove ? 'translate(-50%, -100%)' : 'translate(-50%, 0)',
             }}
             className="pointer-events-auto cursor-pointer transition-opacity duration-150 hover:scale-105"
             onClick={(e) => {

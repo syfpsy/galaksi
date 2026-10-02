@@ -306,7 +306,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
       {/* ========================================================================= */}
       {/* CENTER: Empire Core Vitals (Planets, Fleet, Radar, Resources, Tech)       */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-1.5 sm:gap-2.5 font-mono text-xs select-none">
+      <div className="flex items-center gap-1 sm:gap-2 font-mono text-xs select-none overflow-x-auto scrollbar-none max-w-[50vw]">
         {/* 1. EMPIRE COLONIES CHIP */}
         <div className="relative group">
           <button
@@ -839,7 +839,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
       {/* ========================================================================= */}
       {/* RIGHT: Time Flow, Calendar, Speed Pips & Tools                            */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+      <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
         {/* Starter Guidance Quick Reopen Button */}
         {onOpenGuidance && !isGuidanceOpen && (
           <button
@@ -850,8 +850,8 @@ const TopBarComponent: React.FC<TopBarProps> = ({
             className="px-2 py-1 rounded-sm border border-amber-500/60 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm animate-pulse"
             title="İlk Adımlar Rehberini Aç"
           >
-            <span>📖</span>
-            <span className="hidden sm:inline">Rehber</span>
+            <span>🧭</span>
+            <span className="hidden xl:inline">İlk Adımlar</span>
           </button>
         )}
 
@@ -889,7 +889,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 sound.playClick();
                 onSetTimeScale(s.scale);
               }}
-              className={`px-1.5 py-0.5 rounded-sm transition-all font-bold cursor-pointer text-[10px] ${
+              className={`px-1 sm:px-1.5 py-0.5 rounded-sm transition-all font-bold cursor-pointer text-[10px] ${
                 timeScale === s.scale
                   ? 'stellaris-btn-gold font-bold shadow-md'
                   : 'text-slate-400 hover:text-white'
@@ -902,16 +902,16 @@ const TopBarComponent: React.FC<TopBarProps> = ({
         </div>
 
         {/* Stellaris Cosmic Date Display */}
-        <div className="stellaris-date-badge px-3 py-1.5 rounded-sm text-xs font-mono font-bold text-[#fbbf24] tracking-widest border border-[#2b4158] shadow-inner hidden md:block">
+        <div className="stellaris-date-badge px-2.5 py-1 rounded-sm text-xs font-mono font-bold text-[#fbbf24] tracking-widest border border-[#2b4158] shadow-inner hidden lg:block">
           {stellarisDate}
         </div>
 
         <div className="h-5 w-px bg-slate-700 hidden sm:block" />
 
-        {/* Utility Toggles: Sound, God Mode, Guide, Reset */}
+        {/* Utility Toggles: Sound, God Mode, Guide, Sandbox, Reset */}
         <button
           onClick={handleToggleMute}
-          className={`stellaris-btn-metallic p-2 rounded-sm border transition-all cursor-pointer ${
+          className={`stellaris-btn-metallic p-1.5 rounded-sm border transition-all cursor-pointer ${
             !isAudioMuted
               ? 'border-cyan-500/50 text-cyan-300'
               : 'text-slate-400 hover:text-slate-200'
@@ -926,7 +926,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
             sound.playClick();
             onToggleGodMode();
           }}
-          className={`stellaris-btn-metallic p-2 rounded-sm border transition-all cursor-pointer ${
+          className={`stellaris-btn-metallic p-1.5 rounded-sm border transition-all cursor-pointer ${
             godMode
               ? 'border-purple-500/60 text-purple-300'
               : 'text-slate-400 hover:text-slate-200'
@@ -942,11 +942,11 @@ const TopBarComponent: React.FC<TopBarProps> = ({
               sound.playClick();
               onOpenOrientation();
             }}
-            className="stellaris-btn-metallic px-2.5 py-1.5 rounded-sm border border-amber-500/40 text-amber-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-mono cursor-pointer"
-            title="Oyun Rehberi & Filo Hareket Oryantasyonu"
+            className="stellaris-btn-metallic p-1.5 xl:px-2 xl:py-1 rounded-sm border border-amber-500/40 text-amber-300 hover:text-white transition-all flex items-center gap-1 text-xs font-mono cursor-pointer"
+            title="Oyun Rehberi & Filo Hareket Kılavuzu"
           >
-            <HelpCircle className="w-4 h-4 text-amber-400" />
-            <span className="hidden lg:inline text-[11px] font-bold">Rehber</span>
+            <HelpCircle className="w-3.5 h-3.5 text-amber-400" />
+            <span className="hidden xl:inline text-[11px] font-bold">Kılavuz</span>
           </button>
         )}
 
@@ -956,11 +956,11 @@ const TopBarComponent: React.FC<TopBarProps> = ({
               sound.playClick();
               onOpenSandbox();
             }}
-            className="stellaris-btn-metallic px-2.5 py-1.5 rounded-sm border border-cyan-500/50 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-mono cursor-pointer shadow-md shadow-cyan-950/40"
+            className="stellaris-btn-metallic p-1.5 xl:px-2 xl:py-1 rounded-sm border border-cyan-500/50 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 hover:text-white transition-all flex items-center gap-1 text-xs font-mono cursor-pointer shadow-md shadow-cyan-950/40"
             title="Galaktik Sandbox & Yeni Oyun Ayarları"
           >
             <Sliders className="w-3.5 h-3.5 text-cyan-400" />
-            <span className="hidden lg:inline text-[11px] font-bold">Sandbox</span>
+            <span className="hidden xl:inline text-[11px] font-bold">Sandbox</span>
           </button>
         )}
 
@@ -973,7 +973,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
               onReset();
             }
           }}
-          className="stellaris-btn-metallic p-2 rounded-sm border border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/50 transition-all cursor-pointer"
+          className="stellaris-btn-metallic p-1.5 rounded-sm border border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/50 transition-all cursor-pointer"
           title="Sandbox Modu & Galaksiyi Sıfırla"
         >
           <RotateCcw className="w-4 h-4" />

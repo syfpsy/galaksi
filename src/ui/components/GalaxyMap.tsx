@@ -200,6 +200,7 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
       {/* 2.5D WebGL Three.js Scene Engine (Exclusive Map Engine) */}
       <div className="absolute inset-0 z-0">
         <GalaxyScene25D
+          key={`scene_${state.seed || 42}_${Object.keys(state.map.systems).length}`}
           state={state}
           activePlayerId={activePlayerId}
           selectedTarget={selectedTarget}
