@@ -1,0 +1,31 @@
+---
+description: Zoobbe Project Management & Task Tracking Integration for Galaksi
+globs: **/*
+alwaysApply: true
+---
+
+# Zoobbe Autonomous Project Tracking (Galaksi)
+
+This project is actively managed on **Zoobbe** via its MCP server tools.
+
+## Board Credentials & Layout
+- **Workspace:** `Tegarama` (`s5c4gtlfki`)
+- **Board Name:** `Galaksi`
+- **Board ID:** `yizos5i41y`
+
+### Column Lists
+- **📋 Backlog & Fikirler:** `6abf2cebf67fe58c4c095810`
+- **🎯 Yapılacaklar (To Do):** `6abf2ceff67fe58c4c095835`
+- **⚡ Devam Edenler (In Progress):** `6abf2cf2f67fe58c4c09585b`
+- **✅ Tamamlananlar (Done):** `6abf2cf6f67fe58c4c095896`
+
+## Autonomous Workflow Policy
+1. **At the start of any new work:**
+   - Check existing cards via `list_cards` for board `yizos5i41y`.
+   - If the task is in `🎯 Yapılacaklar (To Do)`, move it to `⚡ Devam Edenler (In Progress)` using `move_card` or update status.
+   - If it is a new request not yet tracked, create a card on `🎯 Yapılacaklar (To Do)` or `⚡ Devam Edenler (In Progress)`.
+
+2. **When completing a task/request:**
+   - Move the card to `✅ Tamamlananlar (Done)` (`list_id: 6abf2cf6f67fe58c4c095896`).
+   - Call `mark_card_done` with the card's ID.
+   - Proactively review the next steps and populate `🎯 Yapılacaklar (To Do)` with next high-value roadmap cards.
