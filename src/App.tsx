@@ -2887,7 +2887,7 @@ export function App() {
 
       {/* Live Battle Threat Alert Banner & Tactical Arena Jump */}
       {battleThreatAlert && (
-        <div className="fixed top-12 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[92%] sm:w-auto animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-40 max-w-2xl w-[92%] sm:w-auto animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
           <div className="p-2 sm:px-4 sm:py-2.5 rounded-sm bg-[#0a0508]/95 border-2 border-rose-500/80 shadow-[0_0_30px_rgba(244,63,94,0.45)] backdrop-blur-md flex items-center justify-between gap-3 font-mono text-xs">
             <div className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping shrink-0" />
@@ -3297,6 +3297,7 @@ export function App() {
           <IncomingThreatBanner
             state={engineState}
             activePlayerId={activePlayerId}
+            isBattleAlertActive={Boolean(battleThreatAlert)}
             onOpenRadar={() => setActiveLeftPanel((prev) => (prev === 'transit_radar' ? null : 'transit_radar'))}
             onTargetThreat={(threat) => {
               handleTargetThreat(threat);
@@ -3376,14 +3377,14 @@ export function App() {
             onOpenStarbase={(sysId) => setActiveStarbaseSystemId(sysId)}
           />
 
-          {/* Tactical RTS Order Feedback Toast Overlay */}
+          {/* Tactical RTS Order Feedback Toast Overlay - Cleanly docked at Top-Right without center collision */}
           {tacticalToasts.length > 0 && (
-            <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 flex flex-col gap-1.5 pointer-events-none items-center">
+            <div className="fixed top-14 right-6 z-50 flex flex-col gap-1.5 pointer-events-none items-end max-w-sm">
               {tacticalToasts.map((toast) => (
                 <div
                   key={toast.id}
                   style={{ borderColor: `${toast.color}77` }}
-                  className="px-3.5 py-1.5 rounded-sm bg-[#06101c]/95 border shadow-2xl backdrop-blur-md font-mono text-xs text-slate-100 flex items-center gap-2 animate-in fade-in slide-in-from-top-2 duration-200"
+                  className="px-3.5 py-1.5 rounded-sm bg-[#06101c]/95 border shadow-2xl backdrop-blur-md font-mono text-xs text-slate-100 flex items-center gap-2 animate-in fade-in slide-in-from-right-2 duration-200"
                 >
                   <span className="w-2 h-2 rounded-full animate-ping" style={{ backgroundColor: toast.color }} />
                   <span className="font-semibold">{toast.text}</span>

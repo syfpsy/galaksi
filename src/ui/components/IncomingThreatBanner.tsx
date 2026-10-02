@@ -19,6 +19,7 @@ interface IncomingThreatBannerProps {
   onTargetThreat: (fleet: Fleet) => void;
   onEvacuatePlanet: (planetId: string) => void;
   onOpenRadar?: () => void;
+  isBattleAlertActive?: boolean;
 }
 
 const IncomingThreatBannerComponent: React.FC<IncomingThreatBannerProps> = ({
@@ -27,8 +28,12 @@ const IncomingThreatBannerComponent: React.FC<IncomingThreatBannerProps> = ({
   onTargetThreat,
   onEvacuatePlanet,
   onOpenRadar,
+  isBattleAlertActive = false,
 }) => {
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
+
+  // Dynamic top offset to avoid collision with live combat threat alert
+  const topOffset = isBattleAlertActive ? 'top-32' : 'top-14';
 
   // Find all hostile fleets heading towards a planet owned by activePlayer
   const threats = Object.values(state.fleets).filter((f) => {
@@ -55,7 +60,7 @@ const IncomingThreatBannerComponent: React.FC<IncomingThreatBannerProps> = ({
 
   if (isMinimized) {
     return (
-      <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 select-none animate-fade-in">
+      <div className={`absolute ${topOffset} left-1/2 -translate-x-1/2 z-30 select-none animate-fade-in transition-all duration-300`}>
         <div className="bg-rose-950/90 border border-rose-500/80 rounded-full px-3 py-1.5 backdrop-blur-md shadow-2xl shadow-rose-950/60 flex items-center gap-2.5">
           <div className="w-2.5 h-2.5 rounded-full bg-rose-500 animate-ping" />
           <span className="text-xs font-mono font-bold text-rose-200">
@@ -89,7 +94,7 @@ const IncomingThreatBannerComponent: React.FC<IncomingThreatBannerProps> = ({
   }
 
   return (
-    <div className="absolute top-16 left-1/2 -translate-x-1/2 z-30 select-none max-w-3xl w-full px-4 animate-bounce-subtle">
+    <div className={`absolute ${topOffset} left-1/2 -translate-x-1/2 z-30 select-none max-w-3xl w-full px-4 animate-bounce-subtle transition-all duration-300`}>
       <div className="bg-rose-950/95 border border-rose-500/80 rounded-sm p-3 backdrop-blur-md shadow-2xl shadow-rose-950/60 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-sm bg-rose-600/30 border border-rose-500 flex items-center justify-center text-rose-400 shrink-0 animate-pulse">
