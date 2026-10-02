@@ -195,10 +195,24 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   const sensorCoverageRef = useRef(sensorCoverage);
   sensorCoverageRef.current = sensorCoverage;
 
+  // Resolve initial target system (player homeworld system if available)
+  const initialTargetSysId = selectedTarget?.systemId || focusedSystemId;
+  const initialSys = state.map.systems[initialTargetSysId];
+
   const targetCameraPosRef = useRef<THREE.Vector3>(
-    viewMode === 'system' ? new THREE.Vector3(500, 240, 260) : new THREE.Vector3(500, 120, 750)
+    viewMode === 'system'
+      ? new THREE.Vector3(500, 240, 260)
+      : initialSys
+      ? new THREE.Vector3(initialSys.x, initialSys.y - 75, 360)
+      : new THREE.Vector3(500, 120, 750)
   );
-  const targetLookAtRef = useRef<THREE.Vector3>(new THREE.Vector3(500, 400, 0));
+  const targetLookAtRef = useRef<THREE.Vector3>(
+    viewMode === 'system'
+      ? new THREE.Vector3(500, 400, 0)
+      : initialSys
+      ? new THREE.Vector3(initialSys.x, initialSys.y, 0)
+      : new THREE.Vector3(500, 400, 0)
+  );
   const triggerWarpRef = useRef<(() => void) | null>(null);
 
   // Sync camera when viewMode changes externally
@@ -207,12 +221,13 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       targetCameraPosRef.current.set(500, 240, 260);
       targetLookAtRef.current.set(500, 400, 0);
     } else {
-      targetCameraPosRef.current.set(500, 120, 750);
       const targetSysId = selectedTargetRef.current?.systemId || focusedSystemId;
       const sys = stateRef.current.map.systems[targetSysId];
       if (sys) {
+        targetCameraPosRef.current.set(sys.x, sys.y - 75, 360);
         targetLookAtRef.current.set(sys.x, sys.y, 0);
       } else {
+        targetCameraPosRef.current.set(500, 120, 750);
         targetLookAtRef.current.set(500, 400, 0);
       }
     }
@@ -226,6 +241,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const sys = stateRef.current.map.systems[targetSysId];
       if (sys) {
         targetLookAtRef.current.set(sys.x, sys.y, 0);
+        targetCameraPosRef.current.x = sys.x;
+        targetCameraPosRef.current.y = sys.y - 75;
       }
     } else {
       targetLookAtRef.current.set(500, 400, 0);
@@ -566,6 +583,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       progress: number;
       speed: number;
       sprite: THREE.Sprite;
+      fromSystemId?: string;
+      toSystemId?: string;
     }
     const lanePulses: LanePulse[] = [];
 
@@ -610,6 +629,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       lanePulses.push({
         from,
         to,
+        fromSystemId: lane.fromSystemId,
+        toSystemId: lane.toSystemId,
         progress: (lIdx * 0.19) % 1,
         speed: 0.15 + (lIdx % 4) * 0.03,
         sprite: pulseSprite,
@@ -1431,7 +1452,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
       const zoomFactor = targetCameraPos.z < 250 ? 0.45 : 0.85;
       const zoomDelta = e.deltaY * zoomFactor;
 
-      const minZ = viewModeRef.current === 'system' ? 45 : 450;
+      const minZ = viewModeRef.current === 'system' ? 45 : 240;
       const maxZ = viewModeRef.current === 'system' ? 700 : 1350;
 
       targetCameraPos.z = Math.max(minZ, Math.min(maxZ, targetCameraPos.z + zoomDelta));
@@ -1826,10 +1847,35 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
 
       // 6.4 If in Galaxy Macro Mode: Update macro star lights, pulses, and fleets
       if (!isSystemMode) {
-        starMeshes.forEach(({ group, light, corona, hazardRing, starbaseRing }, sysId) => {
+        const playerIntel = stateRef.current.players[activePlayerIdRef.current]?.intel?.discoveredSystems;
+
+        starMeshes.forEach(({ group, mesh, light, corona, hazardRing, starbaseRing }, sysId) => {
+          const storedIntel = playerIntel?.[sysId] || 'unexplored';
+          const isDiscovered = storedIntel !== 'unexplored';
           const isVisible = isGodMode || currentCoverage.has(sysId);
-          light.intensity = isVisible ? 2.5 : 0.6;
-          corona.material.opacity = isVisible ? 0.88 : 0.3;
+
+          if (!isGodMode && !isDiscovered) {
+            // True Fog of War: shrouded dark celestial object
+            light.intensity = 0.0;
+            corona.material.opacity = 0.04;
+            if (mesh.material instanceof THREE.MeshBasicMaterial) {
+              mesh.material.color.setHex(0x1e293b);
+            }
+          } else if (isVisible) {
+            // Live active vision
+            light.intensity = 2.5;
+            corona.material.opacity = 0.88;
+            if (mesh.material instanceof THREE.MeshBasicMaterial) {
+              mesh.material.color.setHex(0xffffff);
+            }
+          } else {
+            // Mapped in the past, but currently in sensor fog
+            light.intensity = 0.45;
+            corona.material.opacity = 0.25;
+            if (mesh.material instanceof THREE.MeshBasicMaterial) {
+              mesh.material.color.setHex(0x94a3b8);
+            }
+          }
 
           // Starbase Defense Ring Glyph update
           const sysSb = stateRef.current.starbases?.[sysId];
@@ -1893,15 +1939,22 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         );
 
         lanePulses.forEach((pulse) => {
-          const speedMultiplier = isSurgeActive ? 2.2 : 1.0;
-          pulse.progress += delta * pulse.speed * speedMultiplier;
-          if (pulse.progress > 1) pulse.progress = 0;
-          pulse.sprite.position.lerpVectors(pulse.from, pulse.to, pulse.progress);
-          pulse.sprite.position.z = 2;
-          if (isSurgeActive) {
-            pulse.sprite.scale.set(7.5, 7.5, 1);
-          } else {
-            pulse.sprite.scale.set(5, 5, 1);
+          const p1 = pulse.fromSystemId ? playerIntel?.[pulse.fromSystemId] : 'full';
+          const p2 = pulse.toSystemId ? playerIntel?.[pulse.toSystemId] : 'full';
+          const bothUnexplored = !isGodMode && (p1 === 'unexplored' || !p1) && (p2 === 'unexplored' || !p2);
+          pulse.sprite.visible = !bothUnexplored;
+
+          if (!bothUnexplored) {
+            const speedMultiplier = isSurgeActive ? 2.2 : 1.0;
+            pulse.progress += delta * pulse.speed * speedMultiplier;
+            if (pulse.progress > 1) pulse.progress = 0;
+            pulse.sprite.position.lerpVectors(pulse.from, pulse.to, pulse.progress);
+            pulse.sprite.position.z = 2;
+            if (isSurgeActive) {
+              pulse.sprite.scale.set(7.5, 7.5, 1);
+            } else {
+              pulse.sprite.scale.set(5, 5, 1);
+            }
           }
         });
 
@@ -2064,8 +2117,20 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             lv.mat.color.setHex(0x38bdf8);
             lv.mat.opacity = 0.80 + p * 0.20;
           } else {
-            lv.mat.color.setHex(0x0284c7);
-            lv.mat.opacity = 0.45;
+            const p1Intel = playerIntel?.[lv.fromSystemId] || 'unexplored';
+            const p2Intel = playerIntel?.[lv.toSystemId] || 'unexplored';
+            if (!isGodMode && p1Intel === 'unexplored' && p2Intel === 'unexplored') {
+              // Deep Fog of War: both systems unknown, virtually invisible in deep space
+              lv.mat.color.setHex(0x1e293b);
+              lv.mat.opacity = 0.03;
+            } else if (!isGodMode && (p1Intel === 'unexplored' || p2Intel === 'unexplored')) {
+              // Frontier hyperlane leading into the unknown: faint exploratory corridor
+              lv.mat.color.setHex(0x0ea5e9);
+              lv.mat.opacity = 0.20;
+            } else {
+              lv.mat.color.setHex(0x0284c7);
+              lv.mat.opacity = 0.45;
+            }
           }
         });
 
@@ -2669,6 +2734,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               const openSlotsCount = sys.slots.length - colonizedCount;
               const debrisTotal = (sys.hasDebris?.ore || 0) + (sys.hasDebris?.crystal || 0);
               const playerIntel = stateRef.current.players[activePlayerIdRef.current]?.intel?.discoveredSystems[sys.id];
+              const isUnexplored = !isGodMode && (playerIntel === undefined || playerIntel === 'unexplored');
               const hasHostileThreat = Object.values(stateRef.current.fleets).some(
                 (f) =>
                   f.ownerId !== activePlayerIdRef.current &&
@@ -2694,32 +2760,61 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   }
                 : undefined;
 
-              labels.push({
-                id: sys.id,
-                type: 'system',
-                title: sys.name,
-                subtitle,
-                color: isHomeworld ? '#10b981' : starColor,
-                systemId: sys.id,
-                x: screenX,
-                y: screenY,
-                visible: true,
-                ownerName: controllingPlayer?.name,
-                ownerColor: controllingPlayer?.color,
-                colonizedCount,
-                openSlotsCount,
-                hasPoi: !!sys.poi && !sys.poi.explored,
-                hasDebris: !!sys.hasDebris && ((sys.hasDebris.ore || 0) > 0 || (sys.hasDebris.crystal || 0) > 0),
-                debrisTotal,
-                intelLevel: playerIntel || 'unexplored',
-                hasHostileThreat,
-                isRelay,
-                isHomeworld,
-                hasStarbase: !!stateRef.current.starbases?.[sys.id],
-                starbaseTier: stateRef.current.starbases?.[sys.id]?.tier,
-                isRecentBattle: battleSystemIds.has(sys.id),
-                activeCrisis,
-              });
+              if (isUnexplored) {
+                labels.push({
+                  id: sys.id,
+                  type: 'system',
+                  title: 'Bilinmeyen Sektör',
+                  subtitle: 'SİS İÇİNDE',
+                  color: '#64748b',
+                  systemId: sys.id,
+                  x: screenX,
+                  y: screenY,
+                  visible: true,
+                  ownerName: undefined,
+                  ownerColor: undefined,
+                  colonizedCount: 0,
+                  openSlotsCount: 0,
+                  hasPoi: false,
+                  hasDebris: false,
+                  debrisTotal: 0,
+                  intelLevel: 'unexplored',
+                  hasHostileThreat: false,
+                  isRelay: false,
+                  isHomeworld: false,
+                  hasStarbase: false,
+                  starbaseTier: undefined,
+                  isRecentBattle: false,
+                  activeCrisis: undefined,
+                });
+              } else {
+                labels.push({
+                  id: sys.id,
+                  type: 'system',
+                  title: sys.name,
+                  subtitle,
+                  color: isHomeworld ? '#10b981' : starColor,
+                  systemId: sys.id,
+                  x: screenX,
+                  y: screenY,
+                  visible: true,
+                  ownerName: controllingPlayer?.name,
+                  ownerColor: controllingPlayer?.color,
+                  colonizedCount,
+                  openSlotsCount,
+                  hasPoi: !!sys.poi && !sys.poi.explored,
+                  hasDebris: !!sys.hasDebris && ((sys.hasDebris.ore || 0) > 0 || (sys.hasDebris.crystal || 0) > 0),
+                  debrisTotal,
+                  intelLevel: playerIntel || 'unexplored',
+                  hasHostileThreat,
+                  isRelay,
+                  isHomeworld,
+                  hasStarbase: !!stateRef.current.starbases?.[sys.id],
+                  starbaseTier: stateRef.current.starbases?.[sys.id]?.tier,
+                  isRecentBattle: battleSystemIds.has(sys.id),
+                  activeCrisis,
+                });
+              }
             }
           });
 
@@ -3005,7 +3100,45 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             }}
           >
             {lbl.type === 'system' ? (
-              <div className="flex flex-col items-center group">
+              lbl.intelLevel === 'unexplored' ? (
+                <div className="flex flex-col items-center group">
+                  <div className="px-2 py-0.5 rounded-sm bg-[#060e1b]/95 border border-slate-700/80 text-[10px] font-mono font-bold text-slate-300 flex items-center gap-1.5 backdrop-blur-md shadow-lg group-hover:border-cyan-500/60 transition-colors">
+                    <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
+                    <span className="tracking-wide text-slate-400">Bilinmeyen Sektör</span>
+                    <span className="text-[8px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">SİS</span>
+                  </div>
+
+                  {/* Subtitle badge */}
+                  <div className="flex items-center gap-1 mt-0.5">
+                    <span className="text-[8.5px] font-mono font-bold px-1.5 py-0.2 rounded-sm bg-slate-900/80 border border-slate-800 text-slate-400">
+                      🔭 KEŞİF GEREKLİ
+                    </span>
+                  </div>
+
+                  {/* 1-Click Explore Order button when selected */}
+                  {selectedTarget?.systemId === lbl.id && onDirectOrder && (
+                    <div className="mt-1 flex items-center gap-1 animate-in fade-in duration-150 pointer-events-auto">
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sound.playLaunch();
+                          onDirectOrder({
+                            type: 'system',
+                            systemId: lbl.systemId,
+                          });
+                        }}
+                        className="px-2 py-0.5 rounded-sm bg-cyan-950/95 border border-cyan-400 text-cyan-200 text-[9.5px] font-mono font-bold flex items-center gap-1 hover:bg-cyan-900 shadow-md cursor-pointer transition-all hover:scale-102"
+                        title="Ana dünyadan bu sisteme 1x Gözcü gemisi sevk et"
+                      >
+                        <span>🔭</span>
+                        <span>Keşfet</span>
+                      </button>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="flex flex-col items-center group">
                 <div
                   className={`px-2.5 py-1 rounded-sm bg-[#091322]/95 border shadow-xl text-[11px] font-mono font-bold text-white flex items-center gap-1.5 backdrop-blur-md transition-all ${
                     lbl.activeCrisis?.type === 'ancient_titan'
@@ -3280,7 +3413,8 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   </div>
                 )}
               </div>
-            ) : lbl.type === 'jump_gate' ? (
+            )
+          ) : lbl.type === 'jump_gate' ? (
               <div className="px-2 py-0.5 rounded-sm bg-[#091322]/95 border border-cyber-cyan/60 text-[10px] font-mono font-bold text-cyber-cyan shadow-lg shadow-cyan-950/50 backdrop-blur-md hover:bg-cyber-cyan hover:text-[#091322] transition-all flex items-center gap-1">
                 <span>➔ {lbl.title}</span>
               </div>

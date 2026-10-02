@@ -75,6 +75,8 @@ interface TopBarProps {
   onOpenHyperRelays?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
+  isGuidanceOpen?: boolean;
+  onOpenGuidance?: () => void;
   onToggleVacationMode?: () => void;
   onReset: () => void;
   isMuted?: boolean;
@@ -118,6 +120,8 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenHyperRelays,
   onOpenGallery,
   onOpenOrientation,
+  isGuidanceOpen,
+  onOpenGuidance,
   onToggleVacationMode,
   onReset,
   isMuted: propIsMuted,
@@ -833,6 +837,21 @@ const TopBarComponent: React.FC<TopBarProps> = ({
       {/* RIGHT: Time Flow, Calendar, Speed Pips & Tools                            */}
       {/* ========================================================================= */}
       <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
+        {/* Starter Guidance Quick Reopen Button */}
+        {onOpenGuidance && !isGuidanceOpen && (
+          <button
+            onClick={() => {
+              sound.playClick();
+              onOpenGuidance();
+            }}
+            className="px-2 py-1 rounded-sm border border-amber-500/60 bg-amber-950/60 hover:bg-amber-900/80 text-amber-300 font-mono text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer shadow-sm animate-pulse"
+            title="İlk Adımlar Rehberini Aç"
+          >
+            <span>📖</span>
+            <span className="hidden sm:inline">Rehber</span>
+          </button>
+        )}
+
         {/* Play / Pause Compact Icon Button */}
         <button
           onClick={() => {

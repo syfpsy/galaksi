@@ -96,6 +96,7 @@ import { TradeModal } from './ui/components/TradeModal';
 import { EspionageModal } from './ui/components/EspionageModal';
 import { VictoryModal } from './ui/components/VictoryModal';
 import { TacticalBottomDock } from './ui/components/TacticalBottomDock';
+import { StarterGuidanceHUD } from './ui/components/StarterGuidanceHUD';
 import { StrategicOpportunity } from './engine/types';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
@@ -200,8 +201,9 @@ export function App() {
   const [espionageTargetPlanetId, setEspionageTargetPlanetId] = useState<string | null>(null);
   const [allianceInitialTab, setAllianceInitialTab] = useState<AllianceTab>('members');
   const [isVictoryModalOpen, setIsVictoryModalOpen] = useState(false);
-  const [isOrientationOpen, setIsOrientationOpen] = useState<boolean>(() => {
-    return !localStorage.getItem('galaksi_orientation_seen');
+  const [isOrientationOpen, setIsOrientationOpen] = useState<boolean>(false);
+  const [isGuidanceOpen, setIsGuidanceOpen] = useState<boolean>(() => {
+    return localStorage.getItem('galaksi_guidance_dismissed') !== 'true';
   });
 
   // Automatically prompt victory modal when victory conditions are achieved
@@ -2831,6 +2833,121 @@ export function App() {
     setEngineState({ ...engineRef.current.state });
   }, [activePlayerId]);
 
+  // Phase 35: Fog of War Quick Scouting Handler (1-click Scout Dispatch)
+  const handleQuickScout = useCallback(() => {
+    if (!engineRef.current) return;
+    const player = engineRef.current.state.players[activePlayerId];
+    if (!player) return;
+
+    // Find homeworld or any owned planet
+    const ownedPlanets = Object.values(engineRef.current.state.planets).filter(
+      (p) => p.ownerId === activePlayerId
+    );
+    const hw = ownedPlanets.find((p) => p.isHomeworld) || ownedPlanets[0];
+    if (!hw) {
+      sound.playError();
+      return;
+    }
+
+    // Find adjacent unexplored system first
+    const lanes = engineRef.current.state.map.lanes;
+    const discovered = player.intel?.discoveredSystems || {};
+
+    const neighborSystemIds = lanes
+      .filter((l) => l.fromSystemId === hw.systemId || l.toSystemId === hw.systemId)
+      .map((l) => (l.fromSystemId === hw.systemId ? l.toSystemId : l.fromSystemId));
+
+    let targetSystemId = neighborSystemIds.find(
+      (id) => !discovered[id] || discovered[id] === 'unexplored'
+    );
+
+    // If none directly adjacent, find any unexplored system connected to any explored system
+    if (!targetSystemId) {
+      const allExplored = Object.keys(engineRef.current.state.map.systems).filter(
+        (id) => discovered[id] && discovered[id] !== 'unexplored'
+      );
+      for (const expId of allExplored) {
+        const frontiers = lanes
+          .filter((l) => l.fromSystemId === expId || l.toSystemId === expId)
+          .map((l) => (l.fromSystemId === expId ? l.toSystemId : l.fromSystemId))
+          .filter((id) => !discovered[id] || discovered[id] === 'unexplored');
+        if (frontiers.length > 0) {
+          targetSystemId = frontiers[0];
+          break;
+        }
+      }
+    }
+
+    if (!targetSystemId) {
+      sound.playNotification();
+      setTacticalToasts((prev) => [
+        ...prev.slice(-3),
+        {
+          id: `toast_${Date.now()}`,
+          text: '✨ Tüm galaksi keşfedildi! Keşfedilecek sisli sektör kalmadı.',
+          color: '#10b981',
+          timestamp: Date.now(),
+        },
+      ]);
+      return;
+    }
+
+    const garrison = hw.garrison || ({} as Record<ShipType, number>);
+    const shipToUse: ShipType | null = (garrison.scout && garrison.scout > 0)
+      ? 'scout'
+      : (garrison.fighter && garrison.fighter > 0)
+      ? 'fighter'
+      : (garrison.transport && garrison.transport > 0)
+      ? 'transport'
+      : (garrison.battleship && garrison.battleship > 0)
+      ? 'battleship'
+      : null;
+
+    if (!shipToUse) {
+      sound.playError();
+      setTacticalToasts((prev) => [
+        ...prev.slice(-3),
+        {
+          id: `toast_${Date.now()}`,
+          text: `⚠️ [${hw.name}] Kolonisinde hazır gemi yok! Tersaneden bir Keşif Gemisi inşa edin.`,
+          color: '#f59e0b',
+          timestamp: Date.now(),
+        },
+      ]);
+      setActiveLeftPanel('shipyard');
+      return;
+    }
+
+    const ships: Record<ShipType, number> = { scout: 0, transport: 0, fighter: 0, battleship: 0 };
+    ships[shipToUse] = 1;
+
+    const res = engineRef.current.dispatchCommand(activePlayerId, {
+      type: 'DISPATCH_FLEET',
+      originPlanetId: hw.id,
+      targetSystemId,
+      ships,
+      mission: 'explore',
+    });
+
+    if (res.success) {
+      sound.playLaunch();
+      setSelectedTarget({ type: 'system', systemId: targetSystemId });
+      const targetSys = engineRef.current.state.map.systems[targetSystemId];
+      setTacticalToasts((prev) => [
+        ...prev.slice(-3),
+        {
+          id: `toast_${Date.now()}`,
+          text: `🔭 Keşif filosu [${targetSys?.name || 'Bilinmeyen Sektör'}] yönüne intikal ediyor...`,
+          color: '#06b6d4',
+          timestamp: Date.now(),
+        },
+      ]);
+      setEngineState({ ...engineRef.current.state });
+    } else {
+      sound.playError();
+    }
+  }, [activePlayerId]);
+
   return (
     <div className="flex flex-col w-screen h-screen overflow-hidden bg-space-950 font-sans">
       {/* Top Bar Navigation & Resources */}
@@ -2875,6 +2992,11 @@ export function App() {
         onOpenHyperRelays={() => setActiveLeftPanel((prev) => (prev === 'hyperRelays' ? null : 'hyperRelays'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
+        isGuidanceOpen={isGuidanceOpen}
+        onOpenGuidance={() => {
+          localStorage.removeItem('galaksi_guidance_dismissed');
+          setIsGuidanceOpen(true);
+        }}
         onToggleVacationMode={handleToggleVacationMode}
         onReset={() => initGame(Date.now())}
         isMuted={isAudioMuted}
@@ -3447,6 +3569,26 @@ export function App() {
             onRapidIntercept={handleRapidIntercept}
             onExecuteCommand={handleExecuteGenericCommand}
             onClaimOpportunity={handleClaimOpportunity}
+          />
+
+          {/* Beginner Interactive Guidance HUD (Fog of War & Expansion Doctrine) */}
+          <StarterGuidanceHUD
+            state={engineState}
+            activePlayerId={activePlayerId}
+            isOpen={isGuidanceOpen}
+            onClose={() => {
+              localStorage.setItem('galaksi_guidance_dismissed', 'true');
+              setIsGuidanceOpen(false);
+            }}
+            onQuickScout={handleQuickScout}
+            onOpenPlanetPanel={(pId) => {
+              setActivePlanetId(pId);
+              setActiveLeftPanel('planets');
+            }}
+            onOpenCommandPanel={() => setIsCommandPanelOpen(true)}
+            onFocusRelay={handleFocusRelay}
+            onFocusHomeworld={handleFocusHomeworld}
+            onSelectSystem={(sysId) => setSelectedTarget({ type: 'system', systemId: sysId })}
           />
 
           {/* Sector Real-Time Communications & Alerts Ticker */}
