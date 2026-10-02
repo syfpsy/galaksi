@@ -249,9 +249,9 @@ export const RESEARCH_STATS: Record<ResearchType, ResearchStats> = {
   },
   sensors: {
     type: 'sensors',
-    name: 'Tachyon Sensors',
-    nameTr: 'Tanyon Sensörleri',
-    descriptionTr: 'İstihbarat seviyesini artırır; düşman filoların tam gemi kompozisyonunu açar.',
+    name: 'Deep Space Sensors',
+    nameTr: 'Derin Uzay Sensörleri',
+    descriptionTr: 'Seviye 1: Galaktik Haritayı ve hiperuzay geçitlerini açar. Yüksek seviyeler: Sektördeki düşman filoları ve derin uzay istihbaratını çözer.',
     baseCost: { ore: 200, crystal: 340, fuel: 220 },
     costMultiplier: 1.7,
     baseResearchTimeSec: 540, // 9 minutes

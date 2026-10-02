@@ -7203,6 +7203,50 @@ describe('GameEngine Headless Rules (Phase A)', () => {
       expect(hasLane).toBe(true);
     }
   });
+
+  it('Phase 43: Initial Ground-Zero Research Gating & Sensors Progression', () => {
+    const engine = new GameEngine(777);
+    const { player, homeworld } = engine.addPlayer('p_ground_zero', 'Pioneer Shepard', '#00f3ff');
+
+    // 1. Player begins at ground zero with 0 tech levels
+    expect(player.research.sensors).toBe(0);
+    expect(player.research.engines).toBe(0);
+    expect(player.research.weapons).toBe(0);
+    expect(homeworld.buildings.research_lab).toBe(0);
+
+    // 2. Cannot start research without a Research Lab
+    const startFailRes = engine.dispatchCommand(player.id, {
+      type: 'START_RESEARCH',
+      planetId: homeworld.id,
+      researchType: 'sensors',
+    });
+    expect(startFailRes.success).toBe(false);
+
+    // 3. Construct Research Lab
+    homeworld.resources.ore = 2000;
+    homeworld.resources.crystal = 2000;
+    homeworld.resources.fuel = 1000;
+    homeworld.buildings.research_lab = 1;
+
+    // 4. Start Deep Space Sensors research
+    const startRes = engine.dispatchCommand(player.id, {
+      type: 'START_RESEARCH',
+      planetId: homeworld.id,
+      researchType: 'sensors',
+    });
+    expect(startRes.success).toBe(true);
+    expect(player.researchQueue).toBeDefined();
+    expect(player.researchQueue?.type).toBe('sensors');
+    expect(player.researchQueue?.targetLevel).toBe(1);
+
+    // 5. Fast-forward to complete research
+    const duration = player.researchQueue!.finishTime - player.researchQueue!.startTime;
+    engine.tick(duration + 100);
+
+    // 6. Verify Sensors reached Level 1 and queue cleared
+    expect(player.researchQueue).toBeNull();
+    expect(player.research.sensors).toBe(1);
+  });
 });
 
 

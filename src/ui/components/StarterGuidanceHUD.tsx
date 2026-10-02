@@ -4,6 +4,7 @@ import {
   ChevronDown,
   ChevronUp,
   Compass,
+  Eye,
   Globe,
   HelpCircle,
   Navigation,
@@ -29,6 +30,7 @@ interface StarterGuidanceHUDProps {
   onFocusRelay?: () => void;
   onFocusHomeworld?: () => void;
   onSelectSystem?: (systemId: string) => void;
+  onOpenResearch?: () => void;
 }
 
 export const StarterGuidanceHUD: React.FC<StarterGuidanceHUDProps> = ({
@@ -43,6 +45,7 @@ export const StarterGuidanceHUD: React.FC<StarterGuidanceHUDProps> = ({
   onFocusRelay,
   onFocusHomeworld,
   onSelectSystem,
+  onOpenResearch,
 }) => {
   const [isMinimized, setIsMinimized] = useState(false);
   const [selectedStepIndex, setSelectedStepIndex] = useState<number | null>(null);
@@ -60,76 +63,101 @@ export const StarterGuidanceHUD: React.FC<StarterGuidanceHUDProps> = ({
     (lvl) => lvl !== 'unexplored'
   ).length;
 
-  // 3. Economy metrics
+  // 3. Economy & Research metrics
   const oreMineLevel = homeworld?.buildings.ore_mine || 0;
+  const researchLabLevel = homeworld?.buildings.research_lab || 0;
+  const sensorsLevel = player.research?.sensors || 0;
 
   // 4. Hegemony / Victory metrics
   const hegemonyPoints = state.relay?.weeklyPoints?.[activePlayerId] || 0;
   const isVictory = Boolean(state.victory);
 
-  // Milestone completion evaluation
-  const isStep1Done = discoveredSystemsCount >= 2;
-  const isStep2Done = oreMineLevel >= 2;
-  const isStep3Done = colonizedCount >= 2;
-  const isStep4Done = hegemonyPoints >= 10 || isVictory;
+  // Milestone completion evaluation (5 Progressive Ground-Zero Steps)
+  const isStep1Done = oreMineLevel >= 2;
+  const isStep2Done = sensorsLevel >= 1;
+  const isStep3Done = discoveredSystemsCount >= 2;
+  const isStep4Done = colonizedCount >= 2;
+  const isStep5Done = hegemonyPoints >= 10 || isVictory;
 
-  const completedStepsCount = [isStep1Done, isStep2Done, isStep3Done, isStep4Done].filter(Boolean).length;
-  const allCompleted = completedStepsCount === 4;
+  const completedStepsCount = [isStep1Done, isStep2Done, isStep3Done, isStep4Done, isStep5Done].filter(Boolean).length;
+  const allCompleted = completedStepsCount === 5;
 
   // Automatically select the first non-completed step if not manually picked
-  const activeAutoIndex = !isStep1Done ? 0 : !isStep2Done ? 1 : !isStep3Done ? 2 : !isStep4Done ? 3 : 3;
+  const activeAutoIndex = !isStep1Done ? 0 : !isStep2Done ? 1 : !isStep3Done ? 2 : !isStep4Done ? 3 : !isStep5Done ? 4 : 4;
   const currentStep = selectedStepIndex !== null ? selectedStepIndex : activeAutoIndex;
 
   const steps = [
     {
       id: 1,
-      title: 'Sisi Arala (İlk Keşif)',
-      shortTitle: 'Keşif',
-      icon: <Compass className="w-4 h-4 text-cyan-400" />,
-      done: isStep1Done,
-      progress: isStep1Done ? 'Tamamlandı' : '1 Keşif Gerekli',
-      desc: 'Evren savaş sisi ile kaplı. Ana dünyanızın etrafındaki sisli komşu sektöre bir gözcü gemisi fırlatın ve yeni dünyaları haritalandırın.',
-      actionText: 'İlk Keşfi Başlat',
-      actionIcon: <Rocket className="w-3.5 h-3.5 text-cyan-300" />,
-      onAction: () => {
-        if (onQuickScout) onQuickScout();
-      },
-    },
-    {
-      id: 2,
-      title: 'Maden Altyapısı (Ekonomi)',
+      title: 'Maden & Altyapı (Ekonomi)',
       shortTitle: 'Maden',
       icon: <Pickaxe className="w-4 h-4 text-amber-400" />,
-      done: isStep2Done,
-      progress: isStep2Done ? 'Tamamlandı' : 'Seviye 2 Gerekli',
-      desc: 'Donanma inşası ve koloni harcamaları için cevhere ihtiyacınız var. Ana dünyanızdaki Cevher Ocağını Seviye 2\'ye yükseltin.',
-      actionText: 'Cevher Ocağını Aç',
+      done: isStep1Done,
+      progress: isStep1Done ? 'Tamamlandı' : 'Cevher Ocağı Lv. 2 Gerekli',
+      desc: 'İmparatorluğunuzun temeli maden, kristal ve yakıt üretimine dayanır. Binalarınızı yönetmek ve üretimi hızlandırmak için ana dünyanızı açın ve Cevher Ocağını Seviye 2\'ye yükseltin.',
+      actionText: 'Gezegen Panelini Aç',
       actionIcon: <Pickaxe className="w-3.5 h-3.5 text-amber-300" />,
       onAction: () => {
         if (homeworld && onOpenPlanetPanel) onOpenPlanetPanel(homeworld.id);
       },
     },
     {
+      id: 2,
+      title: 'Ar-Ge & Sensör Ağı (Galaksi Kilidi)',
+      shortTitle: 'Sensör',
+      icon: <Eye className="w-4 h-4 text-cyan-400" />,
+      done: isStep2Done,
+      progress: isStep2Done
+        ? 'Tamamlandı'
+        : researchLabLevel < 1
+        ? 'Ar-Ge Laboratuvarı Gerekli'
+        : 'Sensör Lv. 1 Araştır',
+      desc: 'Yıldız sistemimizin ötesindeki galaktik hiperuzay geçitleri kilitli! Galaksiyi haritalandırmak için ana dünyanızda Ar-Ge Laboratuvarı inşa edin ve Sensör Teknolojisi Seviye 1\'i araştırın.',
+      actionText: researchLabLevel < 1 ? 'Ar-Ge Laboratuvarı Kur' : 'Sensör Seviye 1 Araştır',
+      actionIcon: <Sparkles className="w-3.5 h-3.5 text-cyan-300" />,
+      onAction: () => {
+        if (researchLabLevel < 1) {
+          if (homeworld && onOpenPlanetPanel) onOpenPlanetPanel(homeworld.id);
+        } else {
+          if (onOpenResearch) onOpenResearch();
+        }
+      },
+    },
+    {
       id: 3,
+      title: 'Sisi Arala (İlk Keşif)',
+      shortTitle: 'Keşif',
+      icon: <Compass className="w-4 h-4 text-emerald-400" />,
+      done: isStep3Done,
+      progress: isStep3Done ? 'Tamamlandı' : '1 Keşif Gerekli',
+      desc: 'Sensör ağınız devreye girdi ve Triton Sektörü haritası açıldı! \'M\' tuşuyla galaksi haritasına geçin ve sisli komşu bir sisteme Gözcü gemisi fırlatarak yeni dünyaları haritalandırın.',
+      actionText: 'İlk Keşfi Başlat',
+      actionIcon: <Rocket className="w-3.5 h-3.5 text-emerald-300" />,
+      onAction: () => {
+        if (onQuickScout) onQuickScout();
+      },
+    },
+    {
+      id: 4,
       title: 'Yeni Dünya (Kolonileşme)',
       shortTitle: 'Koloni',
-      icon: <Globe className="w-4 h-4 text-emerald-400" />,
-      done: isStep3Done,
-      progress: isStep3Done ? 'Tamamlandı' : '2. Koloni Gerekli',
-      desc: 'Keşfettiğiniz yaşanabilir gezegene Ağır Nakliye ile koloni malzemeleri sevk ederek 2. dünyanızı kurun ve sınırlarınızı genişletin.',
+      icon: <Globe className="w-4 h-4 text-blue-400" />,
+      done: isStep4Done,
+      progress: isStep4Done ? 'Tamamlandı' : '2. Koloni Gerekli',
+      desc: 'Keşfettiğiniz yaşanabilir gezegene Ağır Nakliye ile koloni malzemeleri sevk ederek 2. dünyanızı kurun ve imparatorluğunuzun sınırlarını genişletin.',
       actionText: 'Koloni Sevk Et',
-      actionIcon: <Globe className="w-3.5 h-3.5 text-emerald-300" />,
+      actionIcon: <Globe className="w-3.5 h-3.5 text-blue-300" />,
       onAction: () => {
         if (onOpenCommandPanel) onOpenCommandPanel();
       },
     },
     {
-      id: 4,
+      id: 5,
       title: 'Nexus ve Galaktik Zafer',
       shortTitle: 'Nexus',
       icon: <Sparkles className="w-4 h-4 text-purple-400" />,
-      done: isStep4Done,
-      progress: isStep4Done ? 'Tamamlandı' : `${hegemonyPoints}/10 Puan`,
+      done: isStep5Done,
+      progress: isStep5Done ? 'Tamamlandı' : `${hegemonyPoints}/10 Puan`,
       desc: 'Merkezi Nexus Rölesini ele geçirip 500 Hegemonya puanına ulaşarak ya da sektördeki kolonilerin %60\'ını yöneterek zafere ulaşın!',
       actionText: 'Nexus Rölesine Git',
       actionIcon: <Sparkles className="w-3.5 h-3.5 text-purple-300" />,
@@ -157,7 +185,7 @@ export const StarterGuidanceHUD: React.FC<StarterGuidanceHUDProps> = ({
           title="Galaktik Rehberi Aç"
         >
           <Compass className="w-3.5 h-3.5 text-cyan-400 animate-spin-slow" />
-          <span>REHBER: {completedStepsCount}/4</span>
+          <span>REHBER: {completedStepsCount}/5</span>
           <span className="text-[10px] text-slate-400 group-hover:text-white">▼</span>
         </button>
       </div>
@@ -204,7 +232,7 @@ export const StarterGuidanceHUD: React.FC<StarterGuidanceHUDProps> = ({
         </div>
 
         {/* Milestone Steps Pips */}
-        <div className="grid grid-cols-4 gap-1 p-2 bg-[#030912]/80 border-b border-[#112435]">
+        <div className="grid grid-cols-5 gap-1 p-1.5 bg-[#030912]/80 border-b border-[#112435]">
           {steps.map((st, idx) => {
             const isSelected = currentStep === idx;
             return (

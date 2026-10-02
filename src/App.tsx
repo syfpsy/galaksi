@@ -2760,6 +2760,23 @@ export function App() {
         return false;
       }
 
+      // Interstellar flight requires Deep Space Sensors Level 1
+      const humanPlayer = engineRef.current.state.players[activePlayerId];
+      const isSensorsUnlocked = (humanPlayer?.research?.sensors || 0) >= 1 || godMode;
+      if (target.systemId !== currentPlanet.systemId && !isSensorsUnlocked) {
+        sound.playWarning();
+        setTacticalToasts((prev) => [
+          ...prev.slice(-3),
+          {
+            id: `toast_${Date.now()}`,
+            text: '🔒 Derin Uzay Sensör Ağı Kilitli: Sistem dışına rota çizmek için Sensör Seviye 1 gereklidir!',
+            color: '#f59e0b',
+            timestamp: Date.now(),
+          },
+        ]);
+        return false;
+      }
+
       const garrison = currentPlanet.garrison || ({} as Record<ShipType, number>);
       const totalAvailable = Object.values(garrison).reduce((acc, count) => acc + (count || 0), 0);
 
@@ -2972,6 +2989,28 @@ export function App() {
     const hw = ownedPlanets.find((p) => p.isHomeworld) || ownedPlanets[0];
     if (!hw) {
       sound.playError();
+      return;
+    }
+
+    // Interstellar scouting requires Deep Space Sensors Level 1
+    const isSensorsUnlocked = (player.research?.sensors || 0) >= 1 || godMode;
+    if (!isSensorsUnlocked) {
+      sound.playWarning();
+      setTacticalToasts((prev) => [
+        ...prev.slice(-3),
+        {
+          id: `toast_${Date.now()}`,
+          text: '🔒 Derin Uzay Sensör Ağı Kilitli: Sistem dışına keşif filosu sevk etmek için Sensör Seviye 1 gereklidir!',
+          color: '#f59e0b',
+          timestamp: Date.now(),
+        },
+      ]);
+      if (hw.buildings.research_lab > 0) {
+        setActiveLeftPanel('research');
+      } else {
+        setActivePlanetId(hw.id);
+        setActiveLeftPanel('planets');
+      }
       return;
     }
 
@@ -3737,6 +3776,7 @@ export function App() {
             onFocusRelay={handleFocusRelay}
             onFocusHomeworld={handleFocusHomeworld}
             onSelectSystem={(sysId) => setSelectedTarget({ type: 'system', systemId: sysId })}
+            onOpenResearch={() => setActiveLeftPanel('research')}
           />
 
           {/* Sector Real-Time Communications & Alerts Ticker */}

@@ -76,6 +76,7 @@ export interface GalaxyScene25DProps {
   mapMode?: MapMode;
   onOpenBattles?: () => void;
   onOpenStarbase?: (systemId: string) => void;
+  isGalaxyUnlocked?: boolean;
 }
 
 export interface TacticalPingResult {
@@ -154,9 +155,12 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
   mapMode = 'default',
   onOpenBattles,
   onOpenStarbase,
+  isGalaxyUnlocked = true,
 }) => {
   const mountRef = useRef<HTMLDivElement | null>(null);
   const [hudLabels, setHudLabels] = useState<ScreenLabel[]>([]);
+  const isGalaxyUnlockedRef = useRef<boolean>(isGalaxyUnlocked);
+  isGalaxyUnlockedRef.current = isGalaxyUnlocked;
   const onHoverPlanetRef = useRef(onHoverPlanet);
   onHoverPlanetRef.current = onHoverPlanet;
   const onContextMenuTargetRef = useRef(onContextMenuTarget);
@@ -1488,6 +1492,17 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         const udata = (hit.object as any).userData;
         if (udata) {
           if (udata.type === 'jump_gate') {
+            if (!isGalaxyUnlockedRef.current) {
+              sound.playWarning();
+              triggerTacticalPing(hit.point.x, hit.point.y, hit.point.z, 0xf59e0b);
+              if (onDirectOrderRef.current) {
+                onDirectOrderRef.current({
+                  type: 'system',
+                  systemId: udata.targetSystemId,
+                });
+              }
+              return;
+            }
             sound.playWarp();
             if (onEnterSystemView) onEnterSystemView(udata.targetSystemId);
             else onSelectSystem(udata.targetSystemId);
@@ -1547,6 +1562,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         const udata = (hit.object as any).userData;
         if (udata) {
           if (udata.type === 'jump_gate') {
+            if (!isGalaxyUnlockedRef.current) {
+              sound.playWarning();
+              triggerTacticalPing(hit.point.x, hit.point.y, hit.point.z, 0xf59e0b);
+              return;
+            }
             sound.playWarp();
             if (onEnterSystemView) onEnterSystemView(udata.targetSystemId);
             else onSelectSystem(udata.targetSystemId);
@@ -1860,6 +1880,12 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           const hasOwnColony = Object.values(stateRef.current.planets).some(
             (p) => p.systemId === sysId && p.ownerId === activePlayerIdRef.current
           );
+          const isSensorsLocked = !isGalaxyUnlockedRef.current;
+          if (isSensorsLocked && !hasOwnColony && !isGodMode) {
+            group.visible = false;
+            return;
+          }
+          group.visible = true;
           const isDiscovered = hasOwnColony || storedIntel !== 'unexplored';
           const isVisible = isGodMode || hasOwnColony || currentCoverage.has(sysId);
 
@@ -2108,7 +2134,13 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         });
 
         // 3. Animate civilian drones
+        const isSensorsLocked = !isGalaxyUnlockedRef.current;
         civilianDrones.forEach((drone) => {
+          if (isSensorsLocked && !isGodMode) {
+            drone.sprite.visible = false;
+            return;
+          }
+          drone.sprite.visible = true;
           if (drone.isBlockaded) {
             // Panic jitter / hold pattern when blockaded
             drone.sprite.position.lerpVectors(drone.from, drone.to, drone.progress);
@@ -2127,6 +2159,11 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
         });
 
         laneVisuals.forEach((lv) => {
+          if (isSensorsLocked && !isGodMode) {
+            lv.line.visible = false;
+            return;
+          }
+          lv.line.visible = true;
           const k = `${lv.fromSystemId}_${lv.toSystemId}`;
           const isColonySynergyLane =
             myColonySystemIds.has(lv.fromSystemId) && myColonySystemIds.has(lv.toSystemId);
@@ -2981,6 +3018,7 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
           }
 
           // 3. Perimeter Hyperlane Jump Gate Labels (Warp Exit Arrows)
+          const isSensorsLocked = !isGalaxyUnlockedRef.current;
           currentOrrery.warpBuoys.forEach((wb) => {
             tempProjVec.copy(wb.position);
             tempProjVec.y -= 18;
@@ -2989,8 +3027,9 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
             labels.push({
               id: `gate_${wb.targetSystemId}`,
               type: 'jump_gate',
-              title: wb.targetSystemName,
-              color: '#00f3ff',
+              title: isSensorsLocked ? '🔒 Bilinmeyen Sektör' : wb.targetSystemName,
+              subtitle: isSensorsLocked ? 'Sensör Seviye 1 Gerekli' : undefined,
+              color: isSensorsLocked ? '#f59e0b' : '#00f3ff',
               systemId: activeSys?.id || '',
               targetSystemId: wb.targetSystemId,
               x: ((tempProjVec.x + 1) * width) / 2,
@@ -3488,8 +3527,32 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
               </div>
             )
           ) : lbl.type === 'jump_gate' ? (
-              <div className="px-2 py-0.5 rounded-sm bg-[#091322]/95 border border-cyber-cyan/60 text-[10px] font-mono font-bold text-cyber-cyan shadow-lg shadow-cyan-950/50 backdrop-blur-md hover:bg-cyber-cyan hover:text-[#091322] transition-all flex items-center gap-1">
-                <span>➔ {lbl.title}</span>
+              <div
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (lbl.color === '#f59e0b') {
+                    sound.playWarning();
+                    if (onDirectOrderRef.current) {
+                      onDirectOrderRef.current({
+                        type: 'system',
+                        systemId: lbl.targetSystemId || lbl.systemId,
+                      });
+                    }
+                  } else {
+                    sound.playWarp();
+                    if (onEnterSystemView) onEnterSystemView(lbl.targetSystemId || lbl.systemId);
+                    else onSelectSystem(lbl.targetSystemId || lbl.systemId);
+                  }
+                }}
+                className={`px-2 py-0.5 rounded-sm text-[10px] font-mono font-bold shadow-lg backdrop-blur-md transition-all flex items-center gap-1 cursor-pointer select-none ${
+                  lbl.color === '#f59e0b'
+                    ? 'bg-[#181005]/95 border border-amber-500/60 text-amber-300 shadow-amber-950/50 hover:bg-amber-950/70'
+                    : 'bg-[#091322]/95 border border-cyber-cyan/60 text-cyber-cyan shadow-cyan-950/50 hover:bg-cyber-cyan hover:text-[#091322]'
+                }`}
+                title={lbl.color === '#f59e0b' ? 'Hiperuzay Atlama Kapısı (Sensör Seviye 1 Gerekli)' : `Hiperuzay Geçidi: ${lbl.title}`}
+              >
+                <span>{lbl.color === '#f59e0b' ? '🔒' : '➔'} {lbl.title}</span>
+                {lbl.subtitle && <span className="text-[8.5px] opacity-80 font-normal">({lbl.subtitle})</span>}
               </div>
             ) : lbl.type === 'star' ? (
               <div className="flex flex-col items-center">

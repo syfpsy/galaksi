@@ -1,17 +1,21 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ArrowLeft,
   ChevronLeft,
   ChevronRight,
   Compass,
+  Eye,
   Globe,
+  Lock,
   Minus,
   Orbit,
   Pickaxe,
   Plus,
   Radio,
   Rocket,
+  Sparkles,
   Swords,
+  Zap,
 } from 'lucide-react';
 import { getPlayerSensorCoverage } from '../../engine/fog';
 import { calculatePlanetOrbit } from '../../engine/orbital';
@@ -71,17 +75,68 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
   onOpenBattles,
   onOpenStarbase,
 }) => {
+  const activePlayer = state.players[activePlayerId];
+
+  // Research Gating: Deep Space Sensors Lv. 1 unlocks the interstellar galaxy map!
+  const isGalaxyUnlocked = useMemo(() => {
+    if (godMode) return true;
+    if (!activePlayer) return true;
+    if ((activePlayer.research?.sensors || 0) >= 1) return true;
+    const totalSystems = Object.keys(state.map.systems).length;
+    const discoveredCount = Object.values(activePlayer.intel?.discoveredSystems || {}).filter(
+      (lvl) => lvl !== 'unexplored'
+    ).length;
+    if (discoveredCount >= totalSystems && totalSystems > 1) return true;
+    return false;
+  }, [godMode, activePlayer, state.map.systems]);
+
   // View mode: 'galaxy' (Macro Sector / Cluster) or 'system' (Three.js 2.5D In-System Orrery)
-  const [viewMode, setViewMode] = useState<'galaxy' | 'system'>('galaxy');
-  const [focusedSystemId, setFocusedSystemId] = useState<string>(
-    selectedTarget?.systemId || 'sys_relay'
-  );
+  // When galaxy is locked (no sensors researched), start strictly in system mode!
+  const [viewMode, setViewMode] = useState<'galaxy' | 'system'>(() => {
+    return isGalaxyUnlocked ? 'galaxy' : 'system';
+  });
+
+  const [focusedSystemId, setFocusedSystemId] = useState<string>(() => {
+    return (
+      selectedTarget?.systemId ||
+      Object.values(state.planets).find((p) => p.ownerId === activePlayerId)?.systemId ||
+      'sys_relay'
+    );
+  });
+
   const [showProjections, setShowProjections] = useState<boolean>(true);
   const [hoveredPlanetSlotId, setHoveredPlanetSlotId] = useState<string | null>(null);
   const [mapMode, setMapMode] = useState<MapMode>('default');
-
   const [zoom, setZoom] = useState(1);
-  const activePlayer = state.players[activePlayerId];
+
+  // Live sensor tech unlock celebration tracking
+  const prevSensorsRef = useRef<number>(activePlayer?.research?.sensors || 0);
+  const [showSensorsUnlockedModal, setShowSensorsUnlockedModal] = useState<boolean>(false);
+  const [showSensorLockedToast, setShowSensorLockedToast] = useState<boolean>(false);
+
+  useEffect(() => {
+    const curSensors = activePlayer?.research?.sensors || 0;
+    if (curSensors >= 1 && prevSensorsRef.current < 1) {
+      sound.playTech();
+      sound.playWarp();
+      setShowSensorsUnlockedModal(true);
+    }
+    prevSensorsRef.current = curSensors;
+  }, [activePlayer?.research?.sensors]);
+
+  // Enforce system view if galaxy map is locked
+  useEffect(() => {
+    if (!isGalaxyUnlocked && viewMode !== 'system') {
+      setViewMode('system');
+    }
+  }, [isGalaxyUnlocked, viewMode]);
+
+  useEffect(() => {
+    if (showSensorLockedToast) {
+      const timer = setTimeout(() => setShowSensorLockedToast(false), 3500);
+      return () => clearTimeout(timer);
+    }
+  }, [showSensorLockedToast]);
 
   // Calculate sensor coverage for active player
   const sensorCoverage = useMemo(() => {
@@ -160,6 +215,11 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes((e.target as HTMLElement)?.tagName)) return;
       if (e.key === 'm' || e.key === 'M') {
         e.preventDefault();
+        if (!isGalaxyUnlocked) {
+          sound.playWarning();
+          setShowSensorLockedToast(true);
+          return;
+        }
         sound.playClick();
         if (viewMode === 'system') {
           setViewMode('galaxy');
@@ -168,13 +228,18 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         }
       } else if (e.key === 'Escape' && viewMode === 'system') {
         e.preventDefault();
+        if (!isGalaxyUnlocked) {
+          sound.playWarning();
+          setShowSensorLockedToast(true);
+          return;
+        }
         sound.playClick();
         setViewMode('galaxy');
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [viewMode, focusedSystemId]);
+  }, [viewMode, focusedSystemId, isGalaxyUnlocked]);
 
   // Handle cycling between systems in system view
   const cycleSystem = (direction: 'next' | 'prev') => {
@@ -211,12 +276,18 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
           zoom={zoom}
           onZoomChange={setZoom}
           sensorCoverage={sensorCoverage}
+          isGalaxyUnlocked={isGalaxyUnlocked}
           onSelectSystem={(sysId) => {
             setFocusedSystemId(sysId);
             onSelectSystem(sysId);
           }}
           onEnterSystemView={enterSystemView}
           onExitSystemView={() => {
+            if (!isGalaxyUnlocked) {
+              sound.playWarning();
+              setShowSensorLockedToast(true);
+              return;
+            }
             sound.playClick();
             setViewMode('galaxy');
           }}
@@ -360,35 +431,108 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
         </div>
       )}
 
+      {/* Top Center: Subspace Sensor Lock Banner (When Sensors tech < 1) */}
+      {!isGalaxyUnlocked && (
+        <div className="absolute top-3 left-1/2 -translate-x-1/2 z-20 max-w-xl w-full px-4 animate-in fade-in slide-in-from-top-2 duration-300 pointer-events-auto">
+          <div className="stellaris-resource-pod bg-[#040c16]/95 border border-amber-500/60 rounded-sm p-2.5 shadow-2xl backdrop-blur-md flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2.5 min-w-0">
+              <div className="w-8 h-8 rounded-sm bg-amber-950/70 border border-amber-500/60 flex items-center justify-center shrink-0">
+                <Radio className="w-4 h-4 text-amber-400 animate-pulse" />
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-amber-300 font-display uppercase tracking-wider">
+                    Derin Uzay Sensör Ağı Çevrimdışı
+                  </span>
+                  <span className="text-[9.5px] px-1.5 py-0.5 bg-amber-500/20 text-amber-200 border border-amber-500/40 rounded-none font-mono">
+                    Sensör Lv. 1 Gerekli
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-300 font-mono mt-0.5 truncate">
+                  Galaktik hiperuzay koordinatları kilitli. Galaksiyi açmak için Ar-Ge Laboratuvarı ve Sensörleri araştırın.
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {activeColony?.buildings.research_lab ? (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    onOpenResearch?.();
+                  }}
+                  className="px-2.5 py-1 bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-1.5 shadow-md"
+                >
+                  <Eye className="w-3.5 h-3.5" />
+                  <span>Sensör Araştır</span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => {
+                    sound.playClick();
+                    if (activeColony) onSelectPlanetById?.(activeColony.id);
+                  }}
+                  className="px-2.5 py-1 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs rounded-sm transition-colors cursor-pointer flex items-center gap-1.5 shadow-md"
+                >
+                  <Pickaxe className="w-3.5 h-3.5" />
+                  <span>Ar-Ge Kur</span>
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Sleek Stellaris View Switcher & Zoom Deck (Bottom-Right of Map) */}
       <div className="absolute bottom-3 right-4 z-20 flex items-center gap-1.5 stellaris-dock-card px-2.5 py-1.5 rounded-sm shadow-xl font-mono text-xs select-none">
         {viewMode === 'system' ? (
           <div className="flex items-center gap-1">
-            <button
-              onClick={() => cycleSystem('prev')}
-              className="p-1 text-slate-300 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Önceki Sistem"
-            >
-              <ChevronLeft className="w-3.5 h-3.5" />
-            </button>
+            {isGalaxyUnlocked && (
+              <button
+                onClick={() => cycleSystem('prev')}
+                className="p-1 text-slate-300 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Önceki Sistem"
+              >
+                <ChevronLeft className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               onClick={() => {
+                if (!isGalaxyUnlocked) {
+                  sound.playWarning();
+                  setShowSensorLockedToast(true);
+                  return;
+                }
                 sound.playClick();
                 setViewMode('galaxy');
               }}
-              className="px-2.5 py-1 bg-cyan-950/80 border border-cyan-500/50 hover:border-cyan-400 text-cyan-300 font-bold rounded-sm flex items-center gap-1.5 transition-all cursor-pointer"
-              title="Galaksi Haritasına Çık [M]"
+              className={`px-2.5 py-1 rounded-sm flex items-center gap-1.5 transition-all cursor-pointer ${
+                !isGalaxyUnlocked
+                  ? 'bg-amber-950/70 border border-amber-500/60 text-amber-300 hover:bg-amber-900/60 shadow-lg shadow-amber-950/50'
+                  : 'bg-cyan-950/80 border border-cyan-500/50 hover:border-cyan-400 text-cyan-300 font-bold'
+              }`}
+              title={!isGalaxyUnlocked ? 'Galaktik Harita Kilitli (Sensör Seviye 1 Gerekli)' : 'Galaksi Haritasına Çık [M]'}
             >
-              <Compass className="w-3.5 h-3.5" />
-              <span>GALAKSİ [M]</span>
+              {!isGalaxyUnlocked ? (
+                <>
+                  <Lock className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
+                  <span className="font-bold text-amber-300 text-[10.5px]">GALAKSİ KİLİTLİ</span>
+                </>
+              ) : (
+                <>
+                  <Compass className="w-3.5 h-3.5" />
+                  <span>GALAKSİ [M]</span>
+                </>
+              )}
             </button>
-            <button
-              onClick={() => cycleSystem('next')}
-              className="p-1 text-slate-300 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer"
-              title="Sonraki Sistem"
-            >
-              <ChevronRight className="w-3.5 h-3.5" />
-            </button>
+            {isGalaxyUnlocked && (
+              <button
+                onClick={() => cycleSystem('next')}
+                className="p-1 text-slate-300 hover:text-white rounded hover:bg-slate-800 transition-colors cursor-pointer"
+                title="Sonraki Sistem"
+              >
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            )}
             <button
               onClick={() => {
                 sound.playClick();
@@ -586,6 +730,66 @@ export const GalaxyMap: React.FC<GalaxyMapProps> = ({
           </button>
         </div>
       </div>
+
+      {/* Sensor Locked Toast Alert */}
+      {showSensorLockedToast && (
+        <div className="fixed top-14 left-1/2 -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 duration-200 pointer-events-none">
+          <div className="px-4 py-2 rounded-sm bg-[#160b05]/95 border border-amber-500 text-amber-200 shadow-2xl backdrop-blur-md font-mono text-xs flex items-center gap-2.5">
+            <Lock className="w-4 h-4 text-amber-400 animate-bounce" />
+            <span className="font-bold">DERİN UZAY KİLİTLİ:</span>
+            <span>Galaktik haritayı açmak için Sensör Teknolojisi Seviye 1 gereklidir!</span>
+          </div>
+        </div>
+      )}
+
+      {/* Cinematic Modal when Sensör Lv. 1 finishes */}
+      {showSensorsUnlockedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-300">
+          <div className="stellaris-outliner border border-cyan-400/80 rounded-sm w-full max-w-lg p-5 shadow-2xl text-slate-100 flex flex-col gap-4 relative overflow-hidden">
+            <div className="absolute -top-12 -right-12 w-48 h-48 bg-cyan-500/20 rounded-full blur-3xl pointer-events-none" />
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 rounded-sm bg-cyan-950/80 border border-cyan-400 flex items-center justify-center text-cyan-300 shadow-lg shadow-cyan-950/80">
+                <Sparkles className="w-6 h-6 animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-base font-bold stellaris-gold font-display uppercase tracking-widest">
+                  DERİN UZAY SENSÖR AĞI DEVREDE!
+                </h3>
+                <span className="text-xs text-cyan-300 font-mono">
+                  Triton Sektörü Hiperuzay Koordinatları Haritalandırıldı
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs font-mono text-slate-300 leading-relaxed border-t border-b border-[#18374b] py-3">
+              Gözlem uydularınız ve alt-uzay sinyal alıcılarınız yıldızlararası hiperuzay geçitlerini başarıyla senkronize etti. Artık ana sisteminizin sınırlarını aşabilir, Triton Sektörünün derinliklerine keşif gemileri sevk edebilir ve Galaktik Haritayı görüntüleyebilirsiniz!
+            </p>
+
+            <div className="flex items-center justify-end gap-2.5">
+              <button
+                onClick={() => {
+                  sound.playClick();
+                  setShowSensorsUnlockedModal(false);
+                }}
+                className="px-3.5 py-1.5 rounded-sm border border-slate-700 text-slate-300 hover:text-white hover:bg-slate-800 text-xs font-mono font-bold transition-all cursor-pointer"
+              >
+                Sistemde Kal
+              </button>
+              <button
+                onClick={() => {
+                  sound.playWarp();
+                  setShowSensorsUnlockedModal(false);
+                  setViewMode('galaxy');
+                }}
+                className="px-4 py-1.5 rounded-sm bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs font-mono flex items-center gap-2 shadow-xl shadow-cyan-950/80 transition-all cursor-pointer"
+              >
+                <Compass className="w-4 h-4" />
+                <span>Galaktik Haritayı Aç [M]</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
