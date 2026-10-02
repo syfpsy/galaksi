@@ -98,6 +98,7 @@ import { VictoryModal } from './ui/components/VictoryModal';
 import { TacticalBottomDock } from './ui/components/TacticalBottomDock';
 import { StarterGuidanceHUD } from './ui/components/StarterGuidanceHUD';
 import { SandboxSetupModal, SandboxConfig, DEFAULT_SANDBOX_CONFIG } from './ui/components/SandboxSetupModal';
+import { MainMenu } from './ui/components/MainMenu';
 import { StrategicOpportunity } from './engine/types';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
@@ -249,6 +250,7 @@ export function App() {
     return localStorage.getItem('galaksi_guidance_dismissed') !== 'true';
   });
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState<boolean>(false);
+  const [isMainMenuOpen, setIsMainMenuOpen] = useState<boolean>(true);
   const [sandboxConfig, setSandboxConfig] = useState<SandboxConfig>(DEFAULT_SANDBOX_CONFIG);
 
   // Automatically prompt victory modal when victory conditions are achieved
@@ -459,6 +461,10 @@ export function App() {
       } else if (e.key === 'Escape') {
         if (isOrientationOpen) {
           setIsOrientationOpen(false);
+        } else if (isSandboxModalOpen) {
+          setIsSandboxModalOpen(false);
+        } else if (isVictoryModalOpen) {
+          setIsVictoryModalOpen(false);
         } else if (activeLeftPanel) {
           setActiveLeftPanel(null);
         } else if (isCommandPanelOpen) {
@@ -467,8 +473,10 @@ export function App() {
           setInspectedSystemId(null);
         } else if (anomalyModalSystemId) {
           setAnomalyModalSystemId(null);
-        } else {
+        } else if (selectedTarget) {
           setSelectedTarget(null);
+        } else {
+          setIsMainMenuOpen((prev) => !prev);
         }
       }
     };
@@ -518,7 +526,7 @@ export function App() {
 
   // Main simulation tick loop
   useEffect(() => {
-    if (!isPlaying) return;
+    if (!isPlaying || isMainMenuOpen) return;
 
     const realIntervalMs = 50; // 20 ticks per second
     const interval = setInterval(() => {
@@ -621,7 +629,7 @@ export function App() {
     }, realIntervalMs);
 
     return () => clearInterval(interval);
-  }, [isPlaying, timeScale]);
+  }, [isPlaying, timeScale, isMainMenuOpen]);
 
   if (!engineState) {
     return (
@@ -2498,6 +2506,70 @@ export function App() {
     setIsVictoryModalOpen(false);
   };
 
+  const handleResumeGame = () => {
+    setIsMainMenuOpen(false);
+    setIsPlaying(true);
+  };
+
+  const handleStartCampaign = () => {
+    const newSeed = Math.floor(Math.random() * 900000) + 100000;
+    const standardCfg: SandboxConfig = {
+      systemCount: 20,
+      aiEmpireCount: 5,
+      resourceTier: 'standard',
+      fogOfWar: 'fog',
+      enableCrises: true,
+      enablePirates: true,
+      seed: newSeed,
+      godMode: false,
+    };
+    initGame(newSeed, standardCfg);
+    setIsMainMenuOpen(false);
+    setIsPlaying(true);
+  };
+
+  const handleStartSandbox = (customCfg: SandboxConfig) => {
+    initGame(customCfg.seed, customCfg);
+    setIsMainMenuOpen(false);
+    setIsPlaying(true);
+  };
+
+  const handleStartSkirmish = () => {
+    const skirmishSeed = Math.floor(Math.random() * 900000) + 100000;
+    const skirmishCfg: SandboxConfig = {
+      systemCount: 6,
+      aiEmpireCount: 1,
+      resourceTier: 'rich',
+      fogOfWar: 'fog',
+      enableCrises: false,
+      enablePirates: false,
+      seed: skirmishSeed,
+      godMode: false,
+    };
+    initGame(skirmishSeed, skirmishCfg);
+    setIsMainMenuOpen(false);
+    setIsPlaying(true);
+  };
+
+  const handleStartTutorial = () => {
+    const tutSeed = 42;
+    const tutCfg: SandboxConfig = {
+      systemCount: 12,
+      aiEmpireCount: 2,
+      resourceTier: 'standard',
+      fogOfWar: 'fog',
+      enableCrises: false,
+      enablePirates: true,
+      seed: tutSeed,
+      godMode: false,
+    };
+    localStorage.removeItem('galaksi_guidance_dismissed');
+    initGame(tutSeed, tutCfg);
+    setIsGuidanceOpen(true);
+    setIsMainMenuOpen(false);
+    setIsPlaying(true);
+  };
+
   const handleMarketTrade = (
     sellResource: ResourceType,
     buyResource: ResourceType,
@@ -3047,6 +3119,7 @@ export function App() {
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
         onOpenSandbox={() => setIsSandboxModalOpen(true)}
+        onOpenMainMenu={() => setIsMainMenuOpen(true)}
         isGuidanceOpen={isGuidanceOpen}
         onOpenGuidance={() => {
           localStorage.removeItem('galaksi_guidance_dismissed');
@@ -3238,6 +3311,7 @@ export function App() {
             setIsAudioMuted(nextMuted);
           }}
           onToggleVacationMode={handleToggleVacationMode}
+          onOpenMainMenu={() => setIsMainMenuOpen(true)}
         />
 
         {/* Docked Left Rail Drawer Panel: Never Leaves Map! */}
@@ -4046,6 +4120,29 @@ export function App() {
         onStartGame={(newConfig) => {
           initGame(newConfig.seed, newConfig);
         }}
+        currentConfig={sandboxConfig}
+      />
+
+      {/* Grand Strategy Main Menu & Launchpad */}
+      <MainMenu
+        isOpen={isMainMenuOpen}
+        hasActiveGame={Boolean(engineState)}
+        state={engineState}
+        activePlayerId={activePlayerId}
+        onResumeGame={handleResumeGame}
+        onStartCampaign={handleStartCampaign}
+        onStartSandbox={handleStartSandbox}
+        onStartSkirmish={handleStartSkirmish}
+        onStartTutorial={handleStartTutorial}
+        onOpenHallOfFame={() => {
+          setIsMainMenuOpen(false);
+          setIsVictoryModalOpen(true);
+        }}
+        onToggleMute={() => {
+          const nextMuted = sound.toggleMute();
+          setIsAudioMuted(nextMuted);
+        }}
+        isMuted={isAudioMuted}
         currentConfig={sandboxConfig}
       />
     </div>

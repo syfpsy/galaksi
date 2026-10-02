@@ -13,6 +13,7 @@ import {
   Globe,
   HelpCircle,
   LineChart,
+  Menu,
   Moon,
   Navigation,
   Pause,
@@ -77,6 +78,7 @@ interface TopBarProps {
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
   onOpenSandbox?: () => void;
+  onOpenMainMenu?: () => void;
   isGuidanceOpen?: boolean;
   onOpenGuidance?: () => void;
   onToggleVacationMode?: () => void;
@@ -123,6 +125,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenGallery,
   onOpenOrientation,
   onOpenSandbox,
+  onOpenMainMenu,
   isGuidanceOpen,
   onOpenGuidance,
   onToggleVacationMode,
@@ -961,6 +964,20 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           >
             <Sliders className="w-3.5 h-3.5 text-cyan-400" />
             <span className="hidden xl:inline text-[11px] font-bold">Sandbox</span>
+          </button>
+        )}
+
+        {onOpenMainMenu && (
+          <button
+            onClick={() => {
+              sound.playClick();
+              onOpenMainMenu();
+            }}
+            className="stellaris-btn-metallic p-1.5 xl:px-2 xl:py-1 rounded-sm border border-cyan-500/50 bg-[#081726] hover:bg-cyan-950/80 text-cyan-300 hover:text-white transition-all flex items-center gap-1 text-xs font-mono cursor-pointer shadow-md shadow-cyan-950/30"
+            title="Ana Menüyü Aç (ESC)"
+          >
+            <Menu className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden xl:inline text-[11px] font-bold">Menü</span>
           </button>
         )}
 

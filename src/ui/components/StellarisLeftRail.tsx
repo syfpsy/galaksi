@@ -114,6 +114,7 @@ interface StellarisLeftRailProps {
   isMuted: boolean;
   onToggleMute: () => void;
   onToggleVacationMode?: () => void;
+  onOpenMainMenu?: () => void;
 }
 
 const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
@@ -164,6 +165,7 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
   isMuted,
   onToggleMute,
   onToggleVacationMode,
+  onOpenMainMenu,
 }) => {
   const [isMoreMenuOpen, setIsMoreMenuOpen] = useState(false);
   const isPlanetActive = isPlanetPanelOpen || activeLeftPanel === 'planets';
@@ -172,8 +174,17 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
 
   return (
     <aside className="w-14 h-full stellaris-rail flex flex-col items-center py-2.5 z-30 select-none relative">
-      {/* Empire Crest Header */}
-      <div className="relative mb-3 group cursor-pointer" title="Galaktik İmparatorluk">
+      {/* Empire Crest Header / Main Menu Button */}
+      <div
+        className="relative mb-3 group cursor-pointer"
+        onClick={() => {
+          if (onOpenMainMenu) {
+            sound.playClick();
+            onOpenMainMenu();
+          }
+        }}
+        title="Ana Menü & Galaktik Protokol (ESC)"
+      >
         <div
           className="stellaris-crest w-10 h-10 rounded-sm flex items-center justify-center transition-all duration-300 shadow-md group-hover:scale-105"
           style={{ borderColor: activePlayerColor || '#c5a059' }}
@@ -184,6 +195,15 @@ const StellarisLeftRailComponent: React.FC<StellarisLeftRailProps> = ({
           className="w-1.5 h-1.5 rounded-full absolute -bottom-1 left-1/2 -translate-x-1/2"
           style={{ backgroundColor: activePlayerColor || '#c5a059' }}
         />
+        <div className="absolute left-12 top-1/2 -translate-y-1/2 ml-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[200px] stellaris-tooltip rounded-sm p-2.5 text-left">
+          <div className="flex items-center justify-between text-xs font-bold">
+            <span className="stellaris-gold tracking-wide">ANA MENÜ</span>
+            <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/80 border border-cyan-500/50 px-1 py-0.5 rounded-sm">ESC</span>
+          </div>
+          <p className="text-[10.5px] text-slate-300 mt-1 leading-snug">
+            Ana Menüyü, oyun modlarını ve ayarları açar.
+          </p>
+        </div>
       </div>
 
       {/* Main Core Navigation Buttons (4 Pillars of the Wedge) */}
