@@ -229,7 +229,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
                       <div className="flex items-center gap-2">
                         <span className="text-amber-400 font-bold">#{seasonHistory.length - idx}</span>
                         <span className="text-slate-100 font-semibold">{rec.winnerName}</span>
-                        <span className="text-[10px] px-1.5 py-0.2 rounded-sm bg-amber-950/80 border border-amber-500/40 text-amber-300">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-amber-950/80 border border-amber-500/40 text-amber-300">
                           {getVictoryTitle(rec.victoryType)}
                         </span>
                       </div>

@@ -212,7 +212,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                   <Sparkles className="w-3.5 h-3.5 text-indigo-400 animate-pulse" />
                   <span>İMPARATORLUK TEKNOLOJİK ATILIMI: BİR İNOVASYON SEÇİN</span>
                 </span>
-                <span className="text-[9px] text-amber-300 font-bold bg-amber-950/80 border border-amber-500/40 px-1.5 py-0.2 rounded-sm">
+                <span className="text-[9px] text-amber-300 font-bold bg-amber-950/80 border border-amber-500/40 px-1.5 py-0.5 rounded-sm">
                   ⚡ +30 MOMENTUM
                 </span>
               </div>
@@ -263,7 +263,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                 >
                   <div>
                     <div className="flex items-center justify-between text-[9px] mb-0.5">
-                      <span className="px-1.5 py-0.2 rounded-xs font-bold bg-[#0d2235] text-cyan-300 border border-cyan-500/30">
+                      <span className="px-1.5 py-0.5 rounded-xs font-bold bg-[#0d2235] text-cyan-300 border border-cyan-500/30">
                         {opp.badge}
                       </span>
                       <span className="text-amber-400 font-bold">⚡ +{opp.reward.momentum}</span>
@@ -329,7 +329,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
               <span className="flex items-center gap-1.5 font-bold text-amber-300 animate-pulse">
                 <Flame className="w-3.5 h-3.5 text-amber-400" />
                 <span>ALTIN ÇAĞ AKTİF</span>
-                <span className="bg-amber-950/80 border border-amber-500/50 px-1 py-0.2 rounded text-amber-200 text-[9px]">
+                <span className="bg-amber-950/80 border border-amber-500/50 px-1 py-0.5 rounded text-amber-200 text-[9px]">
                   ⏱️ {surgeRemainingSec}s
                 </span>
                 <span className="text-[9.5px] text-amber-300/80 hidden sm:inline">(+%35 Hız, +%20 Verim)</span>
@@ -344,7 +344,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
             {/* Synergy badge */}
             {player?.supplyChains && player.supplyChains.length > 0 && (
               <span
-                className={`text-[9px] font-bold px-1.5 py-0.2 rounded-sm border flex items-center gap-1 ${
+                className={`text-[9px] font-bold px-1.5 py-0.5 rounded-sm border flex items-center gap-1 ${
                   player.activeSynergyTier === 2
                     ? 'bg-amber-950/80 border-amber-400/80 text-amber-300 shadow-[0_0_8px_rgba(251,191,36,0.3)] animate-pulse'
                     : 'bg-emerald-950/80 border-emerald-500/70 text-emerald-300'
@@ -381,7 +381,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                   type="button"
                   disabled={!topOpportunity.canExecuteNow}
                   onClick={() => handleAction(topOpportunity)}
-                  className={`px-1.5 py-0.2 rounded-sm text-[9px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                  className={`px-1.5 py-0.5 rounded-sm text-[9px] font-bold transition-all flex items-center gap-1 cursor-pointer ${
                     topOpportunity.canExecuteNow
                       ? 'bg-cyan-950/80 border border-cyan-500/80 text-cyan-200 hover:bg-cyan-900'
                       : 'bg-slate-900/40 border border-slate-800 text-slate-500 cursor-not-allowed opacity-60'
@@ -437,7 +437,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                   <span className="text-[10.5px] font-bold text-amber-300">
                     ⚡ {computeFleetPower(selectedFleet.ships).toLocaleString()}
                   </span>
-                  <span className="text-[9px] px-1.5 py-0.2 rounded-sm bg-[#050d18] border border-slate-700 text-slate-300">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-sm bg-[#050d18] border border-slate-700 text-slate-300">
                     {selectedFleet.status === 'in_transit'
                       ? `İntikal (${formatDuration(Math.max(0, selectedFleet.arrivalTime - state.timeMs))})`
                       : 'Hazır'}
@@ -475,7 +475,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                           sound.playClick();
                           onSetDoctrine(selectedFleet.id, doc.id as FleetDoctrine);
                         }}
-                        className={`px-1 py-0.2 rounded-sm text-[8.5px] font-bold border transition-colors cursor-pointer ${
+                        className={`px-1 py-0.5 rounded-sm text-[8.5px] font-bold border transition-colors cursor-pointer ${
                           selectedFleet.doctrine === doc.id
                             ? 'bg-cyan-950/90 border-cyan-400 text-cyan-200'
                             : 'border-slate-800 text-slate-400 hover:text-slate-200'
@@ -547,7 +547,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                     {selectedPlanet.name}
                   </span>
                   {selectedPlanet.isHomeworld && (
-                    <span className="text-[8.5px] bg-amber-500/20 text-amber-300 border border-amber-500/50 px-1 py-0.2 rounded-sm font-bold shrink-0">
+                    <span className="text-[8.5px] bg-amber-500/20 text-amber-300 border border-amber-500/50 px-1 py-0.5 rounded-sm font-bold shrink-0">
                       ANA
                     </span>
                   )}
@@ -599,7 +599,7 @@ export const TacticalBottomDock: React.FC<TacticalBottomDockProps> = ({
                           sound.playClick();
                           onSetStance(selectedPlanet.id, st);
                         }}
-                        className={`px-1 py-0.2 rounded-sm text-[8.5px] font-bold border transition-colors cursor-pointer ${
+                        className={`px-1 py-0.5 rounded-sm text-[8.5px] font-bold border transition-colors cursor-pointer ${
                           selectedPlanet.stance === st
                             ? 'border-emerald-500 bg-emerald-950/80 text-emerald-300'
                             : 'border-slate-800 text-slate-500 hover:text-slate-300'

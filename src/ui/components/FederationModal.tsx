@@ -175,7 +175,7 @@ export const FederationModal: React.FC<FederationModalProps> = ({
                 }`}
               >
                 🚀 Federal Donanma & Tersane
-                <span className="px-1.5 py-0.2 text-[10px] rounded bg-slate-800 text-cyan-300 border border-cyan-800/40">
+                <span className="px-1.5 py-0.5 text-[10px] rounded bg-slate-800 text-cyan-300 border border-cyan-800/40">
                   {Object.values(currentFed.federalFleet).reduce((a, b) => a + b, 0)}/{currentFed.federalFleetCapacity}
                 </span>
               </button>
@@ -372,12 +372,12 @@ export const FederationModal: React.FC<FederationModalProps> = ({
                                 <div className="flex items-center gap-2">
                                   <span className="text-sm font-bold text-slate-100">{m?.name || 'Üye'}</span>
                                   {isPres && (
-                                    <span className="px-1.5 py-0.2 text-[10px] rounded bg-amber-950 text-amber-300 border border-amber-600/40">
+                                    <span className="px-1.5 py-0.5 text-[10px] rounded bg-amber-950 text-amber-300 border border-amber-600/40">
                                       Başkan
                                     </span>
                                   )}
                                   {isMe && (
-                                    <span className="px-1.5 py-0.2 text-[10px] rounded bg-cyan-950 text-cyan-300 border border-cyan-600/40">
+                                    <span className="px-1.5 py-0.5 text-[10px] rounded bg-cyan-950 text-cyan-300 border border-cyan-600/40">
                                       Siz
                                     </span>
                                   )}

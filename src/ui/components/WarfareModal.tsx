@@ -137,7 +137,7 @@ export const WarfareModal: React.FC<WarfareModalProps> = ({
           >
             <span>⚔️ Aktif Savaşlar & Cepheler</span>
             {activeWars.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-red-600 text-white font-mono">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-red-600 text-white font-mono">
                 {activeWars.length}
               </span>
             )}
@@ -170,7 +170,7 @@ export const WarfareModal: React.FC<WarfareModalProps> = ({
           >
             <span>👑 Vasallar & Bağımlı Devletler</span>
             {mySubjects.length > 0 && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] bg-cyan-600 text-white font-mono">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] bg-cyan-600 text-white font-mono">
                 {mySubjects.length}
               </span>
             )}

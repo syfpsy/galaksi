@@ -198,7 +198,7 @@ export const SenateModal: React.FC<SenateModalProps> = ({
             <Gavel className="w-4 h-4" />
             Oylama Salonu
             {currentSession && (
-              <span className="ml-1 px-1.5 py-0.2 rounded-full text-[10px] font-mono bg-amber-500 text-black font-extrabold animate-pulse">
+              <span className="ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-mono bg-amber-500 text-black font-extrabold animate-pulse">
                 {sessionRemainingSec}s
               </span>
             )}
@@ -791,17 +791,17 @@ export const SenateModal: React.FC<SenateModalProps> = ({
                               {item.player.name}
                             </span>
                             {isMe && (
-                              <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-300 border border-amber-500/40">
                                 SİZ
                               </span>
                             )}
                             {item.isCustodian && (
-                              <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/40 flex items-center gap-1">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-blue-500/20 text-blue-300 border border-blue-500/40 flex items-center gap-1">
                                 <Crown className="w-3 h-3 text-blue-400" /> MUHAFIZ
                               </span>
                             )}
                             {item.isSanctioned && (
-                              <span className="px-1.5 py-0.2 rounded text-[10px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1">
+                              <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-rose-500/20 text-rose-300 border border-rose-500/40 flex items-center gap-1">
                                 <ShieldAlert className="w-3 h-3 text-rose-400" /> YAPTIRIM
                               </span>
                             )}

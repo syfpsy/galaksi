@@ -21,6 +21,7 @@ interface StarterGuidanceHUDProps {
   state: GameState;
   activePlayerId: string;
   isOpen: boolean;
+  leftOffset?: number;
   onClose: () => void;
   onQuickScout?: () => void;
   onOpenPlanetPanel?: (planetId: string) => void;
@@ -34,6 +35,7 @@ export const StarterGuidanceHUD: React.FC<StarterGuidanceHUDProps> = ({
   state,
   activePlayerId,
   isOpen,
+  leftOffset = 0,
   onClose,
   onQuickScout,
   onOpenPlanetPanel,
@@ -142,7 +144,10 @@ export const StarterGuidanceHUD: React.FC<StarterGuidanceHUDProps> = ({
   // Minimized Compact Pill
   if (isMinimized) {
     return (
-      <div className="absolute top-4 left-4 z-20 pointer-events-auto select-none font-mono">
+      <div
+        className="absolute top-16 z-20 pointer-events-auto select-none font-mono transition-[left] duration-300 ease-out"
+        style={{ left: `${leftOffset + 16}px` }}
+      >
         <button
           onClick={() => {
             sound.playClick();
@@ -160,7 +165,10 @@ export const StarterGuidanceHUD: React.FC<StarterGuidanceHUDProps> = ({
   }
 
   return (
-    <div className="absolute top-4 left-4 z-20 w-80 max-w-[90vw] pointer-events-auto select-none font-mono animate-fade-in">
+    <div
+      className="absolute top-16 z-20 w-80 max-w-[90vw] pointer-events-auto select-none font-mono animate-fade-in transition-[left] duration-300 ease-out"
+      style={{ left: `${leftOffset + 16}px` }}
+    >
       <div className="stellaris-dock-card rounded-sm border border-[#1d3d57] shadow-2xl backdrop-blur-md overflow-hidden text-xs">
         {/* Header Bar */}
         <div className="px-3 py-1.5 bg-[#050f1c]/90 border-b border-[#142e42] flex items-center justify-between">
@@ -258,7 +266,7 @@ export const StarterGuidanceHUD: React.FC<StarterGuidanceHUDProps> = ({
                 </span>
               </div>
               <span
-                className={`text-[9px] px-1.5 py-0.2 rounded font-bold ${
+                className={`text-[9px] px-1.5 py-0.5 rounded font-bold ${
                   activeStepData.done
                     ? 'bg-emerald-950 text-emerald-300 border border-emerald-600/50'
                     : 'bg-amber-950 text-amber-300 border border-amber-500/50'

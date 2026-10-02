@@ -227,7 +227,7 @@ const FleetCardHUDComponent: React.FC<FleetCardHUDProps> = ({
         left: `${position.x}px`,
         top: `${position.y}px`,
       }}
-      className={`fixed z-40 ${cardWidthClass} select-none transition-shadow ${
+      className={`fixed z-40 ${cardWidthClass} max-w-[calc(100vw-32px)] select-none transition-shadow ${
         isDragging ? 'shadow-cyan-950/80 shadow-2xl cursor-grabbing' : 'shadow-2xl'
       }`}
     >

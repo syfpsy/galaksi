@@ -105,7 +105,7 @@ export const StrategicMomentumHUD: React.FC<StrategicMomentumHUDProps> = ({
               <span className="flex items-center gap-1 text-[11px] font-bold text-amber-300 animate-pulse">
                 <Flame className="w-4 h-4 text-amber-400 animate-bounce" />
                 <span>HİPER-İTİCİ GÜÇ: ALTIN ÇAĞ AKTİF</span>
-                <span className="bg-amber-950/80 border border-amber-500/50 px-1.5 py-0.2 rounded-sm text-amber-200 text-[10px] ml-1">
+                <span className="bg-amber-950/80 border border-amber-500/50 px-1.5 py-0.5 rounded-sm text-amber-200 text-[10px] ml-1">
                   ⏱️ {surgeRemainingSec} sn
                 </span>
               </span>
@@ -231,7 +231,7 @@ export const StrategicMomentumHUD: React.FC<StrategicMomentumHUDProps> = ({
                   <div>
                     {/* Header: Badge & Category */}
                     <div className="flex items-center justify-between text-[9px] mb-1">
-                      <span className="px-1.5 py-0.2 rounded-xs font-bold bg-[#0d2235] text-cyan-300 border border-cyan-500/30">
+                      <span className="px-1.5 py-0.5 rounded-xs font-bold bg-[#0d2235] text-cyan-300 border border-cyan-500/30">
                         {opp.badge}
                       </span>
                       <span className="text-amber-400 font-bold flex items-center gap-1">

@@ -214,7 +214,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
             <Eye className="w-3.5 h-3.5" />
             CASUS AĞLARI & SIZMA
             {mySpyNetworks.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-purple-950 border border-purple-500/50 text-purple-300">
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-purple-950 border border-purple-500/50 text-purple-300">
                 {mySpyNetworks.length}
               </span>
             )}
@@ -234,7 +234,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
             <Zap className="w-3.5 h-3.5" />
             GİZLİ OPERASYONLAR
             {myActiveCovertOps.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-rose-950 border border-rose-500/50 text-rose-300 animate-pulse">
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-rose-950 border border-rose-500/50 text-rose-300 animate-pulse">
                 {myActiveCovertOps.length}
               </span>
             )}
@@ -314,7 +314,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
                     >
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: targetEmpire?.color || '#a855f7' }} />
                       {targetEmpire?.name || 'Hedef'}
-                      <span className="text-[10px] font-mono text-purple-400 bg-purple-900/40 px-1 py-0.2 rounded">
+                      <span className="text-[10px] font-mono text-purple-400 bg-purple-900/40 px-1 py-0.5 rounded">
                         %{Math.round(net.infiltrationLevel)}
                       </span>
                     </button>
@@ -728,7 +728,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
                                 <span>{cfg?.icon}</span>
                                 {asset.name}
                               </span>
-                              <span className="text-[10px] font-mono text-amber-300 uppercase bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-500/30">
+                              <span className="text-[10px] font-mono text-amber-300 uppercase bg-amber-950/60 px-1.5 py-0.5 rounded border border-amber-500/30">
                                 {cfg?.nameTr}
                               </span>
                             </div>
@@ -861,7 +861,7 @@ export const EspionageModal: React.FC<EspionageModalProps> = ({
                           {cfg.nameTr}
                         </span>
                         {isSelected && (
-                          <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.2 rounded">
+                          <span className="text-[10px] font-mono bg-emerald-950 text-emerald-300 border border-emerald-500/40 px-1.5 py-0.5 rounded">
                             AKTİF
                           </span>
                         )}

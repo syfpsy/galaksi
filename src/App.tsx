@@ -3073,7 +3073,7 @@ export function App() {
                     <span>🚨</span>
                     <span>SICAK TEMAS UYARISI</span>
                   </span>
-                  <span className="text-[10px] text-amber-300 font-bold bg-amber-950/60 px-1.5 py-0.2 rounded-sm border border-amber-500/40">
+                  <span className="text-[10px] text-amber-300 font-bold bg-amber-950/60 px-1.5 py-0.5 rounded-sm border border-amber-500/40">
                     📍 {battleThreatAlert.systemName}
                   </span>
                 </div>
@@ -3489,6 +3489,15 @@ export function App() {
           <StellarisNotificationStrip
             state={engineState}
             activePlayerId={activePlayerId}
+            leftOffset={
+              !activeLeftPanel
+                ? 0
+                : activeLeftPanel === 'planets'
+                ? 390
+                : activeLeftPanel === 'battles'
+                ? 820
+                : 480
+            }
             onFocusSystem={(sysId) => {
               setSelectedTarget({ type: 'system', systemId: sysId });
             }}
@@ -3632,6 +3641,15 @@ export function App() {
             state={engineState}
             activePlayerId={activePlayerId}
             isOpen={isGuidanceOpen}
+            leftOffset={
+              !activeLeftPanel
+                ? 0
+                : activeLeftPanel === 'planets'
+                ? 390
+                : activeLeftPanel === 'battles'
+                ? 820
+                : 480
+            }
             onClose={() => {
               localStorage.setItem('galaksi_guidance_dismissed', 'true');
               setIsGuidanceOpen(false);

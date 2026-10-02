@@ -35,6 +35,7 @@ export interface EmpireNotification {
 interface StellarisNotificationStripProps {
   state: GameState;
   activePlayerId: string;
+  leftOffset?: number;
   onFocusSystem: (systemId: string) => void;
   onOpenBattles: () => void;
   onOpenResearch: () => void;
@@ -49,6 +50,7 @@ interface StellarisNotificationStripProps {
 const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripProps> = ({
   state,
   activePlayerId,
+  leftOffset = 0,
   onFocusSystem,
   onOpenBattles,
   onOpenResearch,
@@ -337,7 +339,10 @@ const StellarisNotificationStripComponent: React.FC<StellarisNotificationStripPr
   };
 
   return (
-    <div className="absolute top-14 left-4 z-20 flex items-center gap-2 select-none pointer-events-none">
+    <div
+      className="absolute top-3 z-30 flex items-center gap-2 select-none pointer-events-none transition-[left] duration-300 ease-out"
+      style={{ left: `${leftOffset + 16}px` }}
+    >
       {notifications.map((n) => {
         const style = getIconAndStyle(n.type);
         const isHovered = hoveredId === n.id;

@@ -190,7 +190,7 @@ export const MegacorpModal: React.FC<MegacorpModalProps> = ({
             <Building className="w-3.5 h-3.5" />
             ŞUBE OFİSLERİ
             {myBranchOffices.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-amber-950 border border-amber-500/50 text-amber-300">
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-amber-950 border border-amber-500/50 text-amber-300">
                 {myBranchOffices.length}
               </span>
             )}
@@ -225,7 +225,7 @@ export const MegacorpModal: React.FC<MegacorpModalProps> = ({
             <LineChart className="w-3.5 h-3.5" />
             VADELİ EMTİA BORSASI
             {myFuturesContracts.filter((c) => c.isDelivered && !c.isClaimed).length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full text-[9px] font-mono bg-emerald-950 border border-emerald-500/50 text-emerald-300 animate-pulse">
+              <span className="px-1.5 py-0.5 rounded-full text-[9px] font-mono bg-emerald-950 border border-emerald-500/50 text-emerald-300 animate-pulse">
                 {myFuturesContracts.filter((c) => c.isDelivered && !c.isClaimed).length}
               </span>
             )}
@@ -304,7 +304,7 @@ export const MegacorpModal: React.FC<MegacorpModalProps> = ({
                     >
                       <span className="w-2 h-2 rounded-full" style={{ backgroundColor: hostEmpire?.color || '#f59e0b' }} />
                       {targetPlanet?.name || 'Koloni'}
-                      <span className="text-[10px] font-mono text-amber-400 bg-amber-900/40 px-1 py-0.2 rounded">
+                      <span className="text-[10px] font-mono text-amber-400 bg-amber-900/40 px-1 py-0.5 rounded">
                         +{b.tradeValueYield} TV
                       </span>
                     </button>
@@ -846,7 +846,7 @@ export const MegacorpModal: React.FC<MegacorpModalProps> = ({
                             {cfg.nameTr}
                           </span>
                           {isSelected && (
-                            <span className="text-[10px] font-mono text-purple-300 bg-purple-950 border border-purple-500/50 px-1.5 py-0.2 rounded">
+                            <span className="text-[10px] font-mono text-purple-300 bg-purple-950 border border-purple-500/50 px-1.5 py-0.5 rounded">
                               SEÇİLİ
                             </span>
                           )}

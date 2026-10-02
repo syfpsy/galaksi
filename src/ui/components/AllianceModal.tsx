@@ -352,7 +352,7 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                               <span className="text-xs font-bold text-slate-100 font-mono">
                                 {other?.name || truce.otherPlayerId}
                               </span>
-                              <span className="text-[10px] px-1.5 py-0.2 rounded-sm bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono">
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-sm bg-emerald-950/80 border border-emerald-500/40 text-emerald-300 font-mono">
                                 Ateşkes Aktif
                               </span>
                             </div>
@@ -682,7 +682,7 @@ const AllianceModalComponent: React.FC<AllianceModalProps> = ({
                               <span className="text-[10px] text-slate-400">[{t.senderArchetype}]</span>
                             )}
                             <span
-                              className={`text-[9.5px] px-1.5 py-0.2 rounded-sm border uppercase font-bold ${typeBadgeColor}`}
+                              className={`text-[9.5px] px-1.5 py-0.5 rounded-sm border uppercase font-bold ${typeBadgeColor}`}
                             >
                               {typeLabel}
                             </span>

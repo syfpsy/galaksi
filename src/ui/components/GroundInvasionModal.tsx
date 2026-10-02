@@ -175,7 +175,7 @@ export const GroundInvasionModal: React.FC<GroundInvasionModalProps> = ({
             <Crosshair className="w-4 h-4" />
             <span>Kara Muharebeleri</span>
             {activeBattles.length > 0 && (
-              <span className="px-1.5 py-0.2 text-[10px] bg-red-600 text-white rounded-full font-bold animate-pulse">
+              <span className="px-1.5 py-0.5 text-[10px] bg-red-600 text-white rounded-full font-bold animate-pulse">
                 {activeBattles.length}
               </span>
             )}
@@ -225,7 +225,7 @@ export const GroundInvasionModal: React.FC<GroundInvasionModalProps> = ({
             <Flag className="w-4 h-4" />
             <span>İşgal Altındaki Dünyalar</span>
             {occupiedWorlds.length > 0 && (
-              <span className="px-1.5 py-0.2 text-[10px] bg-amber-600 text-white rounded-full font-bold">
+              <span className="px-1.5 py-0.5 text-[10px] bg-amber-600 text-white rounded-full font-bold">
                 {occupiedWorlds.length}
               </span>
             )}

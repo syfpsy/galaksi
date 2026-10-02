@@ -322,7 +322,7 @@ export const SandboxSetupModal: React.FC<SandboxSetupModalProps> = ({
                         {tier.desc}
                       </div>
                     </div>
-                    <span className="mt-2 text-[8.5px] font-mono px-1 py-0.2 rounded w-fit bg-black/40 border border-slate-700/60 text-slate-300">
+                    <span className="mt-2 text-[8.5px] font-mono px-1 py-0.5 rounded w-fit bg-black/40 border border-slate-700/60 text-slate-300">
                       {tier.badge}
                     </span>
                   </button>

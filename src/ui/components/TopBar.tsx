@@ -322,7 +322,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </button>
 
           {/* Rich Tooltip Card */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+          <div className="absolute top-full left-0 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="text-xs font-bold text-slate-100 font-display">
                 🪐 İmparatorluk Kolonileri
@@ -383,7 +383,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </button>
 
           {/* Rich Tooltip Card */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+          <div className="absolute top-full left-0 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="text-xs font-bold text-slate-100 font-display">
                 ⚔️ İmparatorluk Donanma Gücü
@@ -457,7 +457,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </button>
 
           {/* Rich Tooltip Card */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[300px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+          <div className="absolute top-full left-0 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[300px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5">
               <span className="text-xs font-bold text-slate-100 font-display">
                 🛸 Taktik İntikal & Filo Radarı
@@ -698,7 +698,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           >
             <Target className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             {unclaimedDirectivesCount > 0 ? (
-              <span className="text-[10px] bg-amber-500 text-black px-1.5 py-0.2 rounded font-extrabold animate-pulse">
+              <span className="text-[10px] bg-amber-500 text-black px-1.5 py-0.5 rounded font-extrabold animate-pulse">
                 +{unclaimedDirectivesCount} ÖDÜL!
               </span>
             ) : (
@@ -709,7 +709,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </button>
 
           {/* Directives Tooltip */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+          <div className="absolute top-full right-0 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
               <span className="text-xs font-bold text-amber-300 font-display flex items-center gap-1.5">
                 <Target className="w-3.5 h-3.5 text-amber-400" />
@@ -790,7 +790,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </button>
 
           {/* Victory Tooltip */}
-          <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
+          <div className="absolute top-full right-0 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[280px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
             <div className="flex items-center justify-between border-b border-slate-800 pb-1.5 mb-2">
               <span className="text-xs font-bold text-amber-300 font-display flex items-center gap-1.5">
                 <Trophy className="w-3.5 h-3.5 text-amber-400" />

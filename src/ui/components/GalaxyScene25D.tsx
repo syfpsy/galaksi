@@ -3178,12 +3178,12 @@ export const GalaxyScene25D: React.FC<GalaxyScene25DProps> = ({
                   <div className="px-2 py-0.5 rounded-sm bg-[#060e1b]/95 border border-slate-700/80 text-[10px] font-mono font-bold text-slate-300 flex items-center gap-1.5 backdrop-blur-md shadow-lg group-hover:border-cyan-500/60 transition-colors">
                     <span className="w-1.5 h-1.5 rounded-full bg-slate-500" />
                     <span className="tracking-wide text-slate-400">Bilinmeyen Sektör</span>
-                    <span className="text-[8px] px-1 py-0.2 rounded bg-slate-800 text-slate-400 border border-slate-700">SİS</span>
+                    <span className="text-[8px] px-1 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">SİS</span>
                   </div>
 
                   {/* Subtitle badge */}
                   <div className="flex items-center gap-1 mt-0.5">
-                    <span className="text-[8.5px] font-mono font-bold px-1.5 py-0.2 rounded-sm bg-slate-900/80 border border-slate-800 text-slate-400">
+                    <span className="text-[8.5px] font-mono font-bold px-1.5 py-0.5 rounded-sm bg-slate-900/80 border border-slate-800 text-slate-400">
                       🔭 KEŞİF GEREKLİ
                     </span>
                   </div>

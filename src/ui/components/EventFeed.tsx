@@ -32,7 +32,7 @@ const EventFeedComponent: React.FC<EventFeedProps> = ({ events }) => {
         >
           <Radio className="w-3.5 h-3.5 text-cyan-400 animate-pulse shrink-0" />
           <span className="font-bold text-[10.5px] uppercase tracking-wider text-cyan-300">Telsiz</span>
-          <span className="text-[9.5px] px-1.5 py-0.2 rounded-xs bg-[#030911] border border-cyan-500/50 text-cyan-300 font-bold">
+          <span className="text-[9.5px] px-1.5 py-0.5 rounded-xs bg-[#030911] border border-cyan-500/50 text-cyan-300 font-bold">
             {events.length}
           </span>
           {!isExpanded && recentEvents[0] && (

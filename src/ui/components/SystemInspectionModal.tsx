@@ -565,7 +565,7 @@ const SystemInspectionModalComponent: React.FC<SystemInspectionModalProps> = ({
                             {poiNames[system.poi.type] || 'Bilinmeyen Sektör Anomalisi'}
                           </span>
                           {relic && !system.poi.explored && (
-                            <span className="text-[9px] font-mono px-1 py-0.2 rounded-sm bg-cyan-950 border border-cyan-500/50 text-cyan-300 font-bold">
+                            <span className="text-[9px] font-mono px-1 py-0.5 rounded-sm bg-cyan-950 border border-cyan-500/50 text-cyan-300 font-bold">
                               🏛️ Yadigar
                             </span>
                           )}

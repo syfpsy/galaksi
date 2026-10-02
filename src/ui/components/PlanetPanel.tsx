@@ -782,7 +782,7 @@ const PlanetPanelComponent: React.FC<PlanetPanelProps> = ({
                             <div>
                               <div className="text-xs font-bold text-white font-display flex items-center gap-1.5">
                                 <span>{stats.nameTr}</span>
-                                <span className="text-[10px] font-mono text-cyan-300 font-bold bg-[#07101a] px-1.5 py-0.2 rounded-sm border border-[#19384c]">
+                                <span className="text-[10px] font-mono text-cyan-300 font-bold bg-[#07101a] px-1.5 py-0.5 rounded-sm border border-[#19384c]">
                                   {count} İlçe
                                 </span>
                               </div>

@@ -289,7 +289,7 @@ export const TerraformModal: React.FC<TerraformModalProps> = ({
             <Layers className="w-3.5 h-3.5" />
             GEZEGENSEL KARARLAR
             {currentPlanet.activeDecisions && currentPlanet.activeDecisions.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-sm text-[9.5px] bg-cyan-900/60 text-cyan-300 border border-cyan-500/50">
+              <span className="px-1.5 py-0.5 rounded-sm text-[9.5px] bg-cyan-900/60 text-cyan-300 border border-cyan-500/50">
                 {currentPlanet.activeDecisions.length}
               </span>
             )}
@@ -309,7 +309,7 @@ export const TerraformModal: React.FC<TerraformModalProps> = ({
             <Pickaxe className="w-3.5 h-3.5" />
             YÜZEY ENGELLERİ
             {currentPlanet.blockers && currentPlanet.blockers.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-sm text-[9.5px] bg-amber-900/60 text-amber-300 border border-amber-500/50">
+              <span className="px-1.5 py-0.5 rounded-sm text-[9.5px] bg-amber-900/60 text-amber-300 border border-amber-500/50">
                 {currentPlanet.blockers.length}
               </span>
             )}
