@@ -7170,6 +7170,39 @@ describe('GameEngine Headless Rules (Phase A)', () => {
     expect(interceptFleet!.mission).toBe('intercept');
     expect(interceptFleet!.doctrine).toBe('spearhead');
   });
+
+  it('Phase 42: Sandbox Mode & Configurable Galaxy System Count', () => {
+    // 1. Micro Galaxy (6 systems)
+    const microEngine = new GameEngine({ seed: 101, systemCount: 6 });
+    expect(Object.keys(microEngine.state.map.systems).length).toBe(6);
+    expect(microEngine.state.map.lanes.length).toBeGreaterThanOrEqual(5);
+    const { homeworld: microHw } = microEngine.addPlayer('player_micro', 'Micro Ruler', '#00f3ff');
+    expect(microHw).toBeDefined();
+    expect(microEngine.state.map.systems[microHw.systemId]).toBeDefined();
+
+    // 2. Large Galaxy (28 systems)
+    const largeEngine = new GameEngine({ seed: 202, systemCount: 28 });
+    expect(Object.keys(largeEngine.state.map.systems).length).toBe(28);
+    expect(largeEngine.state.map.lanes.length).toBeGreaterThanOrEqual(28);
+
+    // 3. Epic Galaxy (50 systems)
+    const epicEngine = new GameEngine({ seed: 303, systemCount: 50 });
+    expect(Object.keys(epicEngine.state.map.systems).length).toBe(50);
+    expect(epicEngine.state.map.lanes.length).toBeGreaterThanOrEqual(50);
+
+    // Verify all systems in epic galaxy have unique names
+    const names = Object.values(epicEngine.state.map.systems).map((s) => s.name);
+    const uniqueNames = new Set(names);
+    expect(uniqueNames.size).toBe(names.length);
+
+    // Verify all systems have at least one hyperlane connection (no isolated stars)
+    for (const sysId of Object.keys(epicEngine.state.map.systems)) {
+      const hasLane = epicEngine.state.map.lanes.some(
+        (l) => l.fromSystemId === sysId || l.toSystemId === sysId
+      );
+      expect(hasLane).toBe(true);
+    }
+  });
 });
 
 

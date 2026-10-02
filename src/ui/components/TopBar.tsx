@@ -24,6 +24,7 @@ import {
   Shield,
   ShieldAlert,
   Skull,
+  Sliders,
   Sparkles,
   Swords,
   Target,
@@ -75,6 +76,7 @@ interface TopBarProps {
   onOpenHyperRelays?: () => void;
   onOpenGallery?: () => void;
   onOpenOrientation?: () => void;
+  onOpenSandbox?: () => void;
   isGuidanceOpen?: boolean;
   onOpenGuidance?: () => void;
   onToggleVacationMode?: () => void;
@@ -120,6 +122,7 @@ const TopBarComponent: React.FC<TopBarProps> = ({
   onOpenHyperRelays,
   onOpenGallery,
   onOpenOrientation,
+  onOpenSandbox,
   isGuidanceOpen,
   onOpenGuidance,
   onToggleVacationMode,
@@ -947,13 +950,31 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </button>
         )}
 
+        {onOpenSandbox && (
+          <button
+            onClick={() => {
+              sound.playClick();
+              onOpenSandbox();
+            }}
+            className="stellaris-btn-metallic px-2.5 py-1.5 rounded-sm border border-cyan-500/50 bg-cyan-950/60 hover:bg-cyan-900/80 text-cyan-300 hover:text-white transition-all flex items-center gap-1.5 text-xs font-mono cursor-pointer shadow-md shadow-cyan-950/40"
+            title="Galaktik Sandbox & Yeni Oyun Ayarları"
+          >
+            <Sliders className="w-3.5 h-3.5 text-cyan-400" />
+            <span className="hidden lg:inline text-[11px] font-bold">Sandbox</span>
+          </button>
+        )}
+
         <button
           onClick={() => {
             sound.playClick();
-            onReset();
+            if (onOpenSandbox) {
+              onOpenSandbox();
+            } else {
+              onReset();
+            }
           }}
           className="stellaris-btn-metallic p-2 rounded-sm border border-slate-700 text-slate-400 hover:text-rose-400 hover:border-rose-500/50 transition-all cursor-pointer"
-          title="Simülasyonu Sıfırla"
+          title="Sandbox Modu & Galaksiyi Sıfırla"
         >
           <RotateCcw className="w-4 h-4" />
         </button>

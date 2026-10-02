@@ -97,6 +97,7 @@ import { EspionageModal } from './ui/components/EspionageModal';
 import { VictoryModal } from './ui/components/VictoryModal';
 import { TacticalBottomDock } from './ui/components/TacticalBottomDock';
 import { StarterGuidanceHUD } from './ui/components/StarterGuidanceHUD';
+import { SandboxSetupModal, SandboxConfig, DEFAULT_SANDBOX_CONFIG } from './ui/components/SandboxSetupModal';
 import { StrategicOpportunity } from './engine/types';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
@@ -136,28 +137,67 @@ type LeftPanelType =
   | 'gallery'
   | null;
 
-function createInitialGame(seed: number = 42) {
-  const engine = new GameEngine(seed);
+function createInitialGame(seed: number = 42, config: SandboxConfig = DEFAULT_SANDBOX_CONFIG) {
+  const engine = new GameEngine({ seed, systemCount: config.systemCount });
   const bots: IBotAgent[] = [];
 
   // Human player
-  const { homeworld: humanHw } = engine.addPlayer('player_human', 'Komutan Shepard', '#00f3ff');
+  const { homeworld: humanHw, player: humanPlayer } = engine.addPlayer('player_human', 'Komutan Shepard', '#00f3ff');
 
-  // Archetype bots
-  engine.addPlayer('bot_ind', 'Aethel Sanayi Konsorsiyumu', '#10b981', true, 'industrialist');
-  bots.push(new IndustrialistBot('bot_ind'));
+  // Apply starting resource tier
+  if (config.resourceTier === 'rich') {
+    humanHw.resources.ore = 2400;
+    humanHw.resources.crystal = 1500;
+    humanHw.resources.fuel = 900;
+    humanHw.storageCap = 40000;
+    humanHw.garrison.scout = 3;
+    humanHw.garrison.transport = 2;
+    humanHw.garrison.fighter = 4;
+  } else if (config.resourceTier === 'creative') {
+    humanHw.resources.ore = 99999;
+    humanHw.resources.crystal = 99999;
+    humanHw.resources.fuel = 99999;
+    humanHw.storageCap = 500000;
+    humanHw.garrison.scout = 10;
+    humanHw.garrison.transport = 10;
+    humanHw.garrison.fighter = 20;
+    humanHw.garrison.battleship = 5;
+    humanPlayer.research = { engines: 5, weapons: 5, sensors: 5 };
+    humanPlayer.minorArtifacts = 100;
+    humanPlayer.renown = 1000;
+  }
 
-  engine.addPlayer('bot_raid', 'Kızıl Akın Filosu', '#f43f5e', true, 'raider');
-  bots.push(new RaiderBot('bot_raid'));
+  // Apply fog of war configuration
+  if (config.fogOfWar === 'all_visible') {
+    for (const sys of Object.values(engine.state.map.systems)) {
+      humanPlayer.intel.discoveredSystems[sys.id] = 'full';
+    }
+  }
 
-  engine.addPlayer('bot_guard', 'Nexus Muhafızları', '#3b82f6', true, 'guardian');
-  bots.push(new GuardianBot('bot_guard'));
+  // Archetype bots based on aiEmpireCount
+  const botTemplates = [
+    { id: 'bot_ind', name: 'Aethel Sanayi Konsorsiyumu', color: '#10b981', archetype: 'industrialist' as const, instantiate: () => new IndustrialistBot('bot_ind') },
+    { id: 'bot_raid', name: 'Kızıl Akın Filosu', color: '#f43f5e', archetype: 'raider' as const, instantiate: () => new RaiderBot('bot_raid') },
+    { id: 'bot_guard', name: 'Nexus Muhafızları', color: '#3b82f6', archetype: 'guardian' as const, instantiate: () => new GuardianBot('bot_guard') },
+    { id: 'bot_exp', name: 'Yıldız Kâşifleri Cemiyeti', color: '#ffaa00', archetype: 'explorer' as const, instantiate: () => new ExplorerBot('bot_exp') },
+    { id: 'bot_adm', name: 'Amiral Valerius Filosu', color: '#a855f7', archetype: 'admiral' as const, instantiate: () => new AdmiralBot('bot_adm') },
+  ];
 
-  engine.addPlayer('bot_exp', 'Yıldız Kâşifleri Cemiyeti', '#ffaa00', true, 'explorer');
-  bots.push(new ExplorerBot('bot_exp'));
+  const botCount = Math.min(config.aiEmpireCount ?? 5, botTemplates.length);
+  for (let b = 0; b < botCount; b++) {
+    const tpl = botTemplates[b];
+    engine.addPlayer(tpl.id, tpl.name, tpl.color, true, tpl.archetype);
+    bots.push(tpl.instantiate());
+  }
 
-  engine.addPlayer('bot_adm', 'Amiral Valerius Filosu', '#a855f7', true, 'admiral');
-  bots.push(new AdmiralBot('bot_adm'));
+  // Apply pirates setting
+  if (config.enablePirates === false) {
+    for (const sys of Object.values(engine.state.map.systems)) {
+      if (sys.poi?.type === 'pirate_lair') {
+        sys.poi = undefined;
+      }
+    }
+  }
 
   return { engine, bots, humanHw };
 }
@@ -205,6 +245,8 @@ export function App() {
   const [isGuidanceOpen, setIsGuidanceOpen] = useState<boolean>(() => {
     return localStorage.getItem('galaksi_guidance_dismissed') !== 'true';
   });
+  const [isSandboxModalOpen, setIsSandboxModalOpen] = useState<boolean>(false);
+  const [sandboxConfig, setSandboxConfig] = useState<SandboxConfig>(DEFAULT_SANDBOX_CONFIG);
 
   // Automatically prompt victory modal when victory conditions are achieved
   useEffect(() => {
@@ -440,9 +482,16 @@ export function App() {
     handleCycleColonies,
   ]);
 
-  // Re-initialize engine & players on reset
-  const initGame = useCallback((seed: number = 42) => {
-    const { engine, bots, humanHw } = createInitialGame(seed);
+  // Re-initialize engine & players on reset or custom sandbox
+  const initGame = useCallback((seed: number = 42, customConfig?: SandboxConfig) => {
+    const cfg = customConfig || sandboxConfig;
+    if (customConfig) {
+      setSandboxConfig(customConfig);
+    }
+    if (cfg.godMode !== undefined) {
+      setGodMode(cfg.godMode);
+    }
+    const { engine, bots, humanHw } = createInitialGame(seed, cfg);
     engineRef.current = engine;
     botsRef.current = bots;
     lastBotUpdateMsRef.current = 0;
@@ -452,10 +501,11 @@ export function App() {
     lastCrisesCountRef.current = 0;
     lastVictoryAnnouncedRef.current = false;
 
+    setActivePlayerId('player_human');
     setActivePlanetId(humanHw.id);
     setSelectedTarget({ type: 'system', systemId: humanHw.systemId });
     setEngineState({ ...engine.state });
-  }, []);
+  }, [sandboxConfig]);
 
   const lastThreatsCountRef = useRef(0);
   const lastTransmissionsCountRef = useRef(0);
@@ -2992,13 +3042,14 @@ export function App() {
         onOpenHyperRelays={() => setActiveLeftPanel((prev) => (prev === 'hyperRelays' ? null : 'hyperRelays'))}
         onOpenGallery={() => setActiveLeftPanel((prev) => (prev === 'gallery' ? null : 'gallery'))}
         onOpenOrientation={() => setIsOrientationOpen(true)}
+        onOpenSandbox={() => setIsSandboxModalOpen(true)}
         isGuidanceOpen={isGuidanceOpen}
         onOpenGuidance={() => {
           localStorage.removeItem('galaksi_guidance_dismissed');
           setIsGuidanceOpen(true);
         }}
         onToggleVacationMode={handleToggleVacationMode}
-        onReset={() => initGame(Date.now())}
+        onReset={() => setIsSandboxModalOpen(true)}
         isMuted={isAudioMuted}
         onToggleMute={() => {
           const nextMuted = sound.toggleMute();
@@ -3963,6 +4014,16 @@ export function App() {
         seasonHistory={engineState.seasonHistory}
         activePlayerId={activePlayerId}
         onResetSeason={handleResetSeason}
+      />
+
+      {/* Galactic Sandbox & Custom Galaxy Setup Modal */}
+      <SandboxSetupModal
+        isOpen={isSandboxModalOpen}
+        onClose={() => setIsSandboxModalOpen(false)}
+        onStartGame={(newConfig) => {
+          initGame(newConfig.seed, newConfig);
+        }}
+        currentConfig={sandboxConfig}
       />
     </div>
   );

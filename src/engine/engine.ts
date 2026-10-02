@@ -328,8 +328,15 @@ import {
   getBreakthroughShipBuildTimeMultiplier,
 } from './breakthroughs';
 
+export interface GameEngineConfig {
+  seed?: number;
+  systemCount?: number;
+  sandboxMode?: boolean;
+}
+
 export class GameEngine {
   public state: GameState;
+  private systemCount?: number;
   private scheduledEvents: ScheduledEvent[] = [];
   private prng: PRNG;
   private lastMarketUpdateMs: number = 0;
@@ -349,13 +356,16 @@ export class GameEngine {
   private lastGroundWarfareTickMs: number = 0;
   private lastEnclavesTickMs: number = 0;
 
-  constructor(initialSeed: number = 42) {
-    this.prng = new PRNG(initialSeed);
-    const map = generateSectorMap({ seed: initialSeed });
+  constructor(initialSeedOrConfig: number | GameEngineConfig = 42) {
+    const seed = typeof initialSeedOrConfig === 'number' ? initialSeedOrConfig : (initialSeedOrConfig.seed ?? 42);
+    const systemCount = typeof initialSeedOrConfig === 'object' ? initialSeedOrConfig.systemCount : undefined;
+    this.systemCount = systemCount;
+    this.prng = new PRNG(seed);
+    const map = generateSectorMap({ seed, systemCount });
 
     this.state = {
       timeMs: 0,
-      seed: initialSeed,
+      seed,
       map,
       players: {},
       planets: {},
@@ -7368,7 +7378,7 @@ export class GameEngine {
     }
 
     this.prng = new PRNG(newSeed);
-    const map = generateSectorMap({ seed: newSeed });
+    const map = generateSectorMap({ seed: newSeed, systemCount: this.systemCount });
     const initialParagons = initializeGalacticParagons();
 
     this.state = {

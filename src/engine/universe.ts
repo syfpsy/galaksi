@@ -16,25 +16,41 @@ export interface SectorConfig {
   seed?: number;
 }
 
-const SYSTEM_NAMES = [
+const ORIGINAL_SYSTEM_NAMES = [
   'Solaria', 'Vespera', 'Aethelgard', 'Kalyx', 'Nadir',
   'Orion', 'Caelum', 'Zephyrus', 'Hyperion', 'Arcturus',
   'Valhalla', 'Tartarus', 'Elysium', 'Chronos'
 ];
 
+const EXTENDED_SYSTEM_NAMES = [
+  ...ORIGINAL_SYSTEM_NAMES,
+  'Vega', 'Sirius', 'Aldebaran', 'Polaris', 'Antares', 'Rigel',
+  'Betelgeuse', 'Deneb', 'Altair', 'Procyon', 'Spica',
+  'Capella', 'Regulus', 'Castor', 'Pollux', 'Canopus',
+  'Achernar', 'Bellatrix', 'Alnilam', 'Mintaka', 'Saiph',
+  'Mirfak', 'Algol', 'Alcor', 'Mizar', 'Alphecca',
+  'Rasalhague', 'Kochab', 'Menkar', 'Markab', 'Scheat',
+  'Alpheratz', 'Diphda', 'Hamal', 'Sheratan', 'Dubhe',
+  'Merak', 'Phecda', 'Megrez', 'Alioth', 'Alkaid',
+  'Thuban', 'Rastaban', 'Eltanin', 'Sargas', 'Shaula',
+  'Kaus Media', 'Nunki', 'Ascella', 'Algedi', 'Dabih',
+  'Sadalsuud', 'Sadalmelik', 'Fomalhaut', 'Ankaa', 'Acrux'
+];
+
 /**
- * Generates a balanced 12-system sector map with flight lanes, planetary slots,
+ * Generates a balanced sector map with flight lanes, planetary slots,
  * a central contested Relay, and exploration POIs.
+ * Supports configurable system count from micro sectors (6) to epic galaxies (60+).
  */
 export function generateSectorMap(config: SectorConfig = {}): SectorMap {
   const seed = config.seed ?? 42;
-  const count = config.systemCount ?? 12;
+  const count = Math.max(6, config.systemCount ?? 12);
   const prng = new PRNG(seed);
 
   const systems: Record<string, StarSystem> = {};
   const lanes: FlightLane[] = [];
 
-  // Generate system positions in a circular sector (radius ~400, center at 500, 400)
+  // Generate system positions in a circular sector
   const centerX = 500;
   const centerY = 400;
 
@@ -60,18 +76,40 @@ export function generateSectorMap(config: SectorConfig = {}): SectorMap {
 
   // Outer systems arranged in rings
   const outerCount = count - 1;
-  const namesShuffled = prng.shuffle([...SYSTEM_NAMES]);
+  const namePool = count === 12 ? ORIGINAL_SYSTEM_NAMES : EXTENDED_SYSTEM_NAMES;
+  const namesShuffled = prng.shuffle([...namePool]);
 
   for (let i = 0; i < outerCount; i++) {
     const sysId = `sys_${i + 1}`;
     const name = namesShuffled[i % namesShuffled.length];
 
-    // Two rings: inner ring (distance 220) and outer ring (distance 360)
-    const isOuter = i % 2 === 0;
-    const ringRadius = isOuter ? prng.nextFloat(320, 380) : prng.nextFloat(180, 240);
-    const baseAngle = (i / outerCount) * Math.PI * 2;
-    const angleJitter = prng.nextFloat(-0.2, 0.2);
-    const angle = baseAngle + angleJitter;
+    // Adaptive multi-ring galactic layout
+    let ringRadius: number;
+    let angle: number;
+
+    if (count === 12) {
+      // Deterministic preservation for standard 12-system seed
+      const isOuter = i % 2 === 0;
+      ringRadius = isOuter ? prng.nextFloat(320, 380) : prng.nextFloat(180, 240);
+      const baseAngle = (i / outerCount) * Math.PI * 2;
+      const angleJitter = prng.nextFloat(-0.2, 0.2);
+      angle = baseAngle + angleJitter;
+    } else {
+      // Dynamic multi-ring layout scaling from micro (6) to epic (60)
+      const numRings = outerCount <= 8 ? 2 : outerCount <= 20 ? 3 : outerCount <= 35 ? 4 : 5;
+      const ringIndex = i % numRings;
+      const minRadius = 160;
+      const maxRadius = outerCount <= 8 ? 290 : outerCount <= 20 ? 430 : outerCount <= 35 ? 600 : 780;
+      const ringStep = (maxRadius - minRadius) / Math.max(1, numRings - 1);
+      const nominalRadius = minRadius + ringIndex * ringStep;
+      ringRadius = nominalRadius + prng.nextFloat(-22, 22);
+
+      const systemsInRing = Math.ceil(outerCount / numRings);
+      const ringItemIdx = Math.floor(i / numRings);
+      const baseAngle = (ringItemIdx / systemsInRing) * Math.PI * 2 + (ringIndex * 0.42);
+      const angleJitter = prng.nextFloat(-0.14, 0.14);
+      angle = baseAngle + angleJitter;
+    }
 
     const x = Math.round(centerX + Math.cos(angle) * ringRadius);
     const y = Math.round(centerY + Math.sin(angle) * ringRadius);
@@ -197,10 +235,26 @@ export function generateSectorMap(config: SectorConfig = {}): SectorMap {
       .map(s => ({ sys: s, dist: Math.hypot(s.x - sys.x, s.y - sys.y) }))
       .sort((a, b) => a.dist - b.dist);
 
-    const connectionsCount = sys.id === relaySystemId ? 4 : 2;
-    for (let n = 0; n < connectionsCount && n < others.length; n++) {
-      if (others[n].dist < 420) {
-        addLane(sys, others[n].sys);
+    if (count === 12) {
+      const connectionsCount = sys.id === relaySystemId ? 4 : 2;
+      for (let n = 0; n < connectionsCount && n < others.length; n++) {
+        if (others[n].dist < 420) {
+          addLane(sys, others[n].sys);
+        }
+      }
+    } else {
+      const maxLaneDist = count <= 25 ? 490 : 620;
+      const connectionsCount = sys.id === relaySystemId ? Math.min(6, outerCount) : 2;
+
+      // Always connect to closest neighbor to avoid orphan systems
+      if (others.length > 0) {
+        addLane(sys, others[0].sys);
+      }
+
+      for (let n = 1; n < connectionsCount && n < others.length; n++) {
+        if (others[n].dist < maxLaneDist) {
+          addLane(sys, others[n].sys);
+        }
       }
     }
   }
