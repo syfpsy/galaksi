@@ -297,27 +297,21 @@ const TopBarComponent: React.FC<TopBarProps> = ({
       </div>
 
       {/* ========================================================================= */}
-      {/* CENTER: Empire Core Vitals (Planets, Fleet, Radar, Resources)             */}
+      {/* CENTER: Empire Core Vitals (Planets, Fleet, Radar, Resources, Tech)       */}
       {/* ========================================================================= */}
-      <div className="flex items-center gap-1.5 bg-[#070c14] p-1 rounded-sm border border-[#26374a] shadow-inner">
-        {/* 1. EMPIRE COLONIES CHIP (With Rich Hover Tooltip & Click Action) */}
+      <div className="flex items-center gap-1.5 sm:gap-2.5 font-mono text-xs select-none">
+        {/* 1. EMPIRE COLONIES CHIP */}
         <div className="relative group">
           <button
             onClick={() => {
               sound.playClick();
               if (onOpenPlanetPanel) onOpenPlanetPanel();
             }}
-            className="stellaris-resource-pod px-2.5 py-1 rounded-sm text-emerald-300 font-mono text-xs flex flex-col justify-center transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-sm hover:bg-white/5 text-emerald-300 transition-colors cursor-pointer"
             title="İmparatorluk Kolonileri Paneli (F1)"
           >
-            <div className="flex items-center justify-between gap-1.5 text-[10px] font-bold text-amber-300 uppercase tracking-wider">
-              <span>KOLONİLER</span>
-              <span className="text-emerald-400 font-mono font-bold text-[11px]">{myPlanets.length}/3</span>
-            </div>
-            <div className="flex items-center gap-1.5 mt-0.5">
-              <Globe className="w-3 h-3 text-emerald-400 shrink-0" />
-              <span className="font-bold text-white text-[12px]">{myPlanets.length} Koloni</span>
-            </div>
+            <Globe className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+            <span className="font-bold text-white text-[12px]">{myPlanets.length}/3</span>
           </button>
 
           {/* Rich Tooltip Card */}
@@ -366,30 +360,19 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {/* 2. EMPIRE FLEET & SHIPS CHIP (With Rich Hover Tooltip & Click Action) */}
+        {/* 2. EMPIRE FLEET & SHIPS CHIP */}
         <div className="relative group">
           <button
             onClick={() => {
               sound.playClick();
               if (onOpenShipyard) onOpenShipyard();
             }}
-            className="stellaris-resource-pod px-2.5 py-1 rounded-sm text-blue-300 font-mono text-xs flex flex-col justify-center transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-sm hover:bg-white/5 text-blue-300 transition-colors cursor-pointer"
             title="İmparatorluk Donanma Gücü & Tersane (F2)"
           >
-            <div className="flex items-center justify-between gap-1.5 text-[10px] font-bold text-amber-300 uppercase tracking-wider">
-              <span>DONANMA</span>
-              <span className="text-amber-300 font-mono font-bold text-[11px]">{formattedFleetPower}</span>
-            </div>
-            <div className="flex items-center gap-1.5 font-mono mt-0.5">
-              <Shield className="w-3 h-3 text-blue-400 shrink-0" />
-              <span className="font-bold text-white text-[12px]">{totalEmpireShips}/30</span>
-              <div className="w-7 h-2 bg-[#08121c] border border-blue-500/40 rounded-none overflow-hidden shrink-0">
-                <div
-                  className="h-full bg-cyan-400 transition-all duration-300"
-                  style={{ width: `${Math.min(100, (totalEmpireShips / 30) * 100)}%` }}
-                />
-              </div>
-            </div>
+            <Shield className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+            <span className="font-bold text-white text-[12px]">{totalEmpireShips}/30</span>
+            <span className="text-[10px] text-amber-300/80 font-normal hidden sm:inline">({formattedFleetPower})</span>
           </button>
 
           {/* Rich Tooltip Card */}
@@ -435,33 +418,31 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        {/* 3. TACTICAL TRANSIT RADAR CHIP (Friendly Flights & Hostile Threats!) */}
+        {/* 3. TACTICAL TRANSIT RADAR CHIP */}
         <div className="relative group">
           <button
             onClick={() => {
               sound.playClick();
               if (onOpenTransitRadar) onOpenTransitRadar();
             }}
-            className={`stellaris-resource-pod px-3 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-sm transition-colors cursor-pointer ${
               incomingThreats.length > 0
-                ? 'border-rose-500 bg-rose-950 text-rose-200 animate-pulse shadow-rose-950/80'
-                : myMovingFleets.length > 0
-                ? 'border-cyan-500/60 text-cyan-200'
-                : 'text-slate-300 hover:text-white'
+                ? 'bg-rose-950 border border-rose-500 text-rose-200 animate-pulse shadow-rose-950/80'
+                : 'hover:bg-white/5 text-slate-300 hover:text-white'
             }`}
             title="Taktik İntikal Radarı (F4)"
           >
             {incomingThreats.length > 0 ? (
               <>
-                <ShieldAlert className="w-4 h-4 text-rose-400" />
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
                 <span className="font-bold text-rose-200 text-xs">
                   {incomingThreats.length} TEHDİT!
                 </span>
               </>
             ) : (
               <>
-                <Radio className="w-4 h-4 text-cyan-400" />
-                <span className="font-bold text-xs">
+                <Radio className="w-3.5 h-3.5 text-cyan-400" />
+                <span className="text-xs text-cyan-300">
                   {myMovingFleets.length > 0 ? `${myMovingFleets.length} Sefer` : 'Radar'}
                 </span>
               </>
@@ -510,25 +491,20 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </div>
         </div>
 
-        <div className="h-5 w-px bg-[#18374a] mx-0.5 hidden lg:block" />
+        {/* Hairline Divider */}
+        <div className="h-4 w-px bg-slate-800/80 hidden sm:block" />
 
-        {/* 4. STRATEGIC RESOURCES RIBBON WITH SPARKLINES (Konsept B) */}
+        {/* 4. STRATEGIC RESOURCES: Ore, Crystal, Fuel */}
         {activePlanet && (
-          <div className="hidden lg:flex items-center gap-1.5 text-xs font-mono">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs font-mono">
             {/* Ore / Minerals */}
-            <div className="stellaris-resource-pod px-2.5 py-1 rounded-sm relative group flex flex-col justify-center cursor-pointer">
-              <div className="flex items-center justify-between gap-1.5 text-[10px] font-bold text-amber-300 uppercase tracking-wider">
-                <span>CEVHER</span>
-                <span className="text-emerald-400 font-mono font-bold text-[10.5px]">+{oreRate}</span>
-              </div>
-              <div className="flex items-center gap-1.5 font-mono mt-0.5">
-                <Pickaxe className="w-3 h-3 text-orange-400 shrink-0" />
-                <span className="font-bold text-white text-[13px] tracking-tight">
+            <div className="relative group">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-sm hover:bg-white/5 transition-colors cursor-pointer">
+                <Pickaxe className="w-3.5 h-3.5 text-orange-400 shrink-0" />
+                <span className="font-bold text-white text-[12px]">
                   {formatCompactResource(activePlanet.resources.ore)}
                 </span>
-                <svg className="w-7 h-2.5 shrink-0 opacity-90" viewBox="0 0 24 8" fill="none">
-                  <path d="M0 6 L4 5 L8 7 L12 4 L16 5 L20 2 L24 3" stroke="#fb923c" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <span className="text-[10px] text-emerald-400 font-normal hidden lg:inline">+{oreRate}</span>
               </div>
 
               {/* Resource Tooltip */}
@@ -549,19 +525,13 @@ const TopBarComponent: React.FC<TopBarProps> = ({
             </div>
 
             {/* Rare Crystals */}
-            <div className="stellaris-resource-pod px-2.5 py-1 rounded-sm relative group flex flex-col justify-center cursor-pointer">
-              <div className="flex items-center justify-between gap-1.5 text-[10px] font-bold text-amber-300 uppercase tracking-wider">
-                <span>KRİSTAL</span>
-                <span className="text-cyan-400 font-mono font-bold text-[10.5px]">+{crystalRate}</span>
-              </div>
-              <div className="flex items-center gap-1.5 font-mono mt-0.5">
-                <Gem className="w-3 h-3 text-cyan-400 shrink-0" />
-                <span className="font-bold text-white text-[13px] tracking-tight">
+            <div className="relative group">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-sm hover:bg-white/5 transition-colors cursor-pointer">
+                <Gem className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                <span className="font-bold text-white text-[12px]">
                   {formatCompactResource(activePlanet.resources.crystal)}
                 </span>
-                <svg className="w-7 h-2.5 shrink-0 opacity-90" viewBox="0 0 24 8" fill="none">
-                  <path d="M0 7 L4 6 L8 4 L12 5 L16 3 L20 4 L24 1" stroke="#38bdf8" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <span className="text-[10px] text-cyan-400 font-normal hidden lg:inline">+{crystalRate}</span>
               </div>
 
               {/* Resource Tooltip */}
@@ -582,19 +552,13 @@ const TopBarComponent: React.FC<TopBarProps> = ({
             </div>
 
             {/* Energy / Fuel */}
-            <div className="stellaris-resource-pod px-2.5 py-1 rounded-sm relative group flex flex-col justify-center cursor-pointer">
-              <div className="flex items-center justify-between gap-1.5 text-[10px] font-bold text-amber-300 uppercase tracking-wider">
-                <span>YAKIT</span>
-                <span className="text-amber-300 font-mono font-bold text-[10.5px]">+{fuelRate}</span>
-              </div>
-              <div className="flex items-center gap-1.5 font-mono mt-0.5">
-                <Zap className="w-3 h-3 text-amber-400 shrink-0" />
-                <span className="font-bold text-white text-[13px] tracking-tight">
+            <div className="relative group">
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-sm hover:bg-white/5 transition-colors cursor-pointer">
+                <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="font-bold text-white text-[12px]">
                   {formatCompactResource(activePlanet.resources.fuel)}
                 </span>
-                <svg className="w-7 h-2.5 shrink-0 opacity-90" viewBox="0 0 24 8" fill="none">
-                  <path d="M0 5 L4 7 L8 5 L12 3 L16 4 L20 2 L24 1" stroke="#facc15" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                </svg>
+                <span className="text-[10px] text-amber-300 font-normal hidden lg:inline">+{fuelRate}</span>
               </div>
 
               {/* Resource Tooltip */}
@@ -616,21 +580,24 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           </div>
         )}
 
+        {/* Hairline Divider */}
+        <div className="h-4 w-px bg-slate-800/80 hidden md:block" />
+
         {/* 5. RESEARCH / AR-GE STATUS CHIP */}
-        <div className="relative group hidden xl:block">
+        <div className="relative group hidden md:block">
           <button
             onClick={() => {
               sound.playClick();
               if (onOpenResearch) onOpenResearch();
             }}
-            className="stellaris-resource-pod px-2.5 py-1.5 rounded-sm text-cyan-300 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer"
+            className="flex items-center gap-1.5 px-2 py-1 rounded-sm hover:bg-white/5 text-cyan-300 transition-colors cursor-pointer"
             title="İmparatorluk Ar-Ge Ağacı (F3)"
           >
-            <Activity className="w-4 h-4 text-cyan-400 group-hover:scale-110 transition-transform" />
+            <Activity className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
             <span className="font-bold text-white text-xs">
               {activePlayer?.researchQueue
                 ? `${activePlayer.researchQueue.type === 'engines' ? 'Motor' : activePlayer.researchQueue.type === 'weapons' ? 'Silah' : 'Sensör'} L${activePlayer.researchQueue.targetLevel}`
-                : `Ar-Ge L${(activePlayer?.research.engines || 0) + (activePlayer?.research.weapons || 0) + (activePlayer?.research.sensors || 0)}`}
+                : `L${(activePlayer?.research.engines || 0) + (activePlayer?.research.weapons || 0) + (activePlayer?.research.sensors || 0)}`}
             </span>
           </button>
 
@@ -647,21 +614,18 @@ const TopBarComponent: React.FC<TopBarProps> = ({
 
         {/* 6. CULTURAL UNITY & TRADITIONS QUICK CHIP */}
         {state.traditions?.[activePlayerId] && (
-          <div className="relative group hidden xl:block">
+          <div className="relative group hidden lg:block">
             <button
               onClick={() => {
                 sound.playClick();
                 if (onOpenTraditions) onOpenTraditions();
               }}
-              className="stellaris-resource-pod px-2.5 py-1.5 rounded-sm text-purple-300 font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer hover:border-purple-400"
+              className="flex items-center gap-1.5 px-2 py-1 rounded-sm hover:bg-white/5 text-purple-300 transition-colors cursor-pointer"
               title="Kültürel Birlik & Gelenek Ağaçları"
             >
-              <BookOpen className="w-4 h-4 text-purple-400 group-hover:scale-110 transition-transform" />
+              <BookOpen className="w-3.5 h-3.5 text-purple-400 shrink-0" />
               <span className="font-bold text-white text-xs">
                 {Math.floor(state.traditions[activePlayerId].unity)}
-              </span>
-              <span className="text-[10px] text-purple-300 font-bold">
-                +{state.traditions[activePlayerId].unityRatePerHour.toFixed(1)}/s
               </span>
               {state.traditions[activePlayerId].availablePerkSlots > 0 && (
                 <span className="w-2 h-2 rounded-full bg-purple-400 animate-ping" />
@@ -672,21 +636,16 @@ const TopBarComponent: React.FC<TopBarProps> = ({
             <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 pointer-events-none opacity-0 group-hover:opacity-100 transition-all duration-150 z-50 min-w-[240px] stellaris-tooltip rounded-sm p-3 shadow-2xl text-left">
               <span className="font-bold text-purple-300 text-xs block mb-1">🏛️ Kültürel Birlik & Gelenekler</span>
               <p className="text-[11px] text-slate-300 leading-snug">
-                İmparatorluk kültürü ve gelenek ağaçlarını benimseyin. Tamamlanan her ağaç bir Yükseliş Ayrıcalığı yuvası açar.
+                İmparatorluk kültürü ve gelenek ağaçlarını benimseyin.
               </p>
               <div className="mt-2 pt-1.5 border-t border-slate-800 text-[11px] text-slate-200 flex justify-between font-mono">
                 <span>Birlik Birikimi:</span>
-                <span className="text-purple-300 font-bold">{Math.floor(state.traditions[activePlayerId].unity)} Birlik</span>
+                <span className="text-purple-300 font-bold">{Math.floor(state.traditions[activePlayerId].unity)}</span>
               </div>
               <div className="text-[11px] text-slate-300 flex justify-between font-mono mt-0.5">
                 <span>Saatlik Artış:</span>
                 <span className="text-emerald-400 font-bold">+{state.traditions[activePlayerId].unityRatePerHour.toFixed(1)} / saat</span>
               </div>
-              {state.traditions[activePlayerId].availablePerkSlots > 0 && (
-                <div className="mt-1 text-[10px] text-amber-300 font-bold font-mono">
-                  ✨ {state.traditions[activePlayerId].availablePerkSlots} Seçilebilir Yükseliş Yuvası Var!
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -704,48 +663,41 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                   sound.playClick();
                   if (onOpenColossus) onOpenColossus();
                 }}
-                className="stellaris-resource-pod px-2.5 py-1 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer border-rose-500 bg-rose-950/80 text-rose-200 animate-pulse shadow-md shadow-rose-950/80"
+                className="px-2 py-0.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer border border-rose-500 bg-rose-950/80 text-rose-200 animate-pulse shadow-md shadow-rose-950/80"
                 title="Kolossus Gezegen Yok Edici Silahı Şarj Ediliyor!"
               >
                 <Skull className="w-3.5 h-3.5 text-rose-400 animate-spin" />
                 <span className="font-bold text-white text-xs truncate max-w-[95px]">
-                  {isMyShip ? 'KOLOSSUS: ŞARJ' : 'DOOMSDAY UYARISI!'}
-                </span>
-                <span className="text-[10px] text-rose-400 font-bold animate-ping">
-                  ⚠️
+                  {isMyShip ? 'KOLOSSUS: ŞARJ' : 'DOOMSDAY!'}
                 </span>
               </button>
             </div>
           );
         })()}
 
-
         {/* 8. EMPIRE DIRECTIVES & MILESTONES CHIP */}
-        <div className="relative group hidden lg:block">
+        <div className="relative group hidden xl:block">
           <button
             onClick={() => {
               sound.playClick();
               if (onOpenSituationLog) onOpenSituationLog();
             }}
-            className={`stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-sm font-mono text-xs transition-colors cursor-pointer ${
               unclaimedDirectivesCount > 0
-                ? 'bg-amber-950/80 border-amber-400 text-amber-200 animate-pulse shadow-md shadow-amber-500/30'
-                : 'text-amber-300 hover:border-amber-400'
+                ? 'bg-amber-950/80 border border-amber-400 text-amber-200 animate-pulse shadow-sm shadow-amber-500/30'
+                : 'hover:bg-white/5 text-amber-300'
             }`}
             title="İmparatorluk Direktifleri ve Görev Kütüğü (F8)"
           >
-            <Target className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-            <span className="font-bold text-white text-xs">Direktif:</span>
+            <Target className="w-3.5 h-3.5 text-amber-400 shrink-0" />
             {unclaimedDirectivesCount > 0 ? (
-              <span className="text-[10.5px] bg-amber-500 text-black px-1.5 py-0.5 rounded-sm font-extrabold animate-pulse">
+              <span className="text-[10px] bg-amber-500 text-black px-1.5 py-0.2 rounded font-extrabold animate-pulse">
                 +{unclaimedDirectivesCount} ÖDÜL!
               </span>
-            ) : nextActiveDirective ? (
-              <span className="text-[11px] text-amber-300 font-bold truncate max-w-[100px]">
-                {nextActiveDirective.title}
-              </span>
             ) : (
-              <span className="text-[11px] text-emerald-400 font-bold">10/10</span>
+              <span className="text-[11px] font-bold text-white">
+                {playerDirectives.filter((d) => d.isClaimed).length}/{playerDirectives.length}
+              </span>
             )}
           </button>
 
@@ -799,31 +751,30 @@ const TopBarComponent: React.FC<TopBarProps> = ({
         </div>
 
         {/* 9. GALACTIC VICTORY & HEGEMONY STATUS CHIP */}
-        <div className="relative group">
+        <div className="relative group hidden xl:block">
           <button
             onClick={() => {
               sound.playClick();
               if (onOpenVictory) onOpenVictory();
               else if (onOpenRelay) onOpenRelay();
             }}
-            className={`stellaris-resource-pod px-2.5 py-1.5 rounded-sm font-mono text-xs flex items-center gap-1.5 transition-all cursor-pointer ${
+            className={`flex items-center gap-1.5 px-2 py-1 rounded-sm font-mono text-xs transition-colors cursor-pointer ${
               state.victory
-                ? 'bg-amber-950/80 border-amber-400 text-amber-200 shadow-md shadow-amber-500/30 animate-pulse'
-                : 'text-amber-300 hover:border-amber-400'
+                ? 'bg-amber-950/80 border border-amber-400 text-amber-200 shadow-sm animate-pulse'
+                : 'hover:bg-white/5 text-amber-300'
             }`}
-            title="Galaktik Zafer ve Sezon Liderliği (Tıklayarak Raporu Aç)"
+            title="Galaktik Zafer ve Sezon Liderliği"
           >
             {state.victory ? (
               <>
-                <Crown className="w-4 h-4 text-amber-300 animate-bounce" />
+                <Crown className="w-3.5 h-3.5 text-amber-300 animate-bounce" />
                 <span className="font-bold text-amber-200 text-xs">
                   🏆 ZAFER: {state.victory.winnerName}
                 </span>
               </>
             ) : (
               <>
-                <Trophy className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
-                <span className="font-bold text-white text-xs">Zafer:</span>
+                <Trophy className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                 <span className="text-[11px] text-amber-300 font-bold">
                   {hegemonyLeader.points > 0 ? `${hegemonyLeader.points}/500` : `%${Math.round(colonyLeader.ratio * 100)}/60%`}
                 </span>
@@ -849,11 +800,8 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                   <span>1. Nexus Hegemonyası</span>
                   <span>500 Puan</span>
                 </div>
-                <p className="text-[10px] text-slate-300 leading-snug">
-                  Nexus Rölesini elinde tutarak veya Kadim Titanı mağlup ederek kazanılır.
-                </p>
                 <div className="mt-1 text-[10.5px] text-slate-200 flex justify-between">
-                  <span>Mevcut Lider:</span>
+                  <span>Lider:</span>
                   <span className="text-amber-400 font-bold">
                     {hegemonyLeader.name} ({hegemonyLeader.points} / 500)
                   </span>
@@ -865,13 +813,10 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                   <span>2. Koloni Dominasyonu</span>
                   <span>%60 Koloni</span>
                 </div>
-                <p className="text-[10px] text-slate-300 leading-snug">
-                  Sektördeki tüm kolonilerin (min. 6) %60'ını kontrol altına alarak kazanılır.
-                </p>
                 <div className="mt-1 text-[10.5px] text-slate-200 flex justify-between">
-                  <span>Mevcut Lider:</span>
+                  <span>Lider:</span>
                   <span className="text-emerald-400 font-bold">
-                    {colonyLeader.name} (%{Math.round(colonyLeader.ratio * 100)} - {colonyLeader.count}/{totalColonizedCount})
+                    {colonyLeader.name} (%{Math.round(colonyLeader.ratio * 100)})
                   </span>
                 </div>
               </div>
@@ -888,13 +833,13 @@ const TopBarComponent: React.FC<TopBarProps> = ({
       {/* RIGHT: Time Flow, Calendar, Speed Pips & Tools                            */}
       {/* ========================================================================= */}
       <div className="flex items-center gap-1.5 md:gap-2 shrink-0">
-        {/* Play / Pause Toggle Button */}
+        {/* Play / Pause Compact Icon Button */}
         <button
           onClick={() => {
             sound.playClick();
             onTogglePlay();
           }}
-          className={`px-3 py-1.5 rounded-sm border text-xs font-mono font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+          className={`w-7 h-7 rounded-sm border text-xs font-mono font-bold flex items-center justify-center transition-all cursor-pointer ${
             !isPlaying
               ? 'bg-rose-950 border-rose-500 text-rose-200 animate-pulse shadow-md shadow-rose-950/80'
               : 'stellaris-btn-metallic text-emerald-300 hover:text-white'
@@ -902,25 +847,19 @@ const TopBarComponent: React.FC<TopBarProps> = ({
           title="Zamanı Durdur / Başlat (Space)"
         >
           {!isPlaying ? (
-            <>
-              <Pause className="w-4 h-4 text-rose-400" />
-              <span className="hidden sm:inline">DURAKLATILDI</span>
-            </>
+            <Pause className="w-3.5 h-3.5 text-rose-400" />
           ) : (
-            <>
-              <Play className="w-4 h-4 text-emerald-400" />
-              <span className="hidden sm:inline">ÇALIŞIYOR</span>
-            </>
+            <Play className="w-3.5 h-3.5 text-emerald-400" />
           )}
         </button>
 
         {/* Speed Pips (> >> >>> >>>>) */}
         <div className="flex items-center bg-[#07101c] border border-[#23384e] rounded-sm p-0.5 text-xs font-mono">
           {[
-            { scale: 1, label: '>' },
-            { scale: 5, label: '>>' },
-            { scale: 20, label: '>>>' },
-            { scale: 60, label: '>>>>' },
+            { scale: 1, label: '1x' },
+            { scale: 5, label: '5x' },
+            { scale: 20, label: '20x' },
+            { scale: 60, label: '60x' },
           ].map((s) => (
             <button
               key={s.scale}
@@ -928,10 +867,10 @@ const TopBarComponent: React.FC<TopBarProps> = ({
                 sound.playClick();
                 onSetTimeScale(s.scale);
               }}
-              className={`px-2 py-0.5 rounded-sm transition-all font-bold cursor-pointer ${
+              className={`px-1.5 py-0.5 rounded-sm transition-all font-bold cursor-pointer text-[10px] ${
                 timeScale === s.scale
                   ? 'stellaris-btn-gold font-bold shadow-md'
-                  : 'text-slate-300 hover:text-white'
+                  : 'text-slate-400 hover:text-white'
               }`}
               title={`${s.scale}x Hızlandırma`}
             >

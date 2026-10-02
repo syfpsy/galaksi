@@ -138,7 +138,7 @@ const StellarisOutlinerComponent: React.FC<StellarisOutlinerProps> = ({
   }
 
   return (
-    <aside className="w-72 h-full stellaris-outliner flex flex-col z-20 select-none overflow-hidden relative">
+    <aside className="w-64 h-full stellaris-outliner flex flex-col z-20 select-none overflow-hidden relative">
       {/* Outliner Header */}
       <div className="h-9 px-3 stellaris-outliner-header flex items-center justify-between border-b border-[#2c3e53]">
         <div className="flex items-center gap-2">

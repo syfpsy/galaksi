@@ -96,7 +96,6 @@ import { TradeModal } from './ui/components/TradeModal';
 import { EspionageModal } from './ui/components/EspionageModal';
 import { VictoryModal } from './ui/components/VictoryModal';
 import { TacticalBottomDock } from './ui/components/TacticalBottomDock';
-import { StrategicMomentumHUD } from './ui/components/StrategicMomentumHUD';
 import { StrategicOpportunity } from './engine/types';
 import { SelectedTarget } from './ui/types';
 import { sound } from './ui/sound';
@@ -3446,13 +3445,6 @@ export function App() {
             onBuildShips={handleBuildShip}
             onToggleAutoSupply={handleToggleAutoSupply}
             onRapidIntercept={handleRapidIntercept}
-          />
-
-          {/* Slipways Flow: Contextual Strategic Momentum & Opportunity HUD */}
-          <StrategicMomentumHUD
-            state={engineState}
-            activePlayerId={activePlayerId}
-            dockMinimized={isBottomDockMinimized}
             onExecuteCommand={handleExecuteGenericCommand}
             onClaimOpportunity={handleClaimOpportunity}
           />
